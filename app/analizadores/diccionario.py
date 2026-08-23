@@ -1,0 +1,1 @@
+from app.analizadores.analizador_diccionario_procedimientos import *
