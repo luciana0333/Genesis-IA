@@ -21,7 +21,7 @@ class Severidad(str, Enum):
     Los niveles de severidad posibles para un hallazgo.
 
     Hereda de (str, Enum) para que se pueda comparar y mostrar
-    directamente como texto (ej. en Streamlit, en el informe final),
+    directamente como texto en la interfaz y en el informe final,
     sin necesidad de convertir el valor manualmente cada vez.
     """
     CRITICO = "critico"
