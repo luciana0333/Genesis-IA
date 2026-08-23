@@ -32,8 +32,8 @@ document.addEventListener('DOMContentLoaded', () => {
       dictScript: document.getElementById('dictScript').value
     };
 
-    if (!payload.sqlObject.trim() || !payload.dictScript.trim()) {
-      renderizarEstado('Completa el SQL del objeto y el diccionario para iniciar la revisión.');
+    if (!payload.sqlObject.trim()) {
+      renderizarEstado('Completa el SQL del objeto para iniciar la revisión.');
       return;
     }
 
@@ -67,7 +67,9 @@ const nombresReglas = {
   NOMBRE_NO_COINCIDE: 'Nombre no coincide',
   NOMBRE_TABLA_NO_COINCIDE: 'Nombre de tabla no coincide',
   PARAMETRO_SIN_DESCRIPCION: 'Parámetro sin descripción',
+  PARAMETRO_FALTANTE: 'Parámetro faltante',
   COLUMNA_SIN_DESCRIPCION: 'Columna sin descripción',
+  COLUMNA_FALTANTE: 'Columna faltante',
   TABLA_SIN_DESCRIPCION: 'Tabla sin descripción',
   DESCRIPCION_VACIA: 'Descripción vacía',
   DESCRIPCION_COLUMNA_VACIA: 'Descripción de columna vacía',

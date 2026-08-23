@@ -189,7 +189,7 @@ class TestDiccionarioTablas(unittest.TestCase):
         reglas = [h.regla for h in hallazgos]
         mensajes = [h.mensaje for h in hallazgos]
         self.assertIn("ALTER_SIN_DICCIONARIO", reglas)
-        self.assertIn("COLUMNA_SIN_DESCRIPCION", reglas)
+        self.assertIn("COLUMNA_FALTANTE", reglas)
         self.assertTrue(any("ccelular" in mensaje.lower() for mensaje in mensajes))
 
     def test_alter_que_cambia_tipo_de_columna_existente_no_falla(self):
@@ -201,14 +201,14 @@ class TestDiccionarioTablas(unittest.TestCase):
             TABLA_CON_CORCHETES_SIN_COLUMNAS_DOCUMENTADAS,
             DICCIONARIO_SOLO_TABLA_CON_CORCHETES,
         )
-        columnas_faltantes = [h for h in hallazgos if h.regla == "COLUMNA_SIN_DESCRIPCION"]
+        columnas_faltantes = [h for h in hallazgos if h.regla == "COLUMNA_FALTANTE"]
         self.assertEqual(len(columnas_faltantes), 5)
 
     def test_casos_organizados_del_diccionario_de_tablas(self):
         casos = [
             (TABLA_CASO_1, DICCIONARIO_CASO_1, set()),
             (TABLA_CASO_2, DICCIONARIO_CASO_2, {"TABLA_SIN_DESCRIPCION"}),
-            (TABLA_CASO_3, DICCIONARIO_CASO_3, {"COLUMNA_SIN_DESCRIPCION"}),
+            (TABLA_CASO_3, DICCIONARIO_CASO_3, {"COLUMNA_FALTANTE"}),
             (TABLA_CASO_4, DICCIONARIO_CASO_4, {
                 "ESQUEMA_NO_COINCIDE",
                 "DESCRIPCION_COLUMNA_VACIA",
@@ -224,7 +224,7 @@ class TestDiccionarioTablas(unittest.TestCase):
         hallazgos_add = verificar_diccionario_tablas(ALTER_ADD, DICCIONARIO_TABLA)
         self.assertEqual(
             {h.regla for h in hallazgos_add},
-            {"COLUMNA_SIN_DESCRIPCION"},
+                {"COLUMNA_FALTANTE"},
         )
 
         hallazgos_alter = verificar_diccionario_tablas(ALTER_COLUMN, DICCIONARIO_ALTER_EXISTENTE)

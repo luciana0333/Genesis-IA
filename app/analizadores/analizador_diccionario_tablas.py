@@ -271,17 +271,17 @@ def _validar_columnas_faltantes(
         if tipo_sentencia == "ALTER":
             mensaje = (
                 f"La columna {col} fue agregada en el ALTER TABLE de {full} "
-                f"pero no existe descripcion en el diccionario. Validar si realmente debe documentarse."
+                f"pero no se encuentra declarada en el diccionario. Validar si realmente debe documentarse."
             )
         else:
             mensaje = (
-                f"La columna {col} no tiene documentacion en el diccionario de la tabla {full}."
+                f"La columna {col} no se encuentra declarada en el diccionario de la tabla {full}."
             )
         hallazgos.append(Hallazgo(
             linea=1,
             origen=OrigenAnalisis.DICCIONARIO,
             severidad=Severidad.MEDIO,
-            regla="COLUMNA_SIN_DESCRIPCION",
+            regla="COLUMNA_FALTANTE",
             mensaje=mensaje
         ))
     return hallazgos

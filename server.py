@@ -35,8 +35,8 @@ class GenesisHandler(SimpleHTTPRequestHandler):
         sql_text = (payload.get('sqlObject') or '').strip()
         dict_text = (payload.get('dictScript') or '').strip()
 
-        if not sql_text or not dict_text:
-            self._send_json({'error': 'Debes completar el SQL del objeto y el diccionario.'}, status=400)
+        if not sql_text:
+            self._send_json({'error': 'Debes completar el SQL del objeto.'}, status=400)
             return
 
         try:

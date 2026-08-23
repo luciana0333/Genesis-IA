@@ -31,6 +31,12 @@ def extraer_parametros(texto_procedimiento: str) -> Set[str]:
     )
     coincidencia = patron.search(texto_procedimiento)
     if not coincidencia:
+        coincidencia = re.search(
+            r"(?:CREATE|ALTER)\s+PROCEDURE\s+[\w\.]+\s*\((.*?)\)\s*(?:;|\Z)",
+            texto_procedimiento,
+            re.IGNORECASE | re.DOTALL,
+        )
+    if not coincidencia:
         return set()
     bloque_parametros = coincidencia.group(1)
     return set(re.findall(r"@\w+", bloque_parametros))
@@ -67,11 +73,18 @@ def extraer_llamadas_extendedproperty(texto_diccionario: str) -> List[Tuple[int,
     leidas del SCRIPT DEL DICCIONARIO (no del procedimiento).
     """
     llamadas = []
-    patron = re.compile(
-        r"EXEC(?:UTE)?\s+sys\.sp_(?:add|update)extendedproperty\s*(.*?)(?=\bGO\b|\Z)",
-        re.IGNORECASE | re.DOTALL
+    texto_sin_comentarios = re.sub(
+        r"--[^\r\n]*|/\*.*?\*/",
+        lambda coincidencia: re.sub(r"[^\r\n]", " ", coincidencia.group(0)),
+        texto_diccionario,
+        flags=re.DOTALL,
     )
-    for m in patron.finditer(texto_diccionario):
+    patron = re.compile(
+        r"EXEC(?:UTE)?\s+sys\.sp_(?:add|update)extendedproperty\s*"
+        r"(.*?)(?=;|^\s*GO\b|^\s*EXEC(?:UTE)?\s+sys\.sp_|\Z)",
+        re.IGNORECASE | re.DOTALL | re.MULTILINE
+    )
+    for m in patron.finditer(texto_sin_comentarios):
         cuerpo = m.group(1)
         args = {}
         for arg_m in re.finditer(r"@(\w+)\s*=\s*(N?'[^']*'|[\w@]+)", cuerpo):
@@ -182,13 +195,13 @@ def _validar_parametros_faltantes(
             mensaje = (
                 f"Este procedimiento ya existia (tiene documentacion previa "
                 f"en el diccionario), sin embargo el parametro {p} no se "
-                f"encontro documentado. Verifique."
+                f"encuentra declarado en el diccionario. Verifique."
             )
             severidad = Severidad.MEDIO
         else:
             mensaje = (
-                f"El parametro {p} (declarado en el procedimiento) no tiene "
-                f"documentacion en el script del diccionario."
+                f"El parametro {p} (declarado en el procedimiento) no se "
+                f"encuentra declarado en el diccionario."
             )
             severidad = Severidad.MEDIO
 
@@ -196,7 +209,7 @@ def _validar_parametros_faltantes(
             linea=1,
             origen=OrigenAnalisis.DICCIONARIO,
             severidad=severidad,
-            regla="PARAMETRO_SIN_DESCRIPCION",
+            regla="PARAMETRO_FALTANTE",
             mensaje=mensaje
         ))
 
