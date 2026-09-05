@@ -22,8 +22,9 @@
         </div>
 
         <nav class="nav-menu">
-          <a href="#" class="active">Auditoría SQL</a>
-          <a href="#">Diccionarios</a>
+          <a href="#" class="active" id="navDiccionarios">Diccionarios</a>
+          <a href="#" id="navTablas">Tablas</a>
+          <a href="#" id="navReportes">Reportes</a>
           <a href="#">Historial</a>
           <a href="#">Soporte</a>
         </nav>
@@ -108,11 +109,12 @@
         </div>
 
         <div class="control-row">
-          <div class="field-group">
+          <div class="field-group revision-type-field">
             <label for="tipoRevision">Tipo de revisión</label>
             <select id="tipoRevision">
               <option value="tabla">Diccionario de tabla</option>
               <option value="procedimiento">Diccionario de procedimiento</option>
+              <option value="reporte">Procedimiento de reporte</option>
             </select>
           </div>
 
@@ -120,27 +122,49 @@
             <label id="labelObjeto" for="objetoNombre">Nombre del Objeto</label>
             <input id="objetoNombre" type="text" value="CLICKTOPAY.Cliente" />
           </div>
+
+          <label class="checkbox-field table-only-field" id="dbcmaicaField" for="esDbcmaica">
+            <input id="esDbcmaica" type="checkbox" />
+            <span>La tabla pertenece a DBCMAICA y puede omitir COLLATE</span>
+          </label>
         </div>
 
         <div class="editor-grid">
-          <div class="editor-card">
-            <label for="sqlObject">SQL del objeto (CREATE / ALTER)</label>
-            <textarea id="sqlObject" rows="10">CREATE TABLE CLICKTOPAY.Cliente (
-    nClienteId INT PRIMARY KEY IDENTITY(1,1) NOT NULL,
-    cCodPersona VARCHAR(20) NOT NULL,
-    cCorreoElectronico VARCHAR(64) NOT NULL
-);</textarea>
+          <div class="editor-card table-editor-card" id="sqlEditorCard">
+            <div class="editor-card-heading">
+              <div>
+                <span class="editor-kicker">Entrada principal</span>
+                <label id="sqlLabel" for="sqlObject">SQL del objeto (CREATE / ALTER)</label>
+              </div>
+              <span class="editor-status">Requerido</span>
+            </div>
+            <p id="sqlHint" class="editor-hint">Pega aquí el código completo del objeto.</p>
+              <textarea id="sqlObject" rows="10">CREATE PROCEDURE CLICKTOPAY.PA_Cliente_Consultar
+          @nClienteId INT
+        AS
+        BEGIN
+          SELECT nClienteId, cCodPersona, cCorreoElectronico
+          FROM CLICKTOPAY.Cliente
+          WHERE nClienteId = @nClienteId;
+        END;</textarea>
           </div>
 
-          <div class="editor-card">
-            <label for="dictScript">Script de Diccionario / Metadata</label>
+          <div class="editor-card dictionary-editor-card" id="dictionaryEditorCard">
+            <div class="editor-card-heading">
+              <div>
+                <span class="editor-kicker">Documentación</span>
+                <label id="dictLabel" for="dictScript">Código del diccionario de tabla</label>
+              </div>
+              <span class="editor-status optional">Opcional</span>
+            </div>
+            <p class="editor-hint">Pega aquí el script de <code>sp_addextendedproperty</code> para la tabla y sus columnas.</p>
             <textarea id="dictScript" rows="10">EXEC sys.sp_addextendedproperty
 @name=N'MS_Description',
-@value=N'Tabla de clientes',
+            @value=N'Consulta la informacion del cliente',
 @level0type=N'SCHEMA',
 @level0name=N'CLICKTOPAY',
-@level1type=N'TABLE',
-@level1name=N'CLIENTE'
+            @level1type=N'PROCEDURE',
+            @level1name=N'PA_Cliente_Consultar'
 GO</textarea>
           </div>
         </div>

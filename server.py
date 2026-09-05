@@ -4,6 +4,8 @@ from urllib.parse import urlsplit
 
 from app.analizadores.analizador_diccionario_procedimientos import verificar_diccionario
 from app.analizadores.analizador_diccionario_tablas import verificar_diccionario_tablas
+from app.analizadores.analizador_tablas import verificar_tabla
+from app.analizadores.analizador_reportes import verificar_reporte
 
 
 class GenesisHandler(SimpleHTTPRequestHandler):
@@ -34,14 +36,20 @@ class GenesisHandler(SimpleHTTPRequestHandler):
         tipo = (payload.get('tipoRevision') or 'tabla').strip()
         sql_text = (payload.get('sqlObject') or '').strip()
         dict_text = (payload.get('dictScript') or '').strip()
+        es_dbcmaica = bool(payload.get('esDbcmaica', False))
+        modo_revision = (payload.get('modoRevision') or 'diccionario').strip()
 
         if not sql_text:
             self._send_json({'error': 'Debes completar el SQL del objeto.'}, status=400)
             return
 
         try:
-            if tipo == 'procedimiento':
+            if tipo == 'reporte':
+                hallazgos = verificar_reporte(sql_text)
+            elif tipo == 'procedimiento':
                 hallazgos = verificar_diccionario(sql_text, dict_text)
+            elif tipo == 'tabla_estructura' or modo_revision == 'tabla_estructura':
+                hallazgos = verificar_tabla(sql_text, es_dbcmaica)
             else:
                 hallazgos = verificar_diccionario_tablas(sql_text, dict_text)
         except Exception as exc:  # pragma: no cover - safety net for runtime errors

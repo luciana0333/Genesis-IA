@@ -311,11 +311,69 @@ body {
   gap: 8px;
 }
 
+.checkbox-field {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.checkbox-field input {
+  width: auto;
+}
+
 .field-group label, .editor-card label {
   font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
   color: var(--text-muted);
+}
+
+.editor-card-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.editor-kicker {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--red-main);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.editor-status {
+  flex: 0 0 auto;
+  color: var(--red-main);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.editor-status.optional {
+  color: var(--text-muted);
+}
+
+.editor-hint {
+  min-height: 38px;
+  margin: 8px 0 12px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.editor-hint code {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-primary);
 }
 
 select, input, textarea {
@@ -358,6 +416,36 @@ select:focus, input:focus, textarea:focus {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--red-main);
+  border-radius: 12px;
+  background: var(--bg-input);
+}
+
+.dictionary-editor-card {
+  border-top-color: var(--text-muted);
+}
+
+.table-workspace #sqlEditorCard {
+  grid-column: 1 / -1;
+}
+
+.table-workspace .revision-type-field {
+  display: none;
+}
+
+.table-workspace #dictionaryEditorCard {
+  display: none;
+}
+
+.report-workspace .revision-type-field,
+.report-workspace #dictionaryEditorCard {
+  display: none;
+}
+
+.report-workspace #sqlEditorCard {
+  grid-column: 1 / -1;
 }
 
 .btn-group {
@@ -504,8 +592,19 @@ select:focus, input:focus, textarea:focus {
 
 /* RESPONSIVE */
 @media (max-width: 900px) {
-  .nav-menu { display: none; }
+  .nav-menu { display: flex; gap: 14px; }
+  .nav-menu a { font-size: 0.72rem; }
   .services-grid { grid-template-columns: repeat(2, 1fr); }
   .control-row, .editor-grid { grid-template-columns: 1fr; }
   .finding-header { flex-direction: column; align-items: flex-start; gap: 6px; }
+}
+
+.table-workspace .hero-banner {
+  background: linear-gradient(135deg, #8d071f 0%, #ed1b36 100%);
+}
+
+.table-workspace .hero-text h1::after {
+  content: ' · Validación de estructura';
+  font-size: 0.42em;
+  font-weight: 600;
 }
