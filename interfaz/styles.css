@@ -448,6 +448,15 @@ select:focus, input:focus, textarea:focus {
   grid-column: 1 / -1;
 }
 
+.normal-workspace .revision-type-field,
+.normal-workspace #dictionaryEditorCard {
+  display: none;
+}
+
+.normal-workspace #sqlEditorCard {
+  grid-column: 1 / -1;
+}
+
 .btn-group {
   display: flex;
   gap: 16px;

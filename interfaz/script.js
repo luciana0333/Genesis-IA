@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const navDiccionarios = document.getElementById('navDiccionarios');
   const navTablas = document.getElementById('navTablas');
   const navReportes = document.getElementById('navReportes');
+  const navNormales = document.getElementById('navNormales');
 
   const sqlProcedimiento = `CREATE PROCEDURE CLICKTOPAY.PA_Cliente_Consultar
     @nClienteId INT
@@ -33,6 +34,15 @@ BEGIN
     SELECT cCodigo, cNombre
     FROM dbo.Cliente WITH(NOLOCK);
 END;`;
+  const sqlNormal = `ALTER PROCEDURE dbo.PA_Cliente_Actualizar
+    @nClienteId INT,
+    @cNombre VARCHAR(100)
+AS
+BEGIN
+    UPDATE dbo.Cliente
+    SET cNombre = @cNombre
+    WHERE nClienteId = @nClienteId;
+END;`;
   const diccionarioProcedimiento = `EXEC sys.sp_addextendedproperty
 @name=N'MS_Description',
 @value=N'Consulta la informacion del cliente',
@@ -50,6 +60,7 @@ GO`;
     const esTabla = tipoRevision.value === 'tabla';
     const esVistaTablas = document.body.classList.contains('table-workspace');
     const esVistaReportes = document.body.classList.contains('report-workspace');
+    const esVistaNormales = document.body.classList.contains('normal-workspace');
     tablaFields.forEach((field) => {
       field.style.display = esVistaTablas ? 'flex' : 'none';
     });
@@ -64,6 +75,12 @@ GO`;
     if (esVistaReportes) {
       sqlLabel.textContent = 'SQL del procedimiento de reporte';
       sqlHint.textContent = 'Pega aquí el CREATE o ALTER PROCEDURE completo para aplicar las reglas de reportes.';
+      return;
+    }
+
+    if (esVistaNormales) {
+      sqlLabel.textContent = 'SQL del procedimiento normal';
+      sqlHint.textContent = 'Pega aquí el CREATE o ALTER PROCEDURE para aplicar las reglas generales.';
       return;
     }
 
@@ -82,14 +99,17 @@ GO`;
   function cambiarVista(vista) {
     const esTabla = vista === 'tabla';
     const esReporte = vista === 'reporte';
-    tipoRevision.value = esTabla ? 'tabla' : esReporte ? 'reporte' : 'procedimiento';
-    sqlObject.value = esTabla ? sqlTabla : esReporte ? sqlReporte : sqlProcedimiento;
+    const esNormal = vista === 'normal';
+    tipoRevision.value = esTabla ? 'tabla' : esReporte ? 'reporte' : esNormal ? 'procedimiento_normal' : 'procedimiento';
+    sqlObject.value = esTabla ? sqlTabla : esReporte ? sqlReporte : esNormal ? sqlNormal : sqlProcedimiento;
     document.getElementById('dictScript').value = esTabla || esReporte ? '' : diccionarioProcedimiento;
     navDiccionarios.classList.toggle('active', !esTabla && !esReporte);
     navTablas.classList.toggle('active', esTabla);
     navReportes.classList.toggle('active', esReporte);
+    navNormales.classList.toggle('active', esNormal);
     document.body.classList.toggle('table-workspace', esTabla);
     document.body.classList.toggle('report-workspace', esReporte);
+    document.body.classList.toggle('normal-workspace', esNormal);
     labelObjeto.textContent = esTabla ? 'Nombre de la Tabla' : 'Nombre del Procedimiento';
     actualizarFormulario();
   }
@@ -115,15 +135,22 @@ GO`;
     cambiarVista('reporte');
   });
 
+  navNormales.addEventListener('click', (event) => {
+    event.preventDefault();
+    cambiarVista('normal');
+  });
+
   // Cambiar Label según selección
   tipoRevision.addEventListener('change', (e) => {
     const esTabla = e.target.value === 'tabla';
     const esReporte = e.target.value === 'reporte';
+    const esNormal = e.target.value === 'procedimiento_normal';
     document.body.classList.toggle('report-workspace', esReporte);
+    document.body.classList.toggle('normal-workspace', esNormal);
     labelObjeto.textContent = esTabla ? 'Nombre de la Tabla' : 'Nombre del Procedimiento';
     if (!document.body.classList.contains('table-workspace')) {
-      sqlObject.value = esTabla ? sqlTabla : esReporte ? sqlReporte : sqlProcedimiento;
-      document.getElementById('dictScript').value = esTabla || esReporte ? '' : diccionarioProcedimiento;
+      sqlObject.value = esTabla ? sqlTabla : esReporte ? sqlReporte : esNormal ? sqlNormal : sqlProcedimiento;
+      document.getElementById('dictScript').value = esTabla || esReporte || esNormal ? '' : diccionarioProcedimiento;
     }
     actualizarFormulario();
   });

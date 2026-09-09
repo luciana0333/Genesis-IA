@@ -1,0 +1,154 @@
+# -*- coding: utf-8 -*-
+"""Reglas para procedimientos almacenados normales, fuera de reportes."""
+
+import re
+from typing import Dict, List, Set
+
+from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
+
+
+_IDENTIFICADOR = r"(?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)"
+_HINTS_PROHIBIDOS = (
+    r"FORCESEEK|FORCESCAN|RECOMPILE|NOEXPAND|HOLDLOCK|INDEX\s*\(|"
+    r"LOOP\s+JOIN|HASH\s+JOIN|MERGE\s+JOIN|OPTIMIZE\s+FOR|MAXDOP\s*\(|FAST\s+\d+"
+)
+_PALABRAS_SQL_COMENTADAS = r"SELECT|INSERT|UPDATE|DELETE|MERGE|EXEC(?:UTE)?|DECLARE|CREATE|ALTER|DROP|WHILE|GOTO"
+_TIPOS_TEXTO = r"(?:N?VARCHAR|N?CHAR|TEXT|NTEXT)\b"
+
+
+def _linea(texto: str, posicion: int) -> int:
+    return texto.count("\n", 0, posicion) + 1
+
+
+def _hallazgo(texto: str, posicion: int, regla: str, mensaje: str) -> Hallazgo:
+    return Hallazgo(
+        linea=_linea(texto, posicion),
+        origen=OrigenAnalisis.REGLAS_ESTATICAS,
+        severidad=Severidad.ALTO,
+        regla=regla,
+        mensaje=mensaje,
+    )
+
+
+def _quitar_comentarios(texto: str) -> str:
+    texto = re.sub(r"/\*.*?\*/", lambda m: " " * len(m.group(0)), texto, flags=re.DOTALL)
+    return re.sub(r"--[^\r\n]*", lambda m: " " * len(m.group(0)), texto)
+
+
+def _es_temporal(nombre: str) -> bool:
+    return nombre.strip("[]").startswith("#")
+
+
+def _validar_control_flujo(texto: str, limpio: str) -> List[Hallazgo]:
+    hallazgos = []
+    for patron, regla, mensaje in (
+        (r"\bWHILE\b", "WHILE_PROHIBIDO", "No se permite WHILE en procedimientos normales; use operaciones basadas en conjuntos."),
+        (r"\bGOTO\b", "GOTO_PROHIBIDO", "No se permite GOTO en el procedimiento."),
+        (r"\bMERGE\b", "MERGE_PROHIBIDO", "No se permite MERGE en el procedimiento."),
+    ):
+        for match in re.finditer(patron, limpio, re.IGNORECASE):
+            hallazgos.append(_hallazgo(texto, match.start(), regla, mensaje))
+    return hallazgos
+
+
+def _validar_hints(texto: str, limpio: str) -> List[Hallazgo]:
+    return [
+        _hallazgo(
+            texto,
+            match.start(),
+            "HINT_PLAN_PROHIBIDO",
+            f"El comando o hint '{match.group(0)}' fuerza el plan del motor y no debe usarse.",
+        )
+        for match in re.finditer(_HINTS_PROHIBIDOS, limpio, re.IGNORECASE)
+    ]
+
+
+def _validar_temporales(texto: str, limpio: str) -> List[Hallazgo]:
+    hallazgos = []
+    patron = re.compile(
+        rf"\b(FROM|JOIN)\s+({_IDENTIFICADOR})(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}",
+        re.IGNORECASE,
+    )
+    for match in patron.finditer(limpio):
+        nombre = match.group(2)
+        if _es_temporal(nombre) and re.match(r"\s+WITH\s*\(\s*NOLOCK\s*\)", limpio[match.end():], re.IGNORECASE):
+            hallazgos.append(_hallazgo(
+                texto,
+                match.start(2),
+                "NOLOCK_EN_TABLA_TEMPORAL",
+                f"La tabla temporal {nombre} no debe utilizar WITH(NOLOCK).",
+            ))
+    return hallazgos
+
+
+def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
+    reglas = (
+        (r"(?is)(?:^|;|\bGO\b)\s*SELECT\b(?:(?!;|\bGO\b).)*?\bINTO\b", "SELECT_INTO_PROHIBIDO", "No se permite SELECT INTO; declare la tabla temporal y luego use INSERT INTO."),
+        (r"\bSELECT\s+(?:DISTINCT\s+)?\*", "SELECT_ESTRELLA_PROHIBIDO", "No se permite SELECT *; indique explícitamente las columnas."),
+        (r"\b(?:WHERE|ON)\b[^;\n]*(?:COLLATE\s+\w+)", "COLLATE_EN_PREDICADO", "No use COLLATE en WHERE o JOIN; defínalo en la tabla temporal."),
+        (r"\bSTUFF\s*\([\s\S]*?\bFOR\s+XML\s+PATH\b", "STUFF_FOR_XML_PATH_PROHIBIDO", "Reemplace STUFF con FOR XML PATH por STRING_AGG."),
+        (r"\b(?:dbo\.)?FN_SPLIT\s*\(", "FN_SPLIT_PROHIBIDO", "Reemplace dbo.FN_SPLIT por STRING_SPLIT."),
+        (r"\bLTRIM\s*\([\s\S]*?\bRTRIM\s*\(", "LTRIM_RTRIM_PROHIBIDO", "Reemplace LTRIM(RTRIM(...)) por TRIM(...)."),
+    )
+    hallazgos = []
+    for patron, regla, mensaje in reglas:
+        for match in re.finditer(patron, limpio, re.IGNORECASE):
+            hallazgos.append(_hallazgo(texto, match.start(), regla, mensaje))
+    return hallazgos
+
+
+def _validar_collate_temporales(texto: str, limpio: str) -> List[Hallazgo]:
+    hallazgos = []
+    patron = re.compile(r"\bCREATE\s+TABLE\s+(#[A-Za-z_]\w*)\s*\((.*?)\)", re.IGNORECASE | re.DOTALL)
+    for match in patron.finditer(limpio):
+        tabla = match.group(1)
+        bloque = match.group(2)
+        for columna in re.finditer(rf"\b({_IDENTIFICADOR})\s+({_TIPOS_TEXTO})(?:\s*\([^)]*\))?[^,]*", bloque, re.IGNORECASE):
+            if not re.search(r"\bCOLLATE\s+\w+", columna.group(0), re.IGNORECASE):
+                hallazgos.append(_hallazgo(
+                    texto,
+                    match.start(2) + columna.start(),
+                    "TEMPORAL_TEXTO_SIN_COLLATE",
+                    f"La columna {columna.group(1)} de la tabla temporal {tabla} debe tener COLLATE.",
+                ))
+    return hallazgos
+
+
+def _validar_comentarios(texto: str) -> List[Hallazgo]:
+    patrones = (
+        re.compile(rf"^\s*--\s*(?:{_PALABRAS_SQL_COMENTADAS})\b", re.IGNORECASE | re.MULTILINE),
+        re.compile(rf"/\*\s*(?:{_PALABRAS_SQL_COMENTADAS})\b.*?\*/", re.IGNORECASE | re.DOTALL),
+    )
+    hallazgos = []
+    vistos: Set[int] = set()
+    for patron in patrones:
+        for match in patron.finditer(texto):
+            if match.start() not in vistos:
+                vistos.add(match.start())
+                hallazgos.append(_hallazgo(texto, match.start(), "CODIGO_SQL_COMENTADO", "Elimine código SQL comentado que no aporte al procedimiento."))
+    return hallazgos
+
+
+def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
+    hallazgos = []
+    declaraciones: Dict[str, int] = {}
+    for match in re.finditer(r"\bDECLARE\s+(@[A-Za-z_]\w*)", limpio, re.IGNORECASE):
+        declaraciones[match.group(1).lower()] = match.start(1)
+    for variable, posicion in declaraciones.items():
+        if not re.search(rf"(?<![\w]){re.escape(variable)}\b", limpio[posicion + len(variable):], re.IGNORECASE):
+            hallazgos.append(_hallazgo(texto, posicion, "VARIABLE_DECLARADA_SIN_USO", f"La variable {variable} fue declarada pero no se utiliza."))
+    return hallazgos
+
+
+def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
+    """Aplica exclusivamente las reglas de procedimientos normales."""
+    limpio = _quitar_comentarios(texto_sql)
+    hallazgos: List[Hallazgo] = []
+    hallazgos.extend(_validar_control_flujo(texto_sql, limpio))
+    hallazgos.extend(_validar_hints(texto_sql, limpio))
+    hallazgos.extend(_validar_temporales(texto_sql, limpio))
+    hallazgos.extend(_validar_sentencias(texto_sql, limpio))
+    hallazgos.extend(_validar_collate_temporales(texto_sql, limpio))
+    hallazgos.extend(_validar_comentarios(texto_sql))
+    hallazgos.extend(_validar_variables(texto_sql, limpio))
+    return hallazgos

@@ -150,7 +150,11 @@ def _validar_tablas_temporales(texto: str, limpio: str) -> List[Hallazgo]:
 def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     reglas = [
-        (r"\bSELECT\b[\s\S]*?\bINTO\b", "SELECT_INTO_PROHIBIDO", "No se permite SELECT INTO; declare la tabla temporal y luego use INSERT INTO."),
+        (
+            r"(?is)(?:^|;|\bGO\b)\s*SELECT\b(?:(?!;|\bGO\b).)*?\bINTO\b",
+            "SELECT_INTO_PROHIBIDO",
+            "No se permite SELECT INTO; declare la tabla temporal y luego use INSERT INTO.",
+        ),
         (r"\bSELECT\s+(?:DISTINCT\s+)?\*", "SELECT_ESTRELLA_PROHIBIDO", "No se permite SELECT *; indique explícitamente las columnas requeridas."),
         (r"\bIN\s*\(\s*[^,()]+\s*\)", "IN_CON_UN_SOLO_VALOR", "No use IN con un único valor; utilice el operador =."),
         (_CATALOGOS_PROHIBIDOS, "CATALOGO_SISTEMA_PROHIBIDO", "Los reportes no deben consultar sys.objects ni catálogos del sistema."),

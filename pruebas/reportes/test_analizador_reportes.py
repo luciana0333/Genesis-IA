@@ -71,6 +71,22 @@ class TestAnalizadorReportes(unittest.TestCase):
         self.assertIn("SELECT_ESTRELLA_PROHIBIDO", reglas)
         self.assertIn("IN_CON_UN_SOLO_VALOR", reglas)
 
+    def test_no_confunde_select_con_insert_into_de_otra_sentencia(self):
+        sql = """
+        SELECT cNombre FROM dbo.Cliente WITH(NOLOCK);
+        INSERT INTO #Tmp (cNombre)
+        SELECT cNombre FROM dbo.Cliente WITH(NOLOCK);
+        """
+
+        reglas = [hallazgo.regla for hallazgo in verificar_reporte(sql)]
+        self.assertNotIn("SELECT_INTO_PROHIBIDO", reglas)
+
+    def test_detecta_select_into_en_la_misma_sentencia(self):
+        sql = "SELECT cNombre INTO #Tmp FROM dbo.Cliente WITH(NOLOCK);"
+
+        reglas = [hallazgo.regla for hallazgo in verificar_reporte(sql)]
+        self.assertIn("SELECT_INTO_PROHIBIDO", reglas)
+
     def test_prohibe_hints_catalogos_y_modificaciones_fisicas(self):
         sql = """
         SELECT cNombre FROM dbo.Cliente WITH(NOLOCK, FORCESEEK)

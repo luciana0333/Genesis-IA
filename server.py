@@ -6,6 +6,7 @@ from app.analizadores.analizador_diccionario_procedimientos import verificar_dic
 from app.analizadores.analizador_diccionario_tablas import verificar_diccionario_tablas
 from app.analizadores.analizador_tablas import verificar_tabla
 from app.analizadores.analizador_reportes import verificar_reporte
+from app.analizadores.analizador_procedimientos_normales import verificar_procedimiento_normal
 
 
 class GenesisHandler(SimpleHTTPRequestHandler):
@@ -46,6 +47,8 @@ class GenesisHandler(SimpleHTTPRequestHandler):
         try:
             if tipo == 'reporte':
                 hallazgos = verificar_reporte(sql_text)
+            elif tipo == 'procedimiento_normal':
+                hallazgos = verificar_procedimiento_normal(sql_text)
             elif tipo == 'procedimiento':
                 hallazgos = verificar_diccionario(sql_text, dict_text)
             elif tipo == 'tabla_estructura' or modo_revision == 'tabla_estructura':
