@@ -1,0 +1,95 @@
+# -*- coding: utf-8 -*-
+"""Reglas para procedimientos de reportes."""
+
+from app.reglas.reglas_base import ReglaDiccionario
+
+REGLAS_REPORTES = {
+    "TABLA_FISICA_SIN_NOLOCK": ReglaDiccionario(
+        codigo="TABLA_FISICA_SIN_NOLOCK",
+        nombre="Tabla física sin NOLOCK",
+        severidad="alto",
+        descripcion="Las tablas físicas consultadas por un reporte deben usar WITH(NOLOCK).",
+        alcance="reporte",
+        activo=True,
+    ),
+    "NOLOCK_EN_TABLA_TEMPORAL": ReglaDiccionario(
+        codigo="NOLOCK_EN_TABLA_TEMPORAL",
+        nombre="NOLOCK en tabla temporal",
+        severidad="alto",
+        descripcion="Las tablas temporales no deben utilizar WITH(NOLOCK).",
+        alcance="reporte",
+        activo=True,
+    ),
+    "HINT_PLAN_PROHIBIDO": ReglaDiccionario(
+        codigo="HINT_PLAN_PROHIBIDO",
+        nombre="Hint de plan prohibido",
+        severidad="alto",
+        descripcion="No se deben forzar planes o decisiones del optimizador en reportes.",
+        alcance="reporte",
+        activo=True,
+    ),
+    "CODIGO_SQL_COMENTADO": ReglaDiccionario(
+        codigo="CODIGO_SQL_COMENTADO",
+        nombre="Código SQL comentado",
+        severidad="medio",
+        descripcion="El reporte no debe conservar sentencias SQL comentadas que no aporten.",
+        alcance="reporte",
+        activo=True,
+    ),
+    "TEMPORAL_TEXTO_SIN_COLLATE": ReglaDiccionario(
+        codigo="TEMPORAL_TEXTO_SIN_COLLATE",
+        nombre="Texto temporal sin COLLATE",
+        severidad="alto",
+        descripcion="Las columnas de texto de tablas temporales deben declarar COLLATE.",
+        alcance="reporte",
+        activo=True,
+    ),
+    "SELECT_INTO_PROHIBIDO": ReglaDiccionario(
+        codigo="SELECT_INTO_PROHIBIDO",
+        nombre="SELECT INTO prohibido",
+        severidad="alto",
+        descripcion="Se debe declarar la tabla temporal y luego insertar sus datos.",
+        alcance="reporte",
+        activo=True,
+    ),
+    "SELECT_ESTRELLA_PROHIBIDO": ReglaDiccionario(
+        codigo="SELECT_ESTRELLA_PROHIBIDO",
+        nombre="SELECT estrella prohibido",
+        severidad="medio",
+        descripcion="Las consultas deben indicar sus columnas explícitamente.",
+        alcance="reporte",
+        activo=True,
+    ),
+    "IN_CON_UN_SOLO_VALOR": ReglaDiccionario(
+        codigo="IN_CON_UN_SOLO_VALOR",
+        nombre="IN con un solo valor",
+        severidad="medio",
+        descripcion="Use igualdad cuando IN contiene un único valor.",
+        alcance="reporte",
+        activo=True,
+    ),
+    "CATALOGO_SISTEMA_PROHIBIDO": ReglaDiccionario(
+        codigo="CATALOGO_SISTEMA_PROHIBIDO",
+        nombre="Catálogo de sistema prohibido",
+        severidad="alto",
+        descripcion="Un procedimiento de reporte no debe consultar catálogos del sistema.",
+        alcance="reporte",
+        activo=True,
+    ),
+    "MODIFICACION_TABLA_FISICA": ReglaDiccionario(
+        codigo="MODIFICACION_TABLA_FISICA",
+        nombre="Modificación de tabla física",
+        severidad="critico",
+        descripcion="Los reportes solo consultan y no modifican tablas físicas.",
+        alcance="reporte",
+        activo=True,
+    ),
+    "VARIABLE_DECLARADA_SIN_USO": ReglaDiccionario(
+        codigo="VARIABLE_DECLARADA_SIN_USO",
+        nombre="Variable declarada sin uso",
+        severidad="medio",
+        descripcion="Toda variable declarada debe utilizarse en la lógica del reporte.",
+        alcance="reporte",
+        activo=True,
+    ),
+}

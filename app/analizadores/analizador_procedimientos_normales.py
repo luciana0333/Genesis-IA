@@ -10,7 +10,8 @@ from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 _IDENTIFICADOR = r"(?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)"
 _HINTS_PROHIBIDOS = (
     r"FORCESEEK|FORCESCAN|RECOMPILE|NOEXPAND|HOLDLOCK|INDEX\s*\(|"
-    r"LOOP\s+JOIN|HASH\s+JOIN|MERGE\s+JOIN|OPTIMIZE\s+FOR|MAXDOP\s*\(|FAST\s+\d+"
+    r"LOOP\s+JOIN|HASH\s+JOIN|MERGE\s+JOIN|OPTIMIZE\s+FOR|MAXDOP\s*\(|FAST\s+\d+|"
+    r"OPTION\s*\([^)]*\)"
 )
 _PALABRAS_SQL_COMENTADAS = r"SELECT|INSERT|UPDATE|DELETE|MERGE|EXEC(?:UTE)?|DECLARE|CREATE|ALTER|DROP|WHILE|GOTO"
 _TIPOS_TEXTO = r"(?:N?VARCHAR|N?CHAR|TEXT|NTEXT)\b"
@@ -63,6 +64,33 @@ def _validar_hints(texto: str, limpio: str) -> List[Hallazgo]:
     ]
 
 
+def _tiene_nolock_despues(texto: str, posicion: int) -> bool:
+    restante = texto[posicion:]
+    return bool(re.search(r"(?:\s+AS\s+)?(?:[A-Za-z_@#][\w$#]*\s+)?WITH\s*\(\s*NOLOCK\s*\)", restante, re.IGNORECASE))
+
+
+def _validar_update_from_nolock(texto: str, limpio: str) -> List[Hallazgo]:
+    hallazgos = []
+    patron = re.compile(
+        rf"\bFROM\s+({_IDENTIFICADOR})(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}",
+        re.IGNORECASE,
+    )
+    for match in patron.finditer(limpio):
+        inicio_sentencia = max(limpio.rfind(";", 0, match.start()), limpio.rfind("BEGIN", 0, match.start())) + 1
+        prefijo = limpio[inicio_sentencia:match.start()]
+        if not re.search(r"\bUPDATE\b", prefijo, re.IGNORECASE):
+            continue
+        nombre = match.group(1)
+        if _tiene_nolock_despues(limpio, match.end()):
+            hallazgos.append(_hallazgo(
+                texto,
+                match.start(1),
+                "NOLOCK_EN_TABLA_FISICA",
+                f"La tabla física {nombre} no debe usar WITH(NOLOCK) dentro del FROM de un UPDATE.",
+            ))
+    return hallazgos
+
+
 def _validar_temporales(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     patron = re.compile(
@@ -71,13 +99,41 @@ def _validar_temporales(texto: str, limpio: str) -> List[Hallazgo]:
     )
     for match in patron.finditer(limpio):
         nombre = match.group(2)
-        if _es_temporal(nombre) and re.match(r"\s+WITH\s*\(\s*NOLOCK\s*\)", limpio[match.end():], re.IGNORECASE):
+        if _es_temporal(nombre) and _tiene_nolock_despues(limpio, match.end()):
             hallazgos.append(_hallazgo(
                 texto,
                 match.start(2),
                 "NOLOCK_EN_TABLA_TEMPORAL",
                 f"La tabla temporal {nombre} no debe utilizar WITH(NOLOCK).",
             ))
+    return hallazgos
+
+
+def _validar_order_by_numerico(texto: str, limpio: str) -> List[Hallazgo]:
+    hallazgos = []
+    for match in re.finditer(r"\bORDER\s+BY\s+\d+(?:\s*,\s*\d+)*", limpio, re.IGNORECASE):
+        hallazgos.append(_hallazgo(
+            texto,
+            match.start(),
+            "ORDER_BY_NUMERICO_PROHIBIDO",
+            "No se permite ORDER BY 1, 2, etc.; debe indicar el nombre de la columna.",
+        ))
+    return hallazgos
+
+
+def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
+    hallazgos = []
+    patron = re.compile(
+        r"\bJOIN\b.*?\bON\b(?:(?!\bJOIN\b|\bWHERE\b|\bGROUP\s+BY\b|\bORDER\s+BY\b|;).)*CAST\s*\(",
+        re.IGNORECASE | re.DOTALL,
+    )
+    for match in patron.finditer(limpio):
+        hallazgos.append(_hallazgo(
+            texto,
+            match.start(),
+            "CAST_EN_JOIN_PROHIBIDO",
+            "No se permite aplicar CAST dentro de una condición JOIN; realice el casting antes del JOIN.",
+        ))
     return hallazgos
 
 
@@ -147,6 +203,9 @@ def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_control_flujo(texto_sql, limpio))
     hallazgos.extend(_validar_hints(texto_sql, limpio))
     hallazgos.extend(_validar_temporales(texto_sql, limpio))
+    hallazgos.extend(_validar_update_from_nolock(texto_sql, limpio))
+    hallazgos.extend(_validar_order_by_numerico(texto_sql, limpio))
+    hallazgos.extend(_validar_cast_en_join(texto_sql, limpio))
     hallazgos.extend(_validar_sentencias(texto_sql, limpio))
     hallazgos.extend(_validar_collate_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_comentarios(texto_sql))

@@ -57,6 +57,33 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         self.assertIn("VARIABLE_DECLARADA_SIN_USO", reglas)
         self.assertIn("CODIGO_SQL_COMENTADO", reglas)
 
+    def test_reglas_nuevas_para_nolock_order_by_option_y_cast_en_join(self):
+        sql = """
+        CREATE TABLE #Tmp (
+            cNombre VARCHAR(100) COLLATE SQL_Latin1_General_CP1_CI_AS,
+            nId INT
+        );
+
+        SELECT cNombre
+        FROM dbo.Cliente AS c WITH(NOLOCK)
+        JOIN #Tmp AS t WITH(NOLOCK) ON CAST(c.nId AS INT) = t.nId
+        ORDER BY 1;
+
+        UPDATE c
+        SET c.cNombre = 'X'
+        FROM dbo.Cliente AS c WITH(NOLOCK)
+        JOIN dbo.Detalle AS d ON d.nClienteId = CAST(c.nId AS INT)
+        WHERE c.nId = 1
+        OPTION (RECOMPILE);
+        """
+        reglas = {hallazgo.regla for hallazgo in verificar_procedimiento_normal(sql)}
+
+        self.assertIn("NOLOCK_EN_TABLA_TEMPORAL", reglas)
+        self.assertIn("NOLOCK_EN_TABLA_FISICA", reglas)
+        self.assertIn("HINT_PLAN_PROHIBIDO", reglas)
+        self.assertIn("ORDER_BY_NUMERICO_PROHIBIDO", reglas)
+        self.assertIn("CAST_EN_JOIN_PROHIBIDO", reglas)
+
 
 if __name__ == "__main__":
     unittest.main()
