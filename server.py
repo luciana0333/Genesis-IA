@@ -1,12 +1,16 @@
 import json
+from email.parser import BytesParser
+from email.policy import default
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlsplit
+import xml.etree.ElementTree as ET
 
 from app.analizadores.analizador_diccionario_procedimientos import verificar_diccionario
 from app.analizadores.analizador_diccionario_tablas import verificar_diccionario_tablas
 from app.analizadores.analizador_tablas import verificar_tabla
 from app.analizadores.analizador_reportes import verificar_reporte
 from app.analizadores.analizador_procedimientos_normales import verificar_procedimiento_normal
+from app.analizadores.planes_ejecucion import analizar_plan_ejecucion
 
 
 class GenesisHandler(SimpleHTTPRequestHandler):
@@ -22,6 +26,9 @@ class GenesisHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlsplit(self.path)
+        if parsed.path == '/api/analizar-plan':
+            self._analizar_plan()
+            return
         if parsed.path != '/api/analizar':
             self.send_error(404, 'Ruta no encontrada')
             return
@@ -83,6 +90,96 @@ class GenesisHandler(SimpleHTTPRequestHandler):
             'tipoRevision': tipo,
             'resumen': resumen,
             'hallazgos': hallazgos_serializados,
+        })
+
+    def _analizar_plan(self):
+        limite_bytes = 25 * 1024 * 1024
+        try:
+            longitud = int(self.headers.get('Content-Length', '0'))
+            if longitud <= 0 or longitud > limite_bytes:
+                self._send_json({'error': 'El archivo debe tener entre 1 byte y 25 MB.'}, status=400)
+                return
+
+            tipo_contenido = self.headers.get_content_type()
+            frontera = self.headers.get_boundary()
+            if tipo_contenido != 'multipart/form-data' or not frontera:
+                self._send_json({'error': 'La solicitud debe ser multipart/form-data.'}, status=400)
+                return
+
+            cuerpo = self.rfile.read(longitud)
+            encabezado = (
+                f'Content-Type: multipart/form-data; boundary={frontera}\r\n'
+                'MIME-Version: 1.0\r\n\r\n'
+            ).encode('utf-8')
+            formulario = BytesParser(policy=default).parsebytes(encabezado + cuerpo)
+            parte_plan = next(
+                (
+                    parte for parte in formulario.iter_parts()
+                    if parte.get_content_disposition() == 'form-data'
+                    and parte.get_filename()
+                ),
+                None,
+            )
+            if parte_plan is None:
+                self._send_json({'error': 'Debes seleccionar un archivo .sqlplan.'}, status=400)
+                return
+
+            nombre = parte_plan.get_filename()
+            if not nombre.lower().endswith('.sqlplan'):
+                self._send_json({'error': 'Solo se aceptan archivos con extensión .sqlplan.'}, status=400)
+                return
+
+            contenido = parte_plan.get_payload(decode=True) or b''
+            hallazgos, operadores, memoria = analizar_plan_ejecucion(contenido)
+        except ET.ParseError:
+            self._send_json({'error': 'El archivo no contiene un plan XML válido de SQL Server.'}, status=400)
+            return
+        except (TypeError, ValueError) as exc:
+            self._send_json({'error': f'No se pudo leer el archivo: {exc}'}, status=400)
+            return
+        except Exception as exc:  # pragma: no cover - red de seguridad del endpoint HTTP
+            self._send_json({'error': f'Error interno al analizar el plan: {exc}'}, status=500)
+            return
+
+        resumen = {severidad: 0 for severidad in ('critico', 'alto', 'medio', 'bajo')}
+        hallazgos_serializados = []
+        for hallazgo in hallazgos:
+            severidad = hallazgo.severidad.value.lower()
+            resumen[severidad] += 1
+            hallazgos_serializados.append({
+                'linea': hallazgo.linea,
+                'origen': hallazgo.origen.value,
+                'severidad': severidad,
+                'regla': hallazgo.regla,
+                'mensaje': hallazgo.mensaje,
+            })
+
+        operadores_serializados = [
+            {
+                'nodoId': operador.nodo_id,
+                'operacionFisica': operador.operacion_fisica,
+                'operacionLogica': operador.operacion_logica,
+                'estimacionFilas': operador.estimacion_filas,
+                'filasReales': operador.filas_reales,
+                'filasLeidas': operador.filas_leidas,
+                'lecturasLogicas': operador.lecturas_logicas,
+                'objeto': operador.objeto,
+                'tieneSpill': operador.tiene_spill,
+                'tieneConversionImplicita': operador.tiene_conversion_implicita,
+            }
+            for operador in operadores
+        ]
+        memoria_serializada = None if memoria is None else {
+            'solicitadaKb': memoria.memoria_solicitada_kb,
+            'concedidaKb': memoria.memoria_concedida_kb,
+            'maximaUtilizadaKb': memoria.memoria_maxima_utilizada_kb,
+        }
+        self._send_json({
+            'archivo': nombre,
+            'resumen': resumen,
+            'hallazgos': hallazgos_serializados,
+            'operadores': operadores_serializados,
+            'memoria': memoria_serializada,
         })
 
     def _send_json(self, payload, status=200):

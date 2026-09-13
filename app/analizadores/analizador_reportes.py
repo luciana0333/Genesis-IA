@@ -15,6 +15,7 @@ _HINTS_PROHIBIDOS = (
 )
 _CATALOGOS_PROHIBIDOS = r"(?:sys|information_schema)\.[A-Za-z_][\w$]*"
 _PALABRAS_SQL_COMENTADAS = r"SELECT|INSERT|UPDATE|DELETE|MERGE|EXEC(?:UTE)?|DECLARE|CREATE|ALTER|DROP"
+_SQL_DINAMICO = r"\b(?:sp_executesql\b|EXEC(?:UTE)?\s*(?:\(\s*)?(?:N?['\"]|@))"
 
 
 def _linea(texto: str, posicion: int) -> int:
@@ -180,6 +181,19 @@ def _validar_modificaciones_fisicas(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _validar_sintaxis_prohibida(texto: str, limpio: str) -> List[Hallazgo]:
+    reglas = (
+        (_SQL_DINAMICO, "SQL_DINAMICO_PROHIBIDO", "No se permite ejecutar SQL dinámico ni consultas dinámicas en el reporte."),
+        (r"\bN?VARCHAR\s*\(\s*MAX\s*\)", "VARCHAR_MAX_PROHIBIDO", "No se permite usar VARCHAR(MAX); defina una longitud explícita y justificada."),
+        (r"\bVARBINARY(?:\s*\(\s*(?:MAX|\d+)\s*\))?", "VARBINARY_DOCUMENTO_IDENTIFICADO", "Se detectó VARBINARY, tipo adecuado para almacenar el contenido binario de archivos o documentos."),
+    )
+    hallazgos = []
+    for patron, regla, mensaje in reglas:
+        for match in re.finditer(patron, limpio, re.IGNORECASE):
+            hallazgos.append(_hallazgo(texto, match.start(), regla, mensaje))
+    return hallazgos
+
+
 def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     declaraciones: Dict[str, int] = {}
@@ -242,6 +256,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_comentarios_codigo(texto_sql))
     hallazgos.extend(_validar_tablas_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_sentencias(texto_sql, limpio))
+    hallazgos.extend(_validar_sintaxis_prohibida(texto_sql, limpio))
     hallazgos.extend(_validar_modificaciones_fisicas(texto_sql, limpio))
     hallazgos.extend(_validar_variables(texto_sql, limpio))
     return _agrupar_hallazgos_repetidos(hallazgos)

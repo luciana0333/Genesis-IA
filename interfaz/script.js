@@ -14,6 +14,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const navTablas = document.getElementById('navTablas');
   const navReportes = document.getElementById('navReportes');
   const navNormales = document.getElementById('navNormales');
+  const navPlanes = document.getElementById('navPlanes');
+  const planFile = document.getElementById('planFile');
+  const btnAnalizarPlan = document.getElementById('btnAnalizarPlan');
+  const btnLimpiarPlan = document.getElementById('btnLimpiarPlan');
+  const planFileName = document.getElementById('planFileName');
+  const planStatus = document.getElementById('planStatus');
+  const heroTitle = document.getElementById('heroTitle');
+  const heroDescription = document.getElementById('heroDescription');
 
   const sqlProcedimiento = `CREATE PROCEDURE CLICKTOPAY.PA_Cliente_Consultar
     @nClienteId INT
@@ -96,20 +104,55 @@ GO`;
       : 'Pega aquí el código del procedimiento almacenado.';
   }
 
+  function actualizarHero(vista) {
+    const encabezados = {
+      diccionario: {
+        titulo: 'Revisión e inspección de Diccionarios SQL',
+        descripcion: 'Valida la estructura, consistencia y estándares de documentación de tus bases de datos SQL Server en tiempo real.'
+      },
+      tabla: {
+        titulo: 'Revisión e inspección de Tablas SQL',
+        descripcion: 'Valida la estructura, nomenclatura, tipos de datos, nulabilidad y reglas de diseño de tus tablas SQL Server.'
+      },
+      reporte: {
+        titulo: 'Revisión e inspección de Reportes SQL',
+        descripcion: 'Revisa procedimientos de reportes para detectar prácticas inseguras, lecturas innecesarias y consultas que dificultan su mantenimiento.'
+      },
+      normal: {
+        titulo: 'Revisión e inspección de Procedimientos SQL',
+        descripcion: 'Valida procedimientos almacenados normales frente a reglas de control de flujo, consultas y buenas prácticas de desarrollo.'
+      },
+      planes: {
+        titulo: 'Revisión e inspección de Planes de ejecución SQL',
+        descripcion: 'Analiza planes reales de SQL Server para detectar conversiones implícitas, spills, scans, lecturas elevadas y problemas de memoria.'
+      }
+    };
+    const encabezado = encabezados[vista] || encabezados.diccionario;
+    heroTitle.textContent = encabezado.titulo;
+    heroDescription.textContent = encabezado.descripcion;
+  }
+
   function cambiarVista(vista) {
+    const esPlan = vista === 'planes';
     const esTabla = vista === 'tabla';
     const esReporte = vista === 'reporte';
     const esNormal = vista === 'normal';
     tipoRevision.value = esTabla ? 'tabla' : esReporte ? 'reporte' : esNormal ? 'procedimiento_normal' : 'procedimiento';
     sqlObject.value = esTabla ? sqlTabla : esReporte ? sqlReporte : esNormal ? sqlNormal : sqlProcedimiento;
     document.getElementById('dictScript').value = esTabla || esReporte ? '' : diccionarioProcedimiento;
-    navDiccionarios.classList.toggle('active', !esTabla && !esReporte);
+    navDiccionarios.classList.toggle('active', vista === 'diccionario');
     navTablas.classList.toggle('active', esTabla);
     navReportes.classList.toggle('active', esReporte);
     navNormales.classList.toggle('active', esNormal);
+    navPlanes.classList.toggle('active', esPlan);
     document.body.classList.toggle('table-workspace', esTabla);
     document.body.classList.toggle('report-workspace', esReporte);
     document.body.classList.toggle('normal-workspace', esNormal);
+    document.body.classList.toggle('plan-workspace', esPlan);
+    actualizarHero(vista);
+    if (esPlan) {
+      return;
+    }
     labelObjeto.textContent = esTabla ? 'Nombre de la Tabla' : 'Nombre del Procedimiento';
     actualizarFormulario();
   }
@@ -138,6 +181,11 @@ GO`;
   navNormales.addEventListener('click', (event) => {
     event.preventDefault();
     cambiarVista('normal');
+  });
+
+  navPlanes.addEventListener('click', (event) => {
+    event.preventDefault();
+    cambiarVista('planes');
   });
 
   // Cambiar Label según selección
@@ -207,6 +255,49 @@ GO`;
     }
   });
 
+  planFile.addEventListener('change', () => {
+    planFileName.textContent = planFile.files[0]?.name || 'Ningún archivo seleccionado';
+    planStatus.textContent = '';
+  });
+
+  btnLimpiarPlan.addEventListener('click', () => {
+    planFile.value = '';
+    planFileName.textContent = 'Ningún archivo seleccionado';
+    planStatus.textContent = '';
+    renderizarPlanResultados(null);
+  });
+
+  btnAnalizarPlan.addEventListener('click', async () => {
+    const archivo = planFile.files[0];
+    if (!archivo) {
+      planStatus.textContent = 'Selecciona un archivo .sqlplan.';
+      return;
+    }
+    if (!archivo.name.toLowerCase().endsWith('.sqlplan')) {
+      planStatus.textContent = 'El archivo debe tener extensión .sqlplan.';
+      return;
+    }
+
+    const formulario = new FormData();
+    formulario.append('plan', archivo);
+    btnAnalizarPlan.disabled = true;
+    planStatus.textContent = 'Analizando el plan real...';
+    try {
+      const response = await fetch('/api/analizar-plan', { method: 'POST', body: formulario });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'No se pudo analizar el plan.');
+      }
+      renderizarPlanResultados(data);
+      planStatus.textContent = 'Análisis completado.';
+    } catch (error) {
+      renderizarPlanResultados(null);
+      planStatus.textContent = error.message || 'No se pudo conectar con el servidor.';
+    } finally {
+      btnAnalizarPlan.disabled = false;
+    }
+  });
+
   cambiarVista('diccionario');
 });
 
@@ -239,7 +330,14 @@ const nombresReglas = {
   IN_CON_UN_SOLO_VALOR: 'IN con un solo valor',
   CATALOGO_SISTEMA_PROHIBIDO: 'Catálogo de sistema prohibido',
   MODIFICACION_TABLA_FISICA: 'Modificación de tabla física',
-  VARIABLE_DECLARADA_SIN_USO: 'Variable declarada sin uso'
+  VARIABLE_DECLARADA_SIN_USO: 'Variable declarada sin uso',
+  CONVERSION_IMPLICITA: 'Conversión implícita',
+  SPILL_TEMPDB: 'Spill hacia TempDB',
+  TABLE_SCAN: 'Table Scan',
+  LECTURAS_LOGICAS_ELEVADAS: 'Lecturas lógicas elevadas',
+  SOBREESTIMACION_FILAS: 'Desviación de cardinalidad',
+  MEMORIA_CONCEDIDA_SOBREDIMENSIONADA: 'Memoria concedida sobredimensionada',
+  VARBINARY_DOCUMENTO_IDENTIFICADO: 'VARBINARY para documento identificado'
 };
 
 const etiquetasSeveridad = {
@@ -316,4 +414,62 @@ function renderizarEstado(mensaje) {
   document.getElementById('resultsList').innerHTML = '';
   emptyState.style.display = 'block';
   emptyState.textContent = mensaje;
+}
+
+function renderizarPlanResultados(data) {
+  const resultsList = document.getElementById('planResultsList');
+  const emptyState = document.getElementById('planEmptyState');
+  const resumen = data?.resumen || { critico: 0, alto: 0, medio: 0, bajo: 0 };
+  const memoria = data?.memoria;
+
+  document.getElementById('planOperatorCount').textContent = data?.operadores?.length || 0;
+  document.getElementById('planGrantedMemory').textContent = memoria?.concedidaKb
+    ? `${Math.round(memoria.concedidaKb).toLocaleString()} KB`
+    : '--';
+  document.getElementById('planUsedMemory').textContent = memoria?.maximaUtilizadaKb
+    ? `${Math.round(memoria.maximaUtilizadaKb).toLocaleString()} KB`
+    : '--';
+  document.getElementById('planFindingCount').textContent = data?.hallazgos?.length || 0;
+  document.getElementById('planResultFile').textContent = data?.archivo || '';
+  resultsList.innerHTML = '';
+
+  if (!data) {
+    emptyState.style.display = 'block';
+    emptyState.textContent = 'Selecciona un archivo .sqlplan para iniciar el análisis.';
+    return;
+  }
+  if (!data.hallazgos?.length) {
+    emptyState.style.display = 'block';
+    emptyState.textContent = 'El plan terminó sin hallazgos según las reglas activas.';
+    return;
+  }
+
+  emptyState.style.display = 'none';
+  data.hallazgos.forEach((item) => {
+    const sev = item.severidad.toLowerCase();
+    const card = document.createElement('div');
+    card.className = `finding-card ${sev}`;
+    const header = document.createElement('div');
+    header.className = 'finding-header';
+    const titleWrap = document.createElement('div');
+    titleWrap.className = 'finding-title-wrap';
+    const badge = document.createElement('span');
+    badge.className = `finding-badge ${sev}`;
+    badge.textContent = etiquetasSeveridad[sev] || sev;
+    const title = document.createElement('h4');
+    title.className = 'finding-title';
+    title.textContent = nombresReglas[item.regla] || item.regla;
+    titleWrap.append(badge, title);
+    const meta = document.createElement('span');
+    meta.className = 'finding-meta';
+    meta.textContent = `${item.origen || 'plan_ejecucion'} · Línea ${item.linea || 1}`;
+    header.append(titleWrap, meta);
+    const body = document.createElement('p');
+    body.className = 'finding-body';
+    body.textContent = item.mensaje;
+    card.append(header, body);
+    resultsList.appendChild(card);
+  });
+
+  actualizarContadores(resumen.critico, resumen.alto, resumen.medio, resumen.bajo);
 }

@@ -84,6 +84,27 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         self.assertIn("ORDER_BY_NUMERICO_PROHIBIDO", reglas)
         self.assertIn("CAST_EN_JOIN_PROHIBIDO", reglas)
 
+    def test_prohibe_catalogo_sistema_sql_dinamico_y_varchar_max(self):
+        sql = """
+        DECLARE @sql VARCHAR(MAX) = 'SELECT 1 FROM sys.objects';
+        EXEC(@sql);
+        """
+        reglas = {hallazgo.regla for hallazgo in verificar_procedimiento_normal(sql)}
+
+        self.assertEqual(
+            reglas & {"CATALOGO_SISTEMA_PROHIBIDO", "SQL_DINAMICO_PROHIBIDO", "VARCHAR_MAX_PROHIBIDO"},
+            {"CATALOGO_SISTEMA_PROHIBIDO", "SQL_DINAMICO_PROHIBIDO", "VARCHAR_MAX_PROHIBIDO"},
+        )
+
+    def test_identifica_varbinary_para_documentos(self):
+        reglas = {
+            hallazgo.regla
+            for hallazgo in verificar_procedimiento_normal("DECLARE @documento VARBINARY(MAX);")
+        }
+
+        self.assertIn("VARBINARY_DOCUMENTO_IDENTIFICADO", reglas)
+        self.assertNotIn("VARCHAR_MAX_PROHIBIDO", reglas)
+
 
 if __name__ == "__main__":
     unittest.main()

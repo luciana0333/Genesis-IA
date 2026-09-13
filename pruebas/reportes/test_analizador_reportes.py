@@ -132,6 +132,26 @@ class TestAnalizadorReportes(unittest.TestCase):
         reglas = [hallazgo.regla for hallazgo in verificar_reporte(sql)]
         self.assertEqual(reglas, ["CODIGO_SQL_COMENTADO"])
 
+    def test_prohibe_sql_dinamico_y_varchar_max(self):
+        sql = """
+        DECLARE @sql VARCHAR(MAX) = 'SELECT 1 FROM sys.objects';
+        EXEC sp_executesql @sql;
+        """
+        reglas = {hallazgo.regla for hallazgo in verificar_reporte(sql)}
+
+        self.assertIn("CATALOGO_SISTEMA_PROHIBIDO", reglas)
+        self.assertIn("SQL_DINAMICO_PROHIBIDO", reglas)
+        self.assertIn("VARCHAR_MAX_PROHIBIDO", reglas)
+
+    def test_identifica_varbinary_para_documentos(self):
+        reglas = {
+            hallazgo.regla
+            for hallazgo in verificar_reporte("DECLARE @documento VARBINARY(MAX);")
+        }
+
+        self.assertIn("VARBINARY_DOCUMENTO_IDENTIFICADO", reglas)
+        self.assertNotIn("VARCHAR_MAX_PROHIBIDO", reglas)
+
 
 if __name__ == "__main__":
     unittest.main()

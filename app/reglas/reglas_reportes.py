@@ -92,4 +92,28 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "SQL_DINAMICO_PROHIBIDO": ReglaDiccionario(
+        codigo="SQL_DINAMICO_PROHIBIDO",
+        nombre="SQL dinámico prohibido",
+        severidad="alto",
+        descripcion="No se permite ejecutar SQL dinámico ni consultas dinámicas en reportes.",
+        alcance="reporte",
+        activo=True,
+    ),
+    "VARCHAR_MAX_PROHIBIDO": ReglaDiccionario(
+        codigo="VARCHAR_MAX_PROHIBIDO",
+        nombre="VARCHAR(MAX) prohibido",
+        severidad="alto",
+        descripcion="No se permite usar VARCHAR(MAX); debe definirse una longitud explícita y justificada.",
+        alcance="reporte",
+        activo=True,
+    ),
+    "VARBINARY_DOCUMENTO_IDENTIFICADO": ReglaDiccionario(
+        codigo="VARBINARY_DOCUMENTO_IDENTIFICADO",
+        nombre="VARBINARY para documento identificado",
+        severidad="bajo",
+        descripcion="Se identificó VARBINARY, tipo adecuado para almacenar contenido binario de archivos o documentos.",
+        alcance="reporte",
+        activo=True,
+    ),
 }

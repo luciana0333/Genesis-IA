@@ -26,8 +26,7 @@
           <a href="#" id="navTablas">Tablas</a>
           <a href="#" id="navReportes">Reportes</a>
           <a href="#" id="navNormales">Normales</a>
-          <a href="#">Historial</a>
-          <a href="#">Soporte</a>
+          <a href="#" id="navPlanes">Planes</a>
         </nav>
 
         <div class="nav-actions">
@@ -46,14 +45,78 @@
       <div class="hero-container">
         <div class="hero-text">
           <span class="badge-tag">Auditoría Inteligente</span>
-          <h1>Revisión e inspección de Diccionarios SQL</h1>
-          <p>Valida la estructura, consistencia y estándares de documentación de tus bases de datos SQL Server en tiempo real.</p>
+          <h1 id="heroTitle">Revisión e inspección de Diccionarios SQL</h1>
+          <p id="heroDescription">Valida la estructura, consistencia y estándares de documentación de tus bases de datos SQL Server en tiempo real.</p>
         </div>
       </div>
     </section>
 
-    <!-- CONTENEDOR PRINCIPAL -->
     <main class="main-wrapper">
+      <section class="plan-workspace-panel" id="planWorkspace">
+        <section class="services-grid plan-summary-grid" aria-label="Resumen del plan">
+          <div class="service-card critical">
+            <div class="card-header"><span class="card-title">Operadores</span><div class="card-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 4v16M16 4v16M4 8h16M4 16h16"/></svg></div></div>
+            <strong id="planOperatorCount">0</strong><span class="card-sub">Nodos analizados</span>
+          </div>
+          <div class="service-card high">
+            <div class="card-header"><span class="card-title">Memoria concedida</span><div class="card-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16v10H4zM8 4v3m8-3v3M8 17v3m8-3v3"/></svg></div></div>
+            <strong id="planGrantedMemory">--</strong><span class="card-sub">Reserva del plan</span>
+          </div>
+          <div class="service-card medium">
+            <div class="card-header"><span class="card-title">Memoria utilizada</span><div class="card-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19h16M6 16V9m4 7V5m4 11v-4m4 4V7"/></svg></div></div>
+            <strong id="planUsedMemory">--</strong><span class="card-sub">Máximo utilizado</span>
+          </div>
+          <div class="service-card low">
+            <div class="card-header"><span class="card-title">Hallazgos</span><div class="card-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v5m0 3h.01"/></svg></div></div>
+            <strong id="planFindingCount">0</strong><span class="card-sub">Observaciones del plan</span>
+          </div>
+        </section>
+
+        <section class="form-container plan-form-container">
+          <div class="section-title">
+            <span class="editor-kicker">SQL Server ShowPlanXML</span>
+            <h2>Revisión de plan de ejecución real</h2>
+            <div class="title-line"></div>
+          </div>
+
+          <div class="plan-upload-layout">
+            <div class="editor-card plan-upload-card">
+              <div class="editor-card-heading">
+                <div><span class="editor-kicker">Entrada principal</span><label for="planFile">Archivo .sqlplan</label></div>
+                <span class="editor-status">Requerido</span>
+              </div>
+              <p class="editor-hint">Carga el plan real exportado desde SQL Server o Plan Explorer.</p>
+              <input id="planFile" type="file" accept=".sqlplan,application/xml,text/xml" />
+              <span id="planFileName" class="plan-file-name">Ningún archivo seleccionado</span>
+            </div>
+
+            <div class="editor-card plan-actions-card">
+              <div class="editor-card-heading">
+                <div><span class="editor-kicker">Análisis profesional</span><label>Diagnóstico técnico</label></div>
+                <span class="editor-status optional">Automático</span>
+              </div>
+              <p class="editor-hint">Se revisan conversiones implícitas, spills, scans, lecturas, cardinalidad y memoria concedida.</p>
+              <div class="btn-group plan-btn-group">
+                <button class="btn-primary" id="btnAnalizarPlan" type="button">Analizar plan</button>
+                <button class="btn-secondary" id="btnLimpiarPlan" type="button">Limpiar</button>
+              </div>
+              <p id="planStatus" class="plan-status" role="status"></p>
+            </div>
+          </div>
+
+          <section class="plan-results-panel" id="planResultsPanel">
+            <div class="results-header">
+              <h3>Hallazgos del plan</h3>
+              <span id="planResultFile" class="finding-meta"></span>
+            </div>
+            <div id="planEmptyState" class="empty-state">Selecciona un archivo .sqlplan para iniciar el análisis.</div>
+            <div id="planResultsList" class="results-list"></div>
+          </section>
+        </section>
+      </section>
+
+      <!-- CONTENEDOR PRINCIPAL DE REVISIONES SQL -->
+    <section id="auditoriaWorkspace">
 
       <!-- TARJETAS DE MÉTRICAS -->
       <section class="services-grid">
@@ -187,6 +250,7 @@ GO</textarea>
           <div id="resultsList" class="results-list"></div>
         </section>
       </section>
+    </section>
     </main>
 
     <script src="script.js"></script>

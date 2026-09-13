@@ -15,6 +15,8 @@ _HINTS_PROHIBIDOS = (
 )
 _PALABRAS_SQL_COMENTADAS = r"SELECT|INSERT|UPDATE|DELETE|MERGE|EXEC(?:UTE)?|DECLARE|CREATE|ALTER|DROP|WHILE|GOTO"
 _TIPOS_TEXTO = r"(?:N?VARCHAR|N?CHAR|TEXT|NTEXT)\b"
+_CATALOGO_SISTEMA = r"\bsys\s*\.\s*[A-Za-z_][\w$]*"
+_SQL_DINAMICO = r"\b(?:sp_executesql\b|EXEC(?:UTE)?\s*(?:\(\s*)?(?:N?['\"]|@))"
 
 
 def _linea(texto: str, posicion: int) -> int:
@@ -207,7 +209,22 @@ def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_order_by_numerico(texto_sql, limpio))
     hallazgos.extend(_validar_cast_en_join(texto_sql, limpio))
     hallazgos.extend(_validar_sentencias(texto_sql, limpio))
+    hallazgos.extend(_validar_sintaxis_prohibida(texto_sql, limpio))
     hallazgos.extend(_validar_collate_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_comentarios(texto_sql))
     hallazgos.extend(_validar_variables(texto_sql, limpio))
+    return hallazgos
+
+
+def _validar_sintaxis_prohibida(texto: str, limpio: str) -> List[Hallazgo]:
+    reglas = (
+        (_CATALOGO_SISTEMA, "CATALOGO_SISTEMA_PROHIBIDO", "No se permite consultar objetos del catálogo del sistema mediante sys."),
+        (_SQL_DINAMICO, "SQL_DINAMICO_PROHIBIDO", "No se permite ejecutar SQL dinámico ni consultas dinámicas en el procedimiento."),
+        (r"\bN?VARCHAR\s*\(\s*MAX\s*\)", "VARCHAR_MAX_PROHIBIDO", "No se permite usar VARCHAR(MAX); defina una longitud explícita y justificada."),
+        (r"\bVARBINARY(?:\s*\(\s*(?:MAX|\d+)\s*\))?", "VARBINARY_DOCUMENTO_IDENTIFICADO", "Se detectó VARBINARY, tipo adecuado para almacenar el contenido binario de archivos o documentos."),
+    )
+    hallazgos = []
+    for patron, regla, mensaje in reglas:
+        for match in re.finditer(patron, limpio, re.IGNORECASE):
+            hallazgos.append(_hallazgo(texto, match.start(), regla, mensaje))
     return hallazgos
