@@ -1,6 +1,7 @@
 import unittest
 
 from app.analizadores.planes_ejecucion import analizar_plan_ejecucion
+from app.reglas.reglas_diccionario import obtener_regla
 
 
 PLAN_REAL_MINIMO = """
@@ -21,6 +22,11 @@ PLAN_REAL_MINIMO = """
 
 
 class TestAnalizadorPlanes(unittest.TestCase):
+    def test_reglas_de_planes_estan_registradas_en_el_catalogo(self):
+        self.assertEqual(obtener_regla("CONVERSION_IMPLICITA").alcance, "plan_ejecucion")
+        self.assertEqual(obtener_regla("SPILL_TEMPDB").alcance, "plan_ejecucion")
+        self.assertEqual(obtener_regla("TABLE_SCAN").alcance, "plan_ejecucion")
+
     def test_analiza_operadores_alertas_y_memoria(self):
         hallazgos, operadores, memoria = analizar_plan_ejecucion(PLAN_REAL_MINIMO)
         reglas = {hallazgo.regla for hallazgo in hallazgos}

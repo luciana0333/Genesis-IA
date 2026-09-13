@@ -14,6 +14,7 @@ from app.reglas.reglas_diccionario_procedimientos import REGLAS_DICCIONARIO_PROC
 from app.reglas.reglas_diccionario_tablas import REGLAS_DICCIONARIO_TABLAS
 from app.reglas.reglas_procedimientos_normales import REGLAS_PROCEDIMIENTOS_NORMALES
 from app.reglas.reglas_reportes import REGLAS_REPORTES
+from app.reglas.reglas_planes_ejecucion import REGLAS_PLANES_EJECUCION
 from app.reglas.reglas_tablas import REGLAS_TABLAS
 
 REGLAS_DICCIONARIO: Dict[str, ReglaDiccionario] = {
@@ -22,6 +23,7 @@ REGLAS_DICCIONARIO: Dict[str, ReglaDiccionario] = {
     **REGLAS_TABLAS,
     **REGLAS_REPORTES,
     **REGLAS_PROCEDIMIENTOS_NORMALES,
+    **REGLAS_PLANES_EJECUCION,
 }
 
 

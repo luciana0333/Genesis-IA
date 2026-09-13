@@ -128,7 +128,7 @@
             </div>
           </div>
           <strong id="countCritico">0</strong>
-          <span class="card-sub">Errores de estructura</span>
+          <span class="card-sub" id="subCritico">Errores de estructura</span>
         </div>
 
         <div class="service-card high">
@@ -139,7 +139,7 @@
             </div>
           </div>
           <strong id="countAlto">0</strong>
-          <span class="card-sub">Inconsistencias clave</span>
+          <span class="card-sub" id="subAlto">Inconsistencias clave</span>
         </div>
 
         <div class="service-card medium">
@@ -150,7 +150,7 @@
             </div>
           </div>
           <strong id="countMedio">0</strong>
-          <span class="card-sub">Faltas de documentación</span>
+          <span class="card-sub" id="subMedio">Faltas de documentación</span>
         </div>
 
         <div class="service-card low">
@@ -161,7 +161,7 @@
             </div>
           </div>
           <strong id="countBajo">0</strong>
-          <span class="card-sub">Sugerencias menores</span>
+          <span class="card-sub" id="subBajo">Sugerencias menores</span>
         </div>
       </section>
 
@@ -242,7 +242,7 @@ GO</textarea>
         <!-- PANEL DE RESULTADOS CON CAJITAS INDIVIDUALES -->
         <section class="results-panel" id="resultsPanel">
           <div class="results-header">
-            <h3>Hallazgos detectados</h3>
+            <h3 id="generalResultsTitle">Hallazgos de Diccionarios</h3>
           </div>
           <div id="emptyState" class="empty-state">
             Aún no hay resultados. Presiona <strong>"Ejecutar revisión"</strong> para analizar el objeto.

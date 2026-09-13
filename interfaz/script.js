@@ -132,6 +132,33 @@ GO`;
     heroDescription.textContent = encabezado.descripcion;
   }
 
+  function actualizarContextoResultados(vista) {
+    const contextos = {
+      diccionario: {
+        titulo: 'Hallazgos de Diccionarios',
+        subtitulos: ['Errores de estructura', 'Inconsistencias de documentación', 'Faltas de documentación', 'Sugerencias menores']
+      },
+      tabla: {
+        titulo: 'Hallazgos de Tablas',
+        subtitulos: ['Errores de estructura', 'Reglas de diseño', 'Tipos y nulabilidad', 'Sugerencias menores']
+      },
+      reporte: {
+        titulo: 'Hallazgos de Reportes',
+        subtitulos: ['Riesgos críticos', 'Inconsistencias de consulta', 'Buenas prácticas', 'Sugerencias menores']
+      },
+      normal: {
+        titulo: 'Hallazgos de Procedimientos',
+        subtitulos: ['Riesgos críticos', 'Reglas incumplidas', 'Buenas prácticas', 'Sugerencias menores']
+      }
+    };
+    const contexto = contextos[vista] || contextos.diccionario;
+    document.getElementById('generalResultsTitle').textContent = contexto.titulo;
+    ['subCritico', 'subAlto', 'subMedio', 'subBajo'].forEach((id, indice) => {
+      document.getElementById(id).textContent = contexto.subtitulos[indice];
+    });
+    document.body.dataset.revisionNombre = contexto.titulo.replace('Hallazgos de ', '');
+  }
+
   function cambiarVista(vista) {
     const esPlan = vista === 'planes';
     const esTabla = vista === 'tabla';
@@ -155,6 +182,8 @@ GO`;
     }
     labelObjeto.textContent = esTabla ? 'Nombre de la Tabla' : 'Nombre del Procedimiento';
     actualizarFormulario();
+    actualizarContextoResultados(vista);
+    renderizarResultados([]);
   }
 
   // Alternar Modo Oscuro
@@ -232,7 +261,7 @@ GO`;
     }
 
     btnEjecutar.disabled = true;
-    renderizarEstado('Analizando las reglas del diccionario...');
+    renderizarEstado(`Analizando las reglas de ${document.body.dataset.revisionNombre || 'la revisión'}...`);
 
     try {
       const response = await fetch('/api/analizar', {
@@ -388,7 +417,7 @@ function renderizarResultados(lista) {
 
     const meta = document.createElement('span');
     meta.className = 'finding-meta';
-    meta.textContent = `Línea ${item.linea || 1} · ${item.origen || 'diccionario'}`;
+    meta.textContent = `Línea ${item.linea || 1} · ${item.origen || 'reglas_estaticas'}`;
     header.append(titleWrap, meta);
 
     const body = document.createElement('p');
