@@ -249,10 +249,51 @@ GO</textarea>
           </div>
           <div id="resultsList" class="results-list"></div>
         </section>
+
+        <section class="ai-suggestions-panel" id="aiSuggestionsPanel" aria-live="polite">
+          <div class="results-header">
+            <div>
+              <span class="editor-kicker">Asesor local · Ollama</span>
+              <h3>Sugerencias de mejora gradual</h3>
+            </div>
+            <span id="aiSuggestionsStatus" class="finding-meta">Pendiente de análisis</span>
+          </div>
+          <p id="aiSuggestionsEmpty" class="empty-state">Las sugerencias aparecerán separadas de las reglas obligatorias.</p>
+          <div id="aiSummary" class="ai-summary" hidden>
+            <p id="aiSummaryText"></p>
+            <div class="ai-summary-columns">
+              <div><strong>Encontré</strong><ul id="aiFoundList"></ul></div>
+              <div><strong>Mejoraría</strong><ul id="aiImproveList"></ul></div>
+            </div>
+            <p id="aiValidationNote" class="ai-validation-note"></p>
+          </div>
+          <details id="aiCodeDetails" class="ai-code-details" hidden>
+            <summary>Ver código optimizado propuesto</summary>
+            <pre><code id="aiOptimizedSql"></code></pre>
+          </details>
+          <div id="aiSuggestionsList" class="ai-suggestions-list"></div>
+        </section>
+
+        <section class="ai-chat-panel" aria-label="Consulta a Ollama">
+          <div class="results-header">
+            <div>
+              <span class="editor-kicker">Consulta contextual · Ollama</span>
+              <h3>Pregunta sobre este procedimiento</h3>
+            </div>
+            <span id="aiChatStatus" class="finding-meta">Solo lectura</span>
+          </div>
+          <div id="aiChatMessages" class="ai-chat-messages" aria-live="polite">
+            <p class="ai-chat-placeholder">Pregunta cualquier duda sobre la lógica, seguridad, rendimiento o mejora del procedimiento.</p>
+          </div>
+          <div class="ai-chat-compose">
+            <textarea id="aiChatQuestion" rows="2" placeholder="Ejemplo: ¿Cómo reviso los cuatro JOIN a RRHH sin cambiar la cardinalidad?"></textarea>
+            <button class="btn-primary" id="btnAiChat" type="button">Consultar</button>
+          </div>
+        </section>
       </section>
     </section>
     </main>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=9"></script>
   </body>
 </html>

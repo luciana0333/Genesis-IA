@@ -528,6 +528,205 @@ select:focus, input:focus, textarea:focus {
   gap: 16px;
 }
 
+.ai-suggestions-panel {
+  margin-top: 28px;
+  padding: 28px;
+  border: 1px solid #b7d8d2;
+  border-radius: 16px;
+  background: var(--bg-card);
+}
+
+.ai-suggestions-panel .results-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.ai-suggestions-panel h3 {
+  margin-top: 4px;
+}
+
+.ai-suggestions-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.ai-suggestion-card {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-left: 4px solid #168477;
+  border-radius: 10px;
+  background: var(--bg-card);
+}
+
+.ai-suggestion-card h4 {
+  margin-bottom: 6px;
+  font-size: 0.98rem;
+}
+
+.ai-suggestion-card p {
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
+.ai-suggestion-meta {
+  color: #168477;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ai-summary {
+  margin-top: 14px;
+  color: var(--text-primary);
+}
+
+.ai-summary > p {
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.ai-summary-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.ai-summary-columns > div {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+}
+
+.ai-summary-columns strong {
+  color: #168477;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.ai-summary-columns ul {
+  margin: 8px 0 0 18px;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.ai-validation-note {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.ai-code-details {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.ai-code-details summary {
+  cursor: pointer;
+  color: #168477;
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.ai-code-details pre {
+  max-height: 360px;
+  overflow: auto;
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: 8px;
+  background: #101820;
+  color: #d9f7ef;
+  font: 0.78rem/1.55 'JetBrains Mono', monospace;
+  white-space: pre-wrap;
+}
+
+.ai-chat-panel {
+  margin-top: 28px;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg-card);
+}
+
+.ai-chat-panel .results-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.ai-chat-messages {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-input);
+}
+
+.ai-chat-placeholder,
+.ai-chat-user,
+.ai-chat-assistant {
+  margin: 0;
+  padding: 10px 12px;
+  white-space: pre-line;
+  line-height: 1.55;
+}
+
+.ai-chat-placeholder {
+  color: var(--text-muted);
+}
+
+.ai-chat-user {
+  margin-left: 12%;
+  border-radius: 8px;
+  background: var(--red-light);
+}
+
+.ai-chat-assistant {
+  margin-right: 12%;
+  border-left: 3px solid #168477;
+  color: var(--text-primary);
+}
+
+.ai-chat-assistant p {
+  margin: 0;
+  white-space: pre-line;
+  line-height: 1.55;
+}
+
+.ai-chat-code {
+  max-height: 360px;
+  overflow: auto;
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 8px;
+  background: #101820;
+  color: #d9f7ef;
+  font: 0.76rem/1.5 'JetBrains Mono', monospace;
+  white-space: pre-wrap;
+}
+
+.ai-chat-compose {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.ai-chat-compose textarea {
+  min-height: 58px;
+  resize: vertical;
+}
+
 /* CAJITA INDIVIDUAL */
 .finding-card {
   background: var(--bg-card);
@@ -742,6 +941,24 @@ select:focus, input:focus, textarea:focus {
 
   .plan-results-panel .results-header {
     align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ai-suggestions-list {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-suggestions-panel .results-header {
+    flex-direction: column;
+  }
+
+  .ai-summary-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-chat-panel .results-header,
+  .ai-chat-compose {
+    grid-template-columns: 1fr;
     flex-direction: column;
   }
 }

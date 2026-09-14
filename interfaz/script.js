@@ -22,6 +22,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const planStatus = document.getElementById('planStatus');
   const heroTitle = document.getElementById('heroTitle');
   const heroDescription = document.getElementById('heroDescription');
+  const aiChatQuestion = document.getElementById('aiChatQuestion');
+  const btnAiChat = document.getElementById('btnAiChat');
+  const aiChatMessages = document.getElementById('aiChatMessages');
+  const aiChatStatus = document.getElementById('aiChatStatus');
+  let aiSessionId = crearSesionIA();
+
+  function crearSesionIA() {
+    if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+    return `genesis-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
 
   const sqlProcedimiento = `CREATE PROCEDURE CLICKTOPAY.PA_Cliente_Consultar
     @nClienteId INT
@@ -239,6 +249,7 @@ GO`;
     document.getElementById('dictScript').value = '';
     document.getElementById('esDbcmaica').checked = false;
     renderizarResultados([]);
+    renderizarSugerenciasIA(null);
   });
 
   btnEjecutar.addEventListener('click', async () => {
@@ -276,11 +287,70 @@ GO`;
       }
 
       renderizarResultados(data.hallazgos || []);
+      renderizarSugerenciasIA(data.sugerenciasIA);
+      aiSessionId = crearSesionIA();
+      aiChatMessages.innerHTML = '<p class="ai-chat-placeholder">Pregunta cualquier duda sobre la lógica, seguridad, rendimiento o mejora del procedimiento.</p>';
+      aiChatStatus.textContent = 'Solo lectura';
+      cargarSugerenciasIA(payload, data.hallazgos || []);
     } catch (error) {
       renderizarEstado(error.message || 'No se pudo conectar con el servidor.');
+      renderizarSugerenciasIA(null);
       actualizarContadores(0, 0, 0, 0);
     } finally {
       btnEjecutar.disabled = false;
+    }
+  });
+
+  btnAiChat.addEventListener('click', async () => {
+    const pregunta = aiChatQuestion.value.trim();
+    const sql = sqlObject.value.trim();
+    if (!pregunta || !sql) {
+      aiChatStatus.textContent = 'Escribe una pregunta con SQL cargado';
+      return;
+    }
+    const preguntaUsuario = document.createElement('p');
+    preguntaUsuario.className = 'ai-chat-user';
+    preguntaUsuario.textContent = pregunta;
+    aiChatMessages.appendChild(preguntaUsuario);
+    aiChatQuestion.value = '';
+    btnAiChat.disabled = true;
+    aiChatStatus.textContent = 'Consultando modelo local...';
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tipoRevision: tipoRevision.value,
+          sqlObject: sql,
+          pregunta,
+          sessionId: aiSessionId
+        })
+      });
+      const resultado = await response.json();
+      if (!response.ok) throw new Error(resultado.error || 'No se pudo consultar Ollama.');
+      const respuesta = document.createElement('div');
+      respuesta.className = 'ai-chat-assistant';
+      const mensaje = resultado.mensaje || '';
+      const bloqueSql = mensaje.match(/```sql\s*([\s\S]*?)```/i);
+      const texto = bloqueSql ? mensaje.replace(bloqueSql[0], '').trim() : mensaje;
+      const textoRespuesta = document.createElement('p');
+      textoRespuesta.textContent = texto;
+      respuesta.appendChild(textoRespuesta);
+      if (bloqueSql) {
+        const codigo = document.createElement('pre');
+        codigo.className = 'ai-chat-code';
+        codigo.textContent = bloqueSql[1].trim();
+        respuesta.appendChild(codigo);
+      }
+      aiChatMessages.appendChild(respuesta);
+      aiChatStatus.textContent = resultado.disponible
+        ? `${resultado.modelo} · conversación local`
+        : 'Ollama no disponible';
+    } catch (error) {
+      aiChatStatus.textContent = error.message || 'No se pudo consultar Ollama.';
+    } finally {
+      btnAiChat.disabled = false;
+      aiChatMessages.scrollTop = aiChatMessages.scrollHeight;
     }
   });
 
@@ -445,6 +515,63 @@ function renderizarEstado(mensaje) {
   emptyState.textContent = mensaje;
 }
 
+function renderizarSugerenciasIA(resultado) {
+  const lista = document.getElementById('aiSuggestionsList');
+  const vacio = document.getElementById('aiSuggestionsEmpty');
+  const estado = document.getElementById('aiSuggestionsStatus');
+  const resumen = document.getElementById('aiSummary');
+  const summaryText = document.getElementById('aiSummaryText');
+  const foundList = document.getElementById('aiFoundList');
+  const improveList = document.getElementById('aiImproveList');
+  const validationNote = document.getElementById('aiValidationNote');
+  const codeDetails = document.getElementById('aiCodeDetails');
+  const optimizedSql = document.getElementById('aiOptimizedSql');
+  lista.innerHTML = '';
+  resumen.hidden = true;
+  codeDetails.hidden = true;
+
+  if (resultado?.pendiente) {
+    estado.textContent = `${resultado.modelo || 'modelo local'} · analizando`;
+    vacio.textContent = 'Analizando oportunidades adicionales sin bloquear las reglas obligatorias...';
+    vacio.style.display = 'block';
+    return;
+  }
+
+  const sugerencias = resultado.sugerencias || [];
+  estado.textContent = resultado?.disponible
+    ? `${resultado.modelo || 'modelo local'} · solo lectura`
+    : `${resultado?.modelo || 'modelo local'} · recomendaciones base`;
+  const tieneResumen = resultado?.encontrado?.length || resultado?.mejoras?.length || resultado?.sql_optimizado?.trim();
+  if (!sugerencias.length && !tieneResumen) {
+    vacio.textContent = resultado?.disponible
+      ? 'No se encontraron oportunidades adicionales con evidencia suficiente.'
+      : 'Ollama no respondió y no hay recomendaciones base para este caso.';
+    vacio.style.display = 'block';
+    return;
+  }
+
+  vacio.style.display = 'none';
+  const encontrado = resultado.encontrado || sugerencias.slice(0, 3).map((item) => item.titulo);
+  const mejoras = resultado.mejoras || sugerencias.slice(0, 3).map((item) => item.cambio_propuesto);
+  summaryText.textContent = resultado.resumen || 'Encontré oportunidades de mejora gradual en este procedimiento.';
+  foundList.replaceChildren(...encontrado.slice(0, 3).map((item) => {
+    const li = document.createElement('li');
+    li.textContent = item;
+    return li;
+  }));
+  improveList.replaceChildren(...mejoras.slice(0, 3).map((item) => {
+    const li = document.createElement('li');
+    li.textContent = item;
+    return li;
+  }));
+  validationNote.textContent = resultado.nota_validacion || 'Validar con el mismo volumen y plan de ejecución.';
+  resumen.hidden = false;
+  if (resultado.sql_optimizado?.trim()) {
+    optimizedSql.textContent = resultado.sql_optimizado.trim();
+    codeDetails.hidden = false;
+  }
+}
+
 function renderizarPlanResultados(data) {
   const resultsList = document.getElementById('planResultsList');
   const emptyState = document.getElementById('planEmptyState');
@@ -501,4 +628,28 @@ function renderizarPlanResultados(data) {
   });
 
   actualizarContadores(resumen.critico, resumen.alto, resumen.medio, resumen.bajo);
+}
+
+async function cargarSugerenciasIA(payload, hallazgos) {
+  try {
+    const response = await fetch('/api/sugerencias', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tipoRevision: payload.tipoRevision,
+        sqlObject: payload.sqlObject,
+        hallazgos
+      })
+    });
+    const resultado = await response.json();
+    if (!response.ok) {
+      throw new Error(resultado.error || 'No se pudieron generar sugerencias.');
+    }
+    renderizarSugerenciasIA(resultado);
+  } catch (error) {
+    renderizarSugerenciasIA({
+      disponible: false,
+      mensaje: 'No se pudieron generar sugerencias; las reglas obligatorias siguen disponibles.'
+    });
+  }
 }

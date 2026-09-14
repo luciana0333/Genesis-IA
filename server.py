@@ -11,6 +11,8 @@ from app.analizadores.analizador_tablas import verificar_tabla
 from app.analizadores.analizador_reportes import verificar_reporte
 from app.analizadores.analizador_procedimientos_normales import verificar_procedimiento_normal
 from app.analizadores.planes_ejecucion import analizar_plan_ejecucion
+from app.ia.recomendador import analizar_con_ollama, conversar_con_ollama
+from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 
 
 class GenesisHandler(SimpleHTTPRequestHandler):
@@ -28,6 +30,12 @@ class GenesisHandler(SimpleHTTPRequestHandler):
         parsed = urlsplit(self.path)
         if parsed.path == '/api/analizar-plan':
             self._analizar_plan()
+            return
+        if parsed.path == '/api/sugerencias':
+            self._sugerencias_ia()
+            return
+        if parsed.path == '/api/chat':
+            self._chat_ia()
             return
         if parsed.path != '/api/analizar':
             self.send_error(404, 'Ruta no encontrada')
@@ -90,7 +98,53 @@ class GenesisHandler(SimpleHTTPRequestHandler):
             'tipoRevision': tipo,
             'resumen': resumen,
             'hallazgos': hallazgos_serializados,
+            'sugerenciasIA': {
+                'pendiente': True,
+                'modelo': 'qwen2.5-coder:3b',
+                'sugerencias': [],
+            },
         })
+
+    def _sugerencias_ia(self):
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+            payload = json.loads(self.rfile.read(length).decode('utf-8') or '{}')
+            sql_text = (payload.get('sqlObject') or '').strip()
+            tipo = (payload.get('tipoRevision') or 'tabla').strip()
+            if not sql_text:
+                self._send_json({'error': 'Debes completar el SQL del objeto.'}, status=400)
+                return
+            hallazgos = [
+                Hallazgo(
+                    linea=int(item.get('linea') or 1),
+                    origen=OrigenAnalisis(item.get('origen', OrigenAnalisis.REGLAS_ESTATICAS.value)),
+                    severidad=Severidad(item.get('severidad', Severidad.ALTO.value)),
+                    regla=item.get('regla', ''),
+                    mensaje=item.get('mensaje', ''),
+                )
+                for item in payload.get('hallazgos', [])
+            ]
+            self._send_json(analizar_con_ollama(sql_text, tipo, hallazgos))
+        except (ValueError, TypeError, json.JSONDecodeError) as exc:
+            self._send_json({'error': f'No se pudieron preparar las sugerencias: {exc}'}, status=400)
+
+    def _chat_ia(self):
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+            payload = json.loads(self.rfile.read(length).decode('utf-8') or '{}')
+            sql_text = (payload.get('sqlObject') or '').strip()
+            pregunta = (payload.get('pregunta') or '').strip()
+            if not sql_text or not pregunta:
+                self._send_json({'error': 'Debes enviar el SQL y una pregunta.'}, status=400)
+                return
+            self._send_json(conversar_con_ollama(
+                sql_text,
+                pregunta,
+                (payload.get('tipoRevision') or 'procedimiento_normal').strip(),
+                (payload.get('sessionId') or '').strip() or None,
+            ))
+        except (ValueError, TypeError, json.JSONDecodeError) as exc:
+            self._send_json({'error': f'No se pudo preparar la consulta: {exc}'}, status=400)
 
     def _analizar_plan(self):
         limite_bytes = 25 * 1024 * 1024
@@ -191,7 +245,11 @@ class GenesisHandler(SimpleHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            # El navegador puede cancelar una consulta lenta de Ollama.
+            return
 
     def log_message(self, format, *args):
         return
