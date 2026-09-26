@@ -61,6 +61,7 @@ export const NOMBRES_REGLAS = {
   COLUMNA_NO_EXISTE: 'Columna documentada que no existe',
   DOCUMENTACION_DUPLICADA: 'Documentado dos veces',
   DESCRIPCION_TABLA_INADECUADA: 'Descripción de tabla inadecuada',
+  ERROR_ORTOGRAFICO: 'Palabra mal escrita en la descripción',
   CONVERSION_IMPLICITA: 'Conversión implícita',
   SPILL_TEMPDB: 'Spill hacia TempDB',
   TABLE_SCAN: 'Table Scan',

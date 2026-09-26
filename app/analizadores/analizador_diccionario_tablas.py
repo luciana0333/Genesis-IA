@@ -14,6 +14,7 @@ import re
 import unicodedata
 from typing import Dict, List, Optional, Set, Tuple
 
+from app.analizadores.ortografia import palabras_mal_escritas
 from app.analizadores.propiedades_extendidas import (
     LlamadaPropiedad,
     como_llamadas_crudas,
@@ -411,6 +412,39 @@ def _validar_descripcion_tabla(llamadas: List[LlamadaPropiedad]) -> List[Hallazg
     return hallazgos
 
 
+def _validar_ortografia(
+    llamadas: List[LlamadaPropiedad],
+    esquema: Optional[str],
+    nombre_tabla: str,
+    columnas_reales: Set[str],
+) -> List[Hallazgo]:
+    """Palabras mal escritas en las descripciones (sin exigir tildes)."""
+    nombres_objeto = {esquema or "", nombre_tabla, *columnas_reales}
+    hallazgos = []
+    for ll in llamadas:
+        if not (_es_descripcion(ll) and ll.texto("value")):
+            continue
+        if _es_de_columna(ll):
+            objeto = f"de la columna {ll.texto('level2name')}"
+        elif _es_de_tabla(ll):
+            objeto = f"de la tabla {_nombre_completo(esquema, nombre_tabla)}"
+        else:
+            continue
+        errores = palabras_mal_escritas(ll.texto("value"), nombres_objeto | {ll.texto("level2name")})
+        if not errores:
+            continue
+        detalle = ", ".join(
+            f"'{palabra}' (¿quiso decir '{opciones[0]}'?)" if opciones else f"'{palabra}'"
+            for palabra, opciones in errores
+        )
+        texto = "una palabra mal escrita" if len(errores) == 1 else "palabras mal escritas"
+        hallazgos.append(_hallazgo(
+            ll.linea, "ERROR_ORTOGRAFICO",
+            f"La descripción {objeto} tiene {texto}: {detalle}. Corríjala.",
+        ))
+    return hallazgos
+
+
 def _validar_descripciones_vacias(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
     return [
         _hallazgo(
@@ -478,6 +512,7 @@ def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> Li
     hallazgos += _validar_esquema(llamadas, esquema)
     hallazgos += _validar_nombre_tabla(llamadas, nombre_tabla)
     hallazgos += _validar_descripciones_vacias(llamadas)
+    hallazgos += _validar_ortografia(llamadas, esquema, nombre_tabla, columnas_reales)
     hallazgos += _validar_valores_sin_comillas(llamadas)
 
     # Las reglas desactivadas en el catálogo no se reportan.

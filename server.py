@@ -12,6 +12,7 @@ from app.analizadores.analizador_tablas import verificar_tabla
 from app.analizadores.analizador_reportes import verificar_reporte
 from app.analizadores.analizador_procedimientos_normales import verificar_procedimiento_normal
 from app.analizadores.deteccion_objeto import detectar_objeto
+from app.analizadores import ortografia
 from app.analizadores.planes_ejecucion import analizar_plan_ejecucion
 
 
@@ -238,6 +239,9 @@ class GenesisHandler(SimpleHTTPRequestHandler):
 
 if __name__ == '__main__':
     server = ThreadingHTTPServer(('0.0.0.0', 8000), GenesisHandler)
+    if not ortografia.disponible():
+        print('AVISO: pyspellchecker no está instalado; no se revisará la ortografía de los diccionarios.')
+        print('       Instálelo con: python -m pip install -r requirements.txt')
     print('Servidor Genesis IA corriendo en http://localhost:8000')
     try:
         server.serve_forever()

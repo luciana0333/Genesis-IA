@@ -1,0 +1,2 @@
+# Dependencias del backend (instalar con: python -m pip install -r requirements.txt)
+pyspellchecker==0.9.0  # revisión ortográfica en español de las descripciones del diccionario

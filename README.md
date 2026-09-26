@@ -19,10 +19,15 @@ server.py   Servidor HTTP: API + interfaz compilada
 Requisitos: Python 3.10+ y Node.js 20+.
 
 ```bash
+python -m pip install -r requirements.txt
 npm --prefix frontend install
 npm --prefix frontend run build
 python server.py
 ```
+
+`requirements.txt` instala `pyspellchecker`, que revisa la ortografía de las
+descripciones del diccionario. Si el corrector marca como error una palabra
+correcta del negocio, agréguela a `app/reglas/vocabulario_tecnico.txt`.
 
 Abrir http://localhost:8000.
 

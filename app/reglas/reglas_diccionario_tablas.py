@@ -87,6 +87,18 @@ REGLAS_DICCIONARIO_TABLAS = {
         activo=True,
     ),
 
+    "ERROR_ORTOGRAFICO": ReglaDiccionario(
+        codigo="ERROR_ORTOGRAFICO",
+        nombre="Palabra mal escrita en la descripción",
+        severidad="medio",
+        descripcion=(
+            "Una descripción tiene palabras mal escritas. No exige tildes. Si marca una palabra "
+            "correcta del negocio, agréguela a app/reglas/vocabulario_tecnico.txt."
+        ),
+        alcance="tabla",
+        activo=True,
+    ),
+
     # --- Que el script se pueda ejecutar --------------------------------
     "SINTAXIS_DICCIONARIO": ReglaDiccionario(
         codigo="SINTAXIS_DICCIONARIO",
