@@ -8,7 +8,7 @@ import { useVistaActiva } from './hooks/useVistaActiva';
 
 export default function App() {
   const { tema, alternarTema } = useTema();
-  const { vista, navegar } = useVistaActiva();
+  const { vista } = useVistaActiva();
 
   return (
     <>
@@ -23,7 +23,7 @@ export default function App() {
 
         {!vista.esPlan && (
           // La key reinicia el formulario y los resultados al cambiar de pestaña.
-          <AuditoriaWorkspace key={vista.id} vista={vista} onNavegar={navegar} />
+          <AuditoriaWorkspace key={vista.id} vista={vista} />
         )}
       </main>
 

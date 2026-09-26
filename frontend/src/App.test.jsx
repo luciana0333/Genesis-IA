@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import App from './App';
@@ -44,14 +44,18 @@ describe('App', () => {
     expect(screen.getByLabelText('Nombre de la Tabla')).toBeInTheDocument();
   });
 
-  it('al elegir "Procedimiento de reporte" en el selector navega a Reportes', async () => {
+  it('en Diccionarios solo ofrece diccionario de procedimiento y de tabla', async () => {
     const usuario = userEvent.setup();
     render(<App />);
+    const selector = screen.getByLabelText('Tipo de revisión');
 
-    await usuario.selectOptions(screen.getByLabelText('Tipo de revisión'), 'reporte');
+    const opciones = within(selector).getAllByRole('option').map((opcion) => opcion.textContent);
+    expect(opciones).toEqual(['Diccionario de procedimiento', 'Diccionario de tabla']);
 
-    await waitFor(() => expect(window.location.hash).toBe('#/reportes'));
-    expect(screen.getByRole('link', { name: 'Reportes' })).toHaveAttribute('aria-current', 'page');
+    await usuario.selectOptions(selector, 'tabla');
+    expect(screen.getByLabelText('SQL de la tabla (CREATE / ALTER)').value).toContain('CREATE TABLE');
+    expect(screen.getByText('Código del diccionario de tabla')).toBeInTheDocument();
+    expect(screen.getByLabelText('Código del diccionario de tabla').value).toContain("@level2name=N'cCodPersona'");
   });
 
   it('ejecuta la revisión, envía el payload correcto y pinta los hallazgos', async () => {

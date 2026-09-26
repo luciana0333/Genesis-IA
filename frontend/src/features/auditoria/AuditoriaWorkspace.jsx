@@ -5,7 +5,6 @@ import { IconoEjecutar, IconoLimpiar, IconoRestaurar } from '../../components/Ic
 import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { OPCIONES_SELECTOR } from '../../config/revisiones';
-import { buscarVistaDedicada } from '../../config/vistas';
 import { MetricasSeveridad } from './MetricasSeveridad';
 import { useAuditoria } from './useAuditoria';
 
@@ -18,7 +17,7 @@ function esAtajoEjecutar(evento) {
  * Reportes y Normales). Se monta una instancia por vista, así cada pestaña
  * arranca con su propio ejemplo y sin resultados de otra.
  */
-export function AuditoriaWorkspace({ vista, onNavegar }) {
+export function AuditoriaWorkspace({ vista }) {
   const ids = useId();
   const {
     tipoRevision,
@@ -36,16 +35,6 @@ export function AuditoriaWorkspace({ vista, onNavegar }) {
   const esSelectorVisible = vista.id === 'diccionario';
   const tieneDiccionario = Boolean(revision.diccionario);
   const cargando = resultado.estado === 'cargando';
-
-  const alCambiarTipo = (evento) => {
-    const nuevoTipo = evento.target.value;
-    const vistaDedicada = buscarVistaDedicada(nuevoTipo);
-    if (vistaDedicada) {
-      onNavegar(vistaDedicada);
-      return;
-    }
-    cambiarTipo(nuevoTipo);
-  };
 
   const alEnviar = (evento) => {
     evento.preventDefault();
@@ -73,7 +62,7 @@ export function AuditoriaWorkspace({ vista, onNavegar }) {
             {esSelectorVisible && (
               <div className="field-group">
                 <label className="field-label" htmlFor={`${ids}-tipo`}>Tipo de revisión</label>
-                <select id={`${ids}-tipo`} value={tipoRevision} onChange={alCambiarTipo}>
+                <select id={`${ids}-tipo`} value={tipoRevision} onChange={(evento) => cambiarTipo(evento.target.value)}>
                   {OPCIONES_SELECTOR.map((opcion) => (
                     <option key={opcion.id} value={opcion.id}>{opcion.etiquetaSelector}</option>
                   ))}

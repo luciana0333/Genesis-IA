@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { buscarVistaPorRuta } from '../config/vistas';
 
 function rutaDesdeHash() {
@@ -19,9 +19,5 @@ export function useVistaActiva() {
     return () => window.removeEventListener('hashchange', sincronizar);
   }, []);
 
-  const navegar = useCallback((destino) => {
-    window.location.hash = `/${destino.ruta}`;
-  }, []);
-
-  return { vista, navegar };
+  return { vista };
 }

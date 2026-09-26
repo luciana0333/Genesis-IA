@@ -5,9 +5,8 @@
   z-index: 100;
   width: 100%;
   border-bottom: 1px solid var(--border);
-  background: var(--nav-bg);
-  backdrop-filter: saturate(180%) blur(14px);
-  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
 }
 
 .navbar-container {

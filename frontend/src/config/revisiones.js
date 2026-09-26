@@ -8,6 +8,7 @@
 
 import {
   DICCIONARIO_PROCEDIMIENTO,
+  DICCIONARIO_TABLA,
   SQL_NORMAL,
   SQL_PROCEDIMIENTO,
   SQL_REPORTE,
@@ -30,7 +31,7 @@ export const REVISIONES = {
       etiqueta: 'Código del diccionario de tabla',
       objetivo: 'la tabla y sus columnas',
     },
-    ejemplo: { sql: SQL_TABLA, diccionario: '' },
+    ejemplo: { sql: SQL_TABLA, diccionario: DICCIONARIO_TABLA },
   },
   procedimiento: {
     id: 'procedimiento',
@@ -48,7 +49,6 @@ export const REVISIONES = {
   },
   reporte: {
     id: 'reporte',
-    etiquetaSelector: 'Procedimiento de reporte',
     etiquetaObjeto: NOMBRE_PROCEDIMIENTO,
     sql: {
       etiqueta: 'SQL del procedimiento de reporte',
@@ -59,7 +59,6 @@ export const REVISIONES = {
   },
   procedimiento_normal: {
     id: 'procedimiento_normal',
-    etiquetaSelector: 'Procedimiento normal',
     etiquetaObjeto: NOMBRE_PROCEDIMIENTO,
     sql: {
       etiqueta: 'SQL del procedimiento normal',
@@ -81,9 +80,12 @@ export const REVISIONES = {
   },
 };
 
-/** Opciones del selector "Tipo de revisión" de la vista Diccionarios. */
-export const OPCIONES_SELECTOR = ['tabla', 'procedimiento', 'reporte', 'procedimiento_normal']
-  .map((id) => REVISIONES[id]);
+/**
+ * Opciones del selector "Tipo de revisión" de la vista Diccionarios: solo se
+ * revisan diccionarios de procedimientos y de tablas. Reportes y
+ * procedimientos normales tienen su propia pestaña.
+ */
+export const OPCIONES_SELECTOR = ['procedimiento', 'tabla'].map((id) => REVISIONES[id]);
 
 /** Construye el cuerpo que espera POST /api/analizar. */
 export function construirSolicitud(tipoRevision, campos) {

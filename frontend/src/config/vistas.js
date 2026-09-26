@@ -85,10 +85,3 @@ export function buscarVistaPorRuta(ruta) {
   return VISTAS.find((vista) => vista.ruta === ruta) ?? VISTA_INICIAL;
 }
 
-/**
- * Tipos de revisión que tienen pestaña propia. Si se eligen desde el selector
- * de Diccionarios, se navega a su pestaña en lugar de mezclar contextos.
- */
-export function buscarVistaDedicada(tipoRevision) {
-  return VISTAS.find((vista) => vista.id !== 'diccionario' && vista.tipoRevision === tipoRevision);
-}
