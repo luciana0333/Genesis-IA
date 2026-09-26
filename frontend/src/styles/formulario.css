@@ -67,6 +67,11 @@
   text-transform: uppercase;
 }
 
+.field-note {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
 .checkbox-field {
   grid-column: 1 / -1;
   display: inline-flex;

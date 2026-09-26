@@ -11,6 +11,7 @@ from app.analizadores.analizador_diccionario_tablas import verificar_diccionario
 from app.analizadores.analizador_tablas import verificar_tabla
 from app.analizadores.analizador_reportes import verificar_reporte
 from app.analizadores.analizador_procedimientos_normales import verificar_procedimiento_normal
+from app.analizadores.deteccion_objeto import detectar_objeto
 from app.analizadores.planes_ejecucion import analizar_plan_ejecucion
 
 
@@ -58,6 +59,18 @@ class GenesisHandler(SimpleHTTPRequestHandler):
         if not sql_text:
             self._send_json({'error': 'Debes completar el SQL del objeto.'}, status=400)
             return
+
+        # En diccionarios, el tipo se toma del propio SQL: una tabla revisada
+        # con las reglas de procedimientos devolvería 0 hallazgos en silencio.
+        if tipo in ('tabla', 'procedimiento') and modo_revision != 'tabla_estructura':
+            detectado = detectar_objeto(sql_text)
+            if detectado is None:
+                self._send_json({
+                    'error': 'No se reconoce el objeto: pega el CREATE/ALTER TABLE o el '
+                             'CREATE/ALTER PROCEDURE que documenta el diccionario.'
+                }, status=400)
+                return
+            tipo = detectado
 
         try:
             if tipo == 'reporte':

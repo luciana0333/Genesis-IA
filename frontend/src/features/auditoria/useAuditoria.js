@@ -34,6 +34,11 @@ export function useAuditoria(tipoInicial) {
     setCampos((actuales) => camposDeEjemplo(nuevoTipo, actuales));
   }, []);
 
+  /** Ajusta el tipo sin tocar lo escrito (detección automática del SQL). */
+  const ajustarTipo = useCallback((nuevoTipo) => {
+    setTipoRevision(nuevoTipo);
+  }, []);
+
   const restaurarEjemplo = useCallback(() => {
     setCampos((actuales) => camposDeEjemplo(tipoRevision, actuales));
   }, [tipoRevision]);
@@ -72,6 +77,7 @@ export function useAuditoria(tipoInicial) {
     conteo,
     actualizarCampo,
     cambiarTipo,
+    ajustarTipo,
     restaurarEjemplo,
     limpiar,
     revisar,

@@ -6,6 +6,7 @@ import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { OPCIONES_SELECTOR } from '../../config/revisiones';
 import { MetricasSeveridad } from './MetricasSeveridad';
+import { detectarTipoDiccionario } from '../../utils/deteccionObjeto';
 import { useAuditoria } from './useAuditoria';
 
 function esAtajoEjecutar(evento) {
@@ -27,12 +28,22 @@ export function AuditoriaWorkspace({ vista }) {
     conteo,
     actualizarCampo,
     cambiarTipo,
+    ajustarTipo,
     restaurarEjemplo,
     limpiar,
     revisar,
   } = useAuditoria(vista.tipoRevision);
 
   const esSelectorVisible = vista.id === 'diccionario';
+
+  // En Diccionarios el tipo se ajusta solo según el SQL pegado (tabla o
+  // procedimiento), para que nunca se apliquen las reglas equivocadas.
+  const alCambiarSql = (valor) => {
+    actualizarCampo('sqlObject', valor);
+    if (!esSelectorVisible) return;
+    const detectado = detectarTipoDiccionario(valor);
+    if (detectado && detectado !== tipoRevision) ajustarTipo(detectado);
+  };
   const tieneDiccionario = Boolean(revision.diccionario);
   const cargando = resultado.estado === 'cargando';
 
@@ -67,6 +78,7 @@ export function AuditoriaWorkspace({ vista }) {
                     <option key={opcion.id} value={opcion.id}>{opcion.etiquetaSelector}</option>
                   ))}
                 </select>
+                <p className="field-note">Se ajusta solo según el SQL que pegues.</p>
               </div>
             )}
 
@@ -112,7 +124,7 @@ export function AuditoriaWorkspace({ vista }) {
               <EditorCodigo
                 id={`${ids}-sql`}
                 valor={campos.sqlObject}
-                onCambiar={(valor) => actualizarCampo('sqlObject', valor)}
+                onCambiar={alCambiarSql}
                 placeholder="CREATE PROCEDURE ..."
               />
             </TarjetaEditor>

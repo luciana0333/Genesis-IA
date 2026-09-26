@@ -139,6 +139,24 @@ describe('App', () => {
     expect(screen.getByLabelText('SQL del procedimiento').value).toContain('PA_Cliente_Consultar');
   });
 
+  it('en Diccionarios detecta una tabla pegada y aplica el diccionario de tabla', async () => {
+    const usuario = userEvent.setup();
+    const fetchMock = mockRespuesta({ hallazgos: [] });
+    render(<App />);
+    const selector = screen.getByLabelText('Tipo de revisión');
+    expect(selector).toHaveValue('procedimiento');
+
+    const editorSql = screen.getByLabelText('SQL del procedimiento');
+    await usuario.clear(editorSql);
+    await usuario.type(editorSql, 'CREATE TABLE dbo.TB_Estado (nEstadoId INT)');
+
+    expect(selector).toHaveValue('tabla');
+    expect(screen.getByLabelText('SQL de la tabla (CREATE / ALTER)')).toHaveValue('CREATE TABLE dbo.TB_Estado (nEstadoId INT)');
+
+    await usuario.click(screen.getByRole('button', { name: 'Ejecutar revisión' }));
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).tipoRevision).toBe('tabla');
+  });
+
   it('alterna y recuerda el tema oscuro', async () => {
     const usuario = userEvent.setup();
     render(<App />);
