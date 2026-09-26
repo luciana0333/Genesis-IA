@@ -12,15 +12,15 @@ REGLAS_DICCIONARIO_TABLAS = {
     # --- Qué debe estar documentado -------------------------------------
     "TABLA_SIN_DESCRIPCION": ReglaDiccionario(
         codigo="TABLA_SIN_DESCRIPCION",
-        nombre="Tabla sin descripción",
+        nombre="Tabla no documentada",
         severidad="alto",
-        descripcion="Falta la descripción de la propia tabla (la sentencia sin @level2type) o está vacía.",
+        descripcion="La tabla no está documentada en el diccionario (falta la sentencia sin @level2type) o su descripción está vacía.",
         alcance="tabla",
         activo=True,
     ),
     "COLUMNA_FALTANTE": ReglaDiccionario(
         codigo="COLUMNA_FALTANTE",
-        nombre="Columna sin descripción",
+        nombre="Columna no documentada",
         severidad="alto",
         descripcion="La columna no está documentada en el diccionario. En un CREATE aplica a todas las columnas; en un ALTER, a las agregadas o modificadas.",
         alcance="tabla",

@@ -123,8 +123,9 @@ def extraer_columnas(texto_sql: str) -> Set[str]:
         for seg in segmentos:
             mcol = re.match(rf"\s*({_IDENTIFICADOR_SQL})", seg)
             if mcol:
-                name = _limpiar_identificador_sql(mcol.group(1)).upper()
-                if name not in {"CONSTRAINT", "PRIMARY", "FOREIGN", "UNIQUE", "CHECK", "INDEX", "KEY", "ALTER", "ADD", "DROP"}:
+                # Se conserva el nombre tal cual se escribió para mostrarlo en los mensajes.
+                name = _limpiar_identificador_sql(mcol.group(1))
+                if name.upper() not in {"CONSTRAINT", "PRIMARY", "FOREIGN", "UNIQUE", "CHECK", "INDEX", "KEY", "ALTER", "ADD", "DROP"}:
                     columnas.add(name)
 
     # ALTER TABLE ... ADD cNombre ...
@@ -137,7 +138,7 @@ def extraer_columnas(texto_sql: str) -> Set[str]:
     for grupo in matches_alter:
         for item in grupo:
             if item:
-                columnas.add(_limpiar_identificador_sql(item).upper())
+                columnas.add(_limpiar_identificador_sql(item))
 
     return columnas
 
@@ -248,7 +249,7 @@ def _validar_tabla_documentada(
         )]
     return [_hallazgo(
         1, "TABLA_SIN_DESCRIPCION",
-        f"Falta documentar la tabla creada {full}: agregue su descripción en el diccionario.",
+        f"La tabla {full} no se encuentra documentada. Agréguela al diccionario con su descripción.",
     )]
 
 
@@ -301,15 +302,18 @@ def _validar_columnas_faltantes(
     """
     documentadas = _columnas_documentadas(llamadas)
     full = _nombre_completo(esquema, nombre_tabla)
+    # Una sola entrada por columna (sin distinguir mayúsculas), con su nombre original.
+    reales = {c.upper(): c for c in sorted(columnas_reales)}
     hallazgos = []
-    for columna in sorted({c.upper() for c in columnas_reales} - documentadas):
+    for clave in sorted(set(reales) - documentadas):
+        columna = reales[clave]
         if tipo_sentencia == "ALTER":
             mensaje = (
-                f"La columna {columna} fue agregada en el ALTER TABLE de {full} "
-                f"pero no se encuentra declarada en el diccionario. Validar si realmente debe documentarse."
+                f"La columna {columna} agregada en el ALTER TABLE de {full} no se encuentra documentada. "
+                f"Valide si debe agregarse al diccionario."
             )
         else:
-            mensaje = f"La columna {columna} no se encuentra declarada en el diccionario de la tabla {full}."
+            mensaje = f"La columna {columna} no se encuentra documentada. Agréguela al diccionario con su descripción."
         hallazgos.append(_hallazgo(1, "COLUMNA_FALTANTE", mensaje))
     return hallazgos
 

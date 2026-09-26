@@ -261,6 +261,14 @@ class TestCatalogoDiccionarioTablas(unittest.TestCase):
         self.assertTrue(reglas_en_codigo)
         self.assertEqual(reglas_en_codigo - set(REGLAS_DICCIONARIO_TABLAS), set())
 
+    def test_columnas_no_documentadas_con_su_nombre_original(self):
+        diccionario = caso6.diccionario_correcto(";").replace("N'cRutaArchivo'", "N'cOtra'")
+        faltantes = [
+            h for h in verificar_diccionario_tablas(caso6.TABLA, diccionario) if h.regla == "COLUMNA_FALTANTE"
+        ]
+        self.assertEqual(len(faltantes), 1)
+        self.assertIn("La columna cRutaArchivo no se encuentra documentada", faltantes[0].mensaje)
+
     def test_nombres_sin_comillas_no_se_reportan(self):
         diccionario = caso6.diccionario_correcto(";").replace("N'dbo'", "dbo").replace(
             "N'TB_SolicitudArchivos'", "TB_SolicitudArchivos"
@@ -273,7 +281,7 @@ class TestCatalogoDiccionarioTablas(unittest.TestCase):
         )
         faltante = verificar_diccionario_tablas(caso6.TABLA, solo_columnas)
         self.assertEqual([h.regla for h in faltante], ["TABLA_SIN_DESCRIPCION"])
-        self.assertIn("Falta documentar la tabla creada dbo.TB_SolicitudArchivos", faltante[0].mensaje)
+        self.assertIn("La tabla dbo.TB_SolicitudArchivos no se encuentra documentada", faltante[0].mensaje)
 
         vacia = verificar_diccionario_tablas(
             caso6.TABLA,
