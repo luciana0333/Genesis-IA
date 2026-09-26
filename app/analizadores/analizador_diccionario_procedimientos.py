@@ -84,6 +84,13 @@ def _limpiar_valor(valor: str) -> str:
     return valor.replace("N'", "").replace("'", "").strip()
 
 
+def _es_sentencia_de_procedimiento(args: Dict[str, str]) -> bool:
+    """La llamada documenta al procedimiento en sí (no a un PARAMETER)."""
+    level1type = args.get("level1type", "").upper()
+    level2type = args.get("level2type", "").upper()
+    return "PROCEDURE" in level1type and "PARAMETER" not in level2type
+
+
 def _es_descripcion_procedimiento_valida(args: Dict[str, str]) -> bool:
     """Indica si la llamada documenta la descripcion del procedimiento,
     excluyendo las entradas de PARAMETER.
@@ -131,7 +138,6 @@ def _validar_esquema(
 def _validar_descripciones_vacias(
     llamadas: List[Tuple[int, Dict[str, str]]],
     texto_diccionario: str,
-    tipo_sentencia: str,
 ) -> List[Hallazgo]:
     """Un parametro puede estar 'documentado' pero con @value vacio ('') -
     eso no cuenta como documentacion real."""
@@ -145,10 +151,10 @@ def _validar_descripciones_vacias(
                 hallazgos.append(Hallazgo(
                     linea=_numero_linea(texto_diccionario, pos),
                     origen=OrigenAnalisis.DICCIONARIO,
-                    severidad=Severidad.ALTO if tipo_sentencia == "CREATE" else Severidad.MEDIO,
+                    severidad=Severidad.MEDIO,
                     regla="DESCRIPCION_VACIA",
-                    mensaje=f"El parámetro {nombre_param} está en el diccionario, pero su "
-                            f"descripción está vacía. Escriba para qué se usa."
+                    mensaje=f"El parámetro {nombre_param} no tiene una descripción: está "
+                            f"documentado, pero @value está vacío. Escriba para qué se usa."
                 ))
     return hallazgos
 
@@ -282,20 +288,29 @@ def _validar_procedimiento_documentado(
     """Debe existir al menos una descripcion valida a nivel PROCEDURE,
     no solo descripciones de PARAMETER. Es alto en un CREATE.
     """
-    doc_procedimiento = [
-        a for _, a in llamadas
-        if _es_descripcion_procedimiento_valida(a)
-    ]
-    if not doc_procedimiento:
+    if any(_es_descripcion_procedimiento_valida(a) for _, a in llamadas):
+        return []
+
+    # La sentencia existe pero con @value vacío: está documentado, sin descripción.
+    if any(_es_sentencia_de_procedimiento(a) for _, a in llamadas):
         return [Hallazgo(
             linea=1,
             origen=OrigenAnalisis.DICCIONARIO,
-            severidad=Severidad.ALTO if tipo_sentencia == "CREATE" else Severidad.MEDIO,
-            regla="PROCEDIMIENTO_SIN_DESCRIPCION",
-            mensaje=f"El procedimiento {esquema}.{nombre_proc} no se encuentra "
-                    f"documentado. Agréguelo al diccionario con su descripción."
+            severidad=Severidad.MEDIO,
+            regla="DESCRIPCION_PROCEDIMIENTO_VACIA",
+            mensaje=f"El procedimiento {esquema}.{nombre_proc} está documentado, pero no "
+                    f"tiene una descripción (@value está vacío). Escriba para qué sirve "
+                    f"el procedimiento."
         )]
-    return []
+
+    return [Hallazgo(
+        linea=1,
+        origen=OrigenAnalisis.DICCIONARIO,
+        severidad=Severidad.ALTO if tipo_sentencia == "CREATE" else Severidad.MEDIO,
+        regla="PROCEDIMIENTO_SIN_DESCRIPCION",
+        mensaje=f"El procedimiento {esquema}.{nombre_proc} no se encuentra "
+                f"documentado. Agréguelo al diccionario con su descripción."
+    )]
 
 
 # ---------------------------------------------------------------------------
@@ -335,7 +350,7 @@ def verificar_diccionario(
     )
     hallazgos += _validar_nombre_procedimiento(llamadas, nombre_proc, texto_diccionario)
     hallazgos += _validar_esquema(llamadas, esquema, texto_diccionario)
-    hallazgos += _validar_descripciones_vacias(llamadas, texto_diccionario, tipo_sentencia)
+    hallazgos += _validar_descripciones_vacias(llamadas, texto_diccionario)
     if REGLAS_DICCIONARIO_PROCEDIMIENTOS["VALOR_SIN_COMILLAS"].activo:
         hallazgos += _validar_valores_sin_comillas(llamadas, texto_diccionario)
 

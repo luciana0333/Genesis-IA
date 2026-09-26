@@ -113,9 +113,27 @@ END"""
 
     def test_create_procedure_es_alto(self):
         severidades = self._severidades("CREATE")
-        for regla in ("PROCEDIMIENTO_SIN_DESCRIPCION", "PARAMETRO_FALTANTE", "DESCRIPCION_VACIA"):
+        for regla in ("PROCEDIMIENTO_SIN_DESCRIPCION", "PARAMETRO_FALTANTE"):
             with self.subTest(regla=regla):
                 self.assertEqual(severidades[regla], Severidad.ALTO)
+        # Documentado pero sin descripción es otro caso: medio.
+        self.assertEqual(severidades["DESCRIPCION_VACIA"], Severidad.MEDIO)
+
+    def test_parametro_documentado_sin_descripcion_tiene_mensaje_propio(self):
+        hallazgos = verificar_diccionario("CREATE" + self.CUERPO, self.DICCIONARIO)
+        vacia = next(h for h in hallazgos if h.regla == "DESCRIPCION_VACIA")
+        self.assertIn("El parámetro @nClienteId no tiene una descripción", vacia.mensaje)
+
+    def test_procedimiento_documentado_sin_descripcion_no_es_lo_mismo_que_no_documentado(self):
+        con_sentencia_vacia = self.DICCIONARIO + (
+            "\nEXEC sys.sp_addextendedproperty @name = N'MS_Description', @value = N'', "
+            "@level0type = N'SCHEMA', @level0name = N'dbo', "
+            "@level1type = N'PROCEDURE', @level1name = N'PA_Cliente_Consultar';"
+        )
+        reglas = {h.regla: h for h in verificar_diccionario("CREATE" + self.CUERPO, con_sentencia_vacia)}
+        self.assertNotIn("PROCEDIMIENTO_SIN_DESCRIPCION", reglas)
+        self.assertIn("está documentado, pero no tiene una descripción",
+                      reglas["DESCRIPCION_PROCEDIMIENTO_VACIA"].mensaje)
 
     def test_alter_procedure_se_mantiene_en_medio(self):
         severidades = self._severidades("ALTER")

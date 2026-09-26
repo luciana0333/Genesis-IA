@@ -318,8 +318,13 @@ class TestCatalogoDiccionarioTablas(unittest.TestCase):
             TABLA_CON_CORCHETES_SIN_COLUMNAS_DOCUMENTADAS, diccionario_vacio_de_columnas
         )
         severidades = {h.regla: h.severidad for h in hallazgos}
-        self.assertEqual(severidades["TABLA_SIN_DESCRIPCION"], Severidad.ALTO)
+        self.assertEqual(severidades["DESCRIPCION_TABLA_VACIA"], Severidad.ALTO)
         self.assertEqual(severidades["COLUMNA_FALTANTE"], Severidad.ALTO)
+
+        sin_tabla = verificar_diccionario_tablas(TABLA_CON_CORCHETES_SIN_COLUMNAS_DOCUMENTADAS, "")
+        self.assertEqual(
+            next(h for h in sin_tabla if h.regla == "TABLA_SIN_DESCRIPCION").severidad, Severidad.ALTO
+        )
 
         hallazgos_caso4 = verificar_diccionario_tablas(TABLA_CASO_4, DICCIONARIO_CASO_4)
         vacia = next(h for h in hallazgos_caso4 if h.regla == "DESCRIPCION_COLUMNA_VACIA")
@@ -359,8 +364,8 @@ class TestCatalogoDiccionarioTablas(unittest.TestCase):
                 "Archivos adjuntos registrados para cada solicitud", ""
             ),
         )
-        self.assertEqual([h.regla for h in vacia], ["TABLA_SIN_DESCRIPCION"])
-        self.assertIn("está vacía", vacia[0].mensaje)
+        self.assertEqual([h.regla for h in vacia], ["DESCRIPCION_TABLA_VACIA"])
+        self.assertIn("no tiene una descripción", vacia[0].mensaje)
         self.assertGreater(vacia[0].linea, 0)
 
     def test_regla_desactivada_no_se_reporta(self):

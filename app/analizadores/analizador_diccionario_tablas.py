@@ -275,8 +275,8 @@ def _validar_tabla_documentada(
     full = _nombre_completo(esquema, nombre_tabla)
     if sentencias_tabla:
         return [_hallazgo(
-            sentencias_tabla[0].linea, "TABLA_SIN_DESCRIPCION",
-            f"La tabla {full} está en el diccionario, pero su descripción está vacía. Escriba para qué sirve la tabla.",
+            sentencias_tabla[0].linea, "DESCRIPCION_TABLA_VACIA",
+            f"La tabla {full} está documentada, pero no tiene una descripción (@value está vacío). Escriba para qué sirve la tabla.",
         )]
     return [_hallazgo(
         1, "TABLA_SIN_DESCRIPCION",
@@ -515,7 +515,7 @@ def _validar_descripciones_vacias(llamadas: List[LlamadaPropiedad]) -> List[Hall
     return [
         _hallazgo(
             ll.linea, "DESCRIPCION_COLUMNA_VACIA",
-            f"La columna {ll.texto('level2name')} está en el diccionario, pero su descripción está vacía. Escriba qué información guarda.",
+            f"La columna {ll.texto('level2name')} no tiene una descripción: está documentada, pero @value está vacío. Escriba qué información guarda.",
         )
         for ll in llamadas
         if _es_de_columna(ll) and _es_descripcion(ll) and ll.tiene("value") and ll.texto("value") == ""

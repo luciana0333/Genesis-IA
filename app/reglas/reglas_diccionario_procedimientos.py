@@ -47,8 +47,16 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
     "DESCRIPCION_VACIA": ReglaDiccionario(
         codigo="DESCRIPCION_VACIA",
         nombre="Descripción de parámetro vacía",
-        severidad="alto",
-        descripcion="La descripción del parámetro o atributo existe pero está vacía. Alto en CREATE PROCEDURE; medio en ALTER.",
+        severidad="medio",
+        descripcion="El parámetro está documentado, pero su descripción (@value) está vacía.",
+        alcance="procedimiento",
+        activo=True,
+    ),
+    "DESCRIPCION_PROCEDIMIENTO_VACIA": ReglaDiccionario(
+        codigo="DESCRIPCION_PROCEDIMIENTO_VACIA",
+        nombre="Procedimiento sin descripción",
+        severidad="medio",
+        descripcion="El procedimiento está documentado, pero su descripción (@value) está vacía.",
         alcance="procedimiento",
         activo=True,
     ),
