@@ -60,6 +60,17 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
         alcance="procedimiento",
         activo=True,
     ),
+    "ERROR_ORTOGRAFICO": ReglaDiccionario(
+        codigo="ERROR_ORTOGRAFICO",
+        nombre="Palabra mal escrita en la descripción",
+        severidad="medio",
+        descripcion=(
+            "La descripción del procedimiento o de un parámetro tiene palabras mal escritas. "
+            "No exige tildes. Vocabulario del equipo: app/reglas/vocabulario_tecnico.txt."
+        ),
+        alcance="procedimiento",
+        activo=True,
+    ),
     "ALTER_SIN_DICCIONARIO": ReglaDiccionario(
         codigo="ALTER_SIN_DICCIONARIO",
         nombre="ALTER sin diccionario",

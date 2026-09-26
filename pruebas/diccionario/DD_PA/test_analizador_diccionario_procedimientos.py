@@ -142,5 +142,26 @@ END"""
                 self.assertEqual(severidades[regla], Severidad.MEDIO)
 
 
+class TestOrtografiaProcedimientos(unittest.TestCase):
+    def test_detecta_palabras_mal_escritas_en_procedimiento_y_parametro(self):
+        procedimiento = "CREATE PROCEDURE dbo.PA_Cliente_Consultar\n    @nClienteId INT\nAS\nBEGIN\n    SELECT 1\nEND"
+        diccionario = (
+            "EXEC sys.sp_addextendedproperty @name = N'MS_Description', "
+            "@value = N'Consulta la informacion del clienet', @level0type = N'SCHEMA', @level0name = N'dbo', "
+            "@level1type = N'PROCEDURE', @level1name = N'PA_Cliente_Consultar';\n"
+            "EXEC sys.sp_addextendedproperty @name = N'MS_Description', "
+            "@value = N'Identificadodr del cliente', @level0type = N'SCHEMA', @level0name = N'dbo', "
+            "@level1type = N'PROCEDURE', @level1name = N'PA_Cliente_Consultar', "
+            "@level2type = N'PARAMETER', @level2name = N'@nClienteId';"
+        )
+        hallazgos = [h for h in verificar_diccionario(procedimiento, diccionario) if h.regla == "ERROR_ORTOGRAFICO"]
+        self.assertEqual(len(hallazgos), 2)
+        self.assertIn("del procedimiento dbo.PA_Cliente_Consultar", hallazgos[0].mensaje)
+        self.assertIn("'clienet' (¿quiso decir 'cliente'?)", hallazgos[0].mensaje)
+        self.assertIn("del parámetro @nClienteId", hallazgos[1].mensaje)
+        self.assertIn("'Identificadodr'", hallazgos[1].mensaje)
+        self.assertEqual(hallazgos[1].linea, 2)
+
+
 if __name__ == "__main__":
     unittest.main()

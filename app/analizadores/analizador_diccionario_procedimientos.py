@@ -16,6 +16,7 @@ Compara la "realidad" (procedimiento) contra la "documentacion"
 import re
 from typing import List, Set, Tuple, Dict, Optional
 
+from app.analizadores.ortografia import palabras_mal_escritas
 from app.analizadores.propiedades_extendidas import como_llamadas_crudas, leer_propiedades_extendidas
 from app.modelos.hallazgo import Hallazgo, Severidad, OrigenAnalisis
 from app.reglas.reglas_diccionario_procedimientos import REGLAS_DICCIONARIO_PROCEDIMIENTOS
@@ -313,6 +314,54 @@ def _validar_procedimiento_documentado(
     )]
 
 
+def _texto_de_valor(crudo: str) -> str:
+    """N'texto con l''apostrofe' -> texto con l'apostrofe."""
+    valor = crudo.strip()
+    if valor[:2].upper() == "N'":
+        valor = valor[1:]
+    if len(valor) >= 2 and valor.startswith("'") and valor.endswith("'"):
+        valor = valor[1:-1]
+    return valor.replace("''", "'")
+
+
+def _validar_ortografia(
+    llamadas: List[Tuple[int, Dict[str, str]]],
+    texto_diccionario: str,
+    esquema: str,
+    nombre_proc: str,
+    parametros_reales: Set[str],
+) -> List[Hallazgo]:
+    """Palabras mal escritas en las descripciones (sin exigir tildes)."""
+    nombres_objeto = {esquema or "", nombre_proc, *parametros_reales}
+    hallazgos = []
+    for pos, args in llamadas:
+        if "PROCEDURE" not in args.get("level1type", "").upper() or "value" not in args:
+            continue
+        descripcion = _texto_de_valor(args["value"])
+        if not descripcion.strip():
+            continue
+        if "PARAMETER" in args.get("level2type", "").upper():
+            objeto = f"del parámetro {_limpiar_valor(args.get('level2name', '?'))}"
+        else:
+            objeto = f"del procedimiento {esquema}.{nombre_proc}"
+        errores = palabras_mal_escritas(descripcion, nombres_objeto)
+        if not errores:
+            continue
+        detalle = ", ".join(
+            f"'{palabra}' (¿quiso decir '{opciones[0]}'?)" if opciones else f"'{palabra}'"
+            for palabra, opciones in errores
+        )
+        texto = "una palabra mal escrita" if len(errores) == 1 else "palabras mal escritas"
+        hallazgos.append(Hallazgo(
+            linea=_numero_linea(texto_diccionario, pos),
+            origen=OrigenAnalisis.DICCIONARIO,
+            severidad=Severidad.MEDIO,
+            regla="ERROR_ORTOGRAFICO",
+            mensaje=f"La descripción {objeto} tiene {texto}: {detalle}. Corríjala.",
+        ))
+    return hallazgos
+
+
 # ---------------------------------------------------------------------------
 # ORQUESTADOR PRINCIPAL
 # ---------------------------------------------------------------------------
@@ -351,6 +400,7 @@ def verificar_diccionario(
     hallazgos += _validar_nombre_procedimiento(llamadas, nombre_proc, texto_diccionario)
     hallazgos += _validar_esquema(llamadas, esquema, texto_diccionario)
     hallazgos += _validar_descripciones_vacias(llamadas, texto_diccionario)
+    hallazgos += _validar_ortografia(llamadas, texto_diccionario, esquema, nombre_proc, parametros_reales)
     if REGLAS_DICCIONARIO_PROCEDIMIENTOS["VALOR_SIN_COMILLAS"].activo:
         hallazgos += _validar_valores_sin_comillas(llamadas, texto_diccionario)
 
