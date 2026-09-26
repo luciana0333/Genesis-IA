@@ -157,6 +157,19 @@ describe('App', () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).tipoRevision).toBe('tabla');
   });
 
+  it('en Diccionarios el diccionario es obligatorio', async () => {
+    const usuario = userEvent.setup();
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+    render(<App />);
+
+    expect(screen.queryByText('Opcional')).not.toBeInTheDocument();
+    await usuario.clear(screen.getByLabelText('Código del diccionario de procedimiento'));
+    await usuario.click(screen.getByRole('button', { name: 'Ejecutar revisión' }));
+
+    expect(screen.getByText('Pega el código del diccionario para iniciar la revisión.')).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('alterna y recuerda el tema oscuro', async () => {
     const usuario = userEvent.setup();
     render(<App />);

@@ -54,6 +54,11 @@ export function useAuditoria(tipoInicial) {
       setResultado({ estado: 'error', hallazgos: [], mensaje: 'Completa el SQL del objeto para iniciar la revisión.' });
       return;
     }
+    // En una revisión de diccionario, el diccionario es obligatorio.
+    if (REVISIONES[tipoRevision].diccionario && !campos.dictScript.trim()) {
+      setResultado({ estado: 'error', hallazgos: [], mensaje: 'Pega el código del diccionario para iniciar la revisión.' });
+      return;
+    }
 
     setResultado({ estado: 'cargando', hallazgos: [], mensaje: '' });
     try {

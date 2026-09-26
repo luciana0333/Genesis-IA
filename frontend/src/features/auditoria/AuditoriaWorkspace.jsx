@@ -135,8 +135,7 @@ export function AuditoriaWorkspace({ vista }) {
                 kicker="Documentación"
                 etiqueta={revision.diccionario.etiqueta}
                 htmlFor={`${ids}-diccionario`}
-                estado="Opcional"
-                requerido={false}
+                estado="Requerido"
                 ayuda={
                   <>Pega aquí el script de <code>sp_addextendedproperty</code> para {revision.diccionario.objetivo}.</>
                 }

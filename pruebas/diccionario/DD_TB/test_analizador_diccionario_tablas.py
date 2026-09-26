@@ -199,9 +199,12 @@ class TestDiccionarioTablas(unittest.TestCase):
         self.assertIn("COLUMNA_FALTANTE", reglas)
         self.assertTrue(any("ccelular" in mensaje.lower() for mensaje in mensajes))
 
-    def test_alter_que_cambia_tipo_de_columna_existente_no_falla(self):
+    def test_alter_que_cambia_tipo_de_columna_existente_solo_pide_validar(self):
+        # El diccionario vuelve a agregar la tabla y la columna, que ya existían:
+        # no es error, solo una nota de severidad baja para validar.
         hallazgos = verificar_diccionario_tablas(ALTER_TABLE_CAMBIO_TIPO, DICCIONARIO_EXISTENTE)
-        self.assertEqual(len(hallazgos), 0)
+        self.assertEqual({h.regla for h in hallazgos}, {"DOCUMENTACION_EXISTENTE_EN_ALTER"})
+        self.assertTrue(all(h.severidad == Severidad.BAJO for h in hallazgos))
 
     def test_create_con_identificadores_entre_corchetes_detecta_columnas_faltantes(self):
         hallazgos = verificar_diccionario_tablas(
@@ -230,11 +233,78 @@ class TestDiccionarioTablas(unittest.TestCase):
         hallazgos_add = verificar_diccionario_tablas(ALTER_ADD, DICCIONARIO_TABLA)
         self.assertEqual(
             {h.regla for h in hallazgos_add},
-                {"COLUMNA_FALTANTE"},
+            {"COLUMNA_FALTANTE", "DOCUMENTACION_EXISTENTE_EN_ALTER"},
         )
 
         hallazgos_alter = verificar_diccionario_tablas(ALTER_COLUMN, DICCIONARIO_ALTER_EXISTENTE)
-        self.assertEqual(hallazgos_alter, [])
+        self.assertEqual({h.regla for h in hallazgos_alter}, {"DOCUMENTACION_EXISTENTE_EN_ALTER"})
+
+
+class TestDiccionarioTablasAlter(unittest.TestCase):
+    """ALTER: la tabla ya existe; solo se exigen las columnas nuevas."""
+
+    ALTER = (
+        "ALTER TABLE dbo.TB_Estado\n"
+        "ADD cCodigo VARCHAR(10) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL DEFAULT '',\n"
+        "    bActivo BIT NOT NULL CONSTRAINT DF_TB_Estado_bActivo DEFAULT 1;"
+    )
+
+    @staticmethod
+    def _columna(nombre, descripcion):
+        return (
+            "EXEC sys.sp_addextendedproperty @name = N'MS_Description', "
+            f"@value = N'{descripcion}', @level0type = N'SCHEMA', @level0name = N'dbo', "
+            "@level1type = N'TABLE', @level1name = N'TB_Estado', "
+            f"@level2type = N'COLUMN', @level2name = N'{nombre}';"
+        )
+
+    def test_columnas_nuevas_documentadas_no_generan_hallazgos(self):
+        diccionario = "\n".join([
+            self._columna("cCodigo", "Codigo corto del estado"),
+            self._columna("bActivo", "Indica si el estado se encuentra activo"),
+        ])
+        self.assertEqual(verificar_diccionario_tablas(self.ALTER, diccionario), [])
+
+    def test_no_exige_la_descripcion_de_la_tabla(self):
+        diccionario = "\n".join([
+            self._columna("cCodigo", "Codigo corto del estado"),
+            self._columna("bActivo", "Indica si el estado se encuentra activo"),
+        ])
+        reglas = {h.regla for h in verificar_diccionario_tablas(self.ALTER, diccionario)}
+        self.assertNotIn("TABLA_SIN_DESCRIPCION", reglas)
+
+    def test_columna_nueva_sin_documentar_es_alto(self):
+        hallazgos = verificar_diccionario_tablas(
+            self.ALTER, self._columna("cCodigo", "Codigo corto del estado")
+        )
+        self.assertEqual([h.regla for h in hallazgos], ["COLUMNA_FALTANTE"])
+        self.assertEqual(hallazgos[0].severidad, Severidad.ALTO)
+        self.assertIn("bActivo", hallazgos[0].mensaje)
+
+    def test_descripcion_de_la_tabla_en_un_alter_solo_pide_validar(self):
+        tabla = (
+            "EXEC sys.sp_addextendedproperty @name = N'MS_Description', "
+            "@value = N'Estados posibles de una solicitud', @level0type = N'SCHEMA', @level0name = N'dbo', "
+            "@level1type = N'TABLE', @level1name = N'TB_Estado';"
+        )
+        diccionario = "\n".join([
+            tabla,
+            self._columna("cCodigo", "Codigo corto del estado"),
+            self._columna("bActivo", "Indica si el estado se encuentra activo"),
+        ])
+        hallazgos = verificar_diccionario_tablas(self.ALTER, diccionario)
+        self.assertEqual([h.regla for h in hallazgos], ["DOCUMENTACION_EXISTENTE_EN_ALTER"])
+        self.assertEqual(hallazgos[0].severidad, Severidad.BAJO)
+        self.assertIn("Valide", hallazgos[0].mensaje)
+
+    def test_create_con_alter_add_constraint_se_trata_como_create(self):
+        script = (
+            "CREATE TABLE dbo.TB_Estado (nEstadoId INT NOT NULL, cDescripcion VARCHAR(100) NOT NULL);\n"
+            "ALTER TABLE dbo.TB_Estado ADD CONSTRAINT PK_TB_Estado PRIMARY KEY (nEstadoId);"
+        )
+        reglas = [h.regla for h in verificar_diccionario_tablas(script, "")]
+        self.assertIn("TABLA_SIN_DESCRIPCION", reglas)
+        self.assertEqual(reglas.count("COLUMNA_FALTANTE"), 2)
 
 
 class TestCatalogoDiccionarioTablas(unittest.TestCase):

@@ -14,7 +14,7 @@ REGLAS_DICCIONARIO_TABLAS = {
         codigo="TABLA_SIN_DESCRIPCION",
         nombre="Tabla no documentada",
         severidad="alto",
-        descripcion="La tabla no está documentada en el diccionario (falta la sentencia sin @level2type) o su descripción está vacía.",
+        descripcion="Solo CREATE: la tabla no está documentada en el diccionario (falta la sentencia sin @level2type) o su descripción está vacía.",
         alcance="tabla",
         activo=True,
     ),
@@ -22,7 +22,7 @@ REGLAS_DICCIONARIO_TABLAS = {
         codigo="COLUMNA_FALTANTE",
         nombre="Columna no documentada",
         severidad="alto",
-        descripcion="La columna no está documentada en el diccionario. En un CREATE aplica a todas las columnas; en un ALTER, a las agregadas o modificadas.",
+        descripcion="La columna no está documentada en el diccionario. En un CREATE aplica a todas las columnas; en un ALTER, solo a las nuevas (ADD).",
         alcance="tabla",
         activo=True,
     ),
@@ -31,6 +31,17 @@ REGLAS_DICCIONARIO_TABLAS = {
         nombre="Descripción de columna vacía",
         severidad="alto",
         descripcion="La columna está documentada pero su descripción en @value está vacía.",
+        alcance="tabla",
+        activo=True,
+    ),
+    "DOCUMENTACION_EXISTENTE_EN_ALTER": ReglaDiccionario(
+        codigo="DOCUMENTACION_EXISTENTE_EN_ALTER",
+        nombre="Validar documentación existente",
+        severidad="bajo",
+        descripcion=(
+            "En un ALTER TABLE se agrega la descripción de la tabla o de una columna que ya existía. "
+            "No es error, pero sp_addextendedproperty falla si ya estaba documentada: validar."
+        ),
         alcance="tabla",
         activo=True,
     ),

@@ -62,6 +62,7 @@ export const NOMBRES_REGLAS = {
   DOCUMENTACION_DUPLICADA: 'Documentado dos veces',
   DESCRIPCION_TABLA_INADECUADA: 'Descripción de tabla inadecuada',
   ERROR_ORTOGRAFICO: 'Palabra mal escrita en la descripción',
+  DOCUMENTACION_EXISTENTE_EN_ALTER: 'Validar documentación existente',
   CONVERSION_IMPLICITA: 'Conversión implícita',
   SPILL_TEMPDB: 'Spill hacia TempDB',
   TABLE_SCAN: 'Table Scan',

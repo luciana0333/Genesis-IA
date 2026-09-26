@@ -39,110 +39,139 @@ def _nombre_completo(esquema: Optional[str], nombre: str) -> str:
     return f"{esquema}.{nombre}" if esquema else nombre
 
 
+_COMENTARIOS_SQL = re.compile(r"--[^\r\n]*|/\*.*?\*/", re.DOTALL)
+_PALABRAS_NO_COLUMNA = {
+    "CONSTRAINT", "PRIMARY", "FOREIGN", "UNIQUE", "CHECK", "INDEX", "KEY",
+    "ALTER", "ADD", "DROP", "PERIOD", "DEFAULT",
+}
+
+
+def _sin_comentarios(texto_sql: str) -> str:
+    return _COMENTARIOS_SQL.sub(" ", texto_sql or "")
+
+
+def _separar_por_comas(contenido: str) -> List[str]:
+    """Divide por comas de primer nivel (respeta paréntesis y cadenas)."""
+    segmentos, actual, profundidad, en_cadena = [], [], 0, False
+    for ch in contenido:
+        if ch == "'":
+            en_cadena = not en_cadena
+        elif not en_cadena:
+            if ch == "(":
+                profundidad += 1
+            elif ch == ")":
+                profundidad = max(profundidad - 1, 0)
+            elif ch == "," and profundidad == 0:
+                segmentos.append("".join(actual))
+                actual = []
+                continue
+        actual.append(ch)
+    if actual:
+        segmentos.append("".join(actual))
+    return segmentos
+
+
+def _primera_columna(segmento: str) -> Optional[str]:
+    """Nombre de columna al inicio de una definición, o None si es una restricción."""
+    coincidencia = re.match(rf"\s*({_IDENTIFICADOR_SQL})", segmento)
+    if not coincidencia:
+        return None
+    nombre = _limpiar_identificador_sql(coincidencia.group(1))
+    return None if nombre.upper() in _PALABRAS_NO_COLUMNA else nombre
+
+
 # ---------------------------------------------------------------------------
 # EXTRACCION - leer la "realidad" (la tabla)
 # ---------------------------------------------------------------------------
 
 def extraer_tipo_sentencia(texto_sql: str) -> str:
-    """Determina si la sentencia es CREATE TABLE o ALTER TABLE."""
-    if re.search(r"\bALTER\s+TABLE\b", texto_sql, re.IGNORECASE):
-        return "ALTER"
-    if re.search(r"\bCREATE\s+TABLE\b", texto_sql, re.IGNORECASE):
+    """
+    CREATE si el script crea la tabla (aunque luego tenga ALTER TABLE para
+    agregar restricciones); ALTER si solo la modifica.
+    """
+    texto = _sin_comentarios(texto_sql)
+    if re.search(r"\bCREATE\s+TABLE\b", texto, re.IGNORECASE):
         return "CREATE"
+    if re.search(r"\bALTER\s+TABLE\b", texto, re.IGNORECASE):
+        return "ALTER"
     return "DESCONOCIDO"
 
 
 def extraer_esquema_y_nombre(texto_sql: str) -> Tuple[Optional[str], Optional[str]]:
-    """Devuelve (esquema, nombre) de la tabla, o (None, None)."""
-    # Intenta schema.nombre primero
+    """Devuelve (esquema, nombre) de la tabla (prioriza el CREATE), o (None, None)."""
+    texto = _sin_comentarios(texto_sql)
+    for verbo in ("CREATE", "ALTER"):
+        m = re.search(
+            rf"\b{verbo}\s+TABLE\s+({_IDENTIFICADOR_SQL})(?:\s*\.\s*({_IDENTIFICADOR_SQL}))?",
+            texto,
+            re.IGNORECASE,
+        )
+        if m:
+            if m.group(2):
+                return _limpiar_identificador_sql(m.group(1)), _limpiar_identificador_sql(m.group(2))
+            return None, _limpiar_identificador_sql(m.group(1))
+    return None, None
+
+
+def _columnas_create(texto: str) -> Set[str]:
+    """Columnas definidas entre los paréntesis del CREATE TABLE."""
     m = re.search(
-        rf"(?:CREATE|ALTER)\s+TABLE\s+({_IDENTIFICADOR_SQL})\.({_IDENTIFICADOR_SQL})",
-        texto_sql,
+        rf"\bCREATE\s+TABLE\s+{_IDENTIFICADOR_SQL}(?:\s*\.\s*{_IDENTIFICADOR_SQL})?\s*\(",
+        texto,
         re.IGNORECASE,
     )
-    if m:
-        return _limpiar_identificador_sql(m.group(1)), _limpiar_identificador_sql(m.group(2))
+    if not m:
+        return set()
+    inicio, profundidad, fin = m.end(), 0, len(texto)
+    for i in range(inicio, len(texto)):
+        if texto[i] == "(":
+            profundidad += 1
+        elif texto[i] == ")":
+            if profundidad == 0:
+                fin = i
+                break
+            profundidad -= 1
+    columnas = (_primera_columna(s) for s in _separar_por_comas(texto[inicio:fin]))
+    return {c for c in columnas if c}
 
-    # Si no tiene esquema, acepta solo el nombre de la tabla
-    m2 = re.search(rf"(?:CREATE|ALTER)\s+TABLE\s+({_IDENTIFICADOR_SQL})", texto_sql, re.IGNORECASE)
-    if m2:
-        return None, _limpiar_identificador_sql(m2.group(1))
-    return None, None
+
+def extraer_columnas_alter(texto_sql: str) -> Tuple[Set[str], Set[str]]:
+    """
+    Columnas de los ALTER TABLE del script: (agregadas con ADD, modificadas
+    con ALTER COLUMN). ADD admite varias columnas separadas por comas y
+    descarta ADD CONSTRAINT / PRIMARY KEY / etc.
+    """
+    texto = _sin_comentarios(texto_sql)
+    agregadas: Set[str] = set()
+    modificadas: Set[str] = set()
+    sentencias = re.finditer(
+        r"\bALTER\s+TABLE\b(.*?)(?=;|\bGO\b|\bALTER\s+TABLE\b|\bCREATE\b|\Z)",
+        texto,
+        re.IGNORECASE | re.DOTALL,
+    )
+    for sentencia in sentencias:
+        cuerpo = sentencia.group(1)
+        m_alter = re.search(rf"\bALTER\s+COLUMN\s+({_IDENTIFICADOR_SQL})", cuerpo, re.IGNORECASE)
+        if m_alter:
+            modificadas.add(_limpiar_identificador_sql(m_alter.group(1)))
+            continue
+        m_add = re.search(r"\bADD\b(?:\s+COLUMN\b)?", cuerpo, re.IGNORECASE)
+        if m_add:
+            for segmento in _separar_por_comas(cuerpo[m_add.end():]):
+                columna = _primera_columna(segmento)
+                if columna:
+                    agregadas.add(columna)
+    return agregadas, modificadas
 
 
 def extraer_columnas(texto_sql: str) -> Set[str]:
     """
-    Extrae columnas reales declaradas en CREATE TABLE o ALTER TABLE.
-    En alter, captura columnas nuevas o columnas afectadas por ALTER COLUMN.
+    Columnas que el script crea o modifica: las del CREATE TABLE más las
+    agregadas o modificadas en ALTER TABLE.
     """
-    texto = texto_sql.strip()
-    if not texto:
-        return set()
-
-    columnas: Set[str] = set()
-
-    # CREATE TABLE ... ( ... )
-    # Captura el contenido entre los paréntesis externos del CREATE/ALTER TABLE
-    m_name = re.search(
-        rf"(?:CREATE|ALTER)\s+TABLE\s+{_IDENTIFICADOR_SQL}(?:\.{_IDENTIFICADOR_SQL})?\s*\(",
-        texto,
-        re.IGNORECASE,
-    )
-    if m_name:
-        start_idx = m_name.end() - 1  # posición del primer '('
-        depth = 0
-        end_idx = None
-        for i in range(start_idx + 1, len(texto)):
-            ch = texto[i]
-            if ch == '(':
-                depth += 1
-            elif ch == ')':
-                if depth == 0:
-                    end_idx = i
-                    break
-                depth -= 1
-        if end_idx is not None:
-            contenido = texto[start_idx + 1:end_idx]
-        else:
-            contenido = texto[start_idx + 1:]
-        # Separar por comas respetando paréntesis y tomar el primer token de cada segmento
-        segmentos = []
-        buf = []
-        depth = 0
-        for ch in contenido:
-            if ch == '(':
-                depth += 1
-            elif ch == ')':
-                depth = max(depth - 1, 0)
-            if ch == ',' and depth == 0:
-                segmentos.append(''.join(buf))
-                buf = []
-            else:
-                buf.append(ch)
-        if buf:
-            segmentos.append(''.join(buf))
-
-        for seg in segmentos:
-            mcol = re.match(rf"\s*({_IDENTIFICADOR_SQL})", seg)
-            if mcol:
-                # Se conserva el nombre tal cual se escribió para mostrarlo en los mensajes.
-                name = _limpiar_identificador_sql(mcol.group(1))
-                if name.upper() not in {"CONSTRAINT", "PRIMARY", "FOREIGN", "UNIQUE", "CHECK", "INDEX", "KEY", "ALTER", "ADD", "DROP"}:
-                    columnas.add(name)
-
-    # ALTER TABLE ... ADD cNombre ...
-    # ALTER TABLE ... ALTER COLUMN cNombre ...
-    matches_alter = re.findall(
-        rf"(?:ADD|ALTER)\s+COLUMN\s+({_IDENTIFICADOR_SQL})|ADD\s+({_IDENTIFICADOR_SQL})\s+",
-        texto,
-        re.IGNORECASE
-    )
-    for grupo in matches_alter:
-        for item in grupo:
-            if item:
-                columnas.add(_limpiar_identificador_sql(item))
-
-    return columnas
+    texto = _sin_comentarios(texto_sql)
+    agregadas, modificadas = extraer_columnas_alter(texto)
+    return _columnas_create(texto) | agregadas | modificadas
 
 
 # ---------------------------------------------------------------------------
@@ -300,11 +329,10 @@ def _validar_columnas_faltantes(
     nombre_tabla: str,
 ) -> List[Hallazgo]:
     """
-    En un CREATE todas las columnas deben estar documentadas. En un ALTER solo
-    se exige documentar las columnas agregadas o modificadas.
+    Recibe las columnas que deben documentarse: en un CREATE, todas; en un
+    ALTER, solo las nuevas (ADD).
     """
     documentadas = _columnas_documentadas(llamadas)
-    full = _nombre_completo(esquema, nombre_tabla)
     # Una sola entrada por columna (sin distinguir mayúsculas), con su nombre original.
     reales = {c.upper(): c for c in sorted(columnas_reales)}
     hallazgos = []
@@ -312,12 +340,50 @@ def _validar_columnas_faltantes(
         columna = reales[clave]
         if tipo_sentencia == "ALTER":
             mensaje = (
-                f"La columna {columna} agregada en el ALTER TABLE de {full} no se encuentra documentada. "
-                f"Valide si debe agregarse al diccionario."
+                f"La columna {columna} se agrega en el ALTER TABLE, pero no se encuentra documentada. "
+                f"Agréguela al diccionario con su descripción."
             )
         else:
             mensaje = f"La columna {columna} no se encuentra documentada. Agréguela al diccionario con su descripción."
         hallazgos.append(_hallazgo(1, "COLUMNA_FALTANTE", mensaje))
+    return hallazgos
+
+
+def _validar_documentacion_existente_en_alter(
+    llamadas: List[LlamadaPropiedad],
+    tipo_sentencia: str,
+    esquema: Optional[str],
+    nombre_tabla: str,
+    columnas_agregadas: Set[str],
+) -> List[Hallazgo]:
+    """
+    En un ALTER la tabla (y sus columnas previas) ya existen y seguramente ya
+    están documentadas. Agregarles de nuevo la descripción no es un error del
+    diccionario, pero sp_addextendedproperty fallaría si ya la tienen: se
+    pide validar.
+    """
+    if tipo_sentencia != "ALTER":
+        return []
+    nuevas = {c.upper() for c in columnas_agregadas}
+    full = _nombre_completo(esquema, nombre_tabla)
+    hallazgos = []
+    for ll in llamadas:
+        if ll.operacion != "add" or not _es_descripcion(ll):
+            continue
+        if _es_de_tabla(ll):
+            hallazgos.append(_hallazgo(
+                ll.linea, "DOCUMENTACION_EXISTENTE_EN_ALTER",
+                f"Se agrega la descripción de la tabla {full}, pero es un ALTER TABLE: la tabla ya existe. "
+                f"Valide que no esté documentada; si ya tiene descripción, quite esta sentencia o use "
+                f"sp_updateextendedproperty.",
+            ))
+        elif _es_de_columna(ll) and ll.texto("level2name").upper() not in nuevas:
+            hallazgos.append(_hallazgo(
+                ll.linea, "DOCUMENTACION_EXISTENTE_EN_ALTER",
+                f"Se agrega la descripción de la columna {ll.texto('level2name')}, que no es nueva en este "
+                f"ALTER TABLE. Valide que no esté documentada; si ya lo está, quite esta sentencia o use "
+                f"sp_updateextendedproperty.",
+            ))
     return hallazgos
 
 
@@ -498,16 +564,26 @@ def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> Li
 
     tipo_sentencia = extraer_tipo_sentencia(texto_tabla)
     columnas_reales = extraer_columnas(texto_tabla)
+    columnas_agregadas, _ = extraer_columnas_alter(texto_tabla)
     llamadas = leer_propiedades_extendidas(texto_diccionario)
+
+    # CREATE: la tabla es nueva y todo debe documentarse.
+    # ALTER: la tabla ya existe; solo se exigen las columnas nuevas (ADD).
+    es_create = tipo_sentencia == "CREATE"
+    columnas_requeridas = columnas_reales if es_create else columnas_agregadas
 
     hallazgos: List[Hallazgo] = []
     hallazgos += _validar_sintaxis(llamadas)
     hallazgos += _validar_parametros(llamadas)
     hallazgos += _validar_alter_sin_diccionario(tipo_sentencia, llamadas, esquema, nombre_tabla)
-    hallazgos += _validar_tabla_documentada(llamadas, esquema, nombre_tabla)
+    if es_create:
+        hallazgos += _validar_tabla_documentada(llamadas, esquema, nombre_tabla)
     hallazgos += _validar_descripcion_tabla(llamadas)
-    hallazgos += _validar_columnas_faltantes(columnas_reales, llamadas, tipo_sentencia, esquema, nombre_tabla)
+    hallazgos += _validar_columnas_faltantes(columnas_requeridas, llamadas, tipo_sentencia, esquema, nombre_tabla)
     hallazgos += _validar_columnas_inexistentes(columnas_reales, llamadas, tipo_sentencia, nombre_tabla)
+    hallazgos += _validar_documentacion_existente_en_alter(
+        llamadas, tipo_sentencia, esquema, nombre_tabla, columnas_agregadas
+    )
     hallazgos += _validar_duplicados(llamadas)
     hallazgos += _validar_esquema(llamadas, esquema)
     hallazgos += _validar_nombre_tabla(llamadas, nombre_tabla)
