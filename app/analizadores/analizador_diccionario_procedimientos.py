@@ -18,6 +18,7 @@ from typing import List, Set, Tuple, Dict, Optional
 
 from app.analizadores.propiedades_extendidas import como_llamadas_crudas, leer_propiedades_extendidas
 from app.modelos.hallazgo import Hallazgo, Severidad, OrigenAnalisis
+from app.reglas.reglas_diccionario_procedimientos import REGLAS_DICCIONARIO_PROCEDIMIENTOS
 
 
 # ---------------------------------------------------------------------------
@@ -335,6 +336,7 @@ def verificar_diccionario(
     hallazgos += _validar_nombre_procedimiento(llamadas, nombre_proc, texto_diccionario)
     hallazgos += _validar_esquema(llamadas, esquema, texto_diccionario)
     hallazgos += _validar_descripciones_vacias(llamadas, texto_diccionario)
-    hallazgos += _validar_valores_sin_comillas(llamadas, texto_diccionario)
+    if REGLAS_DICCIONARIO_PROCEDIMIENTOS["VALOR_SIN_COMILLAS"].activo:
+        hallazgos += _validar_valores_sin_comillas(llamadas, texto_diccionario)
 
     return hallazgos

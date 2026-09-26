@@ -64,8 +64,11 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
         codigo="VALOR_SIN_COMILLAS",
         nombre="Valor sin comillas",
         severidad="critico",
-        descripcion="Un valor de extended property no está bien formado o tiene formato inválido.",
+        descripcion=(
+            "Nombres sin comillas (@level0name = dbo). Desactivada: SQL Server acepta nombres simples "
+            "sin comillas en sp_addextendedproperty."
+        ),
         alcance="procedimiento",
-        activo=True,
+        activo=False,
     ),
 }

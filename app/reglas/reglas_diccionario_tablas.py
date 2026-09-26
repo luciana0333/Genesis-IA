@@ -14,7 +14,7 @@ REGLAS_DICCIONARIO_TABLAS = {
         codigo="TABLA_SIN_DESCRIPCION",
         nombre="Tabla sin descripción",
         severidad="alto",
-        descripcion="La tabla no tiene una descripción válida (no vacía) a nivel TABLE en el diccionario.",
+        descripcion="Falta la descripción de la propia tabla (la sentencia sin @level2type) o está vacía.",
         alcance="tabla",
         activo=True,
     ),
@@ -116,8 +116,11 @@ REGLAS_DICCIONARIO_TABLAS = {
         codigo="VALOR_SIN_COMILLAS",
         nombre="Valor sin comillas",
         severidad="critico",
-        descripcion="Estándar del equipo: @level0name, @level1name y @level2name deben ir entre comillas (N'...').",
+        descripcion=(
+            "Nombres sin comillas (@level0name = dbo). Desactivada: SQL Server acepta nombres simples "
+            "sin comillas; los que sí fallarían (espacios, puntos) los detecta SINTAXIS_DICCIONARIO."
+        ),
         alcance="tabla",
-        activo=True,
+        activo=False,
     ),
 }

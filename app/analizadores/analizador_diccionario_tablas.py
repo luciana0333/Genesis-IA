@@ -232,19 +232,23 @@ def _validar_parametros(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
 def _validar_tabla_documentada(
     llamadas: List[LlamadaPropiedad], esquema: Optional[str], nombre_tabla: str
 ) -> List[Hallazgo]:
-    """Debe existir una descripcion no vacia a nivel TABLE."""
-    documentada = any(
-        _es_de_tabla(ll) and _es_descripcion(ll)
+    """La propia tabla debe tener su descripción (sentencia sin @level2type) y no vacía."""
+    sentencias_tabla = [
+        ll for ll in llamadas
+        if _es_de_tabla(ll) and _es_descripcion(ll)
         and ll.texto("level1name").upper() == nombre_tabla.upper()
-        and ll.texto("value") != ""
-        for ll in llamadas
-    )
-    if documentada:
+    ]
+    if any(ll.texto("value") for ll in sentencias_tabla):
         return []
     full = _nombre_completo(esquema, nombre_tabla)
+    if sentencias_tabla:
+        return [_hallazgo(
+            sentencias_tabla[0].linea, "TABLA_SIN_DESCRIPCION",
+            f"La descripción de la tabla {full} está vacía. Indique para qué sirve la tabla.",
+        )]
     return [_hallazgo(
         1, "TABLA_SIN_DESCRIPCION",
-        f"La tabla {full} no tiene una descripción válida a nivel TABLE en el diccionario.",
+        f"Falta documentar la tabla creada {full}: agregue su descripción en el diccionario.",
     )]
 
 

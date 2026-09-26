@@ -74,7 +74,7 @@ class TestDiccionarioProcedimientos(unittest.TestCase):
             ("caso_2_parametros_faltantes", PROC_2, DIC_2, 2),
             ("caso_3_texto_invalido", PROC_3, DIC_3, 0),
             ("caso_4_sin_descripcion_procedimiento", PROC_4, DIC_4, 1),
-            ("caso_5_sucio", PROC_5, DIC_5, 6),
+            ("caso_5_sucio", PROC_5, DIC_5, 4),
         ]
 
         for nombre, procedimiento, diccionario, esperado in casos:

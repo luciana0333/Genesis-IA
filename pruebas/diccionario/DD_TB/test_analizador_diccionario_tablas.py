@@ -219,7 +219,6 @@ class TestDiccionarioTablas(unittest.TestCase):
             (TABLA_CASO_4, DICCIONARIO_CASO_4, {
                 "ESQUEMA_NO_COINCIDE",
                 "DESCRIPCION_COLUMNA_VACIA",
-                "VALOR_SIN_COMILLAS",
             }),
         ]
 
@@ -262,6 +261,30 @@ class TestCatalogoDiccionarioTablas(unittest.TestCase):
         self.assertTrue(reglas_en_codigo)
         self.assertEqual(reglas_en_codigo - set(REGLAS_DICCIONARIO_TABLAS), set())
 
+    def test_nombres_sin_comillas_no_se_reportan(self):
+        diccionario = caso6.diccionario_correcto(";").replace("N'dbo'", "dbo").replace(
+            "N'TB_SolicitudArchivos'", "TB_SolicitudArchivos"
+        )
+        self.assertEqual(verificar_diccionario_tablas(caso6.TABLA, diccionario), [])
+
+    def test_mensajes_directos_de_tabla_sin_descripcion(self):
+        solo_columnas = "\n".join(
+            caso6._sentencia(col, desc) + ";" for col, desc in caso6._DESCRIPCIONES if col
+        )
+        faltante = verificar_diccionario_tablas(caso6.TABLA, solo_columnas)
+        self.assertEqual([h.regla for h in faltante], ["TABLA_SIN_DESCRIPCION"])
+        self.assertIn("Falta documentar la tabla creada dbo.TB_SolicitudArchivos", faltante[0].mensaje)
+
+        vacia = verificar_diccionario_tablas(
+            caso6.TABLA,
+            caso6.diccionario_correcto(";").replace(
+                "Archivos adjuntos registrados para cada solicitud", ""
+            ),
+        )
+        self.assertEqual([h.regla for h in vacia], ["TABLA_SIN_DESCRIPCION"])
+        self.assertIn("está vacía", vacia[0].mensaje)
+        self.assertGreater(vacia[0].linea, 0)
+
     def test_regla_desactivada_no_se_reporta(self):
         original = REGLAS_DICCIONARIO_TABLAS["COLUMNA_FALTANTE"]
         REGLAS_DICCIONARIO_TABLAS["COLUMNA_FALTANTE"] = replace(original, activo=False)
@@ -295,8 +318,8 @@ class TestDiccionarioTablasSinDependerDeGO(unittest.TestCase):
         self.assertIn("Coma sobrante", sintaxis[0].mensaje)
 
         self.assertIn("DESCRIPCION_TABLA_INADECUADA", reglas)
-        # Un aviso de comillas por cada una de las 7 sentencias.
-        self.assertEqual(reglas.count("VALOR_SIN_COMILLAS"), 7)
+        # SQL Server acepta nombres simples sin comillas: no se reportan.
+        self.assertNotIn("VALOR_SIN_COMILLAS", reglas)
 
     def test_punto_y_coma_y_exec_dentro_de_la_descripcion_no_cortan_la_sentencia(self):
         diccionario = caso6.diccionario_correcto(";").replace(
