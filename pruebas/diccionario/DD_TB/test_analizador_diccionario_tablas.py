@@ -1,6 +1,12 @@
+import inspect
+import re
 import unittest
+from dataclasses import replace
 
+from app.analizadores import analizador_diccionario_tablas
 from app.analizadores.analizador_diccionario_tablas import verificar_diccionario_tablas
+from app.modelos.hallazgo import Severidad
+from app.reglas.reglas_diccionario_tablas import REGLAS_DICCIONARIO_TABLAS
 from pruebas.diccionario.DD_TB.casos.test_caso1_perfecto import TABLA as TABLA_CASO_1, DICCIONARIO as DICCIONARIO_CASO_1
 from pruebas.diccionario.DD_TB.casos.test_caso2_tabla_sin_descripcion import TABLA as TABLA_CASO_2, DICCIONARIO as DICCIONARIO_CASO_2
 from pruebas.diccionario.DD_TB.casos.test_caso3_columnas_faltantes import TABLA as TABLA_CASO_3, DICCIONARIO as DICCIONARIO_CASO_3
@@ -230,6 +236,40 @@ class TestDiccionarioTablas(unittest.TestCase):
 
         hallazgos_alter = verificar_diccionario_tablas(ALTER_COLUMN, DICCIONARIO_ALTER_EXISTENTE)
         self.assertEqual(hallazgos_alter, [])
+
+
+class TestCatalogoDiccionarioTablas(unittest.TestCase):
+    """El catálogo de reglas define la severidad y si la regla está activa."""
+
+    def test_tabla_y_columna_sin_descripcion_son_alto(self):
+        diccionario_vacio_de_columnas = DICCIONARIO_SOLO_TABLA_CON_CORCHETES.replace(
+            "@value=N'Tabla de clientes'", "@value=N''"
+        )
+        hallazgos = verificar_diccionario_tablas(
+            TABLA_CON_CORCHETES_SIN_COLUMNAS_DOCUMENTADAS, diccionario_vacio_de_columnas
+        )
+        severidades = {h.regla: h.severidad for h in hallazgos}
+        self.assertEqual(severidades["TABLA_SIN_DESCRIPCION"], Severidad.ALTO)
+        self.assertEqual(severidades["COLUMNA_FALTANTE"], Severidad.ALTO)
+
+        hallazgos_caso4 = verificar_diccionario_tablas(TABLA_CASO_4, DICCIONARIO_CASO_4)
+        vacia = next(h for h in hallazgos_caso4 if h.regla == "DESCRIPCION_COLUMNA_VACIA")
+        self.assertEqual(vacia.severidad, Severidad.ALTO)
+
+    def test_toda_regla_emitida_esta_en_el_catalogo(self):
+        codigo = inspect.getsource(analizador_diccionario_tablas)
+        reglas_en_codigo = set(re.findall(r'_hallazgo\(\s*[^,]+?,\s*"([A-Z_]+)"', codigo))
+        self.assertTrue(reglas_en_codigo)
+        self.assertEqual(reglas_en_codigo - set(REGLAS_DICCIONARIO_TABLAS), set())
+
+    def test_regla_desactivada_no_se_reporta(self):
+        original = REGLAS_DICCIONARIO_TABLAS["COLUMNA_FALTANTE"]
+        REGLAS_DICCIONARIO_TABLAS["COLUMNA_FALTANTE"] = replace(original, activo=False)
+        try:
+            hallazgos = verificar_diccionario_tablas(TABLA_FALTA_COLUMNA, DICCIONARIO_FALTA_COLUMNA)
+        finally:
+            REGLAS_DICCIONARIO_TABLAS["COLUMNA_FALTANTE"] = original
+        self.assertNotIn("COLUMNA_FALTANTE", {h.regla for h in hallazgos})
 
 
 class TestDiccionarioTablasSinDependerDeGO(unittest.TestCase):
