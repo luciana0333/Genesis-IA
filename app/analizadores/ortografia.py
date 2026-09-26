@@ -21,6 +21,9 @@ from pathlib import Path
 from typing import Iterable, List, Optional, Set, Tuple
 
 _PALABRA = re.compile(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+")
+# Identificadores dentro del texto: nEstadoId, cCodPersona / SolicitudArchivos.
+_IDENTIFICADOR_CAMEL = re.compile(r"^[a-z]{1,4}(?:[A-Z][a-z0-9]+)+[A-Z]?[a-z0-9]*$")
+_IDENTIFICADOR_PASCAL = re.compile(r"^(?:[A-Z][a-z0-9]+){2,}$")
 # Fragmentos sin espacios; si contienen _ . @ # $ son identificadores técnicos
 # (sys.sp_addextendedproperty, @level2name, TB_Estado) y no se revisan.
 _FRAGMENTO = re.compile(r"[\w@#$.]+")
@@ -119,12 +122,22 @@ def es_palabra_valida(palabra: str) -> bool:
     return False
 
 
+def _parece_identificador(palabra: str) -> bool:
+    """
+    Nombres de columnas u objetos escritos dentro de la descripción:
+    prefijo en minúsculas + partes con mayúscula inicial (nEstadoId,
+    cCodPersona) o PascalCase compuesto (SolicitudArchivos). Una palabra con
+    mayúsculas sueltas al final ('clienteYY') no lo es y se revisa.
+    """
+    return bool(_IDENTIFICADOR_CAMEL.match(palabra) or _IDENTIFICADOR_PASCAL.match(palabra))
+
+
 def _debe_ignorarse(palabra: str, nombres_objeto: Set[str]) -> bool:
     if len(palabra) < _LONGITUD_MINIMA:
         return True
     if palabra.isupper():  # siglas: RUC, DNI, SQL
         return True
-    if any(c.isupper() for c in palabra[1:]):  # nEstadoId, SolicitudArchivos
+    if _parece_identificador(palabra):
         return True
     return normalizar(palabra) in nombres_objeto
 

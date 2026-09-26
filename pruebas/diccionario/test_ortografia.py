@@ -48,6 +48,45 @@ class TestOrtografia(unittest.TestCase):
         self.assertEqual(palabra, "Indicatg")
         self.assertTrue(all(o.lower().startswith("i") for o in opciones))
 
+    def test_palabra_con_mayusculas_sueltas_al_final_se_revisa(self):
+        # Caso reportado: 'clienteYY' se ignoraba por tener mayúsculas internas.
+        self.assertEqual(
+            ortografia.palabras_mal_escritas("Consulta la informacion del clienteYY"),
+            [("clienteYY", ["cliente"])],
+        )
+        self.assertEqual(ortografia.palabras_mal_escritas("Estado ActivoX del registro"), [("ActivoX", ["Activo"])])
+
+    def test_identificadores_reales_se_siguen_ignorando(self):
+        self.assertEqual(
+            ortografia.palabras_mal_escritas("Usa nEstadoId, cCodPersona y SolicitudArchivos del RUC"), []
+        )
+
+    def test_ejemplo_reportado_en_ambos_diccionarios(self):
+        from app.analizadores.diccionario import verificar_diccionario
+
+        procedimiento = "CREATE PROCEDURE CLICKTOPAY.PA_Cliente_Consultar AS BEGIN SELECT 1 END"
+        diccionario_proc = (
+            "EXEC sys.sp_addextendedproperty\n@name=N'MS_Description',\n"
+            "@value=N'Consulta la informacion del clienteYY',\n"
+            "@level0type=N'SCHEMA', @level0name=N'CLICKTOPAY',\n"
+            "@level1type=N'PROCEDURE', @level1name=N'PA_Cliente_Consultar'\nGO"
+        )
+        reglas = [h.regla for h in verificar_diccionario(procedimiento, diccionario_proc)]
+        self.assertIn("ERROR_ORTOGRAFICO", reglas)
+
+        tabla = "CREATE TABLE CLICKTOPAY.Cliente (nClienteId INT NOT NULL);"
+        diccionario_tabla = (
+            "EXEC sys.sp_addextendedproperty @name=N'MS_Description', "
+            "@value=N'Informacion del clienteYY', @level0type=N'SCHEMA', @level0name=N'CLICKTOPAY', "
+            "@level1type=N'TABLE', @level1name=N'Cliente';\n"
+            "EXEC sys.sp_addextendedproperty @name=N'MS_Description', "
+            "@value=N'Identificador del cliente', @level0type=N'SCHEMA', @level0name=N'CLICKTOPAY', "
+            "@level1type=N'TABLE', @level1name=N'Cliente', @level2type=N'COLUMN', @level2name=N'nClienteId';"
+        )
+        hallazgos = verificar_diccionario_tablas(tabla, diccionario_tabla)
+        self.assertEqual([h.regla for h in hallazgos], ["ERROR_ORTOGRAFICO"])
+        self.assertIn("'clienteYY' (¿quiso decir 'cliente'?)", hallazgos[0].mensaje)
+
     def test_no_exige_tildes(self):
         self.assertEqual(ortografia.palabras_mal_escritas("Descripcion del codigo unico"), [])
 
