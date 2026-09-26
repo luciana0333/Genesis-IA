@@ -20,7 +20,7 @@ describe('App', () => {
   it('inicia en Diccionarios con el ejemplo de procedimiento', () => {
     render(<App />);
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Revisión e inspección de Diccionarios SQL');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Auditoría de diccionarios SQL');
     expect(screen.getByRole('link', { name: 'Diccionarios' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByLabelText('Tipo de revisión')).toHaveValue('procedimiento');
     expect(screen.getByLabelText('SQL del procedimiento').value).toContain('PA_Cliente_Consultar');
@@ -37,7 +37,8 @@ describe('App', () => {
     render(<App />);
     await irA('tablas');
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Validación de estructura');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Auditoría de tablas SQL');
+    expect(screen.getByText('Validación de estructura')).toBeInTheDocument();
     expect(screen.queryByLabelText('Tipo de revisión')).not.toBeInTheDocument();
     expect(screen.queryByText('Documentación')).not.toBeInTheDocument();
     expect(screen.getByLabelText(/DBCMAICA/)).toBeInTheDocument();

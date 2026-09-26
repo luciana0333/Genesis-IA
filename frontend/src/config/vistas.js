@@ -12,7 +12,7 @@ export const VISTAS = [
     etiqueta: 'Diccionarios',
     tipoRevision: 'procedimiento',
     hero: {
-      titulo: 'Revisión e inspección de Diccionarios SQL',
+      titulo: 'Auditoría de diccionarios SQL',
       descripcion: 'Valida la estructura, consistencia y estándares de documentación de tus bases de datos SQL Server en tiempo real.',
     },
     resultados: {
@@ -27,8 +27,8 @@ export const VISTAS = [
     etiqueta: 'Tablas',
     tipoRevision: 'tabla_estructura',
     hero: {
-      titulo: 'Revisión e inspección de Tablas SQL',
-      complemento: ' · Validación de estructura',
+      titulo: 'Auditoría de tablas SQL',
+      complemento: 'Validación de estructura',
       descripcion: 'Valida la estructura, nomenclatura, tipos de datos, nulabilidad y reglas de diseño de tus tablas SQL Server.',
     },
     resultados: {
@@ -43,7 +43,7 @@ export const VISTAS = [
     etiqueta: 'Reportes',
     tipoRevision: 'reporte',
     hero: {
-      titulo: 'Revisión e inspección de Reportes SQL',
+      titulo: 'Auditoría de reportes SQL',
       descripcion: 'Revisa procedimientos de reportes para detectar prácticas inseguras, lecturas innecesarias y consultas que dificultan su mantenimiento.',
     },
     resultados: {
@@ -58,7 +58,7 @@ export const VISTAS = [
     etiqueta: 'Normales',
     tipoRevision: 'procedimiento_normal',
     hero: {
-      titulo: 'Revisión e inspección de Procedimientos SQL',
+      titulo: 'Auditoría de procedimientos SQL',
       descripcion: 'Valida procedimientos almacenados normales frente a reglas de control de flujo, consultas y buenas prácticas de desarrollo.',
     },
     resultados: {
@@ -73,7 +73,7 @@ export const VISTAS = [
     etiqueta: 'Planes',
     esPlan: true,
     hero: {
-      titulo: 'Revisión e inspección de Planes de ejecución SQL',
+      titulo: 'Análisis de planes de ejecución',
       descripcion: 'Analiza planes reales de SQL Server para detectar conversiones implícitas, spills, scans, lecturas elevadas y problemas de memoria.',
     },
   },
