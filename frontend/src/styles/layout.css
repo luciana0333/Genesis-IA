@@ -192,45 +192,11 @@
   padding: 64px 24px 136px;
   overflow: hidden;
   color: #ffffff;
-  background: var(--hero-base);
+  background: var(--hero-base) url('../assets/fondo.jpg') right center / cover no-repeat;
+  /* La foto (fondo oscuro) se funde con el rojo como textura luminosa en
+     lugar de oscurecerlo. */
+  background-blend-mode: soft-light;
   isolation: isolate;
-}
-
-/* Foto: se funde con el rojo como textura luminosa (soft-light) y se
-   acerca muy despacio (efecto Ken Burns). */
-.hero-media {
-  position: absolute;
-  inset: -4%;
-  z-index: -2;
-  background: url('../assets/fondo.jpg') right center / cover no-repeat;
-  mix-blend-mode: soft-light;
-  transform-origin: 75% 50%;
-  animation: hero-zoom 24s ease-in-out infinite alternate;
-  will-change: transform;
-}
-
-/* Halo de luz que recorre suavemente la zona de la foto. */
-.hero-glow {
-  position: absolute;
-  top: -35%;
-  right: 4%;
-  z-index: -1;
-  width: 640px;
-  height: 640px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.06) 38%, transparent 68%);
-  animation: hero-halo 14s ease-in-out infinite alternate;
-  pointer-events: none;
-}
-
-@keyframes hero-zoom {
-  from { transform: scale(1) translate3d(0, 0, 0); }
-  to { transform: scale(1.09) translate3d(-1.5%, -1%, 0); }
-}
-
-@keyframes hero-halo {
-  from { transform: translate3d(0, 0, 0); opacity: 0.75; }
-  to { transform: translate3d(-140px, 90px, 0); opacity: 1; }
 }
 
 .hero::before {
@@ -238,7 +204,6 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  pointer-events: none;
   background:
     linear-gradient(90deg,
       var(--hero-overlay-1) 0%,
