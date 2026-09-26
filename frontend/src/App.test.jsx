@@ -24,7 +24,7 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: 'Diccionarios' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByLabelText('Tipo de revisión')).toHaveValue('procedimiento');
     expect(screen.getByLabelText('SQL del procedimiento').value).toContain('PA_Cliente_Consultar');
-    expect(screen.getByText(/Aún no hay resultados/)).toBeInTheDocument();
+    expect(screen.getByText('Presiona "Ejecutar revisión" para analizar el objeto.')).toBeInTheDocument();
   });
 
   it('no muestra ningún elemento de la capa de IA', () => {
@@ -73,9 +73,9 @@ describe('App', () => {
     const lista = await screen.findByText('SELECT estrella prohibido');
     expect(lista).toBeInTheDocument();
     expect(screen.getByText('REGLA_NUEVA')).toBeInTheDocument();
-    expect(screen.getByText('Línea 3 · reglas_estaticas')).toBeInTheDocument();
+    expect(screen.getByText('Línea 3')).toBeInTheDocument();
 
-    const tarjetaAltos = screen.getByText('Altos').closest('.service-card');
+    const tarjetaAltos = screen.getByText('Altos').closest('.metric-card');
     expect(within(tarjetaAltos).getByText('1')).toBeInTheDocument();
   });
 
@@ -99,6 +99,40 @@ describe('App', () => {
 
     expect(screen.getByText('Completa el SQL del objeto para iniciar la revisión.')).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('filtra los hallazgos por severidad y los ordena por gravedad', async () => {
+    const usuario = userEvent.setup();
+    mockRespuesta({
+      hallazgos: [
+        { linea: 9, severidad: 'bajo', regla: 'VARBINARY_DOCUMENTO_IDENTIFICADO', mensaje: 'b' },
+        { linea: 2, severidad: 'critico', regla: 'TABLE_SCAN', mensaje: 'c' },
+        { linea: 4, severidad: 'alto', regla: 'SELECT_ESTRELLA_PROHIBIDO', mensaje: 'a' },
+      ],
+    });
+    render(<App />);
+    await usuario.click(screen.getByRole('button', { name: 'Ejecutar revisión' }));
+    await screen.findByRole('heading', { name: 'Table Scan' });
+
+    const titulos = () => screen.getAllByRole('heading', { level: 4 }).map((h) => h.textContent);
+    expect(titulos()).toEqual(['Table Scan', 'SELECT estrella prohibido', 'VARBINARY para documento identificado']);
+
+    await usuario.click(screen.getByRole('button', { name: /^Alto/ }));
+    expect(titulos()).toEqual(['SELECT estrella prohibido']);
+
+    await usuario.click(screen.getByRole('button', { name: /^Todos/ }));
+    expect(titulos()).toHaveLength(3);
+  });
+
+  it('restaura el script de ejemplo después de limpiar', async () => {
+    const usuario = userEvent.setup();
+    render(<App />);
+
+    await usuario.click(screen.getByRole('button', { name: 'Limpiar' }));
+    expect(screen.getByLabelText('SQL del procedimiento')).toHaveValue('');
+
+    await usuario.click(screen.getByRole('button', { name: 'Restaurar ejemplo' }));
+    expect(screen.getByLabelText('SQL del procedimiento').value).toContain('PA_Cliente_Consultar');
   });
 
   it('alterna y recuerda el tema oscuro', async () => {
@@ -143,8 +177,10 @@ describe('Planes', () => {
 
     expect(await screen.findByText('Spill hacia TempDB')).toBeInTheDocument();
     expect(screen.getByText('Análisis completado.')).toBeInTheDocument();
-    const operadores = screen.getByText('Operadores').closest('.service-card');
+    const operadores = screen.getByText('Operadores').closest('.metric-card');
     expect(within(operadores).getByText('2')).toBeInTheDocument();
     expect(screen.getByText(/8[,.]?192 KB/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Operadores más costosos' })).toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(3);
   });
 });

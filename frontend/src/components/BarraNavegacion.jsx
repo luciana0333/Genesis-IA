@@ -1,25 +1,26 @@
 import logoCajaIca from '../assets/logo-caja-ica.png';
 import { VISTAS } from '../config/vistas';
-import { IconoLuna } from './Iconos';
+import { IconoLuna, IconoSol } from './Iconos';
 
-export function BarraNavegacion({ vistaActiva, onAlternarTema }) {
+export function BarraNavegacion({ vistaActiva, tema, onAlternarTema }) {
+  const esOscuro = tema === 'dark';
   return (
-    <header className="navbar-full">
+    <header className="navbar">
       <div className="navbar-container">
-        <div className="brand">
-          <a className="brand-logo" href="#/diccionarios" aria-label="CAJA ICA · Inicio">
-            <img className="logo-img" src={logoCajaIca} alt="CAJA ICA" width="289" height="58" />
-          </a>
-        </div>
+        <a className="brand" href="#/diccionarios" aria-label="CAJA ICA · Inicio">
+          <img className="brand-logo" src={logoCajaIca} alt="CAJA ICA" width="289" height="58" />
+          <span className="brand-divider" aria-hidden="true" />
+          <span className="brand-product">Auditor SQL</span>
+        </a>
 
-        <nav className="nav-menu" aria-label="Tipos de revisión">
+        <nav className="nav-tabs" aria-label="Tipos de revisión">
           {VISTAS.map((vista) => {
             const activa = vista.id === vistaActiva.id;
             return (
               <a
                 key={vista.id}
                 href={`#/${vista.ruta}`}
-                className={activa ? 'active' : undefined}
+                className={activa ? 'nav-tab active' : 'nav-tab'}
                 aria-current={activa ? 'page' : undefined}
               >
                 {vista.etiqueta}
@@ -30,13 +31,13 @@ export function BarraNavegacion({ vistaActiva, onAlternarTema }) {
 
         <div className="nav-actions">
           <button
-            className="theme-btn"
+            className="icon-btn"
             type="button"
             aria-label="Cambiar tema"
-            title="Cambiar tema"
+            title={esOscuro ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
             onClick={onAlternarTema}
           >
-            <IconoLuna className="theme-svg" />
+            {esOscuro ? <IconoSol /> : <IconoLuna />}
           </button>
           <button className="cta-btn" type="button">Acceso Portal</button>
         </div>

@@ -1,38 +1,47 @@
 import { useId, useRef } from 'react';
-import { IconoBarras, IconoHallazgo, IconoMemoria, IconoRejilla } from '../../components/Iconos';
-import { ListaHallazgos } from '../../components/ListaHallazgos';
+import { Boton } from '../../components/Boton';
+import { IconoBarras, IconoEjecutar, IconoHallazgo, IconoLimpiar, IconoMemoria, IconoRejilla } from '../../components/Iconos';
+import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { TarjetaMetrica } from '../../components/TarjetaMetrica';
 import { formatearKb } from '../../utils/hallazgos';
+import { TablaOperadores } from './TablaOperadores';
 import { usePlanEjecucion } from './usePlanEjecucion';
+import { ZonaArchivo } from './ZonaArchivo';
+
+const REVISIONES_PLAN = ['Conversiones implícitas', 'Spills a TempDB', 'Table Scan', 'Lecturas lógicas', 'Cardinalidad', 'Memoria concedida'];
 
 function MetricasPlan({ analisis }) {
   const memoria = analisis?.memoria;
+  const uso = memoria?.concedidaKb && memoria?.maximaUtilizadaKb
+    ? Math.min(memoria.maximaUtilizadaKb / memoria.concedidaKb, 1)
+    : undefined;
   return (
-    <section className="services-grid plan-summary-grid" aria-label="Resumen del plan">
+    <section className="metrics-grid" aria-label="Resumen del plan">
       <TarjetaMetrica
-        variante="critical"
+        tono="marca"
         titulo="Operadores"
         valor={analisis?.operadores?.length || 0}
         subtitulo="Nodos analizados"
         icono={<IconoRejilla />}
       />
       <TarjetaMetrica
-        variante="high"
+        tono="alto"
         titulo="Memoria concedida"
         valor={formatearKb(memoria?.concedidaKb)}
         subtitulo="Reserva del plan"
         icono={<IconoMemoria />}
       />
       <TarjetaMetrica
-        variante="medium"
+        tono="medio"
         titulo="Memoria utilizada"
         valor={formatearKb(memoria?.maximaUtilizadaKb)}
-        subtitulo="Máximo utilizado"
+        subtitulo={uso === undefined ? 'Máximo utilizado' : `Máximo utilizado · ${Math.round(uso * 100)}% de lo concedido`}
         icono={<IconoBarras />}
+        proporcion={uso}
       />
       <TarjetaMetrica
-        variante="low"
+        tono="bajo"
         titulo="Hallazgos"
         valor={analisis?.hallazgos?.length || 0}
         subtitulo="Observaciones del plan"
@@ -45,77 +54,95 @@ function MetricasPlan({ analisis }) {
 export function PlanesWorkspace() {
   const idArchivo = useId();
   const inputArchivoRef = useRef(null);
-  const { archivo, analisis, estado, cargando, seleccionarArchivo, limpiar, analizar } = usePlanEjecucion();
+  const { archivo, analisis, aviso, cargando, seleccionarArchivo, limpiar, analizar } = usePlanEjecucion();
 
-  const alLimpiar = () => {
+  const reiniciarInput = () => {
     // El valor de un <input type="file"> solo puede reiniciarse desde el DOM.
     if (inputArchivoRef.current) inputArchivoRef.current.value = '';
+  };
+
+  const alLimpiar = () => {
+    reiniciarInput();
     limpiar();
   };
 
-  const mensajeVacio = analisis
-    ? 'El plan terminó sin hallazgos según las reglas activas.'
-    : 'Selecciona un archivo .sqlplan para iniciar el análisis.';
+  const alQuitarArchivo = () => {
+    reiniciarInput();
+    seleccionarArchivo(null);
+  };
+
+  const estadoPanel = cargando ? 'cargando' : analisis ? 'listo' : 'inicial';
 
   return (
-    <section className="plan-workspace-panel">
+    <section className="workspace">
       <MetricasPlan analisis={analisis} />
 
-      <section className="form-container plan-form-container">
-        <div className="section-title">
-          <span className="editor-kicker">SQL Server ShowPlanXML</span>
-          <h2>Revisión de plan de ejecución real</h2>
-          <div className="title-line" />
-        </div>
-
-        <div className="plan-upload-layout">
-          <TarjetaEditor
-            className="plan-upload-card"
-            kicker="Entrada principal"
-            etiqueta="Archivo .sqlplan"
-            htmlFor={idArchivo}
-            estado="Requerido"
-            ayuda="Carga el plan real exportado desde SQL Server o Plan Explorer."
-          >
-            <input
-              ref={inputArchivoRef}
-              id={idArchivo}
-              type="file"
-              accept=".sqlplan,application/xml,text/xml"
-              onChange={(evento) => seleccionarArchivo(evento.target.files?.[0])}
-            />
-            <span className="plan-file-name">{archivo?.name || 'Ningún archivo seleccionado'}</span>
-          </TarjetaEditor>
-
-          <TarjetaEditor
-            className="plan-actions-card"
-            kicker="Análisis profesional"
-            etiqueta="Diagnóstico técnico"
-            estado="Automático"
-            requerido={false}
-            ayuda="Se revisan conversiones implícitas, spills, scans, lecturas, cardinalidad y memoria concedida."
-          >
-            <div className="btn-group plan-btn-group">
-              <button className="btn-primary" type="button" onClick={analizar} disabled={cargando}>
-                Analizar plan
-              </button>
-              <button className="btn-secondary" type="button" onClick={alLimpiar}>Limpiar</button>
-            </div>
-            <p className="plan-status" role="status">{estado}</p>
-          </TarjetaEditor>
-        </div>
-
-        <section className="plan-results-panel" aria-live="polite" aria-busy={cargando}>
-          <div className="results-header">
-            <h3>Hallazgos del plan</h3>
-            <span className="finding-meta">{analisis?.archivo || ''}</span>
+      <section className="panel">
+        <header className="panel-header">
+          <div>
+            <span className="field-kicker">SQL Server ShowPlanXML</span>
+            <h2 className="panel-title">Revisión de plan de ejecución real</h2>
+            <p className="panel-subtitle">Carga un plan real para detectar problemas de rendimiento con evidencia del motor.</p>
           </div>
-          <ListaHallazgos
+        </header>
+
+        <div className="panel-body">
+          <div className="plan-layout">
+            <TarjetaEditor
+              className="field-card-primary"
+              kicker="Entrada principal"
+              etiqueta="Archivo .sqlplan"
+              htmlFor={idArchivo}
+              estado="Requerido"
+              ayuda="Exporta el plan real desde SQL Server Management Studio o Plan Explorer."
+            >
+              <ZonaArchivo
+                id={idArchivo}
+                inputRef={inputArchivoRef}
+                archivo={archivo}
+                accept=".sqlplan,application/xml,text/xml"
+                onSeleccionar={seleccionarArchivo}
+                onQuitar={alQuitarArchivo}
+              />
+            </TarjetaEditor>
+
+            <TarjetaEditor
+              className="field-card-secondary"
+              kicker="Análisis profesional"
+              etiqueta="Diagnóstico técnico"
+              estado="Automático"
+              requerido={false}
+              ayuda="Cada operador del plan se contrasta con estas reglas:"
+            >
+              <ul className="check-list">
+                {REVISIONES_PLAN.map((revision) => <li key={revision}>{revision}</li>)}
+              </ul>
+              <div className="btn-group plan-actions">
+                <Boton icono={<IconoEjecutar />} cargando={cargando} onClick={analizar}>Analizar plan</Boton>
+                <Boton variante="secundario" icono={<IconoLimpiar />} onClick={alLimpiar}>Limpiar</Boton>
+              </div>
+              <p className={`status-line tono-${aviso.tono}`} role="status">{aviso.texto}</p>
+            </TarjetaEditor>
+          </div>
+        </div>
+
+        <div className="panel-footer">
+          <PanelHallazgos
+            titulo="Hallazgos del plan"
+            meta={analisis?.archivo}
+            estado={estadoPanel}
             hallazgos={analisis?.hallazgos}
-            mensajeVacio={mensajeVacio}
             origenPorDefecto="plan_ejecucion"
+            mostrarLinea={false}
+            textos={{
+              inicial: 'Selecciona un archivo .sqlplan para iniciar el análisis.',
+              cargando: 'Analizando el plan real...',
+              sinHallazgos: 'El plan terminó sin hallazgos según las reglas activas.',
+              tituloError: 'No se pudo analizar el plan',
+            }}
           />
-        </section>
+          {analisis && <TablaOperadores operadores={analisis.operadores} />}
+        </div>
       </section>
     </section>
   );

@@ -1,24 +1,16 @@
 import { useId } from 'react';
-import { ListaHallazgos } from '../../components/ListaHallazgos';
+import { Boton } from '../../components/Boton';
+import { EditorCodigo } from '../../components/EditorCodigo';
+import { IconoEjecutar, IconoLimpiar, IconoRestaurar } from '../../components/Iconos';
+import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { OPCIONES_SELECTOR } from '../../config/revisiones';
 import { buscarVistaDedicada } from '../../config/vistas';
 import { MetricasSeveridad } from './MetricasSeveridad';
 import { useAuditoria } from './useAuditoria';
 
-function mensajeResultados(resultado, nombreRevision) {
-  switch (resultado.estado) {
-    case 'cargando':
-      return `Analizando las reglas de ${nombreRevision}...`;
-    case 'listo':
-      return 'La revisión terminó sin hallazgos.';
-    case 'error':
-      return resultado.mensaje;
-    default:
-      return (
-        <>Aún no hay resultados. Presiona <strong>&quot;Ejecutar revisión&quot;</strong> para analizar el objeto.</>
-      );
-  }
+function esAtajoEjecutar(evento) {
+  return evento.key === 'Enter' && (evento.ctrlKey || evento.metaKey);
 }
 
 /**
@@ -36,6 +28,7 @@ export function AuditoriaWorkspace({ vista, onNavegar }) {
     conteo,
     actualizarCampo,
     cambiarTipo,
+    restaurarEjemplo,
     limpiar,
     revisar,
   } = useAuditoria(vista.tipoRevision);
@@ -56,24 +49,30 @@ export function AuditoriaWorkspace({ vista, onNavegar }) {
 
   const alEnviar = (evento) => {
     evento.preventDefault();
-    revisar();
+    if (!cargando) revisar();
+  };
+
+  const alPresionarTecla = (evento) => {
+    if (esAtajoEjecutar(evento)) evento.currentTarget.requestSubmit();
   };
 
   return (
-    <section>
+    <section className="workspace">
       <MetricasSeveridad conteo={conteo} subtitulos={vista.resultados.subtitulos} />
 
-      <section className="form-container">
-        <div className="section-title">
-          <h2>Configuración de la Auditoría</h2>
-          <div className="title-line" />
-        </div>
+      <section className="panel">
+        <header className="panel-header">
+          <div>
+            <h2 className="panel-title">Configuración de la auditoría</h2>
+            <p className="panel-subtitle">Pega el código del objeto y ejecuta las reglas de {vista.resultados.nombre.toLowerCase()}.</p>
+          </div>
+        </header>
 
-        <form onSubmit={alEnviar} noValidate>
+        <form className="panel-body" onSubmit={alEnviar} onKeyDown={alPresionarTecla} noValidate>
           <div className="control-row">
             {esSelectorVisible && (
-              <div className="field-group revision-type-field">
-                <label htmlFor={`${ids}-tipo`}>Tipo de revisión</label>
+              <div className="field-group">
+                <label className="field-label" htmlFor={`${ids}-tipo`}>Tipo de revisión</label>
                 <select id={`${ids}-tipo`} value={tipoRevision} onChange={alCambiarTipo}>
                   {OPCIONES_SELECTOR.map((opcion) => (
                     <option key={opcion.id} value={opcion.id}>{opcion.etiquetaSelector}</option>
@@ -83,10 +82,11 @@ export function AuditoriaWorkspace({ vista, onNavegar }) {
             )}
 
             <div className="field-group">
-              <label htmlFor={`${ids}-objeto`}>{revision.etiquetaObjeto}</label>
+              <label className="field-label" htmlFor={`${ids}-objeto`}>{revision.etiquetaObjeto}</label>
               <input
                 id={`${ids}-objeto`}
                 type="text"
+                autoComplete="off"
                 value={campos.objetoNombre}
                 onChange={(evento) => actualizarCampo('objetoNombre', evento.target.value)}
               />
@@ -107,25 +107,30 @@ export function AuditoriaWorkspace({ vista, onNavegar }) {
 
           <div className="editor-grid">
             <TarjetaEditor
-              className={tieneDiccionario ? 'table-editor-card' : 'table-editor-card editor-card--completo'}
+              className={tieneDiccionario ? 'field-card-primary' : 'field-card-primary field-card-full'}
               kicker="Entrada principal"
               etiqueta={revision.sql.etiqueta}
               htmlFor={`${ids}-sql`}
               estado="Requerido"
               ayuda={revision.sql.ayuda}
+              acciones={
+                <button type="button" className="link-btn" onClick={restaurarEjemplo} title="Volver a cargar el script de ejemplo">
+                  <IconoRestaurar />
+                  Restaurar ejemplo
+                </button>
+              }
             >
-              <textarea
+              <EditorCodigo
                 id={`${ids}-sql`}
-                rows={10}
-                spellCheck={false}
-                value={campos.sqlObject}
-                onChange={(evento) => actualizarCampo('sqlObject', evento.target.value)}
+                valor={campos.sqlObject}
+                onCambiar={(valor) => actualizarCampo('sqlObject', valor)}
+                placeholder="CREATE PROCEDURE ..."
               />
             </TarjetaEditor>
 
             {tieneDiccionario && (
               <TarjetaEditor
-                className="dictionary-editor-card"
+                className="field-card-secondary"
                 kicker="Documentación"
                 etiqueta={revision.diccionario.etiqueta}
                 htmlFor={`${ids}-diccionario`}
@@ -135,33 +140,40 @@ export function AuditoriaWorkspace({ vista, onNavegar }) {
                   <>Pega aquí el script de <code>sp_addextendedproperty</code> para {revision.diccionario.objetivo}.</>
                 }
               >
-                <textarea
+                <EditorCodigo
                   id={`${ids}-diccionario`}
-                  rows={10}
-                  spellCheck={false}
-                  value={campos.dictScript}
-                  onChange={(evento) => actualizarCampo('dictScript', evento.target.value)}
+                  valor={campos.dictScript}
+                  onCambiar={(valor) => actualizarCampo('dictScript', valor)}
+                  placeholder="EXEC sys.sp_addextendedproperty ..."
                 />
               </TarjetaEditor>
             )}
           </div>
 
-          <div className="btn-group">
-            <button className="btn-primary" type="submit" disabled={cargando}>Ejecutar revisión</button>
-            <button className="btn-secondary" type="button" onClick={limpiar}>Limpiar</button>
+          <div className="action-bar">
+            <div className="btn-group">
+              <Boton type="submit" icono={<IconoEjecutar />} cargando={cargando}>Ejecutar revisión</Boton>
+              <Boton variante="secundario" icono={<IconoLimpiar />} onClick={limpiar}>Limpiar</Boton>
+            </div>
+            <p className="shortcut-hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> para ejecutar</p>
           </div>
         </form>
 
-        <section className="results-panel" aria-live="polite" aria-busy={cargando}>
-          <div className="results-header">
-            <h3>{vista.resultados.titulo}</h3>
-          </div>
-          <ListaHallazgos
+        <div className="panel-footer">
+          <PanelHallazgos
+            titulo={vista.resultados.titulo}
+            estado={resultado.estado}
             hallazgos={resultado.hallazgos}
-            mensajeVacio={mensajeResultados(resultado, vista.resultados.nombre)}
+            mensajeError={resultado.mensaje}
             origenPorDefecto="reglas_estaticas"
+            textos={{
+              inicial: 'Presiona "Ejecutar revisión" para analizar el objeto.',
+              cargando: `Analizando las reglas de ${vista.resultados.nombre}...`,
+              sinHallazgos: 'La revisión terminó sin hallazgos.',
+              tituloError: 'No se pudo completar la revisión',
+            }}
           />
-        </section>
+        </div>
       </section>
     </section>
   );

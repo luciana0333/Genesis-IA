@@ -15,6 +15,15 @@ export function contarPorSeveridad(hallazgos = []) {
   return conteo;
 }
 
+/** Ordena por gravedad (crítico primero) y luego por número de línea. */
+export function ordenarHallazgos(hallazgos = []) {
+  const peso = (hallazgo) => {
+    const indice = SEVERIDADES.indexOf(normalizarSeveridad(hallazgo.severidad));
+    return indice === -1 ? SEVERIDADES.length : indice;
+  };
+  return [...hallazgos].sort((a, b) => peso(a) - peso(b) || (a.linea ?? 0) - (b.linea ?? 0));
+}
+
 /** Formatea kilobytes para las tarjetas del plan: 8192 -> "8,192 KB". */
 export function formatearKb(valor) {
   return valor ? `${Math.round(valor).toLocaleString()} KB` : '--';

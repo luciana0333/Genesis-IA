@@ -34,6 +34,10 @@ export function useAuditoria(tipoInicial) {
     setCampos((actuales) => camposDeEjemplo(nuevoTipo, actuales));
   }, []);
 
+  const restaurarEjemplo = useCallback(() => {
+    setCampos((actuales) => camposDeEjemplo(tipoRevision, actuales));
+  }, [tipoRevision]);
+
   const limpiar = useCallback(() => {
     cancelar();
     setCampos({ objetoNombre: '', sqlObject: '', dictScript: '', esDbcmaica: false });
@@ -68,6 +72,7 @@ export function useAuditoria(tipoInicial) {
     conteo,
     actualizarCampo,
     cambiarTipo,
+    restaurarEjemplo,
     limpiar,
     revisar,
   };

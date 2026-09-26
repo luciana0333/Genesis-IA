@@ -1,6 +1,6 @@
 /**
- * Contenedor con encabezado para una entrada del formulario (editor SQL,
- * carga de archivo, acciones). `requerido` controla la etiqueta de estado.
+ * Bloque del formulario con encabezado (kicker, etiqueta, estado y acciones
+ * opcionales), texto de ayuda y el control que se pase como hijo.
  */
 export function TarjetaEditor({
   className = '',
@@ -10,18 +10,23 @@ export function TarjetaEditor({
   estado,
   requerido = true,
   ayuda,
+  acciones,
   children,
 }) {
+  const Etiqueta = htmlFor ? 'label' : 'span';
   return (
-    <div className={`editor-card ${className}`.trim()}>
-      <div className="editor-card-heading">
-        <div>
-          <span className="editor-kicker">{kicker}</span>
-          <label htmlFor={htmlFor}>{etiqueta}</label>
+    <div className={`field-card ${className}`.trim()}>
+      <div className="field-card-heading">
+        <div className="field-card-titles">
+          <span className="field-kicker">{kicker}</span>
+          <Etiqueta className="field-label" htmlFor={htmlFor}>{etiqueta}</Etiqueta>
         </div>
-        <span className={requerido ? 'editor-status' : 'editor-status optional'}>{estado}</span>
+        <div className="field-card-side">
+          {acciones}
+          {estado && <span className={requerido ? 'field-status' : 'field-status optional'}>{estado}</span>}
+        </div>
       </div>
-      {ayuda && <p className="editor-hint">{ayuda}</p>}
+      {ayuda && <p className="field-hint">{ayuda}</p>}
       {children}
     </div>
   );

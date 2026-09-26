@@ -1,36 +1,100 @@
-/* Variables de diseño: tema claro por defecto y tema oscuro. */
+/*
+ * Sistema de diseño: colores, tipografía, radios, sombras y movimiento.
+ * Tema claro por defecto; el oscuro se activa con <html data-theme="dark">.
+ */
 :root {
-  --bg-page: #f4f5f7;
+  /* Superficies */
+  --bg-page: #f3f4f7;
   --bg-card: #ffffff;
-  --bg-input: #f8f9fa;
-  --border: #e2e8f0;
+  --bg-input: #f8f9fb;
+  --bg-subtle: #f1f3f6;
+  --bg-code: #fbfbfc;
+  --border: #e3e7ee;
+  --border-strong: #cfd5df;
 
-  --text-primary: #1a202c;
-  --text-muted: #718096;
+  /* Texto */
+  --text-primary: #141a26;
+  --text-secondary: #3f4a5c;
+  --text-muted: #6b7587;
 
+  /* Marca CAJA ICA */
   --red-main: #e60026;
   --red-dark: #b8001e;
   --red-light: rgba(230, 0, 38, 0.08);
   --red-shadow: rgba(230, 0, 38, 0.25);
 
-  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.08);
+  /* Severidades: color principal, fondo suave y texto legible */
+  --sev-critico: #e60026;
+  --sev-critico-bg: rgba(230, 0, 38, 0.09);
+  --sev-critico-text: #c20020;
+  --sev-alto: #f07b0f;
+  --sev-alto-bg: rgba(240, 123, 15, 0.1);
+  --sev-alto-text: #b95800;
+  --sev-medio: #e8b100;
+  --sev-medio-bg: rgba(232, 177, 0, 0.12);
+  --sev-medio-text: #8f6a00;
+  --sev-bajo: #12a150;
+  --sev-bajo-bg: rgba(18, 161, 80, 0.1);
+  --sev-bajo-text: #0b7a3b;
+
+  /* Tipografía */
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+
+  /* Forma y profundidad */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-md: 0 6px 16px -4px rgba(16, 24, 40, 0.08), 0 2px 6px -2px rgba(16, 24, 40, 0.04);
+  --shadow-lg: 0 18px 40px -12px rgba(16, 24, 40, 0.14);
+
+  --focus-ring: 0 0 0 3px rgba(230, 0, 38, 0.22);
+  --nav-bg: rgba(255, 255, 255, 0.86);
+
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 150ms;
+  --dur: 220ms;
 }
 
 :root[data-theme="dark"] {
-  --bg-page: #0f1115;
-  --bg-card: #161920;
-  --bg-input: #0e1014;
-  --border: #232834;
+  --bg-page: #0c0e13;
+  --bg-card: #151820;
+  --bg-input: #10131a;
+  --bg-subtle: #1b1f29;
+  --bg-code: #0f1218;
+  --border: #242a36;
+  --border-strong: #323a4a;
 
-  --text-primary: #f7fafc;
-  --text-muted: #a0aec0;
+  --text-primary: #f3f5f9;
+  --text-secondary: #c3cad6;
+  --text-muted: #8c96a8;
 
-  --red-main: #e60026;
-  --red-dark: #a0001a;
-  --red-light: rgba(230, 0, 38, 0.15);
-  --red-shadow: rgba(230, 0, 38, 0.4);
+  --red-main: #f0163a;
+  --red-dark: #c0001f;
+  --red-light: rgba(240, 22, 58, 0.14);
+  --red-shadow: rgba(240, 22, 58, 0.35);
 
-  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --sev-critico: #ff3b5a;
+  --sev-critico-bg: rgba(255, 59, 90, 0.14);
+  --sev-critico-text: #ff7087;
+  --sev-alto: #ff9433;
+  --sev-alto-bg: rgba(255, 148, 51, 0.14);
+  --sev-alto-text: #ffad66;
+  --sev-medio: #f5c83b;
+  --sev-medio-bg: rgba(245, 200, 59, 0.14);
+  --sev-medio-text: #f5d36b;
+  --sev-bajo: #2fcf77;
+  --sev-bajo-bg: rgba(47, 207, 119, 0.14);
+  --sev-bajo-text: #5fdc97;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 20px -6px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 20px 44px -12px rgba(0, 0, 0, 0.6);
+
+  --focus-ring: 0 0 0 3px rgba(240, 22, 58, 0.35);
+  --nav-bg: rgba(21, 24, 32, 0.82);
 }
