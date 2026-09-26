@@ -4,11 +4,20 @@ analizador_diccionario_tablas.py
 ------------------------------
 Analiza el diccionario de tablas (sp_addextendedproperty) y compara la
 "realidad" (CREATE/ALTER TABLE) contra la "documentacion".
+
+El script del diccionario se lee con propiedades_extendidas, por lo que las
+sentencias pueden separarse con GO, con ";", con ambos o sin nada.
 """
 
 import re
-from typing import List, Set, Tuple, Dict, Optional
+import unicodedata
+from typing import Dict, List, Optional, Set, Tuple
 
+from app.analizadores.propiedades_extendidas import (
+    LlamadaPropiedad,
+    como_llamadas_crudas,
+    leer_propiedades_extendidas,
+)
 from app.modelos.hallazgo import Hallazgo, Severidad, OrigenAnalisis
 
 
@@ -136,211 +145,287 @@ def extraer_columnas(texto_sql: str) -> Set[str]:
 # EXTRACCION - leer la "documentacion" (diccionario)
 # ---------------------------------------------------------------------------
 
+_PARAMETROS_OBLIGATORIOS = ("name", "value", "level0type", "level0name", "level1type", "level1name")
+_PARAMETROS_DE_NOMBRE = ("level0name", "level1name", "level2name")
+
+
 def extraer_llamadas_extendedproperty(texto_diccionario: str) -> List[Tuple[int, Dict[str, str]]]:
-    """Extrae llamadas a sp_addextendedproperty para tablas/columnas."""
-    llamadas = []
-    patron = re.compile(
-        r"EXEC(?:UTE)?\s+sys\.sp_(?:add|update)extendedproperty\s*(.*?)(?=\bGO\b|\Z)",
-        re.IGNORECASE | re.DOTALL
+    """Compatibilidad: llamadas como [(posicion, {parametro: valor_crudo})]."""
+    return como_llamadas_crudas(leer_propiedades_extendidas(texto_diccionario))
+
+
+def _es_descripcion(llamada: LlamadaPropiedad) -> bool:
+    """Solo las propiedades MS_Description son descripciones del diccionario."""
+    nombre = llamada.texto("name")
+    return nombre == "" or nombre.upper() == "MS_DESCRIPTION"
+
+
+def _es_de_tabla(llamada: LlamadaPropiedad) -> bool:
+    return llamada.texto("level1type").upper() == "TABLE" and not llamada.tiene("level2type")
+
+
+def _es_de_columna(llamada: LlamadaPropiedad) -> bool:
+    return llamada.texto("level2type").upper() == "COLUMN" and bool(llamada.texto("level2name"))
+
+
+def _normalizar_texto(texto: str) -> str:
+    """Minúsculas, sin tildes ni espacios repetidos: para comparar descripciones."""
+    sin_tildes = "".join(
+        c for c in unicodedata.normalize("NFD", texto) if unicodedata.category(c) != "Mn"
     )
-    for m in patron.finditer(texto_diccionario):
-        cuerpo = m.group(1)
-        args = {}
-        for arg_m in re.finditer(r"@(\w+)\s*=\s*(N?'[^']*'|[\w@]+)", cuerpo):
-            args[arg_m.group(1).lower()] = arg_m.group(2)
-        llamadas.append((m.start(), args))
-    return llamadas
+    return " ".join(sin_tildes.lower().split())
 
 
-def _limpiar_valor(valor: str) -> str:
-    """Quita comillas y el prefijo N de un valor tipo N'texto'."""
-    if not isinstance(valor, str):
-        return ""
-    valor = valor.strip()
-    if valor.startswith("N'") and valor.endswith("'"):
-        return valor[2:-1]
-    if valor.startswith("'") and valor.endswith("'"):
-        return valor[1:-1]
-    return valor
-
-
-def _numero_linea(texto: str, posicion: int) -> int:
-    return texto.count("\n", 0, posicion) + 1
+def _hallazgo(linea: int, severidad: Severidad, regla: str, mensaje: str) -> Hallazgo:
+    return Hallazgo(
+        linea=linea,
+        origen=OrigenAnalisis.DICCIONARIO,
+        severidad=severidad,
+        regla=regla,
+        mensaje=mensaje,
+    )
 
 
 # ---------------------------------------------------------------------------
 # VALIDACIONES
 # ---------------------------------------------------------------------------
 
+def _validar_sintaxis(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
+    """Errores de escritura del script: SQL Server no lo podría ejecutar."""
+    return [
+        _hallazgo(linea, Severidad.CRITICO, "SINTAXIS_DICCIONARIO", mensaje)
+        for llamada in llamadas
+        for linea, mensaje in llamada.errores
+    ]
+
+
+def _validar_parametros(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
+    """Cada sentencia debe traer los parámetros obligatorios y niveles válidos."""
+    hallazgos = []
+    for llamada in llamadas:
+        faltantes = [f"@{p}" for p in _PARAMETROS_OBLIGATORIOS if not llamada.tiene(p)]
+        if llamada.tiene("level2type") != llamada.tiene("level2name"):
+            faltantes.append("@level2name" if llamada.tiene("level2type") else "@level2type")
+        if faltantes:
+            hallazgos.append(_hallazgo(
+                llamada.linea, Severidad.ALTO, "PARAMETROS_INCOMPLETOS",
+                f"A la sentencia le faltan los parámetros {', '.join(faltantes)}.",
+            ))
+
+        tipo0 = llamada.texto("level0type").upper()
+        tipo1 = llamada.texto("level1type").upper()
+        if tipo0 and tipo0 != "SCHEMA":
+            hallazgos.append(_hallazgo(
+                llamada.linea, Severidad.ALTO, "TIPO_NIVEL_INCORRECTO",
+                f"@level0type='{llamada.texto('level0type')}' debe ser 'SCHEMA' en el diccionario de una tabla.",
+            ))
+        if tipo1 and tipo1 != "TABLE":
+            hallazgos.append(_hallazgo(
+                llamada.linea, Severidad.ALTO, "TIPO_NIVEL_INCORRECTO",
+                f"@level1type='{llamada.texto('level1type')}' debe ser 'TABLE' en el diccionario de una tabla.",
+            ))
+    return hallazgos
+
+
 def _validar_tabla_documentada(
-    llamadas: List[Tuple[int, Dict[str, str]]],
-    esquema: str,
-    nombre_tabla: str
+    llamadas: List[LlamadaPropiedad], esquema: Optional[str], nombre_tabla: str
 ) -> List[Hallazgo]:
-    """Debe existir una descripcion valida a nivel TABLE."""
-    tabla_doc = []
-    for _, args in llamadas:
-        level1type = _limpiar_valor(args.get("level1type", "")).upper()
-        level2type = _limpiar_valor(args.get("level2type", "")).upper()
-        if level1type.strip() == "TABLE" and not level2type:
-            nombre_doc = _limpiar_valor(args.get("level1name", "")).upper()
-            if nombre_doc == nombre_tabla.upper():
-                valor = _limpiar_valor(args.get("value", ""))
-                if valor != "":
-                    tabla_doc.append(args)
-    if not tabla_doc:
-        full = _nombre_completo(esquema, nombre_tabla)
-        return [Hallazgo(
-            linea=1,
-            origen=OrigenAnalisis.DICCIONARIO,
-            severidad=Severidad.MEDIO,
-            regla="TABLA_SIN_DESCRIPCION",
-            mensaje=f"La tabla {full} no tiene una descripcion valida a nivel TABLE en el diccionario."
-        )]
-    return []
+    """Debe existir una descripcion no vacia a nivel TABLE."""
+    documentada = any(
+        _es_de_tabla(ll) and _es_descripcion(ll)
+        and ll.texto("level1name").upper() == nombre_tabla.upper()
+        and ll.texto("value") != ""
+        for ll in llamadas
+    )
+    if documentada:
+        return []
+    full = _nombre_completo(esquema, nombre_tabla)
+    return [_hallazgo(
+        1, Severidad.MEDIO, "TABLA_SIN_DESCRIPCION",
+        f"La tabla {full} no tiene una descripción válida a nivel TABLE en el diccionario.",
+    )]
 
 
-def _validar_esquema(
-    llamadas: List[Tuple[int, Dict[str, str]]],
-    esquema_real: str,
-    texto_diccionario: str
-) -> List[Hallazgo]:
-    hallazgos = []
-    # Si no conocemos el esquema real (tabla sin esquema en SQL), no validar esquema
+def _validar_esquema(llamadas: List[LlamadaPropiedad], esquema_real: Optional[str]) -> List[Hallazgo]:
+    # Si la tabla no declara esquema en el SQL, no hay contra qué comparar.
     if not esquema_real:
-        return hallazgos
-    for pos, args in llamadas:
-        if "level0name" in args:
-            valor = _limpiar_valor(args["level0name"])
-            if valor and valor.lower() != esquema_real.lower():
-                hallazgos.append(Hallazgo(
-                    linea=_numero_linea(texto_diccionario, pos),
-                    origen=OrigenAnalisis.DICCIONARIO,
-                    severidad=Severidad.ALTO,
-                    regla="ESQUEMA_NO_COINCIDE",
-                    mensaje=f"El esquema documentado (@level0name='{valor}') no coincide con "
-                            f"el esquema real de la tabla ('{esquema_real}')."
-                ))
-    return hallazgos
+        return []
+    return [
+        _hallazgo(
+            ll.linea, Severidad.ALTO, "ESQUEMA_NO_COINCIDE",
+            f"El esquema documentado (@level0name='{ll.texto('level0name')}') no coincide con "
+            f"el esquema real de la tabla ('{esquema_real}').",
+        )
+        for ll in llamadas
+        if ll.texto("level0name") and ll.texto("level0name").lower() != esquema_real.lower()
+    ]
 
 
-def _validar_nombre_tabla(
-    llamadas: List[Tuple[int, Dict[str, str]]],
-    nombre_tabla: str,
-    texto_diccionario: str
-) -> List[Hallazgo]:
-    hallazgos = []
-    for pos, args in llamadas:
-        level1type = args.get("level1type", "").upper()
-        if "TABLE" in level1type and "level1name" in args:
-            valor = _limpiar_valor(args["level1name"]).upper()
-            if valor != nombre_tabla.upper():
-                hallazgos.append(Hallazgo(
-                    linea=_numero_linea(texto_diccionario, pos),
-                    origen=OrigenAnalisis.DICCIONARIO,
-                    severidad=Severidad.ALTO,
-                    regla="NOMBRE_TABLA_NO_COINCIDE",
-                    mensaje=f"@level1name='{valor}' no coincide con el nombre real de la tabla "
-                            f"({nombre_tabla})."
-                ))
-    return hallazgos
+def _validar_nombre_tabla(llamadas: List[LlamadaPropiedad], nombre_tabla: str) -> List[Hallazgo]:
+    return [
+        _hallazgo(
+            ll.linea, Severidad.ALTO, "NOMBRE_TABLA_NO_COINCIDE",
+            f"@level1name='{ll.texto('level1name')}' no coincide con el nombre real de la tabla ({nombre_tabla}).",
+        )
+        for ll in llamadas
+        if ll.texto("level1type").upper() == "TABLE"
+        and ll.texto("level1name")
+        and ll.texto("level1name").upper() != nombre_tabla.upper()
+    ]
+
+
+def _columnas_documentadas(llamadas: List[LlamadaPropiedad]) -> Set[str]:
+    return {
+        ll.texto("level2name").upper()
+        for ll in llamadas
+        if _es_de_columna(ll) and _es_descripcion(ll)
+    }
 
 
 def _validar_columnas_faltantes(
     columnas_reales: Set[str],
-    llamadas: List[Tuple[int, Dict[str, str]]],
+    llamadas: List[LlamadaPropiedad],
     tipo_sentencia: str,
-    esquema: str,
-    nombre_tabla: str
+    esquema: Optional[str],
+    nombre_tabla: str,
 ) -> List[Hallazgo]:
     """
-    Compara columnas reales vs documentadas. Para ALTER, solo alerta si una
-    columna nueva no tiene documentacion.
+    En un CREATE todas las columnas deben estar documentadas. En un ALTER solo
+    se exige documentar las columnas agregadas o modificadas.
     """
+    documentadas = _columnas_documentadas(llamadas)
+    full = _nombre_completo(esquema, nombre_tabla)
     hallazgos = []
-    columnas_documentadas = set()
-    for _, args in llamadas:
-        if "level2type" in args and "COLUMN" in args.get("level2type", "").upper():
-            nombre_col = _limpiar_valor(args.get("level2name", "")).upper()
-            if nombre_col:
-                columnas_documentadas.add(nombre_col)
-
-    faltantes = {c.upper() for c in columnas_reales} - columnas_documentadas
-    for col in sorted(faltantes):
-        full = _nombre_completo(esquema, nombre_tabla)
+    for columna in sorted({c.upper() for c in columnas_reales} - documentadas):
         if tipo_sentencia == "ALTER":
             mensaje = (
-                f"La columna {col} fue agregada en el ALTER TABLE de {full} "
+                f"La columna {columna} fue agregada en el ALTER TABLE de {full} "
                 f"pero no se encuentra declarada en el diccionario. Validar si realmente debe documentarse."
             )
         else:
-            mensaje = (
-                f"La columna {col} no se encuentra declarada en el diccionario de la tabla {full}."
-            )
-        hallazgos.append(Hallazgo(
-            linea=1,
-            origen=OrigenAnalisis.DICCIONARIO,
-            severidad=Severidad.MEDIO,
-            regla="COLUMNA_FALTANTE",
-            mensaje=mensaje
-        ))
+            mensaje = f"La columna {columna} no se encuentra declarada en el diccionario de la tabla {full}."
+        hallazgos.append(_hallazgo(1, Severidad.MEDIO, "COLUMNA_FALTANTE", mensaje))
     return hallazgos
 
 
-def _validar_descripciones_vacias(
-    llamadas: List[Tuple[int, Dict[str, str]]],
-    texto_diccionario: str
+def _validar_columnas_inexistentes(
+    columnas_reales: Set[str], llamadas: List[LlamadaPropiedad], tipo_sentencia: str, nombre_tabla: str
 ) -> List[Hallazgo]:
+    """
+    En un CREATE, documentar una columna que no existe suele ser un error de
+    tipeo. En un ALTER no se valida: la tabla tiene columnas previas que el
+    script no muestra.
+    """
+    if tipo_sentencia != "CREATE":
+        return []
+    reales = {c.upper() for c in columnas_reales}
+    return [
+        _hallazgo(
+            ll.linea, Severidad.ALTO, "COLUMNA_NO_EXISTE",
+            f"La columna documentada '{ll.texto('level2name')}' no existe en la tabla {nombre_tabla}. "
+            f"Revise si el nombre está mal escrito.",
+        )
+        for ll in llamadas
+        if _es_de_columna(ll) and ll.texto("level2name").upper() not in reales
+    ]
+
+
+def _validar_duplicados(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
+    """
+    Agregar dos veces la misma descripción falla en SQL Server ("property
+    already exists"). Solo aplica a sp_addextendedproperty.
+    """
+    vistos: Dict[Tuple[str, str], int] = {}
     hallazgos = []
-    for pos, args in llamadas:
-        if "COLUMN" in args.get("level2type", "").upper() and "value" in args:
-            valor = _limpiar_valor(args["value"])
-            nombre_col = _limpiar_valor(args.get("level2name", "?"))
-            if valor == "":
-                hallazgos.append(Hallazgo(
-                    linea=_numero_linea(texto_diccionario, pos),
-                    origen=OrigenAnalisis.DICCIONARIO,
-                    severidad=Severidad.MEDIO,
-                    regla="DESCRIPCION_COLUMNA_VACIA",
-                    mensaje=f"La columna {nombre_col} tiene descripcion vacia en el diccionario."
-                ))
+    for ll in llamadas:
+        if ll.operacion != "add" or not _es_descripcion(ll):
+            continue
+        if _es_de_columna(ll):
+            clave = ("columna", ll.texto("level2name").upper())
+            objeto = f"la columna {ll.texto('level2name')}"
+        elif _es_de_tabla(ll):
+            clave = ("tabla", ll.texto("level1name").upper())
+            objeto = f"la tabla {ll.texto('level1name')}"
+        else:
+            continue
+        if clave in vistos:
+            hallazgos.append(_hallazgo(
+                ll.linea, Severidad.ALTO, "DOCUMENTACION_DUPLICADA",
+                f"La descripción de {objeto} se agrega más de una vez (ya estaba en la línea "
+                f"{vistos[clave]}). SQL Server rechazará la segunda sentencia.",
+            ))
+        else:
+            vistos[clave] = ll.linea
     return hallazgos
 
 
-def _validar_valores_sin_comillas(
-    llamadas: List[Tuple[int, Dict[str, str]]],
-    texto_diccionario: str
-) -> List[Hallazgo]:
+def _validar_descripcion_tabla(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
+    """
+    La descripción de la tabla debe explicar su propósito. Se marca cuando es
+    idéntica a la de una columna (copiar y pegar) o cuando describe un
+    identificador en lugar de la tabla.
+    """
+    descripciones_columnas = {
+        _normalizar_texto(ll.texto("value")): ll.texto("level2name")
+        for ll in llamadas
+        if _es_de_columna(ll) and _es_descripcion(ll) and ll.texto("value")
+    }
     hallazgos = []
-    for pos, args in llamadas:
-        for clave in ("level0name", "level1name", "level2name"):
-            if clave in args:
-                valor = args[clave]
-                if not (valor.startswith("N'") or valor.startswith("'")):
-                    hallazgos.append(Hallazgo(
-                        linea=_numero_linea(texto_diccionario, pos),
-                        origen=OrigenAnalisis.DICCIONARIO,
-                        severidad=Severidad.CRITICO,
-                        regla="VALOR_SIN_COMILLAS",
-                        mensaje=f"@{clave}={valor} no esta entre comillas (N'...')."
-                    ))
+    for ll in llamadas:
+        if not (_es_de_tabla(ll) and _es_descripcion(ll) and ll.texto("value")):
+            continue
+        descripcion = _normalizar_texto(ll.texto("value"))
+        if descripcion in descripciones_columnas:
+            hallazgos.append(_hallazgo(
+                ll.linea, Severidad.MEDIO, "DESCRIPCION_TABLA_INADECUADA",
+                f"La descripción de la tabla es idéntica a la de la columna "
+                f"{descripciones_columnas[descripcion]}. Describa el propósito de la tabla.",
+            ))
+        elif descripcion.startswith("identificador"):
+            hallazgos.append(_hallazgo(
+                ll.linea, Severidad.MEDIO, "DESCRIPCION_TABLA_INADECUADA",
+                "La descripción de la tabla describe un identificador, no el propósito de la tabla.",
+            ))
+    return hallazgos
+
+
+def _validar_descripciones_vacias(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
+    return [
+        _hallazgo(
+            ll.linea, Severidad.MEDIO, "DESCRIPCION_COLUMNA_VACIA",
+            f"La columna {ll.texto('level2name')} tiene descripción vacía en el diccionario.",
+        )
+        for ll in llamadas
+        if _es_de_columna(ll) and _es_descripcion(ll) and ll.tiene("value") and ll.texto("value") == ""
+    ]
+
+
+def _validar_valores_sin_comillas(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
+    """Estándar del equipo: los nombres van como N'...'. Un hallazgo por sentencia."""
+    hallazgos = []
+    for ll in llamadas:
+        sin_comillas = [
+            f"@{p}={ll.argumentos[p].crudo}"
+            for p in _PARAMETROS_DE_NOMBRE
+            if ll.tiene(p) and not ll.argumentos[p].entre_comillas
+        ]
+        if sin_comillas:
+            hallazgos.append(_hallazgo(
+                ll.linea, Severidad.CRITICO, "VALOR_SIN_COMILLAS",
+                f"Los valores {', '.join(sin_comillas)} no están entre comillas (N'...').",
+            ))
     return hallazgos
 
 
 def _validar_alter_sin_diccionario(
-    tipo_sentencia: str,
-    llamadas: List[Tuple[int, Dict[str, str]]],
-    esquema: str,
-    nombre_tabla: str
+    tipo_sentencia: str, llamadas: List[LlamadaPropiedad], esquema: Optional[str], nombre_tabla: str
 ) -> List[Hallazgo]:
     if tipo_sentencia == "ALTER" and not llamadas:
         full = _nombre_completo(esquema, nombre_tabla)
-        return [Hallazgo(
-            linea=1,
-            origen=OrigenAnalisis.DICCIONARIO,
-            severidad=Severidad.BAJO,
-            regla="ALTER_SIN_DICCIONARIO",
-            mensaje=f"Este ALTER TABLE ({full}) no tiene diccionario asociado. Verifique si la nueva columna ya estaba documentada previamente o si falta documentarla."
+        return [_hallazgo(
+            1, Severidad.BAJO, "ALTER_SIN_DICCIONARIO",
+            f"Este ALTER TABLE ({full}) no tiene diccionario asociado. Verifique si la nueva columna "
+            f"ya estaba documentada previamente o si falta documentarla.",
         )]
     return []
 
@@ -349,28 +434,27 @@ def _validar_alter_sin_diccionario(
 # ORQUESTADOR
 # ---------------------------------------------------------------------------
 
-def verificar_diccionario_tablas(
-    texto_tabla: str,
-    texto_diccionario: str
-) -> List[Hallazgo]:
+def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> List[Hallazgo]:
     """Compara CREATE/ALTER TABLE con el diccionario de datos."""
-    hallazgos: List[Hallazgo] = []
-
     esquema, nombre_tabla = extraer_esquema_y_nombre(texto_tabla)
     if nombre_tabla is None:
-        return hallazgos
+        return []
 
     tipo_sentencia = extraer_tipo_sentencia(texto_tabla)
     columnas_reales = extraer_columnas(texto_tabla)
-    llamadas = extraer_llamadas_extendedproperty(texto_diccionario)
+    llamadas = leer_propiedades_extendidas(texto_diccionario)
 
+    hallazgos: List[Hallazgo] = []
+    hallazgos += _validar_sintaxis(llamadas)
+    hallazgos += _validar_parametros(llamadas)
     hallazgos += _validar_alter_sin_diccionario(tipo_sentencia, llamadas, esquema, nombre_tabla)
-
     hallazgos += _validar_tabla_documentada(llamadas, esquema, nombre_tabla)
+    hallazgos += _validar_descripcion_tabla(llamadas)
     hallazgos += _validar_columnas_faltantes(columnas_reales, llamadas, tipo_sentencia, esquema, nombre_tabla)
-    hallazgos += _validar_esquema(llamadas, esquema, texto_diccionario)
-    hallazgos += _validar_nombre_tabla(llamadas, nombre_tabla, texto_diccionario)
-    hallazgos += _validar_descripciones_vacias(llamadas, texto_diccionario)
-    hallazgos += _validar_valores_sin_comillas(llamadas, texto_diccionario)
-
+    hallazgos += _validar_columnas_inexistentes(columnas_reales, llamadas, tipo_sentencia, nombre_tabla)
+    hallazgos += _validar_duplicados(llamadas)
+    hallazgos += _validar_esquema(llamadas, esquema)
+    hallazgos += _validar_nombre_tabla(llamadas, nombre_tabla)
+    hallazgos += _validar_descripciones_vacias(llamadas)
+    hallazgos += _validar_valores_sin_comillas(llamadas)
     return hallazgos

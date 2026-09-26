@@ -6,6 +6,7 @@ from pruebas.diccionario.DD_TB.casos.test_caso2_tabla_sin_descripcion import TAB
 from pruebas.diccionario.DD_TB.casos.test_caso3_columnas_faltantes import TABLA as TABLA_CASO_3, DICCIONARIO as DICCIONARIO_CASO_3
 from pruebas.diccionario.DD_TB.casos.test_caso4_metadata_inconsistente import TABLA as TABLA_CASO_4, DICCIONARIO as DICCIONARIO_CASO_4
 from pruebas.diccionario.DD_TB.casos.test_caso5_alter import ALTER_ADD, ALTER_COLUMN, DICCIONARIO_TABLA, DICCIONARIO_EXISTENTE as DICCIONARIO_ALTER_EXISTENTE
+from pruebas.diccionario.DD_TB.casos import test_caso6_separadores as caso6
 
 
 TABLA_OK = """
@@ -229,6 +230,67 @@ class TestDiccionarioTablas(unittest.TestCase):
 
         hallazgos_alter = verificar_diccionario_tablas(ALTER_COLUMN, DICCIONARIO_ALTER_EXISTENTE)
         self.assertEqual(hallazgos_alter, [])
+
+
+class TestDiccionarioTablasSinDependerDeGO(unittest.TestCase):
+    """El diccionario se lee igual con GO, con ";", con ambos o sin nada."""
+
+    def test_diccionario_correcto_con_cualquier_separador(self):
+        for nombre, terminador in caso6.SEPARADORES.items():
+            with self.subTest(separador=nombre):
+                hallazgos = verificar_diccionario_tablas(caso6.TABLA, caso6.diccionario_correcto(terminador))
+                self.assertEqual(hallazgos, [], [str(h) for h in hallazgos])
+
+    def test_script_real_de_solicitud_archivos(self):
+        hallazgos = verificar_diccionario_tablas(caso6.TABLA, caso6.DICCIONARIO_REAL)
+        reglas = [h.regla for h in hallazgos]
+
+        # Las 6 columnas y la tabla están documentadas: no hay falsos positivos.
+        self.assertNotIn("COLUMNA_FALTANTE", reglas)
+        self.assertNotIn("TABLA_SIN_DESCRIPCION", reglas)
+
+        sintaxis = [h for h in hallazgos if h.regla == "SINTAXIS_DICCIONARIO"]
+        self.assertEqual(len(sintaxis), 1)
+        self.assertEqual(sintaxis[0].linea, 5)
+        self.assertIn("Coma sobrante", sintaxis[0].mensaje)
+
+        self.assertIn("DESCRIPCION_TABLA_INADECUADA", reglas)
+        # Un aviso de comillas por cada una de las 7 sentencias.
+        self.assertEqual(reglas.count("VALOR_SIN_COMILLAS"), 7)
+
+    def test_punto_y_coma_y_exec_dentro_de_la_descripcion_no_cortan_la_sentencia(self):
+        diccionario = caso6.diccionario_correcto(";").replace(
+            "Nombre del archivo adjunto",
+            "Nombre del archivo; no ejecutar EXEC sys.sp_addextendedproperty aqui",
+        )
+        self.assertEqual(verificar_diccionario_tablas(caso6.TABLA, diccionario), [])
+
+    def test_sentencias_comentadas_se_ignoran(self):
+        diccionario = caso6.diccionario_correcto(";") + (
+            "\n-- EXEC sys.sp_addextendedproperty @name = N'MS_Description', @value = N'x', "
+            "@level0type = N'SCHEMA', @level0name = N'dbo', @level1type = N'TABLE', "
+            "@level1name = N'TB_SolicitudArchivos', @level2type = N'COLUMN', @level2name = N'cOtra';"
+        )
+        self.assertEqual(verificar_diccionario_tablas(caso6.TABLA, diccionario), [])
+
+    def test_columna_documentada_que_no_existe(self):
+        diccionario = caso6.diccionario_correcto(";").replace("N'bActivo'", "N'bActivoo'")
+        reglas = {h.regla for h in verificar_diccionario_tablas(caso6.TABLA, diccionario)}
+        self.assertEqual(reglas, {"COLUMNA_NO_EXISTE", "COLUMNA_FALTANTE"})
+
+    def test_columna_documentada_dos_veces(self):
+        base = caso6.diccionario_correcto(";")
+        repetida = caso6._sentencia("cNombreArchivo", "Otra descripcion") + ";"
+        hallazgos = verificar_diccionario_tablas(caso6.TABLA, base + "\n" + repetida)
+        self.assertEqual([h.regla for h in hallazgos], ["DOCUMENTACION_DUPLICADA"])
+
+    def test_sentencia_sin_parametros_obligatorios(self):
+        diccionario = caso6.diccionario_correcto(";").replace(
+            "@level1type = N'TABLE', @level1name = N'TB_SolicitudArchivos',\n@level2type = N'COLUMN', @level2name = N'bActivo'",
+            "@level1type = N'TABLE', @level1name = N'TB_SolicitudArchivos',\n@level2type = N'COLUMN'",
+        )
+        reglas = {h.regla for h in verificar_diccionario_tablas(caso6.TABLA, diccionario)}
+        self.assertIn("PARAMETROS_INCOMPLETOS", reglas)
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ Compara la "realidad" (procedimiento) contra la "documentacion"
 import re
 from typing import List, Set, Tuple, Dict, Optional
 
+from app.analizadores.propiedades_extendidas import como_llamadas_crudas, leer_propiedades_extendidas
 from app.modelos.hallazgo import Hallazgo, Severidad, OrigenAnalisis
 
 
@@ -72,25 +73,9 @@ def extraer_llamadas_extendedproperty(texto_diccionario: str) -> List[Tuple[int,
     llamada a sp_addextendedproperty / sp_updateextendedproperty,
     leidas del SCRIPT DEL DICCIONARIO (no del procedimiento).
     """
-    llamadas = []
-    texto_sin_comentarios = re.sub(
-        r"--[^\r\n]*|/\*.*?\*/",
-        lambda coincidencia: re.sub(r"[^\r\n]", " ", coincidencia.group(0)),
-        texto_diccionario,
-        flags=re.DOTALL,
-    )
-    patron = re.compile(
-        r"EXEC(?:UTE)?\s+sys\.sp_(?:add|update)extendedproperty\s*"
-        r"(.*?)(?=;|^\s*GO\b|^\s*EXEC(?:UTE)?\s+sys\.sp_|\Z)",
-        re.IGNORECASE | re.DOTALL | re.MULTILINE
-    )
-    for m in patron.finditer(texto_sin_comentarios):
-        cuerpo = m.group(1)
-        args = {}
-        for arg_m in re.finditer(r"@(\w+)\s*=\s*(N?'[^']*'|[\w@]+)", cuerpo):
-            args[arg_m.group(1).lower()] = arg_m.group(2)
-        llamadas.append((m.start(), args))
-    return llamadas
+    # El lector compartido reconoce cada sentencia aunque no haya GO ni ";",
+    # y respeta cadenas y comentarios.
+    return como_llamadas_crudas(leer_propiedades_extendidas(texto_diccionario))
 
 
 def _limpiar_valor(valor: str) -> str:
