@@ -13,8 +13,8 @@
   --border-strong: #cfd5df;
 
   /* Texto */
-  --text-primary: #141a26;
-  --text-secondary: #3f4a5c;
+  --text-primary: #1f2937;
+  --text-secondary: #475467;
   --text-muted: #6b7587;
 
   /* Marca CAJA ICA */
@@ -38,7 +38,7 @@
   --sev-bajo-text: #0b7a3b;
 
   /* Tipografía */
-  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: 'Poppins', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
 
   /* Forma y profundidad */
@@ -52,7 +52,12 @@
   --shadow-lg: 0 18px 40px -12px rgba(16, 24, 40, 0.14);
 
   --focus-ring: 0 0 0 3px rgba(230, 0, 38, 0.22);
-  --nav-bg: rgba(255, 255, 255, 0.86);
+  --nav-bg: rgba(255, 255, 255, 0.9);
+
+  /* Tarjetas de métricas */
+  --metric-gradient-end: #f7f8fa;
+  --metric-value: #344054;
+  --metric-bar: #98a2b3;
 
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --dur-fast: 150ms;
@@ -96,5 +101,9 @@
   --shadow-lg: 0 20px 44px -12px rgba(0, 0, 0, 0.6);
 
   --focus-ring: 0 0 0 3px rgba(240, 22, 58, 0.35);
-  --nav-bg: rgba(21, 24, 32, 0.82);
+  --nav-bg: rgba(21, 24, 32, 0.86);
+
+  --metric-gradient-end: #11141b;
+  --metric-value: #d0d5dd;
+  --metric-bar: #667085;
 }

@@ -19,21 +19,18 @@ function MetricasPlan({ analisis }) {
   return (
     <section className="metrics-grid" aria-label="Resumen del plan">
       <TarjetaMetrica
-        tono="marca"
         titulo="Operadores"
         valor={analisis?.operadores?.length || 0}
         subtitulo="Nodos analizados"
         icono={<IconoRejilla />}
       />
       <TarjetaMetrica
-        tono="alto"
         titulo="Memoria concedida"
         valor={formatearKb(memoria?.concedidaKb)}
         subtitulo="Reserva del plan"
         icono={<IconoMemoria />}
       />
       <TarjetaMetrica
-        tono="medio"
         titulo="Memoria utilizada"
         valor={formatearKb(memoria?.maximaUtilizadaKb)}
         subtitulo={uso === undefined ? 'Máximo utilizado' : `Máximo utilizado · ${Math.round(uso * 100)}% de lo concedido`}
@@ -41,7 +38,6 @@ function MetricasPlan({ analisis }) {
         proporcion={uso}
       />
       <TarjetaMetrica
-        tono="bajo"
         titulo="Hallazgos"
         valor={analisis?.hallazgos?.length || 0}
         subtitulo="Observaciones del plan"

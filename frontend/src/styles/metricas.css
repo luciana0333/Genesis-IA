@@ -1,4 +1,8 @@
-/* ───────── TARJETAS DE MÉTRICAS ───────── */
+/* ───────── TARJETAS DE MÉTRICAS ─────────
+ * Estilo sobrio: superficie blanca con degradado sutil, ícono neutro y cifra
+ * en gris pizarra. El color de severidad se reserva para el detalle de
+ * cada hallazgo, no para el resumen.
+ */
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -7,62 +11,46 @@
 }
 
 .metric-card {
-  --tono: var(--red-main);
-  --tono-bg: var(--red-light);
-
-  position: relative;
   display: flex;
   flex-direction: column;
-  padding: 20px 22px 18px;
-  overflow: hidden;
+  padding: 20px 22px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background: var(--bg-card);
+  background: linear-gradient(180deg, var(--bg-card) 0%, var(--metric-gradient-end) 100%);
   box-shadow: var(--shadow-md);
-  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
-}
-
-.metric-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 3px;
-  background: var(--tono);
+  transition: box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 
 .metric-card:hover {
-  transform: translateY(-2px);
+  border-color: var(--border-strong);
   box-shadow: var(--shadow-lg);
 }
-
-.tono-critico { --tono: var(--sev-critico); --tono-bg: var(--sev-critico-bg); }
-.tono-alto { --tono: var(--sev-alto); --tono-bg: var(--sev-alto-bg); }
-.tono-medio { --tono: var(--sev-medio); --tono-bg: var(--sev-medio-bg); }
-.tono-bajo { --tono: var(--sev-bajo); --tono-bg: var(--sev-bajo-bg); }
 
 .metric-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
 }
 
 .metric-title {
   color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
 .metric-icon {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
   border-radius: 10px;
-  background: var(--tono-bg);
-  color: var(--tono);
+  background: var(--bg-card);
+  color: var(--text-muted);
 }
 
 .metric-icon svg {
@@ -71,23 +59,22 @@
 }
 
 .metric-value {
-  margin: 10px 0 2px;
-  color: var(--text-primary);
-  font-size: 2.3rem;
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.03em;
+  margin: 12px 0 2px;
+  color: var(--metric-value);
+  font-size: 1.65rem;
+  font-weight: 600;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
 }
 
 .metric-sub {
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
 }
 
 .metric-bar {
   display: block;
-  height: 4px;
+  height: 3px;
   margin-top: 14px;
   overflow: hidden;
   border-radius: 999px;
@@ -98,7 +85,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--tono);
+  background: var(--metric-bar);
   transition: width 500ms var(--ease);
 }
 
@@ -118,6 +105,6 @@
   }
 
   .metric-value {
-    font-size: 1.9rem;
+    font-size: 1.45rem;
   }
 }

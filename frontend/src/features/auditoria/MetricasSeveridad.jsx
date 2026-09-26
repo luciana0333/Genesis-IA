@@ -1,11 +1,16 @@
 import { TarjetaMetrica } from '../../components/TarjetaMetrica';
-import { IconoAdvertencia, IconoAlerta, IconoCheck, IconoInformacion } from '../../components/Iconos';
+import {
+  IconoSeveridadAlta,
+  IconoSeveridadBaja,
+  IconoSeveridadCritica,
+  IconoSeveridadMedia,
+} from '../../components/Iconos';
 
 const TARJETAS = [
-  { severidad: 'critico', titulo: 'Críticos', icono: <IconoAdvertencia /> },
-  { severidad: 'alto', titulo: 'Altos', icono: <IconoAlerta /> },
-  { severidad: 'medio', titulo: 'Medios', icono: <IconoInformacion /> },
-  { severidad: 'bajo', titulo: 'Bajos', icono: <IconoCheck /> },
+  { severidad: 'critico', titulo: 'Críticos', icono: <IconoSeveridadCritica /> },
+  { severidad: 'alto', titulo: 'Altos', icono: <IconoSeveridadAlta /> },
+  { severidad: 'medio', titulo: 'Medios', icono: <IconoSeveridadMedia /> },
+  { severidad: 'bajo', titulo: 'Bajos', icono: <IconoSeveridadBaja /> },
 ];
 
 export function MetricasSeveridad({ conteo, subtitulos }) {
@@ -15,7 +20,6 @@ export function MetricasSeveridad({ conteo, subtitulos }) {
       {TARJETAS.map(({ severidad, titulo, icono }, indice) => (
         <TarjetaMetrica
           key={severidad}
-          tono={severidad}
           titulo={titulo}
           icono={icono}
           valor={conteo[severidad]}

@@ -1,14 +1,12 @@
 /**
- * Tarjeta de métrica del resumen superior.
- *
- * `tono` define el color de acento: critico | alto | medio | bajo | marca.
+ * Tarjeta de métrica del resumen superior: título, ícono, valor y detalle.
  * `proporcion` (0 a 1, opcional) dibuja una barra con el peso de la métrica
  * sobre el total.
  */
-export function TarjetaMetrica({ tono = 'marca', titulo, valor, subtitulo, icono, proporcion }) {
+export function TarjetaMetrica({ titulo, valor, subtitulo, icono, proporcion }) {
   const conBarra = typeof proporcion === 'number';
   return (
-    <div className={`metric-card tono-${tono}`}>
+    <div className="metric-card">
       <div className="metric-header">
         <span className="metric-title">{titulo}</span>
         <span className="metric-icon">{icono}</span>

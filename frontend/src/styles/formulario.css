@@ -22,9 +22,8 @@
 
 .panel-title {
   color: var(--text-primary);
-  font-size: 1.2rem;
-  font-weight: 800;
-  letter-spacing: -0.015em;
+  font-size: 1.15rem;
+  font-weight: 600;
 }
 
 .panel-subtitle {
@@ -63,7 +62,7 @@
 .field-label {
   color: var(--text-secondary);
   font-size: 0.74rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -129,7 +128,7 @@
   display: block;
   color: var(--red-main);
   font-size: 0.68rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -151,7 +150,7 @@
   background: var(--red-light);
   color: var(--red-main);
   font-size: 0.64rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
