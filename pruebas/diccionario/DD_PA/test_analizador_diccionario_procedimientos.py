@@ -1,6 +1,7 @@
 import unittest
 
 from app.analizadores.diccionario import verificar_diccionario
+from app.modelos.hallazgo import Severidad
 from pruebas.diccionario.DD_PA.casos.test_caso1_perfecto import PROCEDIMIENTO as PROC_1, DICCIONARIO as DIC_1
 from pruebas.diccionario.DD_PA.casos.test_caso2_parametros_faltantes import PROCEDIMIENTO as PROC_2, DICCIONARIO as DIC_2
 from pruebas.diccionario.DD_PA.casos.test_caso3_texto_invalido import PROCEDIMIENTO as PROC_3, DICCIONARIO as DIC_3
@@ -85,6 +86,42 @@ class TestDiccionarioProcedimientos(unittest.TestCase):
                     esperado,
                     f"Caso {nombre} devolvio {len(hallazgos)} hallazgos; se esperaban {esperado}."
                 )
+
+
+class TestSeveridadSegunCreateOAlter(unittest.TestCase):
+    """En un CREATE PROCEDURE, lo no documentado es alto; en un ALTER, medio."""
+
+    CUERPO = """ PROCEDURE dbo.PA_Cliente_Consultar
+    @nClienteId INT,
+    @cCodigo VARCHAR(10)
+AS
+BEGIN
+    SELECT 1
+END"""
+
+    # Documenta solo @nClienteId, con descripción vacía, y no documenta el procedimiento.
+    DICCIONARIO = (
+        "EXEC sys.sp_addextendedproperty @name = N'MS_Description', @value = N'', "
+        "@level0type = N'SCHEMA', @level0name = N'dbo', "
+        "@level1type = N'PROCEDURE', @level1name = N'PA_Cliente_Consultar', "
+        "@level2type = N'PARAMETER', @level2name = N'@nClienteId';"
+    )
+
+    def _severidades(self, verbo):
+        hallazgos = verificar_diccionario(verbo + self.CUERPO, self.DICCIONARIO)
+        return {h.regla: h.severidad for h in hallazgos}
+
+    def test_create_procedure_es_alto(self):
+        severidades = self._severidades("CREATE")
+        for regla in ("PROCEDIMIENTO_SIN_DESCRIPCION", "PARAMETRO_FALTANTE", "DESCRIPCION_VACIA"):
+            with self.subTest(regla=regla):
+                self.assertEqual(severidades[regla], Severidad.ALTO)
+
+    def test_alter_procedure_se_mantiene_en_medio(self):
+        severidades = self._severidades("ALTER")
+        for regla in ("PROCEDIMIENTO_SIN_DESCRIPCION", "PARAMETRO_FALTANTE", "DESCRIPCION_VACIA"):
+            with self.subTest(regla=regla):
+                self.assertEqual(severidades[regla], Severidad.MEDIO)
 
 
 if __name__ == "__main__":

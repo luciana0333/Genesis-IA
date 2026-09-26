@@ -130,7 +130,8 @@ def _validar_esquema(
 
 def _validar_descripciones_vacias(
     llamadas: List[Tuple[int, Dict[str, str]]],
-    texto_diccionario: str
+    texto_diccionario: str,
+    tipo_sentencia: str,
 ) -> List[Hallazgo]:
     """Un parametro puede estar 'documentado' pero con @value vacio ('') -
     eso no cuenta como documentacion real."""
@@ -144,7 +145,7 @@ def _validar_descripciones_vacias(
                 hallazgos.append(Hallazgo(
                     linea=_numero_linea(texto_diccionario, pos),
                     origen=OrigenAnalisis.DICCIONARIO,
-                    severidad=Severidad.MEDIO,
+                    severidad=Severidad.ALTO if tipo_sentencia == "CREATE" else Severidad.MEDIO,
                     regla="DESCRIPCION_VACIA",
                     mensaje=f"El parámetro {nombre_param} está en el diccionario, pero su "
                             f"descripción está vacía. Escriba para qué se usa."
@@ -187,7 +188,8 @@ def _validar_parametros_faltantes(
                 f"El parámetro {p} no se encuentra documentado. Agréguelo al "
                 f"diccionario con su descripción."
             )
-            severidad = Severidad.MEDIO
+            # En un CREATE el procedimiento es nuevo: todo debe documentarse.
+            severidad = Severidad.ALTO if tipo_sentencia == "CREATE" else Severidad.MEDIO
 
         hallazgos.append(Hallazgo(
             linea=1,
@@ -274,10 +276,11 @@ def _validar_valores_sin_comillas(
 def _validar_procedimiento_documentado(
     llamadas: List[Tuple[int, Dict[str, str]]],
     esquema: str,
-    nombre_proc: str
+    nombre_proc: str,
+    tipo_sentencia: str,
 ) -> List[Hallazgo]:
     """Debe existir al menos una descripcion valida a nivel PROCEDURE,
-    no solo descripciones de PARAMETER.
+    no solo descripciones de PARAMETER. Es alto en un CREATE.
     """
     doc_procedimiento = [
         a for _, a in llamadas
@@ -287,7 +290,7 @@ def _validar_procedimiento_documentado(
         return [Hallazgo(
             linea=1,
             origen=OrigenAnalisis.DICCIONARIO,
-            severidad=Severidad.MEDIO,
+            severidad=Severidad.ALTO if tipo_sentencia == "CREATE" else Severidad.MEDIO,
             regla="PROCEDIMIENTO_SIN_DESCRIPCION",
             mensaje=f"El procedimiento {esquema}.{nombre_proc} no se encuentra "
                     f"documentado. Agréguelo al diccionario con su descripción."
@@ -326,13 +329,13 @@ def verificar_diccionario(
     if tipo_sentencia == "ALTER" and not llamadas:
         return hallazgos
 
-    hallazgos += _validar_procedimiento_documentado(llamadas, esquema, nombre_proc)
+    hallazgos += _validar_procedimiento_documentado(llamadas, esquema, nombre_proc, tipo_sentencia)
     hallazgos += _validar_parametros_faltantes(
         parametros_reales, llamadas, tipo_sentencia, esquema, nombre_proc
     )
     hallazgos += _validar_nombre_procedimiento(llamadas, nombre_proc, texto_diccionario)
     hallazgos += _validar_esquema(llamadas, esquema, texto_diccionario)
-    hallazgos += _validar_descripciones_vacias(llamadas, texto_diccionario)
+    hallazgos += _validar_descripciones_vacias(llamadas, texto_diccionario, tipo_sentencia)
     if REGLAS_DICCIONARIO_PROCEDIMIENTOS["VALOR_SIN_COMILLAS"].activo:
         hallazgos += _validar_valores_sin_comillas(llamadas, texto_diccionario)
 
