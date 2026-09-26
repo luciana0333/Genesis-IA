@@ -228,7 +228,7 @@ describe('Planes', () => {
     await usuario.upload(screen.getByLabelText('Archivo .sqlplan'), new File(['<x/>'], 'prueba.sqlplan'));
     await usuario.click(screen.getByRole('button', { name: 'Analizar plan' }));
 
-    expect(await screen.findByText('Spill hacia TempDB')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Spill hacia TempDB' })).toBeInTheDocument();
     expect(screen.getByText('Análisis completado.')).toBeInTheDocument();
     const operadores = screen.getByText('Operadores').closest('.metric-card');
     expect(within(operadores).getByText('2')).toBeInTheDocument();

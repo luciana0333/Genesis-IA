@@ -57,6 +57,7 @@
   --radius-md: 3px;
   --radius-lg: 4px;
   --radius-xl: 6px;
+  --radius-btn: 6px;
 
   /* Profundidad: sombras nítidas y discretas */
   --shadow-xs: 0 1px 2px rgba(17, 17, 26, 0.04);
@@ -66,8 +67,11 @@
 
   --focus-ring: 0 0 0 3px rgba(227, 6, 19, 0.2);
 
-  /* Encabezado: rojo plano de marca sobre la foto como textura */
-  --hero-red: rgba(214, 4, 20, 0.9);
+  /* Encabezado: foto en duotono rojo + degradado sólido para el texto */
+  --hero-base: #d8081b;
+  --hero-solid: rgba(206, 4, 20, 0.97);
+  --hero-fade: rgba(206, 4, 20, 0.55);
+  --hero-bottom: rgba(120, 0, 10, 0.35);
   --hero-shape-light: rgba(255, 255, 255, 0.06);
   --hero-shape-dark: rgba(80, 0, 8, 0.16);
 
@@ -123,7 +127,10 @@
 
   --focus-ring: 0 0 0 3px rgba(240, 22, 42, 0.32);
 
-  --hero-red: rgba(170, 2, 16, 0.92);
+  --hero-base: #a8000f;
+  --hero-solid: rgba(150, 0, 14, 0.97);
+  --hero-fade: rgba(150, 0, 14, 0.6);
+  --hero-bottom: rgba(40, 0, 4, 0.45);
   --hero-shape-light: rgba(255, 255, 255, 0.04);
   --hero-shape-dark: rgba(0, 0, 0, 0.22);
 

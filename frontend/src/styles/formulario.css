@@ -349,7 +349,7 @@ h3.section-title {
   gap: 10px;
   height: 46px;
   padding: 0 26px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-btn);
   font-size: 0.76rem;
   font-weight: 600;
   letter-spacing: 0.1em;

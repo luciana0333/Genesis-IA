@@ -1,5 +1,6 @@
 import { BarraNavegacion } from './components/BarraNavegacion';
 import { Hero } from './components/Hero';
+import { MUESTRAS_HERO } from './config/muestrasHero';
 import { PiePagina } from './components/PiePagina';
 import { AuditoriaWorkspace } from './features/auditoria/AuditoriaWorkspace';
 import { PlanesWorkspace } from './features/planes/PlanesWorkspace';
@@ -13,7 +14,7 @@ export default function App() {
   return (
     <>
       <BarraNavegacion vistaActiva={vista} tema={tema} onAlternarTema={alternarTema} />
-      <Hero {...vista.hero} seccion={vista.etiqueta} />
+      <Hero {...vista.hero} seccion={vista.etiqueta} muestra={MUESTRAS_HERO[vista.id]} />
 
       <main className="main-wrapper">
         {/* Planes se mantiene montado para conservar el archivo y el análisis al cambiar de pestaña. */}
