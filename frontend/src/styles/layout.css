@@ -25,21 +25,10 @@
   gap: 10px;
 }
 
-.logo-circle {
-  width: 28px;
-  height: 28px;
-  background-color: var(--red-main);
-  border-radius: 50%;
-  display: inline-block;
-  box-shadow: 0 2px 8px var(--red-shadow);
-}
-
-.logo-text {
-  font-size: 1.4rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--red-main);
-  text-transform: uppercase;
+.logo-img {
+  display: block;
+  width: auto;
+  height: 30px;
 }
 
 .nav-menu {

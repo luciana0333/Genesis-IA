@@ -1,3 +1,4 @@
+import logoCajaIca from '../assets/logo-caja-ica.png';
 import { VISTAS } from '../config/vistas';
 import { IconoLuna } from './Iconos';
 
@@ -6,10 +7,9 @@ export function BarraNavegacion({ vistaActiva, onAlternarTema }) {
     <header className="navbar-full">
       <div className="navbar-container">
         <div className="brand">
-          <div className="brand-logo">
-            <span className="logo-circle" />
-            <span className="logo-text">CAJA ICA</span>
-          </div>
+          <a className="brand-logo" href="#/diccionarios" aria-label="CAJA ICA · Inicio">
+            <img className="logo-img" src={logoCajaIca} alt="CAJA ICA" width="289" height="58" />
+          </a>
         </div>
 
         <nav className="nav-menu" aria-label="Tipos de revisión">
