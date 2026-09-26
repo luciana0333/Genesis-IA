@@ -37,6 +37,13 @@
   color: var(--text-secondary);
 }
 
+.results-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
 .results-meta {
   overflow: hidden;
   color: var(--text-muted);
@@ -110,98 +117,194 @@
   color: inherit;
 }
 
-/* ───────── HALLAZGO ───────── */
+/* ───────── HALLAZGO ─────────
+ * Lista unificada con separadores: cada fila lleva el ícono de severidad,
+ * título, etiqueta de severidad, mensaje (con lo citado resaltado) y
+ * metadatos. El color se usa solo en el ícono y la etiqueta.
+ */
 .findings-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
 }
 
 .finding {
-  --sev: var(--red-main);
+  --sev: var(--text-muted);
+  --sev-bg: var(--bg-subtle);
+  --sev-text: var(--text-secondary);
 
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px 18px 16px 20px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-card);
-  box-shadow: inset 4px 0 0 var(--sev), var(--shadow-xs);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  padding: 18px 20px;
   animation: aparecer 260ms var(--ease) both;
-  transition: box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  transition: background-color var(--dur-fast) ease;
+}
+
+.finding + .finding {
+  border-top: 1px solid var(--border);
 }
 
 .finding:hover {
-  border-color: var(--border-strong);
-  box-shadow: inset 4px 0 0 var(--sev), var(--shadow-md);
+  background: var(--bg-input);
 }
 
-.finding.sev-critico { --sev: var(--sev-critico); }
-.finding.sev-alto { --sev: var(--sev-alto); }
-.finding.sev-medio { --sev: var(--sev-medio); }
-.finding.sev-bajo { --sev: var(--sev-bajo); }
+.finding.sev-critico { --sev: var(--sev-critico); --sev-bg: var(--sev-critico-bg); --sev-text: var(--sev-critico-text); }
+.finding.sev-alto { --sev: var(--sev-alto); --sev-bg: var(--sev-alto-bg); --sev-text: var(--sev-alto-text); }
+.finding.sev-medio { --sev: var(--sev-medio); --sev-bg: var(--sev-medio-bg); --sev-text: var(--sev-medio-text); }
+.finding.sev-bajo { --sev: var(--sev-bajo); --sev-bg: var(--sev-bajo-bg); --sev-text: var(--sev-bajo-text); }
 
-.finding-main {
+.finding-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--sev-bg);
+  color: var(--sev-text);
+}
+
+.finding-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.finding-content {
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-width: 0;
 }
 
-.finding-top {
+.finding-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px 10px;
 }
 
 .finding-title {
   color: var(--text-primary);
-  font-size: 0.96rem;
-  font-weight: 700;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.sev-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.sev-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sev);
 }
 
 .finding-message {
   color: var(--text-secondary);
-  font-size: 0.88rem;
-  line-height: 1.55;
+  font-size: 0.87rem;
+  line-height: 1.6;
+}
+
+.finding-token {
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .finding-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 14px;
   color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: 0.74rem;
+}
+
+.finding-meta > * + *::before {
+  content: '·';
+  margin-right: 14px;
+  margin-left: -8px;
+  opacity: 0.6;
 }
 
 .finding-meta code {
-  padding: 1px 6px;
-  border-radius: 5px;
-  background: var(--bg-subtle);
-  color: var(--text-secondary);
-  font-family: inherit;
-}
-
-.finding-line {
-  flex-shrink: 0;
-  padding: 4px 10px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg-input);
-  color: var(--text-secondary);
   font-family: var(--font-mono);
-  font-size: 0.72rem;
-  font-weight: 600;
-  white-space: nowrap;
+  font-size: 0.7rem;
+  letter-spacing: 0.01em;
 }
 
-/* Etiquetas de severidad (hallazgos y tablas) */
-.sev-badge,
+/* Botones de copiar (por hallazgo y "Copiar todo") */
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--dur-fast) ease, background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.copy-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.finding:hover .copy-btn,
+.copy-btn:focus-visible {
+  opacity: 1;
+}
+
+.copy-btn:hover {
+  border-color: var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.copy-btn--texto {
+  width: auto;
+  height: 32px;
+  padding: 0 12px;
+  border-color: var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .copy-btn {
+    opacity: 1;
+  }
+}
+
+/* Etiquetas de severidad en tablas (planes de ejecución) */
 .tag {
   display: inline-flex;
   align-items: center;
@@ -213,10 +316,10 @@
   text-transform: uppercase;
 }
 
-.sev-badge.sev-critico, .tag.sev-critico { background: var(--sev-critico-bg); color: var(--sev-critico-text); }
-.sev-badge.sev-alto, .tag.sev-alto { background: var(--sev-alto-bg); color: var(--sev-alto-text); }
-.sev-badge.sev-medio, .tag.sev-medio { background: var(--sev-medio-bg); color: var(--sev-medio-text); }
-.sev-badge.sev-bajo, .tag.sev-bajo { background: var(--sev-bajo-bg); color: var(--sev-bajo-text); }
+.tag.sev-critico { background: var(--sev-critico-bg); color: var(--sev-critico-text); }
+.tag.sev-alto { background: var(--sev-alto-bg); color: var(--sev-alto-text); }
+.tag.sev-medio { background: var(--sev-medio-bg); color: var(--sev-medio-text); }
+.tag.sev-bajo { background: var(--sev-bajo-bg); color: var(--sev-bajo-text); }
 
 /* ───────── ESTADOS ───────── */
 .empty-state {
@@ -299,8 +402,12 @@
 
 @media (max-width: 640px) {
   .finding {
-    flex-direction: column;
-    gap: 10px;
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 16px;
+  }
+
+  .finding .copy-btn {
+    display: none;
   }
 
   .results-header {

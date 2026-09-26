@@ -129,15 +129,44 @@ def _debe_ignorarse(palabra: str, nombres_objeto: Set[str]) -> bool:
     return normalizar(palabra) in nombres_objeto
 
 
+def _distancia(a: str, b: str) -> int:
+    """
+    Distancia de edición que cuenta como un solo error el intercambio de dos
+    letras vecinas (Fehca -> Fecha), el tipeo más común.
+    """
+    d = [[0] * (len(b) + 1) for _ in range(len(a) + 1)]
+    for i in range(len(a) + 1):
+        d[i][0] = i
+    for j in range(len(b) + 1):
+        d[0][j] = j
+    for i in range(1, len(a) + 1):
+        for j in range(1, len(b) + 1):
+            costo = a[i - 1] != b[j - 1]
+            d[i][j] = min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + costo)
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                d[i][j] = min(d[i][j], d[i - 2][j - 2] + 1)
+    return d[len(a)][len(b)]
+
+
 def sugerencias(palabra: str, maximo: int = 1) -> List[str]:
-    """Palabras parecidas del diccionario (la más frecuente primero), con la
-    misma mayúscula inicial que la palabra original."""
+    """
+    Palabras parecidas del diccionario, con la misma mayúscula inicial que la
+    original. Solo se sugieren palabras que empiezan con la misma letra (los
+    errores de tipeo rara vez cambian la primera), ordenadas por cercanía y
+    luego por frecuencia. Si no hay una buena candidata, no se sugiere nada.
+    """
     corrector = _corrector()
     if corrector is None:
         return []
-    candidatas = corrector.candidates(palabra.lower()) or set()
-    candidatas.discard(palabra.lower())
-    ordenadas = sorted(candidatas, key=lambda c: -corrector.word_usage_frequency(c))[:maximo]
+    original = palabra.lower()
+    candidatas = {
+        c for c in (corrector.candidates(original) or set())
+        if c != original and normalizar(c)[:1] == normalizar(original)[:1]
+    }
+    ordenadas = sorted(
+        candidatas,
+        key=lambda c: (_distancia(normalizar(c), normalizar(original)), -corrector.word_usage_frequency(c)),
+    )[:maximo]
     if palabra[:1].isupper():
         ordenadas = [c[:1].upper() + c[1:] for c in ordenadas]
     return ordenadas

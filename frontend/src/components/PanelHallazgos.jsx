@@ -2,26 +2,101 @@ import { useMemo, useState } from 'react';
 import { SEVERIDADES, etiquetaSeveridad, nombreRegla } from '../config/reglas';
 import { contarPorSeveridad, normalizarSeveridad, ordenarHallazgos } from '../utils/hallazgos';
 import { EstadoVacio } from './EstadoVacio';
-import { IconoBandeja, IconoErrorCirculo, IconoEscudoCheck } from './Iconos';
+import {
+  IconoBandeja,
+  IconoCopiar,
+  IconoCopiado,
+  IconoErrorCirculo,
+  IconoEscudoCheck,
+  IconoSeveridadAlta,
+  IconoSeveridadBaja,
+  IconoSeveridadCritica,
+  IconoSeveridadMedia,
+} from './Iconos';
 
-function TarjetaHallazgo({ hallazgo, origenPorDefecto, mostrarLinea }) {
+const ICONOS_SEVERIDAD = {
+  critico: IconoSeveridadCritica,
+  alto: IconoSeveridadAlta,
+  medio: IconoSeveridadMedia,
+  bajo: IconoSeveridadBaja,
+};
+
+const ORIGENES = {
+  diccionario: 'Diccionario',
+  reglas_estaticas: 'Reglas estáticas',
+  plan_ejecucion: 'Plan de ejecución',
+};
+
+/** Resalta lo que el mensaje cita entre comillas simples: 'Indicatg', 'dbo2'. */
+function MensajeResaltado({ texto }) {
+  const partes = texto.split(/('[^'\n]+')/g);
+  return partes.map((parte, indice) =>
+    /^'[^'\n]+'$/.test(parte)
+      ? <mark key={indice} className="finding-token">{parte.slice(1, -1)}</mark>
+      : parte,
+  );
+}
+
+function textoParaCopiar(hallazgo, mostrarLinea) {
+  const severidad = etiquetaSeveridad(normalizarSeveridad(hallazgo.severidad));
+  const ubicacion = mostrarLinea ? ` (línea ${hallazgo.linea || 1})` : '';
+  return `[${severidad}] ${nombreRegla(hallazgo.regla)}${ubicacion}: ${hallazgo.mensaje}`;
+}
+
+async function copiar(texto) {
+  try {
+    await navigator.clipboard.writeText(texto);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Botón que copia un texto y confirma durante un momento. */
+function BotonCopiar({ texto, etiqueta, conTexto = false }) {
+  const [copiado, setCopiado] = useState(false);
+  const alCopiar = async () => {
+    if (await copiar(texto)) {
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 1600);
+    }
+  };
+  return (
+    <button
+      type="button"
+      className={conTexto ? 'copy-btn copy-btn--texto' : 'copy-btn'}
+      onClick={alCopiar}
+      aria-label={copiado ? 'Copiado' : etiqueta}
+      title={copiado ? 'Copiado' : etiqueta}
+    >
+      {copiado ? <IconoCopiado /> : <IconoCopiar />}
+      {conTexto && <span>{copiado ? 'Copiado' : etiqueta}</span>}
+    </button>
+  );
+}
+
+function FilaHallazgo({ hallazgo, origenPorDefecto, mostrarLinea }) {
   const severidad = normalizarSeveridad(hallazgo.severidad);
+  const Icono = ICONOS_SEVERIDAD[severidad] ?? IconoSeveridadMedia;
   const titulo = nombreRegla(hallazgo.regla);
   const origen = hallazgo.origen || origenPorDefecto;
+  const mensaje = hallazgo.mensaje || 'Revisa este hallazgo.';
   return (
     <article className={`finding sev-${severidad}`}>
-      <div className="finding-main">
-        <div className="finding-top">
-          <span className={`sev-badge sev-${severidad}`}>{etiquetaSeveridad(severidad)}</span>
+      <span className="finding-icon"><Icono /></span>
+      <div className="finding-content">
+        <div className="finding-head">
           <h4 className="finding-title">{titulo}</h4>
+          <span className={`sev-pill sev-${severidad}`}>{etiquetaSeveridad(severidad)}</span>
         </div>
-        <p className="finding-message">{hallazgo.mensaje || 'Revisa este hallazgo.'}</p>
+        <p className="finding-message"><MensajeResaltado texto={mensaje} /></p>
         <div className="finding-meta">
+          {mostrarLinea && <span>Línea {hallazgo.linea || 1}</span>}
+          <span>{ORIGENES[origen] ?? origen}</span>
           {hallazgo.regla && hallazgo.regla !== titulo && <code>{hallazgo.regla}</code>}
-          <span>{origen}</span>
         </div>
       </div>
-      {mostrarLinea && <span className="finding-line">Línea {hallazgo.linea || 1}</span>}
+      <BotonCopiar texto={textoParaCopiar(hallazgo, mostrarLinea)} etiqueta="Copiar observación" />
     </article>
   );
 }
@@ -113,7 +188,7 @@ export function PanelHallazgos({
     contenido = (
       <div className="findings-list">
         {visibles.map((hallazgo, indice) => (
-          <TarjetaHallazgo
+          <FilaHallazgo
             // El backend no envía un id; regla + línea + posición es estable por resultado.
             key={`${hallazgo.regla}-${hallazgo.linea}-${indice}`}
             hallazgo={hallazgo}
@@ -131,6 +206,8 @@ export function PanelHallazgos({
     );
   }
 
+  const textoTodos = visibles.map((h, i) => `${i + 1}. ${textoParaCopiar(h, mostrarLinea)}`).join('\n');
+
   return (
     <section className="results-panel" aria-live="polite" aria-busy={estado === 'cargando'}>
       <div className="results-header">
@@ -138,7 +215,10 @@ export function PanelHallazgos({
           <h3>{titulo}</h3>
           {hayHallazgos && <span className="count-pill">{hallazgos.length}</span>}
         </div>
-        {meta && <span className="results-meta">{meta}</span>}
+        <div className="results-actions">
+          {meta && <span className="results-meta">{meta}</span>}
+          {hayHallazgos && <BotonCopiar texto={textoTodos} etiqueta="Copiar todo" conTexto />}
+        </div>
       </div>
       {hayHallazgos && (
         <FiltrosSeveridad conteo={conteo} total={hallazgos.length} filtro={filtro} onFiltrar={setFiltro} />

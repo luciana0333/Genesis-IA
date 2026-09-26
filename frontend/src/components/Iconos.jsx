@@ -5,9 +5,11 @@
  * trazo y el tamaño son uniformes y cambiar de librería solo toca este archivo.
  */
 import {
+  Check,
   CircleAlert,
   CircleX,
   CloudUpload,
+  Copy,
   Eraser,
   FileCode2,
   Gauge,
@@ -45,6 +47,8 @@ export const IconoRestaurar = crearIcono(RotateCcw);
 export const IconoSubir = crearIcono(CloudUpload);
 export const IconoArchivo = crearIcono(FileCode2);
 export const IconoCerrar = crearIcono(X);
+export const IconoCopiar = crearIcono(Copy);
+export const IconoCopiado = crearIcono(Check);
 
 // Estados
 export const IconoEscudoCheck = crearIcono(ShieldCheck);

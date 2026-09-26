@@ -170,6 +170,24 @@ describe('App', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('resalta lo citado en el mensaje y copia todas las observaciones', async () => {
+    const usuario = userEvent.setup();
+    mockRespuesta({
+      hallazgos: [
+        { linea: 2, origen: 'diccionario', severidad: 'medio', regla: 'ERROR_ORTOGRAFICO', mensaje: "Palabra mal escrita: 'Indicatg' (¿quiso decir 'Indicar'?)." },
+      ],
+    });
+    render(<App />);
+    await usuario.click(screen.getByRole('button', { name: 'Ejecutar revisión' }));
+
+    expect(await screen.findByText('Indicatg')).toHaveClass('finding-token');
+    expect(screen.getByText('Diccionario')).toBeInTheDocument();
+
+    await usuario.click(screen.getByRole('button', { name: 'Copiar todo' }));
+    const copiado = await navigator.clipboard.readText();
+    expect(copiado).toBe("1. [Medio] Palabra mal escrita en la descripción (línea 2): Palabra mal escrita: 'Indicatg' (¿quiso decir 'Indicar'?).");
+  });
+
   it('alterna y recuerda el tema oscuro', async () => {
     const usuario = userEvent.setup();
     render(<App />);

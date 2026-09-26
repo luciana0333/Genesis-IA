@@ -42,6 +42,12 @@ class TestOrtografia(unittest.TestCase):
         self.assertEqual(errores["clienet"], ["cliente"])
         self.assertEqual(ortografia.palabras_mal_escritas("Permite regsitrar el pago"), [("regsitrar", ["registrar"])])
 
+    def test_la_sugerencia_empieza_con_la_misma_letra(self):
+        # Antes sugería 'Sindicato' para 'Indicatg'.
+        [(palabra, opciones)] = ortografia.palabras_mal_escritas("Indicatg si el estado esta activo")
+        self.assertEqual(palabra, "Indicatg")
+        self.assertTrue(all(o.lower().startswith("i") for o in opciones))
+
     def test_no_exige_tildes(self):
         self.assertEqual(ortografia.palabras_mal_escritas("Descripcion del codigo unico"), [])
 
