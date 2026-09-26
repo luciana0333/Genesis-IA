@@ -193,6 +193,9 @@
   overflow: hidden;
   color: #ffffff;
   background: var(--hero-base) url('../assets/fondo.jpg') right center / cover no-repeat;
+  /* La foto (fondo oscuro) se funde con el rojo como textura luminosa en
+     lugar de oscurecerlo. */
+  background-blend-mode: soft-light;
   isolation: isolate;
 }
 
@@ -204,10 +207,9 @@
   background:
     linear-gradient(90deg,
       var(--hero-overlay-1) 0%,
-      var(--hero-overlay-2) 40%,
-      var(--hero-overlay-3) 72%,
-      var(--hero-overlay-4) 100%),
-    linear-gradient(180deg, transparent 55%, var(--hero-bottom) 100%);
+      var(--hero-overlay-2) 36%,
+      var(--hero-overlay-3) 70%,
+      var(--hero-overlay-4) 100%);
 }
 
 .hero-container {

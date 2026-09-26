@@ -68,12 +68,11 @@
   --focus-ring: 0 0 0 3px rgba(227, 6, 19, 0.2);
 
   /* Encabezado: rojo sólido a la izquierda que deja ver la foto a la derecha */
-  --hero-base: #c80414;
-  --hero-overlay-1: rgba(206, 4, 20, 0.98);
-  --hero-overlay-2: rgba(206, 4, 20, 0.9);
-  --hero-overlay-3: rgba(196, 4, 20, 0.5);
-  --hero-overlay-4: rgba(150, 0, 14, 0.28);
-  --hero-bottom: rgba(90, 0, 8, 0.3);
+  --hero-base: #e0101f;
+  --hero-overlay-1: rgba(214, 8, 26, 0.96);
+  --hero-overlay-2: rgba(214, 8, 26, 0.82);
+  --hero-overlay-3: rgba(222, 14, 32, 0.22);
+  --hero-overlay-4: rgba(230, 20, 38, 0);
 
   /* Resumen de métricas */
   --metric-value: #1d1d24;
@@ -127,12 +126,11 @@
 
   --focus-ring: 0 0 0 3px rgba(240, 22, 42, 0.32);
 
-  --hero-base: #8f000c;
-  --hero-overlay-1: rgba(140, 0, 12, 0.98);
-  --hero-overlay-2: rgba(140, 0, 12, 0.9);
-  --hero-overlay-3: rgba(110, 0, 10, 0.6);
-  --hero-overlay-4: rgba(40, 0, 4, 0.45);
-  --hero-bottom: rgba(10, 0, 2, 0.45);
+  --hero-base: #a3000f;
+  --hero-overlay-1: rgba(150, 0, 14, 0.97);
+  --hero-overlay-2: rgba(150, 0, 14, 0.85);
+  --hero-overlay-3: rgba(150, 0, 14, 0.3);
+  --hero-overlay-4: rgba(150, 0, 14, 0.05);
 
   --metric-value: #f1f1f4;
   --metric-icon: #ff4a58;
