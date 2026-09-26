@@ -4,7 +4,7 @@ hallazgo.py
 ------------
 Define la estructura única de un "hallazgo" (observación) que usan
 TODOS los analizadores del proyecto (diccionario, reglas estáticas,
-plan de ejecución, IA).
+plan de ejecución).
 
 Al tener una sola definición compartida, cualquier módulo nuevo que
 agreguemos ya sabe automáticamente cómo reportar sus resultados, y la
@@ -34,12 +34,11 @@ class OrigenAnalisis(str, Enum):
     """
     De qué módulo vino el hallazgo. Esto nos sirve más adelante para
     agrupar el informe final por sección (Diccionario, Código,
-    Plan de Ejecución, Recomendación IA).
+    Plan de Ejecución).
     """
     DICCIONARIO = "diccionario"
     REGLAS_ESTATICAS = "reglas_estaticas"
     PLAN_EJECUCION = "plan_ejecucion"
-    IA_EXPERTO = "ia_experto"
 
 
 @dataclass
