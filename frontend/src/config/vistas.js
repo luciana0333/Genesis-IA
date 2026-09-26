@@ -1,0 +1,94 @@
+/**
+ * Vistas (pestañas) de la aplicación.
+ *
+ * `ruta` es el fragmento de la URL (#/ruta), lo que permite recargar la página
+ * o compartir un enlace sin perder la pestaña activa.
+ */
+
+export const VISTAS = [
+  {
+    id: 'diccionario',
+    ruta: 'diccionarios',
+    etiqueta: 'Diccionarios',
+    tipoRevision: 'procedimiento',
+    hero: {
+      titulo: 'Revisión e inspección de Diccionarios SQL',
+      descripcion: 'Valida la estructura, consistencia y estándares de documentación de tus bases de datos SQL Server en tiempo real.',
+    },
+    resultados: {
+      titulo: 'Hallazgos de Diccionarios',
+      nombre: 'Diccionarios',
+      subtitulos: ['Errores de estructura', 'Inconsistencias de documentación', 'Faltas de documentación', 'Sugerencias menores'],
+    },
+  },
+  {
+    id: 'tabla',
+    ruta: 'tablas',
+    etiqueta: 'Tablas',
+    tipoRevision: 'tabla_estructura',
+    hero: {
+      titulo: 'Revisión e inspección de Tablas SQL',
+      complemento: ' · Validación de estructura',
+      descripcion: 'Valida la estructura, nomenclatura, tipos de datos, nulabilidad y reglas de diseño de tus tablas SQL Server.',
+    },
+    resultados: {
+      titulo: 'Hallazgos de Tablas',
+      nombre: 'Tablas',
+      subtitulos: ['Errores de estructura', 'Reglas de diseño', 'Tipos y nulabilidad', 'Sugerencias menores'],
+    },
+  },
+  {
+    id: 'reporte',
+    ruta: 'reportes',
+    etiqueta: 'Reportes',
+    tipoRevision: 'reporte',
+    hero: {
+      titulo: 'Revisión e inspección de Reportes SQL',
+      descripcion: 'Revisa procedimientos de reportes para detectar prácticas inseguras, lecturas innecesarias y consultas que dificultan su mantenimiento.',
+    },
+    resultados: {
+      titulo: 'Hallazgos de Reportes',
+      nombre: 'Reportes',
+      subtitulos: ['Riesgos críticos', 'Inconsistencias de consulta', 'Buenas prácticas', 'Sugerencias menores'],
+    },
+  },
+  {
+    id: 'normal',
+    ruta: 'normales',
+    etiqueta: 'Normales',
+    tipoRevision: 'procedimiento_normal',
+    hero: {
+      titulo: 'Revisión e inspección de Procedimientos SQL',
+      descripcion: 'Valida procedimientos almacenados normales frente a reglas de control de flujo, consultas y buenas prácticas de desarrollo.',
+    },
+    resultados: {
+      titulo: 'Hallazgos de Procedimientos',
+      nombre: 'Procedimientos',
+      subtitulos: ['Riesgos críticos', 'Reglas incumplidas', 'Buenas prácticas', 'Sugerencias menores'],
+    },
+  },
+  {
+    id: 'planes',
+    ruta: 'planes',
+    etiqueta: 'Planes',
+    esPlan: true,
+    hero: {
+      titulo: 'Revisión e inspección de Planes de ejecución SQL',
+      descripcion: 'Analiza planes reales de SQL Server para detectar conversiones implícitas, spills, scans, lecturas elevadas y problemas de memoria.',
+    },
+  },
+];
+
+export const VISTA_INICIAL = VISTAS[0];
+
+export function buscarVistaPorRuta(ruta) {
+  return VISTAS.find((vista) => vista.ruta === ruta) ?? VISTA_INICIAL;
+}
+
+/**
+ * Tipos de revisión que tienen pestaña propia. Si se eligen desde el selector
+ * de Diccionarios, se navega a su pestaña en lugar de mezclar contextos.
+ */
+export function buscarVistaDedicada(tipoRevision) {
+  return VISTAS.find((vista) => vista.id !== 'diccionario' && vista.tipoRevision === tipoRevision);
+}

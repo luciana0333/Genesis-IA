@@ -1,0 +1,51 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* Controles de formulario */
+select, input, textarea {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+select, input {
+  height: 48px;
+  padding: 0 16px;
+}
+
+textarea {
+  padding: 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.88rem;
+  resize: vertical;
+}
+
+select:focus, input:focus, textarea:focus {
+  outline: none;
+  border-color: var(--red-main);
+  box-shadow: 0 0 0 3px var(--red-light);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}

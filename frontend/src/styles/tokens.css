@@ -1,0 +1,36 @@
+/* Variables de diseño: tema claro por defecto y tema oscuro. */
+:root {
+  --bg-page: #f4f5f7;
+  --bg-card: #ffffff;
+  --bg-input: #f8f9fa;
+  --border: #e2e8f0;
+
+  --text-primary: #1a202c;
+  --text-muted: #718096;
+
+  --red-main: #e60026;
+  --red-dark: #b8001e;
+  --red-light: rgba(230, 0, 38, 0.08);
+  --red-shadow: rgba(230, 0, 38, 0.25);
+
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme="dark"] {
+  --bg-page: #0f1115;
+  --bg-card: #161920;
+  --bg-input: #0e1014;
+  --border: #232834;
+
+  --text-primary: #f7fafc;
+  --text-muted: #a0aec0;
+
+  --red-main: #e60026;
+  --red-dark: #a0001a;
+  --red-light: rgba(230, 0, 38, 0.15);
+  --red-shadow: rgba(230, 0, 38, 0.4);
+
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+}

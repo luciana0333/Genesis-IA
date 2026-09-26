@@ -1,0 +1,11 @@
+/*
+ * Punto de entrada de estilos. El orden importa: respeta la cascada del
+ * diseño original (tokens -> base -> layout -> componentes -> vistas).
+ */
+@import './tokens.css';
+@import './base.css';
+@import './layout.css';
+@import './metricas.css';
+@import './formulario.css';
+@import './hallazgos.css';
+@import './planes.css';

@@ -1,0 +1,103 @@
+/* PANEL DE RESULTADOS */
+.results-panel {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px;
+}
+
+.results-panel h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 32px;
+  background: var(--bg-card);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  color: var(--text-muted);
+}
+
+.results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* TARJETA DE HALLAZGO */
+.finding-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 5px solid var(--red-main);
+  border-radius: 12px;
+  padding: 20px 24px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.finding-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.finding-card.critico { border-left-color: #e60026; }
+.finding-card.alto { border-left-color: #ff9100; }
+.finding-card.medio { border-left-color: #ffd600; }
+.finding-card.bajo { border-left-color: #00e676; }
+
+.finding-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.finding-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.finding-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.finding-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.finding-badge.critico { background: rgba(230, 0, 38, 0.12); color: #e60026; border: 1px solid rgba(230, 0, 38, 0.3); }
+.finding-badge.alto { background: rgba(255, 145, 0, 0.12); color: #ff9100; border: 1px solid rgba(255, 145, 0, 0.3); }
+.finding-badge.medio { background: rgba(255, 214, 0, 0.12); color: #b79500; border: 1px solid rgba(255, 214, 0, 0.4); }
+.finding-badge.bajo { background: rgba(0, 230, 118, 0.12); color: #00a854; border: 1px solid rgba(0, 230, 118, 0.3); }
+
+.finding-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.finding-body {
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .finding-header { flex-direction: column; align-items: flex-start; gap: 6px; }
+}
