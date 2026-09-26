@@ -32,7 +32,7 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
         codigo="PARAMETRO_FALTANTE",
         nombre="Parámetro no documentado",
         severidad="alto",
-        descripcion="El parámetro declarado falta en el diccionario. Alto en CREATE PROCEDURE; medio en ALTER.",
+        descripcion="El parámetro declarado falta en el diccionario. Solo CREATE PROCEDURE (en ALTER se pide validar).",
         alcance="procedimiento",
         activo=True,
     ),
@@ -67,6 +67,17 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
         descripcion=(
             "La descripción del procedimiento o de un parámetro tiene palabras mal escritas. "
             "No exige tildes. Vocabulario del equipo: app/reglas/vocabulario_tecnico.txt."
+        ),
+        alcance="procedimiento",
+        activo=True,
+    ),
+    "VALIDAR_DOCUMENTACION_ALTER": ReglaDiccionario(
+        codigo="VALIDAR_DOCUMENTACION_ALTER",
+        nombre="Validar documentación existente",
+        severidad="bajo",
+        descripcion=(
+            "En un ALTER PROCEDURE, al diccionario le falta la descripción del procedimiento o de un "
+            "parámetro. No es error: el objeto ya existía y puede estar documentado de antes; validar."
         ),
         alcance="procedimiento",
         activo=True,

@@ -173,37 +173,40 @@ def _validar_parametros_faltantes(
     """
     hallazgos = []
 
+    # SQL Server no distingue mayúsculas en los nombres: @nClienteId = @NCLIENTEID.
     parametros_documentados = set()
     for _, args in llamadas:
         if "level2name" in args and "PARAMETER" in args.get("level2type", "").upper():
-            parametros_documentados.add(_limpiar_valor(args["level2name"]))
+            parametros_documentados.add(_limpiar_valor(args["level2name"]).upper())
 
-    faltantes = parametros_reales - parametros_documentados
+    faltantes = [p for p in parametros_reales if p.upper() not in parametros_documentados]
 
-    for p in sorted(faltantes):
-        if tipo_sentencia == "ALTER" and llamadas:
-            # Hay documentacion previa (llamadas existen), pero le falta
-            # este parametro en particular.
-            mensaje = (
-                f"El parámetro {p} no se encuentra documentado. Como el procedimiento "
-                f"ya existía, valide si estaba documentado antes; si es nuevo, agréguelo "
-                f"al diccionario."
-            )
-            severidad = Severidad.MEDIO
-        else:
-            mensaje = (
-                f"El parámetro {p} no se encuentra documentado. Agréguelo al "
-                f"diccionario con su descripción."
-            )
-            # En un CREATE el procedimiento es nuevo: todo debe documentarse.
-            severidad = Severidad.ALTO if tipo_sentencia == "CREATE" else Severidad.MEDIO
+    for p in sorted(faltantes, key=str.upper):
+        if tipo_sentencia == "ALTER":
+            # El procedimiento ya existía: el parámetro puede estar documentado
+            # de antes. No es error; se pide validar.
+            hallazgos.append(Hallazgo(
+                linea=1,
+                origen=OrigenAnalisis.DICCIONARIO,
+                severidad=Severidad.BAJO,
+                regla="VALIDAR_DOCUMENTACION_ALTER",
+                mensaje=(
+                    f"Es un ALTER PROCEDURE y el parámetro {p} no está en el diccionario. "
+                    f"Valide si ya estaba documentado; si es nuevo, agréguelo con su descripción."
+                ),
+            ))
+            continue
 
+        # En un CREATE el procedimiento es nuevo: todo debe documentarse.
         hallazgos.append(Hallazgo(
             linea=1,
             origen=OrigenAnalisis.DICCIONARIO,
-            severidad=severidad,
+            severidad=Severidad.ALTO,
             regla="PARAMETRO_FALTANTE",
-            mensaje=mensaje
+            mensaje=(
+                f"El parámetro {p} no se encuentra documentado. Agréguelo al "
+                f"diccionario con su descripción."
+            ),
         ))
 
     return hallazgos
@@ -304,10 +307,21 @@ def _validar_procedimiento_documentado(
                     f"el procedimiento."
         )]
 
+    if tipo_sentencia == "ALTER":
+        return [Hallazgo(
+            linea=1,
+            origen=OrigenAnalisis.DICCIONARIO,
+            severidad=Severidad.BAJO,
+            regla="VALIDAR_DOCUMENTACION_ALTER",
+            mensaje=f"Es un ALTER PROCEDURE y el diccionario no incluye la descripción del "
+                    f"procedimiento {esquema}.{nombre_proc}. Valide que ya esté documentado; "
+                    f"si no lo está, agréguelo."
+        )]
+
     return [Hallazgo(
         linea=1,
         origen=OrigenAnalisis.DICCIONARIO,
-        severidad=Severidad.ALTO if tipo_sentencia == "CREATE" else Severidad.MEDIO,
+        severidad=Severidad.ALTO,
         regla="PROCEDIMIENTO_SIN_DESCRIPCION",
         mensaje=f"El procedimiento {esquema}.{nombre_proc} no se encuentra "
                 f"documentado. Agréguelo al diccionario con su descripción."

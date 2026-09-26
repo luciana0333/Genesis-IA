@@ -89,7 +89,7 @@ class TestDiccionarioProcedimientos(unittest.TestCase):
 
 
 class TestSeveridadSegunCreateOAlter(unittest.TestCase):
-    """En un CREATE PROCEDURE, lo no documentado es alto; en un ALTER, medio."""
+    """CREATE: lo no documentado es alto. ALTER: solo se pide validar (bajo)."""
 
     CUERPO = """ PROCEDURE dbo.PA_Cliente_Consultar
     @nClienteId INT,
@@ -135,11 +135,31 @@ END"""
         self.assertIn("está documentado, pero no tiene una descripción",
                       reglas["DESCRIPCION_PROCEDIMIENTO_VACIA"].mensaje)
 
-    def test_alter_procedure_se_mantiene_en_medio(self):
-        severidades = self._severidades("ALTER")
-        for regla in ("PROCEDIMIENTO_SIN_DESCRIPCION", "PARAMETRO_FALTANTE", "DESCRIPCION_VACIA"):
-            with self.subTest(regla=regla):
-                self.assertEqual(severidades[regla], Severidad.MEDIO)
+    def test_alter_procedure_solo_pide_validar_lo_no_documentado(self):
+        hallazgos = verificar_diccionario("ALTER" + self.CUERPO, self.DICCIONARIO)
+        reglas = [h.regla for h in hallazgos]
+        self.assertNotIn("PROCEDIMIENTO_SIN_DESCRIPCION", reglas)
+        self.assertNotIn("PARAMETRO_FALTANTE", reglas)
+        validar = [h for h in hallazgos if h.regla == "VALIDAR_DOCUMENTACION_ALTER"]
+        self.assertEqual(len(validar), 2)  # el procedimiento y @cCodigo
+        self.assertTrue(all(h.severidad == Severidad.BAJO for h in validar))
+        self.assertTrue(all("Valide" in h.mensaje for h in validar))
+
+    def test_alter_procedure_revisa_lo_demas_igual_que_create(self):
+        hallazgos = {h.regla: h for h in verificar_diccionario("ALTER" + self.CUERPO, self.DICCIONARIO)}
+        self.assertEqual(hallazgos["DESCRIPCION_VACIA"].severidad, Severidad.MEDIO)
+        mal_esquema = self.DICCIONARIO.replace("@level0name = N'dbo'", "@level0name = N'dbo2'")
+        reglas = [h.regla for h in verificar_diccionario("ALTER" + self.CUERPO, mal_esquema)]
+        self.assertIn("ESQUEMA_NO_COINCIDE", reglas)
+
+    def test_parametros_se_comparan_sin_distinguir_mayusculas(self):
+        diccionario = self.DICCIONARIO.replace("N'@nClienteId'", "N'@NCLIENTEID'")
+        faltantes = [
+            h.mensaje for h in verificar_diccionario("CREATE" + self.CUERPO, diccionario)
+            if h.regla == "PARAMETRO_FALTANTE"
+        ]
+        self.assertEqual(len(faltantes), 1)
+        self.assertIn("@cCodigo", faltantes[0])
 
 
 class TestOrtografiaProcedimientos(unittest.TestCase):
