@@ -214,13 +214,36 @@
 
 .hero-container {
   position: relative;
+  z-index: 1;
   max-width: 1240px;
   margin: 0 auto;
 }
 
+/* Destello de luz diagonal que cruza el encabezado una sola vez. */
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 38%,
+    rgba(255, 255, 255, 0.1) 44%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0.1) 56%,
+    transparent 62%
+  );
+  transform: translateX(-100%);
+  animation: hero-destello 1.6s cubic-bezier(0.4, 0, 0.2, 1) 0.2s 1 forwards;
+  pointer-events: none;
+}
+
+@keyframes hero-destello {
+  to { transform: translateX(100%); }
+}
+
 .hero-eyebrow {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   margin-bottom: 20px;
@@ -238,12 +261,6 @@
   background: #ffffff;
 }
 
-.hero-eyebrow-sep {
-  width: 4px;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.55);
-  transform: rotate(45deg);
-}
 
 .hero h1 {
   max-width: 920px;

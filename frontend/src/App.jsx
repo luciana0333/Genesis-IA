@@ -13,7 +13,7 @@ export default function App() {
   return (
     <>
       <BarraNavegacion vistaActiva={vista} tema={tema} onAlternarTema={alternarTema} />
-      <Hero {...vista.hero} seccion={vista.etiqueta} />
+      <Hero key={vista.id} {...vista.hero} />
 
       <main className="main-wrapper">
         {/* Planes se mantiene montado para conservar el archivo y el análisis al cambiar de pestaña. */}

@@ -1,23 +1,12 @@
 /**
- * Encabezado de cada pestaña: etiqueta de ubicación, título y descripción
- * sobre la foto de fondo. Un solo recurso visual (la foto con degradado)
- * para mantenerlo limpio.
+ * Encabezado de cada pestaña: etiqueta, título y descripción sobre la foto
+ * de fondo. Al montarse, un destello de luz cruza el encabezado una vez.
  */
-export function Hero({ titulo, complemento, descripcion, seccion }) {
+export function Hero({ titulo, complemento, descripcion }) {
   return (
     <section className="hero">
       <div className="hero-container">
-        <p className="hero-eyebrow">
-          <span>Auditoría inteligente</span>
-          <span className="hero-eyebrow-sep" aria-hidden="true" />
-          <span>{seccion}</span>
-          {complemento && (
-            <>
-              <span className="hero-eyebrow-sep" aria-hidden="true" />
-              <span>{complemento}</span>
-            </>
-          )}
-        </p>
+        <p className="hero-eyebrow">{complemento ?? 'Auditoría inteligente'}</p>
         <h1>{titulo}</h1>
         <p className="hero-descripcion">{descripcion}</p>
       </div>

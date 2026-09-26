@@ -74,8 +74,8 @@
 .chip-dot {
   width: 7px;
   height: 7px;
+  border-radius: 50%;
   background: var(--chip-color);
-  transform: rotate(45deg);
 }
 
 .chip-count {
