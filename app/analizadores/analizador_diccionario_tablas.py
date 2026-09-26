@@ -9,6 +9,7 @@ El script del diccionario se lee con propiedades_extendidas, por lo que las
 sentencias pueden separarse con GO, con ";", con ambos o sin nada.
 """
 
+import difflib
 import re
 import unicodedata
 from typing import Dict, List, Optional, Set, Tuple
@@ -212,7 +213,7 @@ def _validar_parametros(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
         if faltantes:
             hallazgos.append(_hallazgo(
                 llamada.linea, "PARAMETROS_INCOMPLETOS",
-                f"A la sentencia le faltan los parámetros {', '.join(faltantes)}.",
+                f"A esta sentencia le faltan datos obligatorios: {', '.join(faltantes)}. Complétela para que se pueda ejecutar.",
             ))
 
         tipo0 = llamada.texto("level0type").upper()
@@ -220,12 +221,12 @@ def _validar_parametros(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
         if tipo0 and tipo0 != "SCHEMA":
             hallazgos.append(_hallazgo(
                 llamada.linea, "TIPO_NIVEL_INCORRECTO",
-                f"@level0type='{llamada.texto('level0type')}' debe ser 'SCHEMA' en el diccionario de una tabla.",
+                f"El nivel 0 dice '{llamada.texto('level0type')}', pero debe ser 'SCHEMA' (@level0type = N'SCHEMA').",
             ))
         if tipo1 and tipo1 != "TABLE":
             hallazgos.append(_hallazgo(
                 llamada.linea, "TIPO_NIVEL_INCORRECTO",
-                f"@level1type='{llamada.texto('level1type')}' debe ser 'TABLE' en el diccionario de una tabla.",
+                f"El nivel 1 dice '{llamada.texto('level1type')}', pero para documentar una tabla debe ser 'TABLE' (@level1type = N'TABLE').",
             ))
     return hallazgos
 
@@ -245,7 +246,7 @@ def _validar_tabla_documentada(
     if sentencias_tabla:
         return [_hallazgo(
             sentencias_tabla[0].linea, "TABLA_SIN_DESCRIPCION",
-            f"La descripción de la tabla {full} está vacía. Indique para qué sirve la tabla.",
+            f"La tabla {full} está en el diccionario, pero su descripción está vacía. Escriba para qué sirve la tabla.",
         )]
     return [_hallazgo(
         1, "TABLA_SIN_DESCRIPCION",
@@ -260,8 +261,8 @@ def _validar_esquema(llamadas: List[LlamadaPropiedad], esquema_real: Optional[st
     return [
         _hallazgo(
             ll.linea, "ESQUEMA_NO_COINCIDE",
-            f"El esquema documentado (@level0name='{ll.texto('level0name')}') no coincide con "
-            f"el esquema real de la tabla ('{esquema_real}').",
+            f"El esquema no coincide: el diccionario dice '{ll.texto('level0name')}', pero la tabla "
+            f"está en '{esquema_real}'. Corrija @level0name.",
         )
         for ll in llamadas
         if ll.texto("level0name") and ll.texto("level0name").lower() != esquema_real.lower()
@@ -272,7 +273,8 @@ def _validar_nombre_tabla(llamadas: List[LlamadaPropiedad], nombre_tabla: str) -
     return [
         _hallazgo(
             ll.linea, "NOMBRE_TABLA_NO_COINCIDE",
-            f"@level1name='{ll.texto('level1name')}' no coincide con el nombre real de la tabla ({nombre_tabla}).",
+            f"El nombre de la tabla no coincide: el diccionario dice '{ll.texto('level1name')}', "
+            f"pero la tabla se llama '{nombre_tabla}'. Corrija @level1name.",
         )
         for ll in llamadas
         if ll.texto("level1type").upper() == "TABLE"
@@ -318,6 +320,15 @@ def _validar_columnas_faltantes(
     return hallazgos
 
 
+def _sugerencia_columna(nombre: str, columnas_reales: Set[str]) -> str:
+    """' ¿Quiso decir bActivo?' si hay una columna real con nombre parecido."""
+    por_clave = {c.upper(): c for c in columnas_reales}
+    parecidas = difflib.get_close_matches(nombre.upper(), list(por_clave), n=1, cutoff=0.75)
+    if parecidas:
+        return f" ¿Quiso decir '{por_clave[parecidas[0]]}'?"
+    return " Revise si el nombre está mal escrito."
+
+
 def _validar_columnas_inexistentes(
     columnas_reales: Set[str], llamadas: List[LlamadaPropiedad], tipo_sentencia: str, nombre_tabla: str
 ) -> List[Hallazgo]:
@@ -332,8 +343,8 @@ def _validar_columnas_inexistentes(
     return [
         _hallazgo(
             ll.linea, "COLUMNA_NO_EXISTE",
-            f"La columna documentada '{ll.texto('level2name')}' no existe en la tabla {nombre_tabla}. "
-            f"Revise si el nombre está mal escrito.",
+            f"Se documenta la columna '{ll.texto('level2name')}', pero no existe en la tabla "
+            f"{nombre_tabla}.{_sugerencia_columna(ll.texto('level2name'), columnas_reales)}",
         )
         for ll in llamadas
         if _es_de_columna(ll) and ll.texto("level2name").upper() not in reales
@@ -361,8 +372,8 @@ def _validar_duplicados(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
         if clave in vistos:
             hallazgos.append(_hallazgo(
                 ll.linea, "DOCUMENTACION_DUPLICADA",
-                f"La descripción de {objeto} se agrega más de una vez (ya estaba en la línea "
-                f"{vistos[clave]}). SQL Server rechazará la segunda sentencia.",
+                f"{objeto[0].upper()}{objeto[1:]} está documentada dos veces (la primera en la línea "
+                f"{vistos[clave]}). Elimine una: SQL Server rechaza la repetida.",
             ))
         else:
             vistos[clave] = ll.linea
@@ -388,13 +399,14 @@ def _validar_descripcion_tabla(llamadas: List[LlamadaPropiedad]) -> List[Hallazg
         if descripcion in descripciones_columnas:
             hallazgos.append(_hallazgo(
                 ll.linea, "DESCRIPCION_TABLA_INADECUADA",
-                f"La descripción de la tabla es idéntica a la de la columna "
-                f"{descripciones_columnas[descripcion]}. Describa el propósito de la tabla.",
+                f"La descripción de la tabla es la misma que la de la columna "
+                f"{descripciones_columnas[descripcion]}. Escriba una descripción que explique para qué "
+                f"sirve la tabla.",
             ))
         elif descripcion.startswith("identificador"):
             hallazgos.append(_hallazgo(
                 ll.linea, "DESCRIPCION_TABLA_INADECUADA",
-                "La descripción de la tabla describe un identificador, no el propósito de la tabla.",
+                "La descripción de la tabla parece de una columna (empieza con 'Identificador'). Escriba para qué sirve la tabla.",
             ))
     return hallazgos
 
@@ -403,7 +415,7 @@ def _validar_descripciones_vacias(llamadas: List[LlamadaPropiedad]) -> List[Hall
     return [
         _hallazgo(
             ll.linea, "DESCRIPCION_COLUMNA_VACIA",
-            f"La columna {ll.texto('level2name')} tiene descripción vacía en el diccionario.",
+            f"La columna {ll.texto('level2name')} está en el diccionario, pero su descripción está vacía. Escriba qué información guarda.",
         )
         for ll in llamadas
         if _es_de_columna(ll) and _es_descripcion(ll) and ll.tiene("value") and ll.texto("value") == ""
@@ -422,7 +434,7 @@ def _validar_valores_sin_comillas(llamadas: List[LlamadaPropiedad]) -> List[Hall
         if sin_comillas:
             hallazgos.append(_hallazgo(
                 ll.linea, "VALOR_SIN_COMILLAS",
-                f"Los valores {', '.join(sin_comillas)} no están entre comillas (N'...').",
+                f"Los nombres {', '.join(sin_comillas)} no están entre comillas. Escríbalos como N'...'.",
             ))
     return hallazgos
 
@@ -434,8 +446,8 @@ def _validar_alter_sin_diccionario(
         full = _nombre_completo(esquema, nombre_tabla)
         return [_hallazgo(
             1, "ALTER_SIN_DICCIONARIO",
-            f"Este ALTER TABLE ({full}) no tiene diccionario asociado. Verifique si la nueva columna "
-            f"ya estaba documentada previamente o si falta documentarla.",
+            f"Se modifica la tabla {full} (ALTER TABLE), pero no se pegó ningún diccionario. "
+            f"Si agrega o cambia columnas, documéntelas.",
         )]
     return []
 

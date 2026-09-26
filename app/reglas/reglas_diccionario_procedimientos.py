@@ -14,7 +14,7 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
     ),
     "NOMBRE_NO_COINCIDE": ReglaDiccionario(
         codigo="NOMBRE_NO_COINCIDE",
-        nombre="Nombre no coincide",
+        nombre="Nombre del procedimiento no coincide",
         severidad="alto",
         descripcion="El nombre documentado en @level1name no coincide con el nombre real del objeto.",
         alcance="procedimiento",
@@ -30,7 +30,7 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
     ),
     "PARAMETRO_FALTANTE": ReglaDiccionario(
         codigo="PARAMETRO_FALTANTE",
-        nombre="Parámetro faltante",
+        nombre="Parámetro no documentado",
         severidad="medio",
         descripcion="El parámetro declarado falta en el diccionario.",
         alcance="procedimiento",
@@ -38,7 +38,7 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
     ),
     "PROCEDIMIENTO_SIN_DESCRIPCION": ReglaDiccionario(
         codigo="PROCEDIMIENTO_SIN_DESCRIPCION",
-        nombre="Procedimiento sin descripción",
+        nombre="Procedimiento no documentado",
         severidad="medio",
         descripcion="El procedimiento no tiene una descripción válida a nivel PROCEDURE en el diccionario.",
         alcance="procedimiento",
@@ -46,7 +46,7 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
     ),
     "DESCRIPCION_VACIA": ReglaDiccionario(
         codigo="DESCRIPCION_VACIA",
-        nombre="Descripción vacía",
+        nombre="Descripción de parámetro vacía",
         severidad="medio",
         descripcion="La descripción del parámetro o atributo existe pero está vacía.",
         alcance="procedimiento",

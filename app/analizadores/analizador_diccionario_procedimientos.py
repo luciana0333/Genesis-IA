@@ -122,9 +122,8 @@ def _validar_esquema(
                     origen=OrigenAnalisis.DICCIONARIO,
                     severidad=Severidad.ALTO,
                     regla="ESQUEMA_NO_COINCIDE",
-                    mensaje=f"El esquema documentado (@level0name='{valor}') no "
-                            f"coincide con el esquema real del procedimiento "
-                            f"('{esquema_real}')."
+                    mensaje=f"El esquema no coincide: el diccionario dice '{valor}', pero el "
+                            f"procedimiento está en '{esquema_real}'. Corrija @level0name."
                 ))
     return hallazgos
 
@@ -147,9 +146,8 @@ def _validar_descripciones_vacias(
                     origen=OrigenAnalisis.DICCIONARIO,
                     severidad=Severidad.MEDIO,
                     regla="DESCRIPCION_VACIA",
-                    mensaje=f"El parametro {nombre_param} tiene una llamada a "
-                            f"sp_addextendedproperty, pero su descripcion (@value) "
-                            f"esta vacia."
+                    mensaje=f"El parámetro {nombre_param} está en el diccionario, pero su "
+                            f"descripción está vacía. Escriba para qué se usa."
                 ))
     return hallazgos
 
@@ -179,15 +177,15 @@ def _validar_parametros_faltantes(
             # Hay documentacion previa (llamadas existen), pero le falta
             # este parametro en particular.
             mensaje = (
-                f"Este procedimiento ya existia (tiene documentacion previa "
-                f"en el diccionario), sin embargo el parametro {p} no se "
-                f"encuentra declarado en el diccionario. Verifique."
+                f"El parámetro {p} no se encuentra documentado. Como el procedimiento "
+                f"ya existía, valide si estaba documentado antes; si es nuevo, agréguelo "
+                f"al diccionario."
             )
             severidad = Severidad.MEDIO
         else:
             mensaje = (
-                f"El parametro {p} (declarado en el procedimiento) no se "
-                f"encuentra declarado en el diccionario."
+                f"El parámetro {p} no se encuentra documentado. Agréguelo al "
+                f"diccionario con su descripción."
             )
             severidad = Severidad.MEDIO
 
@@ -220,10 +218,9 @@ def _validar_alter_sin_diccionario(
             severidad=Severidad.BAJO,
             regla="ALTER_SIN_DICCIONARIO",
             mensaje=(
-                f"Este procedimiento ({esquema}.{nombre_proc}) es un ALTER. "
-                f"No se encontro script de diccionario o no contiene llamadas "
-                f"a sp_addextendedproperty. Verifique si sus parametros ya "
-                f"estan declarados previamente."
+                f"Se modifica el procedimiento {esquema}.{nombre_proc} (ALTER), pero no "
+                f"se pegó ningún diccionario. Si agrega o cambia parámetros, "
+                f"documéntelos."
             )
         )]
     return []
@@ -245,8 +242,9 @@ def _validar_nombre_procedimiento(
                     origen=OrigenAnalisis.DICCIONARIO,
                     severidad=Severidad.ALTO,
                     regla="NOMBRE_NO_COINCIDE",
-                    mensaje=f"@level1name='{valor}' no coincide con el nombre "
-                            f"real del procedimiento ({nombre_proc})."
+                    mensaje=f"El nombre del procedimiento no coincide: el diccionario dice "
+                            f"'{valor}', pero el procedimiento se llama '{nombre_proc}'. "
+                            f"Corrija @level1name."
                 ))
     return hallazgos
 
@@ -267,8 +265,8 @@ def _validar_valores_sin_comillas(
                         origen=OrigenAnalisis.DICCIONARIO,
                         severidad=Severidad.CRITICO,
                         regla="VALOR_SIN_COMILLAS",
-                        mensaje=f"@{clave}={valor} no esta entre comillas (N'...'). "
-                                f"Puede generar error de conversion/sintaxis."
+                        mensaje=f"El nombre @{clave}={valor} no está entre comillas. "
+                                f"Escríbalo como N'...'."
                     ))
     return hallazgos
 
@@ -291,9 +289,8 @@ def _validar_procedimiento_documentado(
             origen=OrigenAnalisis.DICCIONARIO,
             severidad=Severidad.MEDIO,
             regla="PROCEDIMIENTO_SIN_DESCRIPCION",
-            mensaje=f"El procedimiento {esquema}.{nombre_proc} no tiene una "
-                    f"descripcion valida a nivel PROCEDURE en el script del "
-                    f"diccionario."
+            mensaje=f"El procedimiento {esquema}.{nombre_proc} no se encuentra "
+                    f"documentado. Agréguelo al diccionario con su descripción."
         )]
     return []
 

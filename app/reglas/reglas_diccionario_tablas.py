@@ -62,7 +62,7 @@ REGLAS_DICCIONARIO_TABLAS = {
     ),
     "COLUMNA_NO_EXISTE": ReglaDiccionario(
         codigo="COLUMNA_NO_EXISTE",
-        nombre="Columna documentada inexistente",
+        nombre="Columna documentada que no existe",
         severidad="alto",
         descripcion="En un CREATE TABLE, el diccionario documenta una columna que no existe en la tabla (posible error de tipeo).",
         alcance="tabla",
@@ -98,7 +98,7 @@ REGLAS_DICCIONARIO_TABLAS = {
     ),
     "PARAMETROS_INCOMPLETOS": ReglaDiccionario(
         codigo="PARAMETROS_INCOMPLETOS",
-        nombre="Parámetros incompletos",
+        nombre="Faltan datos en la sentencia",
         severidad="alto",
         descripcion="A la sentencia le faltan parámetros obligatorios (@name, @value, @level0/1 type y name) o @level2type sin @level2name.",
         alcance="tabla",
@@ -106,7 +106,7 @@ REGLAS_DICCIONARIO_TABLAS = {
     ),
     "DOCUMENTACION_DUPLICADA": ReglaDiccionario(
         codigo="DOCUMENTACION_DUPLICADA",
-        nombre="Documentación duplicada",
+        nombre="Documentado dos veces",
         severidad="alto",
         descripcion="La misma tabla o columna se documenta más de una vez con sp_addextendedproperty; SQL Server rechaza la segunda.",
         alcance="tabla",

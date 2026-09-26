@@ -205,7 +205,7 @@ def _leer_argumentos(texto: str, i: int, llamada: LlamadaPropiedad, original: st
     def guardar(nombre: str, valor: ValorArgumento, posicion: int) -> None:
         if nombre in llamada.argumentos:
             llamada.repetidos.append(nombre)
-            error(posicion, f"El parámetro @{nombre} está repetido en la misma sentencia.")
+            error(posicion, f"El dato @{nombre} aparece dos veces en la misma sentencia. Deje solo uno.")
         llamada.argumentos[nombre] = valor
 
     while True:
@@ -215,22 +215,22 @@ def _leer_argumentos(texto: str, i: int, llamada: LlamadaPropiedad, original: st
             if token.tipo == "parametro":
                 nombre = token.crudo[1:].lower()
                 if nombre not in PARAMETROS:
-                    error(token.inicio, f"El parámetro {token.crudo} no es válido para sp_addextendedproperty.")
+                    error(token.inicio, f"{token.crudo} no es un dato válido de sp_addextendedproperty. Revise si está mal escrito (los válidos son @name, @value, @level0type, @level0name, @level1type, @level1name, @level2type y @level2name).")
                 igual = _siguiente_token(texto, token.fin)
                 if igual.tipo == "igual":
                     valor = _siguiente_token(texto, igual.fin)
                 else:
                     # Se recupera tomando el siguiente valor como si tuviera '='.
-                    error(token.inicio, f"Falta el signo '=' después de {token.crudo}.")
+                    error(token.inicio, f"Falta el signo '=' después de {token.crudo}. Debe escribirse {token.crudo} = N'...'.")
                     valor = igual
                 if valor.tipo not in ("cadena", "valor") or _es_fin_de_sentencia(valor):
-                    error(token.inicio, f"Falta el valor de {token.crudo}.")
+                    error(token.inicio, f"{token.crudo} no tiene valor. Debe escribirse {token.crudo} = N'...'.")
                     i = igual.fin if igual.tipo == "igual" else token.fin
                     esperando_argumento = False
                     ultimo = nombre
                     continue
                 if valor.tipo == "cadena" and not valor.cadena_cerrada:
-                    error(valor.inicio, f"La cadena de {token.crudo} no está cerrada con comilla simple.")
+                    error(valor.inicio, f"Al texto de {token.crudo} le falta la comilla de cierre ('). Agréguela al final del valor.")
                 guardar(nombre, _valor_desde_token(valor), token.inicio)
                 i = valor.fin
                 esperando_argumento = False
@@ -239,7 +239,7 @@ def _leer_argumentos(texto: str, i: int, llamada: LlamadaPropiedad, original: st
 
             if token.tipo in ("cadena", "valor") and not _es_fin_de_sentencia(token):
                 if posicional >= len(PARAMETROS):
-                    error(token.inicio, "La sentencia tiene más valores de los que admite sp_addextendedproperty.")
+                    error(token.inicio, "La sentencia tiene más valores de los que acepta sp_addextendedproperty (máximo 8). Revise si sobra alguno.")
                 else:
                     guardar(PARAMETROS[posicional], _valor_desde_token(token), token.inicio)
                     ultimo = PARAMETROS[posicional]
@@ -250,9 +250,9 @@ def _leer_argumentos(texto: str, i: int, llamada: LlamadaPropiedad, original: st
 
             # Se esperaba un argumento y no llegó: coma sobrante o sentencia vacía.
             if ultimo is not None:
-                error(ultima_coma, f"Coma sobrante después de @{ultimo}: la sentencia termina sin otro parámetro.")
+                error(ultima_coma, f"Sobra una coma al final de la sentencia, después de @{ultimo}. Quítela: así el script no se puede ejecutar.")
             elif not llamada.argumentos:
-                error(token.inicio, "La llamada a sp_addextendedproperty no tiene parámetros.")
+                error(token.inicio, "La sentencia sp_addextendedproperty está vacía. Complete @name, @value y los niveles del objeto.")
             return
 
         # Después de un valor solo puede venir ",", ";" o el fin de la sentencia.
@@ -264,10 +264,10 @@ def _leer_argumentos(texto: str, i: int, llamada: LlamadaPropiedad, original: st
         if token.tipo == "puntoycoma" or _es_fin_de_sentencia(token):
             return
         if token.tipo == "parametro":
-            error(token.inicio, f"Falta una coma entre @{ultimo} y {token.crudo}.")
+            error(token.inicio, f"Falta una coma entre @{ultimo} y {token.crudo}. Agréguela para separar los datos.")
             esperando_argumento = True
             continue
-        error(token.inicio, f"Texto inesperado '{token.crudo}' después de @{ultimo}.")
+        error(token.inicio, f"Hay texto que sobra después de @{ultimo}: '{token.crudo}'. Revise la sentencia.")
         return
 
 

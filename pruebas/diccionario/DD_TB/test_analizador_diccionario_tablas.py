@@ -323,7 +323,7 @@ class TestDiccionarioTablasSinDependerDeGO(unittest.TestCase):
         sintaxis = [h for h in hallazgos if h.regla == "SINTAXIS_DICCIONARIO"]
         self.assertEqual(len(sintaxis), 1)
         self.assertEqual(sintaxis[0].linea, 5)
-        self.assertIn("Coma sobrante", sintaxis[0].mensaje)
+        self.assertIn("Sobra una coma", sintaxis[0].mensaje)
 
         self.assertIn("DESCRIPCION_TABLA_INADECUADA", reglas)
         # SQL Server acepta nombres simples sin comillas: no se reportan.
@@ -346,8 +346,10 @@ class TestDiccionarioTablasSinDependerDeGO(unittest.TestCase):
 
     def test_columna_documentada_que_no_existe(self):
         diccionario = caso6.diccionario_correcto(";").replace("N'bActivo'", "N'bActivoo'")
-        reglas = {h.regla for h in verificar_diccionario_tablas(caso6.TABLA, diccionario)}
-        self.assertEqual(reglas, {"COLUMNA_NO_EXISTE", "COLUMNA_FALTANTE"})
+        hallazgos = verificar_diccionario_tablas(caso6.TABLA, diccionario)
+        self.assertEqual({h.regla for h in hallazgos}, {"COLUMNA_NO_EXISTE", "COLUMNA_FALTANTE"})
+        no_existe = next(h for h in hallazgos if h.regla == "COLUMNA_NO_EXISTE")
+        self.assertIn("¿Quiso decir 'bActivo'?", no_existe.mensaje)
 
     def test_columna_documentada_dos_veces(self):
         base = caso6.diccionario_correcto(";")
