@@ -10,24 +10,37 @@
   margin-bottom: 24px;
 }
 
-/* Vidrio esmerilado: la parte superior deja ver el encabezado desenfocado
-   y se vuelve sólida hacia abajo, suavizando la unión con la franja roja. */
+/* Superficie sólida con elevación neutra e "iluminado" superior:
+   una línea de luz en rojo de marca que se desvanece hacia los lados y un
+   resplandor muy tenue debajo. Da jerarquía sin teñir los datos. */
 .metric-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   padding: 20px 22px;
-  border: 1px solid var(--metric-glass-border);
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, var(--metric-glass-top) 0%, var(--metric-glass-bottom) 55%, var(--bg-card) 100%);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset, 0 18px 36px -14px rgba(60, 0, 10, 0.28), 0 4px 10px -4px rgba(16, 24, 40, 0.08);
+  background:
+    radial-gradient(120% 70% at 50% 0%, var(--metric-glow) 0%, transparent 60%),
+    linear-gradient(180deg, var(--bg-card) 0%, var(--metric-gradient-end) 100%);
+  box-shadow: var(--metric-shadow);
   transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+
+.metric-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: -1;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--metric-highlight) 50%, transparent 100%);
 }
 
 .metric-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset, 0 24px 44px -16px rgba(60, 0, 10, 0.34), 0 6px 14px -6px rgba(16, 24, 40, 0.1);
+  box-shadow: var(--metric-shadow-hover);
 }
 
 .metric-header {
