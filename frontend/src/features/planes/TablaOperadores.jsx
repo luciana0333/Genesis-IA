@@ -1,3 +1,5 @@
+import { EncabezadoSeccion } from '../../components/EncabezadoSeccion';
+
 const LIMITE_FILAS = 10;
 
 function formatearNumero(valor) {
@@ -19,13 +21,16 @@ export function TablaOperadores({ operadores = [] }) {
 
   return (
     <section className="operators">
-      <div className="results-header">
-        <div className="results-heading">
-          <h3>Operadores más costosos</h3>
-          <span className="count-pill neutral">{visibles.length} de {operadores.length}</span>
-        </div>
-        <span className="results-meta">Ordenados por lecturas lógicas</span>
-      </div>
+      <EncabezadoSeccion
+        nivel={3}
+        etiqueta="Detalle del plan"
+        titulo="Operadores más costosos"
+        acciones={
+          <span className="results-meta">
+            {visibles.length} de {operadores.length} · ordenados por lecturas lógicas
+          </span>
+        }
+      />
 
       <div className="table-scroll">
         <table className="data-table">

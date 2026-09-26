@@ -1,72 +1,79 @@
 /*
- * Sistema de diseño: colores, tipografía, radios, sombras y movimiento.
+ * Sistema de diseño de Genesis IA · CAJA ICA.
+ *
+ * Lenguaje visual corporativo: rojo de marca plano y sólido, superficies
+ * blancas con bordes finos, esquinas casi rectas, tipografía con jerarquía
+ * marcada (etiquetas en mayúsculas espaciadas) e íconos de línea fina.
  * Tema claro por defecto; el oscuro se activa con <html data-theme="dark">.
  */
 :root {
   /* Superficies */
-  --bg-page: #f3f4f7;
+  --bg-page: #f5f5f7;
   --bg-card: #ffffff;
-  --bg-input: #f8f9fb;
-  --bg-subtle: #f1f3f6;
-  --bg-code: #fbfbfc;
-  --border: #e3e7ee;
-  --border-strong: #cfd5df;
+  --bg-input: #fafafb;
+  --bg-subtle: #f1f1f4;
+  --bg-code: #fcfcfd;
+  --border: #e4e4e9;
+  --border-strong: #cfcfd6;
 
-  /* Texto */
-  --text-primary: #1f2937;
-  --text-secondary: #475467;
-  --text-muted: #6b7587;
+  /* Texto: tinta casi negra, nunca negro puro */
+  --text-primary: #1d1d24;
+  --text-secondary: #4a4a55;
+  --text-muted: #777784;
+
+  /* Tinta para bloques oscuros (barra superior, pie) */
+  --ink: #16161b;
+  --ink-soft: #24242c;
+  --ink-text: #c9c9d2;
 
   /* Marca CAJA ICA */
-  --red-main: #e60026;
-  --red-dark: #b8001e;
-  --red-light: rgba(230, 0, 38, 0.08);
-  --red-shadow: rgba(230, 0, 38, 0.25);
+  --red-main: #e30613;
+  --red-dark: #b8000f;
+  --red-deep: #9e000d;
+  --red-light: rgba(227, 6, 19, 0.07);
+  --red-shadow: rgba(227, 6, 19, 0.28);
 
-  /* Severidades: color principal, fondo suave y texto legible */
-  --sev-critico: #e60026;
-  --sev-critico-bg: rgba(230, 0, 38, 0.09);
-  --sev-critico-text: #c20020;
-  --sev-alto: #f07b0f;
-  --sev-alto-bg: rgba(240, 123, 15, 0.1);
-  --sev-alto-text: #b95800;
-  --sev-medio: #e8b100;
-  --sev-medio-bg: rgba(232, 177, 0, 0.12);
-  --sev-medio-text: #8f6a00;
-  --sev-bajo: #12a150;
-  --sev-bajo-bg: rgba(18, 161, 80, 0.1);
-  --sev-bajo-text: #0b7a3b;
+  /* Severidades: solo para etiquetas e íconos de cada hallazgo */
+  --sev-critico: #d50d1c;
+  --sev-critico-bg: rgba(213, 13, 28, 0.08);
+  --sev-critico-text: #b50a17;
+  --sev-alto: #e36a00;
+  --sev-alto-bg: rgba(227, 106, 0, 0.09);
+  --sev-alto-text: #a94f00;
+  --sev-medio: #d9a300;
+  --sev-medio-bg: rgba(217, 163, 0, 0.11);
+  --sev-medio-text: #7f6000;
+  --sev-bajo: #13925a;
+  --sev-bajo-bg: rgba(19, 146, 90, 0.09);
+  --sev-bajo-text: #0c6b41;
 
   /* Tipografía */
   --font-sans: 'Poppins', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+  --tracking-label: 0.12em;
 
-  /* Forma y profundidad */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
-  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.05);
-  --shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
-  --shadow-md: 0 6px 16px -4px rgba(16, 24, 40, 0.08), 0 2px 6px -2px rgba(16, 24, 40, 0.04);
-  --shadow-lg: 0 18px 40px -12px rgba(16, 24, 40, 0.14);
+  /* Forma: esquinas casi rectas */
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
 
-  --focus-ring: 0 0 0 3px rgba(230, 0, 38, 0.22);
+  /* Profundidad: sombras nítidas y discretas */
+  --shadow-xs: 0 1px 2px rgba(17, 17, 26, 0.04);
+  --shadow-sm: 0 1px 3px rgba(17, 17, 26, 0.06);
+  --shadow-md: 0 10px 30px -18px rgba(17, 17, 26, 0.28);
+  --shadow-lg: 0 24px 48px -24px rgba(17, 17, 26, 0.32);
 
-  /* Encabezado rojo corporativo */
-  --hero-red-1: rgba(170, 0, 28, 0.93);
-  --hero-red-2: rgba(212, 0, 36, 0.88);
-  --hero-red-3: rgba(234, 14, 50, 0.80);
+  --focus-ring: 0 0 0 3px rgba(227, 6, 19, 0.2);
 
-  /* Tarjetas de métricas */
-  --metric-glow: rgba(230, 0, 38, 0.05);
-  --metric-highlight: rgba(230, 0, 38, 0.7);
-  --metric-shadow: 0 12px 32px -14px rgba(16, 24, 40, 0.22), 0 2px 6px -2px rgba(16, 24, 40, 0.06);
-  --metric-shadow-hover: 0 18px 40px -16px rgba(16, 24, 40, 0.28), 0 4px 10px -4px rgba(16, 24, 40, 0.08);
-  --metric-icon-bg: #ffffff;
-  --metric-gradient-end: #f7f8fa;
-  --metric-value: #344054;
-  --metric-bar: #98a2b3;
+  /* Encabezado: rojo plano de marca sobre la foto como textura */
+  --hero-red: rgba(214, 4, 20, 0.9);
+  --hero-shape-light: rgba(255, 255, 255, 0.06);
+  --hero-shape-dark: rgba(80, 0, 8, 0.16);
+
+  /* Resumen de métricas */
+  --metric-value: #1d1d24;
+  --metric-icon: var(--red-main);
 
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --dur-fast: 150ms;
@@ -74,53 +81,52 @@
 }
 
 :root[data-theme="dark"] {
-  --bg-page: #0c0e13;
-  --bg-card: #151820;
-  --bg-input: #10131a;
-  --bg-subtle: #1b1f29;
-  --bg-code: #0f1218;
-  --border: #242a36;
-  --border-strong: #323a4a;
+  --bg-page: #0e0e12;
+  --bg-card: #17171d;
+  --bg-input: #121217;
+  --bg-subtle: #1e1e25;
+  --bg-code: #121217;
+  --border: #2a2a33;
+  --border-strong: #3a3a45;
 
-  --text-primary: #f3f5f9;
-  --text-secondary: #c3cad6;
-  --text-muted: #8c96a8;
+  --text-primary: #f1f1f4;
+  --text-secondary: #c2c2cc;
+  --text-muted: #8c8c99;
 
-  --red-main: #f0163a;
-  --red-dark: #c0001f;
-  --red-light: rgba(240, 22, 58, 0.14);
-  --red-shadow: rgba(240, 22, 58, 0.35);
+  --ink: #0a0a0d;
+  --ink-soft: #15151a;
+  --ink-text: #a9a9b5;
 
-  --sev-critico: #ff3b5a;
-  --sev-critico-bg: rgba(255, 59, 90, 0.14);
-  --sev-critico-text: #ff7087;
-  --sev-alto: #ff9433;
-  --sev-alto-bg: rgba(255, 148, 51, 0.14);
-  --sev-alto-text: #ffad66;
-  --sev-medio: #f5c83b;
-  --sev-medio-bg: rgba(245, 200, 59, 0.14);
-  --sev-medio-text: #f5d36b;
-  --sev-bajo: #2fcf77;
-  --sev-bajo-bg: rgba(47, 207, 119, 0.14);
-  --sev-bajo-text: #5fdc97;
+  --red-main: #f0162a;
+  --red-dark: #c5000f;
+  --red-deep: #9e000d;
+  --red-light: rgba(240, 22, 42, 0.12);
+  --red-shadow: rgba(240, 22, 42, 0.35);
 
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 8px 20px -6px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 20px 44px -12px rgba(0, 0, 0, 0.6);
+  --sev-critico: #ff4455;
+  --sev-critico-bg: rgba(255, 68, 85, 0.12);
+  --sev-critico-text: #ff7b87;
+  --sev-alto: #ff9536;
+  --sev-alto-bg: rgba(255, 149, 54, 0.12);
+  --sev-alto-text: #ffae66;
+  --sev-medio: #f2c440;
+  --sev-medio-bg: rgba(242, 196, 64, 0.12);
+  --sev-medio-text: #f4d170;
+  --sev-bajo: #34c880;
+  --sev-bajo-bg: rgba(52, 200, 128, 0.12);
+  --sev-bajo-text: #62d89c;
 
-  --focus-ring: 0 0 0 3px rgba(240, 22, 58, 0.35);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 10px 30px -16px rgba(0, 0, 0, 0.7);
+  --shadow-lg: 0 24px 48px -22px rgba(0, 0, 0, 0.8);
 
-  --hero-red-1: rgba(128, 0, 22, 0.94);
-  --hero-red-2: rgba(170, 0, 30, 0.9);
-  --hero-red-3: rgba(200, 0, 36, 0.84);
+  --focus-ring: 0 0 0 3px rgba(240, 22, 42, 0.32);
 
-  --metric-glow: rgba(240, 22, 58, 0.09);
-  --metric-highlight: rgba(255, 70, 100, 0.75);
-  --metric-shadow: 0 14px 34px -14px rgba(0, 0, 0, 0.6), 0 2px 6px -2px rgba(0, 0, 0, 0.4);
-  --metric-shadow-hover: 0 20px 44px -16px rgba(0, 0, 0, 0.7), 0 4px 10px -4px rgba(0, 0, 0, 0.45);
-  --metric-icon-bg: rgba(255, 255, 255, 0.04);
-  --metric-gradient-end: #11141b;
-  --metric-value: #d0d5dd;
-  --metric-bar: #667085;
+  --hero-red: rgba(170, 2, 16, 0.92);
+  --hero-shape-light: rgba(255, 255, 255, 0.04);
+  --hero-shape-dark: rgba(0, 0, 0, 0.22);
+
+  --metric-value: #f1f1f4;
+  --metric-icon: #ff4a58;
 }

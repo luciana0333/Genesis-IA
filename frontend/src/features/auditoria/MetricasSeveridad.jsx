@@ -14,7 +14,6 @@ const TARJETAS = [
 ];
 
 export function MetricasSeveridad({ conteo, subtitulos }) {
-  const total = Object.values(conteo).reduce((suma, valor) => suma + valor, 0);
   return (
     <section className="metrics-grid" aria-label="Resumen por severidad">
       {TARJETAS.map(({ severidad, titulo, icono }, indice) => (
@@ -24,7 +23,6 @@ export function MetricasSeveridad({ conteo, subtitulos }) {
           icono={icono}
           valor={conteo[severidad]}
           subtitulo={subtitulos[indice]}
-          proporcion={total ? conteo[severidad] / total : 0}
         />
       ))}
     </section>

@@ -1,124 +1,112 @@
-/* ───────── TARJETAS DE MÉTRICAS ─────────
- * Estilo sobrio: superficie blanca con degradado sutil, ícono neutro y cifra
- * en gris pizarra. El color de severidad se reserva para el detalle de
- * cada hallazgo, no para el resumen.
+/* ───────── RESUMEN DE MÉTRICAS ─────────
+ * Un solo panel blanco con cuatro celdas separadas por bordes finos que se
+ * superpone al encabezado. Íconos de línea en rojo de marca, sin cajas.
  */
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-lg);
 }
 
-/* Superficie sólida con elevación neutra e "iluminado" superior:
-   una línea de luz en rojo de marca que se desvanece hacia los lados y un
-   resplandor muy tenue debajo. Da jerarquía sin teñir los datos. */
 .metric-card {
   position: relative;
   display: flex;
-  flex-direction: column;
-  padding: 20px 22px;
-  overflow: hidden;
-  isolation: isolate;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background:
-    radial-gradient(120% 70% at 50% 0%, var(--metric-glow) 0%, transparent 60%),
-    linear-gradient(180deg, var(--bg-card) 0%, var(--metric-gradient-end) 100%);
-  box-shadow: var(--metric-shadow);
-  transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
+  align-items: flex-start;
+  gap: 16px;
+  padding: 26px 26px 24px;
+  transition: background-color var(--dur) var(--ease);
 }
 
-.metric-card::before {
+.metric-card + .metric-card {
+  border-left: 1px solid var(--border);
+}
+
+/* Acento rojo inferior al pasar el mouse. */
+.metric-card::after {
   content: '';
   position: absolute;
-  inset: 0 0 auto;
-  z-index: -1;
-  height: 2px;
-  background: linear-gradient(90deg, transparent 0%, var(--metric-highlight) 50%, transparent 100%);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: var(--red-main);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur) var(--ease);
 }
 
 .metric-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--metric-shadow-hover);
+  background: var(--bg-input);
 }
 
-.metric-header {
+.metric-card:hover::after {
+  transform: scaleX(1);
+}
+
+.metric-icon {
+  flex-shrink: 0;
+  color: var(--metric-icon);
+}
+
+.metric-icon svg {
+  width: 30px;
+  height: 30px;
+  stroke-width: 1.4;
+}
+
+.metric-body {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .metric-title {
   color: var(--text-muted);
-  font-size: 0.8rem;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-}
-
-.metric-icon {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--metric-icon-bg);
-  color: var(--text-muted);
-}
-
-.metric-icon svg {
-  width: 18px;
-  height: 18px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
 }
 
 .metric-value {
-  margin: 12px 0 2px;
+  margin: 6px 0 2px;
   color: var(--metric-value);
-  font-size: 1.65rem;
+  font-size: 1.7rem;
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.15;
   font-variant-numeric: tabular-nums;
 }
 
 .metric-sub {
   color: var(--text-muted);
   font-size: 0.78rem;
-}
-
-.metric-bar {
-  display: block;
-  height: 3px;
-  margin-top: 14px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--bg-subtle);
-}
-
-.metric-bar-fill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--metric-bar);
-  transition: width 500ms var(--ease);
+  line-height: 1.45;
 }
 
 @media (max-width: 900px) {
   .metrics-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-}
 
-@media (max-width: 420px) {
-  .metrics-grid {
-    gap: 10px;
+  .metric-card:nth-child(3) {
+    border-left: none;
   }
 
+  .metric-card:nth-child(n + 3) {
+    border-top: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 480px) {
   .metric-card {
-    padding: 16px;
+    flex-direction: column;
+    gap: 10px;
+    padding: 18px;
   }
 
   .metric-value {

@@ -1,47 +1,65 @@
 import logoCajaIca from '../assets/logo-caja-ica.png';
 import { VISTAS } from '../config/vistas';
-import { IconoLuna, IconoSol } from './Iconos';
+import { IconoBaseDatos, IconoLuna, IconoSol } from './Iconos';
 
-export function BarraNavegacion({ vistaActiva, tema, onAlternarTema }) {
+function BarraSuperior({ tema, onAlternarTema }) {
   const esOscuro = tema === 'dark';
   return (
-    <header className="navbar">
-      <div className="navbar-container">
-        <a className="brand" href="#/diccionarios" aria-label="CAJA ICA · Inicio">
-          <img className="brand-logo" src={logoCajaIca} alt="CAJA ICA" width="289" height="58" />
-          <span className="brand-divider" aria-hidden="true" />
-          <span className="brand-product">Auditor SQL</span>
-        </a>
+    <div className="topbar">
+      <div className="topbar-container">
+        <span className="topbar-item">
+          <IconoBaseDatos />
+          Auditoría de objetos SQL Server
+        </span>
+        <button
+          type="button"
+          className="topbar-action"
+          onClick={onAlternarTema}
+          aria-label="Cambiar tema"
+          title={esOscuro ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+        >
+          {esOscuro ? <IconoSol /> : <IconoLuna />}
+          {esOscuro ? 'Tema claro' : 'Tema oscuro'}
+        </button>
+      </div>
+    </div>
+  );
+}
 
-        <nav className="nav-tabs" aria-label="Tipos de revisión">
-          {VISTAS.map((vista) => {
-            const activa = vista.id === vistaActiva.id;
-            return (
-              <a
-                key={vista.id}
-                href={`#/${vista.ruta}`}
-                className={activa ? 'nav-tab active' : 'nav-tab'}
-                aria-current={activa ? 'page' : undefined}
-              >
-                {vista.etiqueta}
-              </a>
-            );
-          })}
-        </nav>
+export function BarraNavegacion({ vistaActiva, tema, onAlternarTema }) {
+  return (
+    <>
+      <BarraSuperior tema={tema} onAlternarTema={onAlternarTema} />
+      <header className="navbar">
+        <div className="navbar-container">
+          <a className="brand" href="#/diccionarios" aria-label="CAJA ICA · Inicio">
+            <img className="brand-logo" src={logoCajaIca} alt="CAJA ICA" width="289" height="58" />
+            <span className="brand-divider" aria-hidden="true" />
+            <span className="brand-product">
+              Auditor SQL
+              <small>Genesis IA</small>
+            </span>
+          </a>
 
-        <div className="nav-actions">
-          <button
-            className="icon-btn"
-            type="button"
-            aria-label="Cambiar tema"
-            title={esOscuro ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
-            onClick={onAlternarTema}
-          >
-            {esOscuro ? <IconoSol /> : <IconoLuna />}
-          </button>
+          <nav className="nav-links" aria-label="Tipos de revisión">
+            {VISTAS.map((vista) => {
+              const activa = vista.id === vistaActiva.id;
+              return (
+                <a
+                  key={vista.id}
+                  href={`#/${vista.ruta}`}
+                  className={activa ? 'nav-link active' : 'nav-link'}
+                  aria-current={activa ? 'page' : undefined}
+                >
+                  {vista.etiqueta}
+                </a>
+              );
+            })}
+          </nav>
+
           <button className="cta-btn" type="button">Acceso Portal</button>
         </div>
-      </div>
-    </header>
+      </header>
+    </>
   );
 }

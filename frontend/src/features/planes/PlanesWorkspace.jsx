@@ -1,5 +1,6 @@
 import { useId, useRef } from 'react';
 import { Boton } from '../../components/Boton';
+import { EncabezadoSeccion } from '../../components/EncabezadoSeccion';
 import { IconoBarras, IconoEjecutar, IconoHallazgo, IconoLimpiar, IconoMemoria, IconoRejilla } from '../../components/Iconos';
 import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
@@ -35,7 +36,6 @@ function MetricasPlan({ analisis }) {
         valor={formatearKb(memoria?.maximaUtilizadaKb)}
         subtitulo={uso === undefined ? 'Máximo utilizado' : `Máximo utilizado · ${Math.round(uso * 100)}% de lo concedido`}
         icono={<IconoBarras />}
-        proporcion={uso}
       />
       <TarjetaMetrica
         titulo="Hallazgos"
@@ -74,13 +74,13 @@ export function PlanesWorkspace() {
       <MetricasPlan analisis={analisis} />
 
       <section className="panel">
-        <header className="panel-header">
-          <div>
-            <span className="field-kicker">SQL Server ShowPlanXML</span>
-            <h2 className="panel-title">Revisión de plan de ejecución real</h2>
-            <p className="panel-subtitle">Carga un plan real para detectar problemas de rendimiento con evidencia del motor.</p>
-          </div>
-        </header>
+        <div className="panel-header">
+          <EncabezadoSeccion
+            etiqueta="Paso 1 · SQL Server ShowPlanXML"
+            titulo="Revisión de plan de ejecución real"
+            descripcion="Carga un plan real para detectar problemas de rendimiento con evidencia del motor."
+          />
+        </div>
 
         <div className="panel-body">
           <div className="plan-layout">

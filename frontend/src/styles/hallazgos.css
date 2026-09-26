@@ -1,59 +1,33 @@
 /* ───────── PANEL DE RESULTADOS ───────── */
-.results-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.results-heading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.results-heading h3 {
-  color: var(--text-primary);
-  font-size: 1.05rem;
-  font-weight: 600;
-}
-
-.count-pill {
-  display: inline-flex;
-  align-items: center;
-  height: 22px;
-  padding: 0 9px;
-  border-radius: 999px;
-  background: var(--red-main);
-  color: #ffffff;
-  font-size: 0.74rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.count-pill.neutral {
-  background: var(--bg-subtle);
-  color: var(--text-secondary);
-}
-
-.results-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
+.results-panel > .section-heading,
+.operators > .section-heading {
+  margin-bottom: 20px;
 }
 
 .results-meta {
   overflow: hidden;
   color: var(--text-muted);
-  font-family: var(--font-mono);
   font-size: 0.76rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* Filtros por severidad */
+.count-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  background: var(--red-main);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Filtros por severidad: pestañas rectangulares */
 .filter-chips {
   display: flex;
   flex-wrap: wrap;
@@ -66,21 +40,24 @@
 
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   height: 32px;
   padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
   background: var(--bg-card);
   color: var(--text-secondary);
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
   transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 
 .chip:hover {
-  border-color: var(--border-strong);
+  border-color: var(--text-primary);
+  color: var(--text-primary);
 }
 
 .chip.active {
@@ -95,39 +72,30 @@
 .chip-bajo { --chip-color: var(--sev-bajo); }
 
 .chip-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+  width: 7px;
+  height: 7px;
   background: var(--chip-color);
+  transform: rotate(45deg);
 }
 
 .chip-count {
-  min-width: 20px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--bg-subtle);
-  color: var(--text-secondary);
+  min-width: 18px;
+  color: inherit;
   font-size: 0.7rem;
   text-align: center;
+  opacity: 0.7;
   font-variant-numeric: tabular-nums;
 }
 
-.chip.active .chip-count {
-  background: rgba(255, 255, 255, 0.18);
-  color: inherit;
-}
-
 /* ───────── HALLAZGO ─────────
- * Lista unificada con separadores: cada fila lleva el ícono de severidad,
- * título, etiqueta de severidad, mensaje (con lo citado resaltado) y
- * metadatos. El color se usa solo en el ícono y la etiqueta.
+ * Lista unificada con separadores. El color se reserva al ícono y a la
+ * etiqueta de severidad; el resto es neutro.
  */
 .findings-list {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--bg-card);
-  box-shadow: var(--shadow-sm);
 }
 
 .finding {
@@ -135,11 +103,12 @@
   --sev-bg: var(--bg-subtle);
   --sev-text: var(--text-secondary);
 
+  position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 14px;
+  gap: 16px;
   align-items: start;
-  padding: 18px 20px;
+  padding: 20px 22px;
   animation: aparecer 260ms var(--ease) both;
   transition: background-color var(--dur-fast) ease;
 }
@@ -148,8 +117,24 @@
   border-top: 1px solid var(--border);
 }
 
+.finding::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background: var(--sev);
+  opacity: 0;
+  transition: opacity var(--dur-fast) ease;
+}
+
 .finding:hover {
   background: var(--bg-input);
+}
+
+.finding:hover::before {
+  opacity: 1;
 }
 
 .finding.sev-critico { --sev: var(--sev-critico); --sev-bg: var(--sev-critico-bg); --sev-text: var(--sev-critico-text); }
@@ -159,18 +144,14 @@
 
 .finding-icon {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: var(--sev-bg);
-  color: var(--sev-text);
+  padding-top: 1px;
+  color: var(--sev);
 }
 
 .finding-icon svg {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.6;
 }
 
 .finding-content {
@@ -184,7 +165,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 10px;
+  gap: 8px 12px;
 }
 
 .finding-title {
@@ -197,32 +178,26 @@
 .sev-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 9px 2px 8px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--text-secondary);
-  font-size: 0.7rem;
-  font-weight: 600;
-}
-
-.sev-pill::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--sev);
+  height: 20px;
+  padding: 0 7px;
+  border-radius: var(--radius-sm);
+  background: var(--sev-bg);
+  color: var(--sev-text);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .finding-message {
   color: var(--text-secondary);
   font-size: 0.87rem;
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 .finding-token {
-  padding: 1px 6px;
-  border-radius: 5px;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
   background: var(--bg-subtle);
   color: var(--text-primary);
   font-family: var(--font-mono);
@@ -237,20 +212,23 @@
   align-items: center;
   gap: 4px 14px;
   color: var(--text-muted);
-  font-size: 0.74rem;
+  font-size: 0.72rem;
 }
 
 .finding-meta > * + *::before {
-  content: '·';
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 3px;
   margin-right: 14px;
   margin-left: -8px;
-  opacity: 0.6;
+  vertical-align: middle;
+  background: var(--border-strong);
 }
 
 .finding-meta code {
   font-family: var(--font-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.01em;
+  font-size: 0.68rem;
 }
 
 /* Botones de copiar (por hallazgo y "Copiar todo") */
@@ -258,21 +236,21 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   width: 32px;
   height: 32px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: none;
   color: var(--text-muted);
   cursor: pointer;
   opacity: 0;
-  transition: opacity var(--dur-fast) ease, background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: opacity var(--dur-fast) ease, background-color var(--dur-fast) ease, color var(--dur-fast) ease, border-color var(--dur-fast) ease;
 }
 
 .copy-btn svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 
 .finding:hover .copy-btn,
@@ -281,7 +259,7 @@
 }
 
 .copy-btn:hover {
-  border-color: var(--border);
+  border-color: var(--border-strong);
   background: var(--bg-card);
   color: var(--text-primary);
 }
@@ -289,13 +267,21 @@
 .copy-btn--texto {
   width: auto;
   height: 32px;
-  padding: 0 12px;
-  border-color: var(--border);
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  font-size: 0.78rem;
+  padding: 0 14px;
+  border-color: var(--text-primary);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.68rem;
   font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   opacity: 1;
+}
+
+.copy-btn--texto:hover {
+  border-color: var(--text-primary);
+  background: var(--text-primary);
+  color: var(--bg-card);
 }
 
 @media (hover: none) {
@@ -308,11 +294,12 @@
 .tag {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-size: 0.66rem;
-  font-weight: 600;
-  letter-spacing: 0.07em;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: var(--radius-sm);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -324,60 +311,51 @@
 /* ───────── ESTADOS ───────── */
 .empty-state {
   --tono: var(--text-muted);
-  --tono-bg: var(--bg-subtle);
 
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 36px 24px;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-md);
+  padding: 44px 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   background: var(--bg-card);
   text-align: center;
 }
 
 .empty-state.tono-error {
   --tono: var(--sev-critico);
-  --tono-bg: var(--sev-critico-bg);
-  border-style: solid;
-  border-color: var(--sev-critico-bg);
+  border-top: 3px solid var(--sev-critico);
 }
 
 .empty-state.tono-exito {
   --tono: var(--sev-bajo);
-  --tono-bg: var(--sev-bajo-bg);
-  border-style: solid;
-  border-color: var(--sev-bajo-bg);
+  border-top: 3px solid var(--sev-bajo);
 }
 
 .empty-icon {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 46px;
-  height: 46px;
-  margin-bottom: 6px;
-  border-radius: 14px;
-  background: var(--tono-bg);
+  margin-bottom: 8px;
   color: var(--tono);
 }
 
 .empty-icon svg {
-  width: 22px;
-  height: 22px;
+  width: 34px;
+  height: 34px;
+  stroke-width: 1.3;
 }
 
 .empty-title {
   color: var(--text-primary);
-  font-size: 0.98rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .empty-text {
   max-width: 460px;
   color: var(--text-muted);
   font-size: 0.86rem;
+  line-height: 1.6;
 }
 
 .loading-text {
@@ -389,12 +367,14 @@
 .findings-skeleton {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
 }
 
 .skeleton-card {
-  height: 84px;
-  border-radius: var(--radius-md);
+  height: 88px;
   background: linear-gradient(90deg, var(--bg-subtle) 25%, var(--bg-card) 50%, var(--bg-subtle) 75%);
   background-size: 200% 100%;
   animation: brillo 1.4s ease-in-out infinite;
@@ -408,10 +388,5 @@
 
   .finding .copy-btn {
     display: none;
-  }
-
-  .results-header {
-    flex-direction: column;
-    align-items: flex-start;
   }
 }

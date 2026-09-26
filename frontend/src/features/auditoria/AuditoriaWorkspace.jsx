@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { Boton } from '../../components/Boton';
 import { EditorCodigo } from '../../components/EditorCodigo';
+import { EncabezadoSeccion } from '../../components/EncabezadoSeccion';
 import { IconoEjecutar, IconoLimpiar, IconoRestaurar } from '../../components/Iconos';
 import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
@@ -61,12 +62,13 @@ export function AuditoriaWorkspace({ vista }) {
       <MetricasSeveridad conteo={conteo} subtitulos={vista.resultados.subtitulos} />
 
       <section className="panel">
-        <header className="panel-header">
-          <div>
-            <h2 className="panel-title">Configuración de la auditoría</h2>
-            <p className="panel-subtitle">Pega el código del objeto y ejecuta las reglas de {vista.resultados.nombre.toLowerCase()}.</p>
-          </div>
-        </header>
+        <div className="panel-header">
+          <EncabezadoSeccion
+            etiqueta="Paso 1 · Configuración"
+            titulo="Configuración de la auditoría"
+            descripcion={`Pega el código del objeto y ejecuta las reglas de ${vista.resultados.nombre.toLowerCase()}.`}
+          />
+        </div>
 
         <form className="panel-body" onSubmit={alEnviar} onKeyDown={alPresionarTecla} noValidate>
           <div className="control-row">

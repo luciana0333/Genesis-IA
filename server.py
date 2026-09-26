@@ -24,6 +24,17 @@ class GenesisHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(DIRECTORIO_FRONTEND), **kwargs)
 
+    def end_headers(self):
+        # index.html siempre se revalida para que cada compilación nueva se vea
+        # sin forzar la recarga; los archivos de /assets llevan un hash en el
+        # nombre y pueden quedar en caché.
+        ruta = urlsplit(self.path).path
+        if ruta.startswith('/assets/'):
+            self.send_header('Cache-Control', 'public, max-age=31536000, immutable')
+        elif not ruta.startswith('/api/'):
+            self.send_header('Cache-Control', 'no-cache')
+        super().end_headers()
+
     def do_GET(self):
         parsed = urlsplit(self.path)
         if parsed.path == '/api/health':

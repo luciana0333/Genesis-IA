@@ -2,8 +2,14 @@ export function PiePagina() {
   return (
     <footer className="footer">
       <div className="footer-container">
-        <span>© {new Date().getFullYear()} CAJA ICA · Genesis IA</span>
-        <span>Análisis estático local · el código no sale de tu equipo</span>
+        <div className="footer-brand">
+          <strong>Genesis IA</strong>
+          <span>Auditor SQL de CAJA ICA</span>
+        </div>
+        <p className="footer-note">
+          Análisis estático local: el código revisado no sale de tu equipo.
+        </p>
+        <span className="footer-copy">© {new Date().getFullYear()} CAJA ICA</span>
       </div>
     </footer>
   );

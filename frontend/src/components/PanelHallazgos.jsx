@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { SEVERIDADES, etiquetaSeveridad, nombreRegla } from '../config/reglas';
 import { contarPorSeveridad, normalizarSeveridad, ordenarHallazgos } from '../utils/hallazgos';
+import { EncabezadoSeccion } from './EncabezadoSeccion';
 import { EstadoVacio } from './EstadoVacio';
 import {
   IconoBandeja,
@@ -210,16 +211,22 @@ export function PanelHallazgos({
 
   return (
     <section className="results-panel" aria-live="polite" aria-busy={estado === 'cargando'}>
-      <div className="results-header">
-        <div className="results-heading">
-          <h3>{titulo}</h3>
-          {hayHallazgos && <span className="count-pill">{hallazgos.length}</span>}
-        </div>
-        <div className="results-actions">
-          {meta && <span className="results-meta">{meta}</span>}
-          {hayHallazgos && <BotonCopiar texto={textoTodos} etiqueta="Copiar todo" conTexto />}
-        </div>
-      </div>
+      <EncabezadoSeccion
+        nivel={3}
+        etiqueta="Paso 2 · Resultados"
+        titulo={titulo}
+        acciones={
+          <>
+            {meta && <span className="results-meta">{meta}</span>}
+            {hayHallazgos && (
+              <span className="count-pill">
+                {hallazgos.length} {hallazgos.length === 1 ? 'hallazgo' : 'hallazgos'}
+              </span>
+            )}
+            {hayHallazgos && <BotonCopiar texto={textoTodos} etiqueta="Copiar todo" conTexto />}
+          </>
+        }
+      />
       {hayHallazgos && (
         <FiltrosSeveridad conteo={conteo} total={hallazgos.length} filtro={filtro} onFiltrar={setFiltro} />
       )}
