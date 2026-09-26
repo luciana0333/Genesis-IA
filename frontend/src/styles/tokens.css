@@ -54,7 +54,16 @@
   --focus-ring: 0 0 0 3px rgba(230, 0, 38, 0.22);
   --nav-bg: rgba(255, 255, 255, 0.9);
 
-  /* Tarjetas de métricas */
+  /* Encabezado rojo corporativo */
+  --hero-red-1: rgba(118, 0, 17, 0.97);
+  --hero-red-2: rgba(160, 0, 26, 0.95);
+  --hero-red-3: rgba(190, 0, 32, 0.92);
+
+  /* Tarjetas de métricas (vidrio esmerilado) */
+  --metric-glass-top: rgba(255, 255, 255, 0.86);
+  --metric-glass-bottom: rgba(255, 255, 255, 0.98);
+  --metric-glass-border: rgba(255, 255, 255, 0.65);
+  --metric-icon-bg: rgba(255, 255, 255, 0.6);
   --metric-gradient-end: #f7f8fa;
   --metric-value: #344054;
   --metric-bar: #98a2b3;
@@ -103,6 +112,14 @@
   --focus-ring: 0 0 0 3px rgba(240, 22, 58, 0.35);
   --nav-bg: rgba(21, 24, 32, 0.86);
 
+  --hero-red-1: rgba(84, 0, 12, 0.97);
+  --hero-red-2: rgba(122, 0, 20, 0.95);
+  --hero-red-3: rgba(150, 0, 25, 0.92);
+
+  --metric-glass-top: rgba(21, 24, 32, 0.62);
+  --metric-glass-bottom: rgba(21, 24, 32, 0.97);
+  --metric-glass-border: rgba(255, 255, 255, 0.08);
+  --metric-icon-bg: rgba(255, 255, 255, 0.04);
   --metric-gradient-end: #11141b;
   --metric-value: #d0d5dd;
   --metric-bar: #667085;

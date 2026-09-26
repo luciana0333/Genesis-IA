@@ -4,7 +4,7 @@ export function Hero({ titulo, complemento, descripcion, seccion }) {
       <div className="hero-container">
         <div className="hero-text">
           <p className="hero-breadcrumb">
-            <span className="hero-badge"><span className="hero-badge-dot" aria-hidden="true" />Auditoría Inteligente</span>
+            <span className="hero-badge">Auditoría Inteligente</span>
             <span className="hero-breadcrumb-sep" aria-hidden="true">/</span>
             <span>{seccion}</span>
           </p>

@@ -141,17 +141,20 @@
   padding: 56px 24px 104px;
   overflow: hidden;
   color: #ffffff;
+  /* Rojo corporativo profundo; la foto queda solo como textura sutil. */
   background:
-    linear-gradient(100deg, rgba(150, 0, 22, 0.94) 0%, rgba(214, 0, 36, 0.86) 45%, rgba(230, 0, 38, 0.62) 100%),
+    linear-gradient(105deg, var(--hero-red-1) 0%, var(--hero-red-2) 55%, var(--hero-red-3) 100%),
     url('../assets/fondo.jpg') center / cover no-repeat;
 }
 
+/* Viñeta inferior: da profundidad y suaviza la unión con las tarjetas. */
 .hero::after {
   content: '';
   position: absolute;
   inset: auto 0 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  height: 60%;
+  background: linear-gradient(180deg, transparent 0%, rgba(40, 0, 6, 0.28) 100%);
+  pointer-events: none;
 }
 
 .hero-container {
@@ -173,11 +176,10 @@
 .hero-badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
   padding: 5px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.24);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
   font-size: 0.72rem;
   font-weight: 600;
@@ -185,13 +187,6 @@
   text-transform: uppercase;
 }
 
-.hero-badge-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25);
-}
 
 .hero-breadcrumb-sep {
   opacity: 0.5;
