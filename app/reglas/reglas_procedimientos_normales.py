@@ -108,6 +108,30 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "WAITFOR_DELAY_PROHIBIDO": ReglaDiccionario(
+        codigo="WAITFOR_DELAY_PROHIBIDO",
+        nombre="WAITFOR prohibido",
+        severidad="alto",
+        descripcion="No se permite pausar la ejecución con WAITFOR DELAY o WAITFOR TIME.",
+        alcance="procedimiento",
+        activo=True,
+    ),
+    "ESQUEMA_OMITIDO_ENTRE_BASES": ReglaDiccionario(
+        codigo="ESQUEMA_OMITIDO_ENTRE_BASES",
+        nombre="Esquema omitido entre bases",
+        severidad="alto",
+        descripcion="Al consultar otra base de datos se escribe Base.Esquema.Tabla, no Base..Tabla.",
+        alcance="procedimiento",
+        activo=True,
+    ),
+    "TABLA_REPETIDA_EN_CONSULTA": ReglaDiccionario(
+        codigo="TABLA_REPETIDA_EN_CONSULTA",
+        nombre="Tabla consultada muchas veces",
+        severidad="medio",
+        descripcion="Una misma tabla no debe leerse más de 3 veces (FROM/JOIN) en la misma consulta.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "WHILE_PROHIBIDO": ReglaDiccionario(
         codigo="WHILE_PROHIBIDO",
         nombre="WHILE prohibido",
@@ -119,7 +143,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     "GOTO_PROHIBIDO": ReglaDiccionario(
         codigo="GOTO_PROHIBIDO",
         nombre="GOTO prohibido",
-        severidad="alto",
+        severidad="medio",
         descripcion="No se permite el uso de GOTO en procedimientos normales.",
         alcance="procedimiento",
         activo=True,
@@ -127,7 +151,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     "MERGE_PROHIBIDO": ReglaDiccionario(
         codigo="MERGE_PROHIBIDO",
         nombre="MERGE prohibido",
-        severidad="alto",
+        severidad="medio",
         descripcion="No se permite la sentencia MERGE en procedimientos normales.",
         alcance="procedimiento",
         activo=True,
@@ -182,7 +206,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "CAST_EN_JOIN_PROHIBIDO": ReglaDiccionario(
         codigo="CAST_EN_JOIN_PROHIBIDO",
-        nombre="CAST en JOIN prohibido",
+        nombre="CAST o CONVERT en JOIN",
         severidad="alto",
         descripcion="No se permite realizar CAST dentro de una condición JOIN; debe realizarse antes del JOIN.",
         alcance="procedimiento",

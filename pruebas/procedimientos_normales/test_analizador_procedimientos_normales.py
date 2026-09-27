@@ -192,5 +192,43 @@ END"""
         self.assertIn("sobre la tabla #TMP_Clientes", hallazgos["SELECT_ESTRELLA_PROHIBIDO"])
         self.assertIn("sobre a.cNombre en la condición del WHERE", hallazgos["COLLATE_EN_PREDICADO"])
 
+    def test_collate_en_temporales_y_variables_de_tabla(self):
+        correcto = "CREATE TABLE #T (cA VARCHAR(10) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, nB INT)"
+        self.assertNotIn("TEMPORAL_TEXTO_SIN_COLLATE", {h.regla for h in verificar_procedimiento_normal(correcto)})
+        sin_collate = "CREATE TABLE #T (cA VARCHAR(10), cB NVARCHAR(20), nC INT); DECLARE @V TABLE (cD CHAR(1))"
+        hallazgo = [h for h in verificar_procedimiento_normal(sin_collate) if h.regla == "TEMPORAL_TEXTO_SIN_COLLATE"][0]
+        for columna in ("cA", "cB", "cD"):
+            self.assertIn(columna, hallazgo.mensaje)
+        self.assertIn("variable de tabla @V", hallazgo.mensaje)
+
+    def test_goto_y_merge_son_medios_y_piden_validar(self):
+        hallazgos = {h.regla: h for h in verificar_procedimiento_normal(
+            "GOTO Fin; MERGE dbo.A AS t USING #B s ON t.n = s.n WHEN MATCHED THEN DELETE;")}
+        for regla in ("GOTO_PROHIBIDO", "MERGE_PROHIBIDO"):
+            self.assertEqual(hallazgos[regla].severidad.value, "medio")
+            self.assertIn("validar si su uso está justificado", hallazgos[regla].mensaje)
+
+    def test_while_se_observa_en_create_y_en_alter(self):
+        for verbo in ("CREATE", "ALTER"):
+            sql = f"{verbo} PROCEDURE dbo.PA_Cliente_Upd AS BEGIN WHILE 1 = 1 BREAK; END"
+            self.assertIn("WHILE_PROHIBIDO", {h.regla for h in verificar_procedimiento_normal(sql)})
+
+    def test_waitfor_esquema_omitido_y_convert_en_join(self):
+        reglas = {h.regla for h in verificar_procedimiento_normal(
+            "WAITFOR DELAY '00:00:01'; SELECT a.x FROM DBCMACICA..Agencias a; "
+            "SELECT a.x FROM #A a JOIN #B b ON CONVERT(INT, a.n) = b.n;")}
+        self.assertTrue({"WAITFOR_DELAY_PROHIBIDO", "ESQUEMA_OMITIDO_ENTRE_BASES", "CAST_EN_JOIN_PROHIBIDO"} <= reglas)
+
+    def test_tabla_consultada_mas_de_tres_veces(self):
+        sql = """SELECT c1.x FROM dbo.Cliente c1
+JOIN dbo.Cliente c2 ON c2.n = c1.n
+JOIN [dbo].[Cliente] c3 ON c3.n = c1.n
+JOIN Cliente c4 ON c4.n = c1.n;"""
+        hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "TABLA_REPETIDA_EN_CONSULTA"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertIn("4 veces", hallazgos[0].mensaje)
+        tres = "SELECT c1.x FROM dbo.Cliente c1 JOIN dbo.Cliente c2 ON c2.n = c1.n JOIN dbo.Cliente c3 ON c3.n = c1.n;"
+        self.assertNotIn("TABLA_REPETIDA_EN_CONSULTA", {h.regla for h in verificar_procedimiento_normal(tres)})
+
 if __name__ == "__main__":
     unittest.main()

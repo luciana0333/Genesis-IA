@@ -82,17 +82,17 @@ def _validar_control_flujo(texto: str, limpio: str) -> List[Hallazgo]:
         etiqueta = f" hacia la etiqueta {match.group(1)}" if match.group(1) else ""
         hallazgos.append(_hallazgo(
             texto, match.start(), "GOTO_PROHIBIDO",
-            f"Se identificó una instrucción GOTO{etiqueta}, que salta a otra parte del código y hace difícil "
-            f"seguir su lógica. Reemplazarla por estructuras IF/ELSE o por un bloque TRY/CATCH, ya que así el "
-            f"flujo del procedimiento queda claro y fácil de mantener.",
+            f"Se identificó una instrucción GOTO{etiqueta}. Se recomienda validar si su uso está "
+            f"justificado y, de ser posible, reemplazarla por IF/ELSE o por un bloque TRY/CATCH, ya que "
+            f"GOTO salta a otra parte del código y hace difícil seguir su lógica.",
         ))
     for match in re.finditer(rf"\bMERGE\b(?:\s+(?:TOP\s*\([^)]*\)\s*)?(?:INTO\s+)?({_REFERENCIA}))?", limpio, re.IGNORECASE):
         tabla = f" sobre la tabla {_limpiar_nombre(match.group(1))}" if match.group(1) else ""
         hallazgos.append(_hallazgo(
             texto, match.start(), "MERGE_PROHIBIDO",
-            f"Se identificó una sentencia MERGE{tabla}, que inserta, actualiza y elimina en una sola "
-            f"instrucción. Reemplazarla por sentencias INSERT, UPDATE y DELETE separadas, ya que MERGE tiene "
-            f"errores conocidos en SQL Server y dificulta controlar cada operación.",
+            f"Se identificó una sentencia MERGE{tabla}. Se recomienda validar si su uso está justificado y, "
+            f"de ser posible, reemplazarla por sentencias INSERT, UPDATE y DELETE separadas, ya que MERGE "
+            f"tiene errores conocidos en SQL Server y dificulta controlar cada operación.",
         ))
     return hallazgos
 
@@ -174,14 +174,14 @@ def _validar_order_by_numerico(texto: str, limpio: str) -> List[Hallazgo]:
 def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     patron = re.compile(
-        rf"\bJOIN\s+({_REFERENCIA}).*?\bON\b(?:(?!\bJOIN\b|\bWHERE\b|\bGROUP\s+BY\b|\bORDER\s+BY\b|;).)*CAST\s*\(",
+        rf"\bJOIN\s+({_REFERENCIA}).*?\bON\b(?:(?!\bJOIN\b|\bWHERE\b|\bGROUP\s+BY\b|\bORDER\s+BY\b|;).)*?\b(CAST|CONVERT)\s*\(",
         re.IGNORECASE | re.DOTALL,
     )
     for match in patron.finditer(limpio):
         tabla = _limpiar_nombre(match.group(1))
         hallazgos.append(_hallazgo(
             texto, match.start(), "CAST_EN_JOIN_PROHIBIDO",
-            f"Se identificó un CAST en la condición del JOIN con la tabla {tabla}. Convertir el dato antes del "
+            f"Se identificó un {match.group(2).upper()} en la condición del JOIN con la tabla {tabla}. Convertir el dato antes del "
             f"JOIN (en una tabla temporal o variable) o unir columnas del mismo tipo, ya que el CAST en la "
             f"condición impide usar los índices y vuelve lenta la consulta.",
         ))
@@ -246,22 +246,57 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _contenido_entre_parentesis(texto: str, apertura: int) -> str:
+    """Texto dentro del paréntesis que abre en `apertura`, respetando los anidados."""
+    profundidad = 0
+    for indice in range(apertura, len(texto)):
+        if texto[indice] == "(":
+            profundidad += 1
+        elif texto[indice] == ")":
+            profundidad -= 1
+            if profundidad == 0:
+                return texto[apertura + 1:indice]
+    return texto[apertura + 1:]
+
+
+def _separar_por_comas(contenido: str) -> List[tuple]:
+    """Partes separadas por comas de primer nivel, con su posición."""
+    partes, inicio, profundidad = [], 0, 0
+    for indice, caracter in enumerate(contenido):
+        if caracter == "(":
+            profundidad += 1
+        elif caracter == ")":
+            profundidad -= 1
+        elif caracter == "," and profundidad == 0:
+            partes.append((contenido[inicio:indice], inicio))
+            inicio = indice + 1
+    partes.append((contenido[inicio:], inicio))
+    return partes
+
+
 def _validar_collate_temporales(texto: str, limpio: str) -> List[Hallazgo]:
+    """Toda columna de texto de una tabla temporal (#T) o variable de tabla (@T) lleva COLLATE."""
     hallazgos = []
-    patron = re.compile(r"\bCREATE\s+TABLE\s+(#[A-Za-z_]\w*)\s*\((.*?)\)", re.IGNORECASE | re.DOTALL)
+    patron = re.compile(
+        r"\b(?:CREATE\s+TABLE\s+(#[A-Za-z_]\w*)|DECLARE\s+(@[A-Za-z_]\w*)\s+(?:AS\s+)?TABLE)\s*\(",
+        re.IGNORECASE,
+    )
     for match in patron.finditer(limpio):
-        tabla = match.group(1)
-        bloque = match.group(2)
-        for columna in re.finditer(rf"\b({_IDENTIFICADOR})\s+({_TIPOS_TEXTO})(?:\s*\([^)]*\))?[^,]*", bloque, re.IGNORECASE):
-            if not re.search(r"\bCOLLATE\s+\w+", columna.group(0), re.IGNORECASE):
-                hallazgos.append(_hallazgo(
-                    texto,
-                    match.start(2) + columna.start(),
-                    "TEMPORAL_TEXTO_SIN_COLLATE",
-                    f"La columna de texto {columna.group(1)} de la tabla temporal {tabla} no define COLLATE. Añadir "
-                    f"COLLATE a la columna, ya que sin él puede fallar al compararla con columnas de otras tablas "
-                    f"(ej.: {columna.group(1)} VARCHAR(50) COLLATE SQL_Latin1_General_CP1_CI_AS).",
-                ))
+        tabla = match.group(1) or match.group(2)
+        tipo_tabla = "la tabla temporal" if match.group(1) else "la variable de tabla"
+        apertura = match.end() - 1
+        contenido = _contenido_entre_parentesis(limpio, apertura)
+        for definicion, desplazamiento in _separar_por_comas(contenido):
+            columna = re.match(rf"\s*({_IDENTIFICADOR})\s+({_TIPOS_TEXTO})", definicion, re.IGNORECASE)
+            if not columna or re.search(r"\bCOLLATE\s+\w+", definicion, re.IGNORECASE):
+                continue
+            tipo = re.match(r"\s*\S+\s+(\w+\s*(?:\([^)]*\))?)", definicion).group(1).upper().replace(" ", "")
+            hallazgos.append(_hallazgo(
+                texto, apertura + 1 + desplazamiento + columna.start(1), "TEMPORAL_TEXTO_SIN_COLLATE",
+                f"La columna de texto {columna.group(1)} de {tipo_tabla} {tabla} no define COLLATE. Añadir "
+                f"COLLATE a la columna, ya que sin él puede fallar al compararla con columnas de otras tablas "
+                f"(ej.: {columna.group(1)} {tipo} COLLATE SQL_Latin1_General_CP1_CI_AS).",
+            ))
     return hallazgos
 
 
@@ -490,6 +525,69 @@ def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _validar_waitfor(texto: str, limpio: str) -> List[Hallazgo]:
+    hallazgos = []
+    for match in re.finditer(r"\bWAITFOR\s+(DELAY|TIME)\s*('[^']*')?", limpio, re.IGNORECASE):
+        espera = f" {match.group(2)}" if match.group(2) else ""
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "WAITFOR_DELAY_PROHIBIDO",
+            f"Se identificó una pausa con WAITFOR {match.group(1).upper()}{espera}, que fuerza al motor de "
+            f"base de datos a detener la ejecución. Retirar la pausa, ya que no está permitido emplear "
+            f"sintaxis que fuerce al motor y deja el procedimiento esperando sin motivo.",
+        ))
+    return hallazgos
+
+
+def _validar_esquema_entre_bases(texto: str, limpio: str) -> List[Hallazgo]:
+    """Base..Tabla omite el esquema: entre bases se escribe Base.Esquema.Tabla."""
+    hallazgos = []
+    patron = re.compile(r"(\[[^\]]+\]|[A-Za-z_][\w$#]*)\s*\.\s*\.\s*(\[[^\]]+\]|[A-Za-z_][\w$#]*)")
+    for match in patron.finditer(limpio):
+        base, tabla = match.group(1), match.group(2)
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "ESQUEMA_OMITIDO_ENTRE_BASES",
+            f"La tabla {base}..{tabla} no indica el esquema. Escribir base, esquema y tabla, ya que así se "
+            f"evita apuntar a una tabla equivocada (ej.: {base}.dbo.{tabla}).",
+        ))
+    return hallazgos
+
+
+# Inicio de una nueva sentencia: separa las consultas del procedimiento.
+_INICIO_SENTENCIA = re.compile(
+    r";|\bGO\b|^\s*(?=(?:INSERT|UPDATE|DELETE|DECLARE|SET|IF|ELSE|END|BEGIN|RETURN|CREATE|DROP|"
+    r"TRUNCATE|EXEC|EXECUTE|WHILE|MERGE|WITH)\b)",
+    re.IGNORECASE | re.MULTILINE,
+)
+_VECES_MAXIMAS_MISMA_TABLA = 3
+
+
+def _validar_tabla_repetida(texto: str, limpio: str) -> List[Hallazgo]:
+    """Una misma tabla leída más de 3 veces (FROM/JOIN) dentro de una misma consulta."""
+    hallazgos = []
+    cortes = [0] + [m.start() for m in _INICIO_SENTENCIA.finditer(limpio)] + [len(limpio)]
+    for inicio, fin in zip(cortes, cortes[1:]):
+        accesos: Dict[str, List[int]] = {}
+        nombres: Dict[str, str] = {}
+        for match in re.finditer(rf"\b(?:FROM|JOIN)\s+({_REFERENCIA})(?![\w$#.\]])(?!\s*\()",
+                                 limpio[inicio:fin], re.IGNORECASE):
+            nombre = _limpiar_nombre(match.group(1))
+            clave = nombre.split(".")[-1].strip("[]").lower()  # dbo.Cliente y [Cliente] son la misma
+            accesos.setdefault(clave, []).append(inicio + match.start(1))
+            nombres.setdefault(clave, nombre)
+        for clave, posiciones in accesos.items():
+            if len(posiciones) <= _VECES_MAXIMAS_MISMA_TABLA:
+                continue
+            lineas = ", ".join(str(n) for n in sorted({_linea(texto, pos) for pos in posiciones}))
+            hallazgos.append(_hallazgo(
+                texto, posiciones[0], "TABLA_REPETIDA_EN_CONSULTA",
+                f"La tabla {nombres[clave]} se consulta {len(posiciones)} veces en la misma consulta "
+                f"(líneas {lineas}). Se recomienda revisar si se puede leer una sola vez (por ejemplo, "
+                f"cargándola antes en una tabla temporal o combinando las condiciones), ya que acceder "
+                f"muchas veces a la misma tabla vuelve lenta la consulta.",
+            ))
+    return hallazgos
+
+
 def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     """Aplica exclusivamente las reglas de procedimientos normales."""
     limpio = _quitar_comentarios(texto_sql)
@@ -504,6 +602,9 @@ def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_sentencias(texto_sql, limpio))
     hallazgos.extend(_validar_sintaxis_prohibida(texto_sql, limpio))
     hallazgos.extend(_validar_varchar_max(texto_sql, limpio))
+    hallazgos.extend(_validar_waitfor(texto_sql, limpio))
+    hallazgos.extend(_validar_esquema_entre_bases(texto_sql, limpio))
+    hallazgos.extend(_validar_tabla_repetida(texto_sql, limpio))
     hallazgos.extend(_validar_collate_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_comentarios(texto_sql))
     hallazgos.extend(_validar_variables(texto_sql, limpio))
