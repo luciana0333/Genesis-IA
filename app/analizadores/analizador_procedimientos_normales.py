@@ -569,6 +569,81 @@ def _validar_in_un_valor(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _validar_left_como_like(texto: str, limpio: str) -> List[Hallazgo]:
+    """LEFT(col, n) = 'abc' en una condición: con LIKE 'abc%' se aprovechan los índices."""
+    hallazgos = []
+    columna = r"[\w.\[\]@#]+"
+    valor = r"'[^']*'|@\w+"
+    patrones = (
+        rf"\bLEFT\s*\(\s*(?P<col>{columna})\s*,\s*(?P<n>\d+)\s*\)\s*=\s*(?P<val>{valor})",
+        rf"(?P<val>{valor})\s*=\s*LEFT\s*\(\s*(?P<col>{columna})\s*,\s*(?P<n>\d+)\s*\)",
+    )
+    for patron in patrones:
+        for match in re.finditer(patron, limpio, re.IGNORECASE):
+            col, n, val = match.group("col"), match.group("n"), match.group("val")
+            like = f"{col} LIKE '{val[1:-1]}%'" if val.startswith("'") else f"{col} LIKE {val} + '%'"
+            hallazgos.append(_hallazgo(
+                texto, match.start(), "LEFT_REEMPLAZABLE_POR_LIKE",
+                f"Se identificó LEFT({col}, {n}) = {val} en una condición. Se recomienda usar LIKE, ya que "
+                f"aplicar LEFT a la columna impide usar sus índices y LIKE con el comodín al final sí los "
+                f"aprovecha (ej.: {like}).",
+            ))
+    return hallazgos
+
+
+def _desarmar_replace(expresion: str):
+    """REPLACE(REPLACE(x, 'a', '1'), 'b', '2') → (x, [('a', '1'), ('b', '2')]) o None."""
+    pares = []
+    actual = expresion.strip()
+    while True:
+        cabecera = re.match(r"REPLACE\s*\(", actual, re.IGNORECASE)
+        if not cabecera or not actual.endswith(")"):
+            break
+        argumentos = [parte.strip() for parte, _ in _separar_por_comas(actual[cabecera.end():-1])]
+        if len(argumentos) != 3:
+            return None
+        actual = argumentos[0]
+        pares.insert(0, (argumentos[1], argumentos[2]))
+    return actual, pares
+
+
+def _validar_replace_anidado(texto: str, limpio: str) -> List[Hallazgo]:
+    """Tres o más REPLACE anidados que cambian caracteres sueltos: se hace con un TRANSLATE."""
+    hallazgos = []
+    usados = set()
+    patron = re.compile(r"\bREPLACE\s*\(\s*REPLACE\s*\(\s*REPLACE\s*\(", re.IGNORECASE)
+    for match in patron.finditer(limpio):
+        if any(inicio <= match.start() < fin for inicio, fin in usados):
+            continue  # es parte de una cadena de REPLACE ya reportada
+        apertura = limpio.index("(", match.start())
+        contenido = _contenido_entre_parentesis(limpio, apertura)
+        usados.add((match.start(), apertura + len(contenido) + 2))
+        desarmado = _desarmar_replace(limpio[match.start():apertura + len(contenido) + 2])
+        cantidad = len(desarmado[1]) if desarmado else 3
+        sugerencia = ""
+        if desarmado:
+            base, pares = desarmado
+            literales = all(re.fullmatch(r"'[^']'", buscar) and re.fullmatch(r"'[^']'", poner)
+                            for buscar, poner in pares)
+            if literales:
+                origen = "".join(buscar[1] for buscar, _ in pares)
+                destino = "".join(poner[1] for _, poner in pares)
+                # Si un carácter reemplazado vuelve a reemplazarse, TRANSLATE no da el mismo resultado.
+                if not set(destino) & set(origen):
+                    sugerencia = f" (ej.: TRANSLATE({base}, '{origen}', '{destino}'))"
+            elif all(re.fullmatch(r"'[^']'", buscar) and poner == "''" for buscar, poner in pares):
+                # Todos eliminan un carácter: TRANSLATE los convierte en uno solo y un REPLACE lo quita.
+                origen = "".join(buscar[1] for buscar, _ in pares)
+                sugerencia = f" (ej.: REPLACE(TRANSLATE({base}, '{origen}', '{'|' * len(origen)}'), '|', ''))"
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "REPLACE_ANIDADO_TRANSLATE",
+            f"Se identificaron {cantidad} REPLACE anidados. Se recomienda evaluar reemplazarlos por "
+            f"TRANSLATE, ya que cambia varios caracteres en una sola función y el código queda más claro"
+            f"{sugerencia}.",
+        ))
+    return hallazgos
+
+
 def _validar_esquema_entre_bases(texto: str, limpio: str) -> List[Hallazgo]:
     """Base..Tabla omite el esquema: entre bases se escribe Base.Esquema.Tabla."""
     hallazgos = []
@@ -642,6 +717,8 @@ def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_waitfor(texto_sql, limpio))
     hallazgos.extend(_validar_raiserror(texto_sql, limpio))
     hallazgos.extend(_validar_in_un_valor(texto_sql, limpio))
+    hallazgos.extend(_validar_left_como_like(texto_sql, limpio))
+    hallazgos.extend(_validar_replace_anidado(texto_sql, limpio))
     hallazgos.extend(_validar_esquema_entre_bases(texto_sql, limpio))
     hallazgos.extend(_validar_tabla_repetida(texto_sql, limpio))
     hallazgos.extend(_validar_collate_temporales(texto_sql, limpio))

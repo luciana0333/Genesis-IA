@@ -148,6 +148,22 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "LEFT_REEMPLAZABLE_POR_LIKE": ReglaDiccionario(
+        codigo="LEFT_REEMPLAZABLE_POR_LIKE",
+        nombre="LEFT que puede ser LIKE",
+        severidad="medio",
+        descripcion="En una condición, LEFT(col, n) = 'abc' se reemplaza por col LIKE 'abc%' para usar los índices.",
+        alcance="procedimiento",
+        activo=True,
+    ),
+    "REPLACE_ANIDADO_TRANSLATE": ReglaDiccionario(
+        codigo="REPLACE_ANIDADO_TRANSLATE",
+        nombre="REPLACE anidados que pueden ser TRANSLATE",
+        severidad="medio",
+        descripcion="Tres o más REPLACE anidados que cambian caracteres sueltos se reemplazan por TRANSLATE.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "WHILE_PROHIBIDO": ReglaDiccionario(
         codigo="WHILE_PROHIBIDO",
         nombre="WHILE prohibido",

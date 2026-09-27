@@ -263,5 +263,29 @@ END"""
             with self.subTest(sql=sql):
                 self.assertNotIn("IN_CON_UN_SOLO_VALOR", {h.regla for h in verificar_procedimiento_normal(sql)})
 
+    def test_left_en_condicion_sugiere_like(self):
+        casos = {
+            "SELECT a FROM #T WHERE LEFT(cCodigo, 3) = 'ABC'": "cCodigo LIKE 'ABC%'",
+            "SELECT a FROM #A a JOIN #B b ON LEFT(a.cCuenta, 4) = @cPrefijo": "a.cCuenta LIKE @cPrefijo + '%'",
+        }
+        for sql, sugerencia in casos.items():
+            with self.subTest(sql=sql):
+                hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "LEFT_REEMPLAZABLE_POR_LIKE"]
+                self.assertEqual(len(hallazgos), 1)
+                self.assertIn(sugerencia, hallazgos[0].mensaje)
+        en_select = "SELECT LEFT(cNombre, 10) AS cCorto FROM #T LEFT JOIN #U u ON u.n = 1"
+        self.assertNotIn("LEFT_REEMPLAZABLE_POR_LIKE", {h.regla for h in verificar_procedimiento_normal(en_select)})
+
+    def test_replace_anidados_sugieren_translate(self):
+        sql = "SELECT REPLACE(REPLACE(REPLACE(cTelefono, '-', ''), '(', ''), ')', '') FROM #T"
+        hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "REPLACE_ANIDADO_TRANSLATE"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertIn("3 REPLACE anidados", hallazgos[0].mensaje)
+        exacto = "SELECT REPLACE(REPLACE(REPLACE(cTexto, 'á', 'a'), 'é', 'e'), 'í', 'i') FROM #T"
+        mensaje = [h.mensaje for h in verificar_procedimiento_normal(exacto) if h.regla == "REPLACE_ANIDADO_TRANSLATE"][0]
+        self.assertIn("TRANSLATE(cTexto, 'áéí', 'aei')", mensaje)
+        dos = "SELECT REPLACE(REPLACE(cTexto, 'a', 'b'), 'c', 'd') FROM #T"
+        self.assertNotIn("REPLACE_ANIDADO_TRANSLATE", {h.regla for h in verificar_procedimiento_normal(dos)})
+
 if __name__ == "__main__":
     unittest.main()
