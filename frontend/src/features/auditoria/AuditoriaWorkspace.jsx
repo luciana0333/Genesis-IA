@@ -167,7 +167,6 @@ export function AuditoriaWorkspace({ vista }) {
             estado={resultado.estado}
             hallazgos={resultado.hallazgos}
             mensajeError={resultado.mensaje}
-            origenPorDefecto="reglas_estaticas"
             textos={{
               inicial: 'Presiona "Ejecutar revisión" para analizar el objeto.',
               cargando: `Analizando las reglas de ${vista.resultados.nombre}...`,

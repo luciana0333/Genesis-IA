@@ -182,7 +182,6 @@ describe('App', () => {
     await usuario.click(screen.getByRole('button', { name: 'Ejecutar revisión' }));
 
     expect(await screen.findByText('Indicatg')).toHaveClass('finding-token');
-    expect(screen.getByText('Diccionario')).toBeInTheDocument();
 
     await usuario.click(screen.getByRole('button', { name: 'Copiar todo' }));
     const copiado = await navigator.clipboard.readText();

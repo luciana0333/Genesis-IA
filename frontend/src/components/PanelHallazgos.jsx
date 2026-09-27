@@ -12,12 +12,6 @@ import {
   IconoEscudoCheck,
 } from './Iconos';
 
-const ORIGENES = {
-  diccionario: 'Diccionario',
-  reglas_estaticas: 'Reglas estáticas',
-  plan_ejecucion: 'Plan de ejecución',
-};
-
 /** Resalta lo que el mensaje cita entre comillas simples: 'Indicatg', 'dbo2'. */
 function MensajeResaltado({ texto }) {
   const partes = texto.split(/('[^'\n]+')/g);
@@ -101,10 +95,9 @@ function BotonCopiar({ texto, etiqueta, conTexto = false }) {
  * "Qué se encontró" y "Qué hacer". Si el hallazgo agrupa varias ocurrencias,
  * cada una se lista por separado.
  */
-function FilaHallazgo({ hallazgo, origenPorDefecto, mostrarLinea }) {
+function FilaHallazgo({ hallazgo, mostrarLinea }) {
   const severidad = normalizarSeveridad(hallazgo.severidad);
   const titulo = nombreRegla(hallazgo.regla);
-  const origen = hallazgo.origen || origenPorDefecto;
   const mensaje = hallazgo.mensaje || 'Revisa este hallazgo.';
   const { problema, solucion } = separarMensaje(mensaje);
   const { lineas, ocurrencias } = desglosarGrupo(problema);
@@ -142,10 +135,6 @@ function FilaHallazgo({ hallazgo, origenPorDefecto, mostrarLinea }) {
         )}
       </div>
 
-      <footer className="finding-meta">
-        <span>{ORIGENES[origen] ?? origen}</span>
-        {hallazgo.regla && hallazgo.regla !== titulo && <code>{hallazgo.regla}</code>}
-      </footer>
     </article>
   );
 }
@@ -199,7 +188,6 @@ export function PanelHallazgos({
   hallazgos = [],
   mensajeError,
   textos,
-  origenPorDefecto,
   mostrarLinea = true,
 }) {
   const [filtroElegido, setFiltro] = useState('todos');
@@ -241,7 +229,6 @@ export function PanelHallazgos({
             // El backend no envía un id; regla + línea + posición es estable por resultado.
             key={`${hallazgo.regla}-${hallazgo.linea}-${indice}`}
             hallazgo={hallazgo}
-            origenPorDefecto={origenPorDefecto}
             mostrarLinea={mostrarLinea}
           />
         ))}

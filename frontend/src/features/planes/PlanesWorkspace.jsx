@@ -128,7 +128,6 @@ export function PlanesWorkspace() {
             meta={analisis?.archivo}
             estado={estadoPanel}
             hallazgos={analisis?.hallazgos}
-            origenPorDefecto="plan_ejecucion"
             mostrarLinea={false}
             textos={{
               inicial: 'Selecciona un archivo .sqlplan para iniciar el análisis.',
