@@ -140,13 +140,19 @@ h3.section-title {
   margin-bottom: 28px;
 }
 
-/* Cada entrada: encabezado de campo, ayuda y editor. Con subgrid, las filas
-   de ambas columnas se alinean aunque una ayuda ocupe dos líneas. */
+/* Cada entrada: encabezado de campo, ayuda y el control. */
 .field-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* En los editores del formulario, con subgrid las filas de ambas columnas se
+   alinean aunque una ayuda ocupe dos líneas. */
+.editor-grid > .field-card {
   display: grid;
   grid-row: span 3;
   grid-template-rows: subgrid;
-  min-width: 0;
 }
 
 .field-card-full {
