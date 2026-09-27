@@ -77,6 +77,11 @@ REGLAS_TABLAS = {
         "Después del prefijo, el nombre de la columna va en PascalCase, sin guiones bajos "
         "(ej.: cPersonaNombre, dPersonaFechaNacimiento).",
     ),
+    "COLUMNA_VARBINARY_PROHIBIDA": _regla(
+        "COLUMNA_VARBINARY_PROHIBIDA", "Columna VARBINARY prohibida", "alto",
+        "No se permiten columnas VARBINARY: guardar archivos en la base de datos la infla, "
+        "degrada el rendimiento y los respaldos. Guarde el archivo fuera y registre su ruta.",
+    ),
     "COLUMNA_SIN_COLLATE": _regla(
         "COLUMNA_SIN_COLLATE", "Columna sin COLLATE", "alto",
         "Las columnas de texto deben definir COLLATE, salvo en tablas de DBCMAICA.",

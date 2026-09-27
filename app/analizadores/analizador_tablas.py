@@ -344,6 +344,14 @@ def _validar_columna(
             f"en PascalCase, sin guiones bajos (ej.: cPersonaNombre, dPersonaFechaNacimiento).",
         ))
 
+    if re.search(r"^\s*VARBINARY\b", definicion, re.IGNORECASE):
+        hallazgos.append(_hallazgo(
+            texto, columna.posicion, "COLUMNA_VARBINARY_PROHIBIDA",
+            f"La columna {columna.nombre} de {referencia} es de tipo VARBINARY, que está prohibido: "
+            f"guardar archivos en la base de datos la infla y degrada el rendimiento. Guarde el archivo "
+            f"fuera de la base de datos y registre su ruta (ej.: cRutaArchivo VARCHAR).",
+        ))
+
     tiene_collate = re.search(r"\bCOLLATE\s+\w+", definicion, re.IGNORECASE)
     if _es_tipo_texto(definicion) and not es_dbcmaica and not tiene_collate:
         hallazgos.append(_hallazgo(

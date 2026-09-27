@@ -116,6 +116,24 @@ class TestColumnas(unittest.TestCase):
         self.assertEqual(verificar_tabla(sql)[0].linea, 4)
 
 
+class TestVarbinaryProhibido(unittest.TestCase):
+    def test_varbinary_prohibido_en_create(self):
+        sql = TABLA_CORRECTA.replace(
+            "dPersonaFechaNacimiento DATE NOT NULL,",
+            "dPersonaFechaNacimiento DATE NOT NULL,\n    xPersonaFoto VARBINARY(MAX) NOT NULL,",
+        )
+        hallazgos = [h for h in verificar_tabla(sql) if h.regla == "COLUMNA_VARBINARY_PROHIBIDA"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertEqual(hallazgos[0].severidad, Severidad.ALTO)
+        self.assertIn("xPersonaFoto", hallazgos[0].mensaje)
+
+    def test_varbinary_prohibido_al_agregar_columna_con_alter(self):
+        for tipo in ("VARBINARY(MAX)", "varbinary(500)", "VARBINARY"):
+            with self.subTest(tipo=tipo):
+                sql = f"ALTER TABLE dbo.Persona ADD xPersonaDocumento {tipo} NULL;"
+                self.assertIn("COLUMNA_VARBINARY_PROHIBIDA", reglas(sql))
+
+
 class TestAlterTable(unittest.TestCase):
     """ALTER TABLE: solo se revisan las columnas nuevas."""
 

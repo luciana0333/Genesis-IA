@@ -35,6 +35,7 @@ export const NOMBRES_REGLAS = {
   TABLA_NOMBRE_NO_PASCALCASE: 'Nombre de tabla fuera del estándar',
   COLUMNA_NOMBRE_NO_PASCALCASE: 'Nombre de columna fuera del estándar',
   COLUMNA_NULL_EN_ALTER: 'Evaluar valor por defecto',
+  COLUMNA_VARBINARY_PROHIBIDA: 'Columna VARBINARY prohibida',
   PK_FALTANTE: 'Tabla sin clave primaria',
   PK_COMPUESTA: 'Clave primaria compuesta',
   PK_NO_CLUSTER: 'Clave primaria no clúster',
