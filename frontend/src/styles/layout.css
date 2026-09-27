@@ -318,33 +318,33 @@
 .hero-figura {
   position: relative;
   align-self: end;
-  margin: 0 0 -56px 24px;
+  margin: 0 -24px -56px 72px;
   isolation: isolate;
 }
 
-/* Disco de luz con un anillo fino detrás del analista: lo integra al rojo. */
+/* Disco rojo más oscuro con un anillo fino, ambos centrados en el analista:
+   lo separa del fondo y lo hace resaltar. */
 .hero-figura::before,
 .hero-figura::after {
   content: '';
   position: absolute;
-  left: 50%;
+  top: 50%;
+  left: 46%;
   z-index: -1;
   aspect-ratio: 1;
   border-radius: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   pointer-events: none;
 }
 
 .hero-figura::before {
-  bottom: 4%;
-  width: 84%;
-  background: radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.1) 58%, rgba(255, 255, 255, 0.04) 72%);
+  width: 82%;
+  background: radial-gradient(circle, rgba(130, 0, 10, 0.5) 0%, rgba(130, 0, 10, 0.34) 55%, rgba(130, 0, 10, 0.2) 70.5%, transparent 71%);
 }
 
 .hero-figura::after {
-  bottom: -3%;
-  width: 98%;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  width: 96%;
+  border: 1px solid rgba(255, 255, 255, 0.24);
 }
 
 /* Foto: Pexels (licencia libre), pexels.com/photo/7567434, con el fondo recortado. */
