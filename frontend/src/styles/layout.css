@@ -190,7 +190,6 @@
   overflow: hidden;
   color: #ffffff;
   background: var(--hero-base);
-  border-radius: 0 0 50% 50% / 0 0 120px 120px;
   isolation: isolate;
 }
 
@@ -549,7 +548,6 @@
 
   .hero {
     padding: 40px 16px 112px;
-    border-radius: 0 0 50% 50% / 0 0 40px 40px;
   }
 
   .brand-divider,
