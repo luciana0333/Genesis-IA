@@ -28,7 +28,6 @@ export const VISTAS = [
     tipoRevision: 'tabla_estructura',
     hero: {
       titulo: 'Auditoría de tablas SQL',
-      complemento: 'Validación de estructura',
       descripcion: 'Valida la estructura, nomenclatura, tipos de datos, nulabilidad y reglas de diseño de tus tablas SQL Server.',
     },
     resultados: {

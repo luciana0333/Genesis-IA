@@ -19,14 +19,13 @@ function irAlFormulario() {
  * Encabezado de cada pestaña: a la izquierda el título, los puntos clave y la
  * acción principal; a la derecha el profesional con su laptop, sin fondo.
  */
-export function Hero({ titulo, complemento, descripcion, puntos = PUNTOS_POR_DEFECTO, accion = 'Comenzar revisión' }) {
+export function Hero({ titulo, descripcion, puntos = PUNTOS_POR_DEFECTO, accion = 'Comenzar revisión' }) {
   return (
     <section className="hero">
       <span className="hero-foto-fondo" aria-hidden="true" />
       <span className="hero-panel" aria-hidden="true" />
       <div className="hero-container">
         <div className="hero-texto">
-          <p className="hero-eyebrow">{complemento ?? 'Auditoría inteligente'}</p>
           <h1>{titulo}</h1>
           <p className="hero-descripcion">{descripcion}</p>
           <ul className="hero-puntos">

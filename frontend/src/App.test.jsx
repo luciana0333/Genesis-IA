@@ -38,7 +38,6 @@ describe('App', () => {
     await irA('tablas');
 
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Auditoría de tablas SQL');
-    expect(screen.getByText('Validación de estructura')).toBeInTheDocument();
     expect(screen.queryByLabelText('Tipo de revisión')).not.toBeInTheDocument();
     expect(screen.queryByText('Documentación')).not.toBeInTheDocument();
     expect(screen.getByLabelText(/DBCMAICA/)).toBeInTheDocument();

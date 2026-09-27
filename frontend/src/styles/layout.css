@@ -236,16 +236,6 @@
   margin: 0 auto;
 }
 
-.hero-eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 18px;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.86rem;
-  font-weight: 600;
-}
-
 .hero h1 {
   margin-bottom: 16px;
   font-size: clamp(2rem, 3.3vw, 2.7rem);
