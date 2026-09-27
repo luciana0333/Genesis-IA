@@ -172,6 +172,14 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "ENVIO_CORREO_DESDE_BD": ReglaDiccionario(
+        codigo="ENVIO_CORREO_DESDE_BD",
+        nombre="Envío de correo desde la base de datos",
+        severidad="critico",
+        descripcion="No se envían correos desde un procedimiento (msdb.dbo.sp_send_dbmail).",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "WHILE_PROHIBIDO": ReglaDiccionario(
         codigo="WHILE_PROHIBIDO",
         nombre="WHILE prohibido",
@@ -230,7 +238,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "NOLOCK_EN_TABLA_FISICA": ReglaDiccionario(
         codigo="NOLOCK_EN_TABLA_FISICA",
-        nombre="NOLOCK en tabla física",
+        nombre="NOLOCK en la tabla que se actualiza",
         severidad="alto",
         descripcion="La tabla física no debe usar WITH(NOLOCK) cuando forma parte del FROM de un UPDATE o un patrón equivalente.",
         alcance="procedimiento",

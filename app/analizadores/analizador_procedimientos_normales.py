@@ -128,24 +128,42 @@ def _tiene_nolock_despues(texto: str, posicion: int) -> bool:
 
 
 def _validar_update_from_nolock(texto: str, limpio: str) -> List[Hallazgo]:
+    """En un UPDATE, la tabla física que se actualiza no debe llevar WITH(NOLOCK).
+
+    La tabla actualizada es la que va después de UPDATE: su nombre, o el alias
+    que se resuelve en el FROM/JOIN. Las demás tablas del JOIN pueden usarlo.
+    """
     hallazgos = []
-    patron = re.compile(
-        rf"\bFROM\s+({_IDENTIFICADOR})(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}",
-        re.IGNORECASE,
-    )
-    for match in patron.finditer(limpio):
-        inicio_sentencia = max(limpio.rfind(";", 0, match.start()), limpio.rfind("BEGIN", 0, match.start())) + 1
-        prefijo = limpio[inicio_sentencia:match.start()]
-        if not re.search(r"\bUPDATE\b", prefijo, re.IGNORECASE):
-            continue
-        nombre = match.group(1)
-        if _tiene_nolock_despues(limpio, match.end()):
+    referencia = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
+    for update in re.finditer(rf"\bUPDATE\s+(?:TOP\s*\([^)]*\)\s*)?({referencia})", limpio, re.IGNORECASE):
+        objetivo = _limpiar_nombre(update.group(1))
+        # La sentencia termina en ";" o donde empieza la siguiente (el SET es parte del UPDATE).
+        fin = len(limpio)
+        for siguiente in _INICIO_SENTENCIA.finditer(limpio, update.end()):
+            if not re.match(r"\s*SET\b", limpio[siguiente.start():], re.IGNORECASE):
+                fin = siguiente.start()
+                break
+        sentencia = limpio[update.start():fin]
+
+        tabla, posicion_hint = None, None
+        if _tiene_nolock_despues(limpio, update.end()):  # UPDATE dbo.T WITH(NOLOCK) SET ...
+            tabla, posicion_hint = objetivo, update.start(1)
+        else:
+            # UPDATE alias ... FROM dbo.T alias WITH(NOLOCK)  |  UPDATE dbo.T ... FROM dbo.T WITH(NOLOCK)
+            for origen in re.finditer(rf"\b(?:FROM|JOIN)\s+({referencia})", sentencia, re.IGNORECASE):
+                nombre = _limpiar_nombre(origen.group(1))
+                alias = re.match(rf"\s+(?:AS\s+)?(?!(?:{_NO_ALIAS})\b)([A-Za-z_][\w$#]*)", sentencia[origen.end():], re.IGNORECASE)
+                es_objetivo = nombre.lower() == objetivo.lower() or (
+                    alias is not None and alias.group(1).lower() == objetivo.lower())
+                if es_objetivo and _tiene_nolock_despues(limpio, update.start() + origen.end()):
+                    tabla, posicion_hint = nombre, update.start() + origen.start(1)
+                    break
+        if tabla and not _es_temporal(tabla):
             hallazgos.append(_hallazgo(
-                texto,
-                match.start(1),
-                "NOLOCK_EN_TABLA_FISICA",
-                f"La tabla {nombre} usa WITH(NOLOCK) dentro de un UPDATE. Retirar el WITH(NOLOCK) de esa tabla, "
-                f"ya que al modificar datos no se deben leer datos que aún no están confirmados.",
+                texto, posicion_hint, "NOLOCK_EN_TABLA_FISICA",
+                f"La tabla {tabla}, que es la que se actualiza en el UPDATE, usa WITH(NOLOCK). Retirar el "
+                f"WITH(NOLOCK) de esa tabla, ya que al modificar datos no se deben leer datos que aún no "
+                f"están confirmados.",
             ))
     return hallazgos
 
@@ -683,6 +701,20 @@ def _validar_transacciones(texto: str, limpio: str) -> List[Hallazgo]:
     )]
 
 
+def _validar_envio_correo(texto: str, limpio: str) -> List[Hallazgo]:
+    """Enviar correos desde la base de datos (Database Mail) es crítico."""
+    hallazgos = []
+    for match in re.finditer(r"(?:\b\w+\s*\.\s*)*\bsp_send_dbmail\b", limpio, re.IGNORECASE):
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "ENVIO_CORREO_DESDE_BD",
+            f"Se identificó un envío de correo desde la base de datos ({_limpiar_nombre(match.group(0))}). "
+            f"Retirar el envío de correo del procedimiento y hacerlo desde la aplicación, ya que depende de la "
+            f"configuración de Database Mail, puede dejar la transacción esperando y expone información "
+            f"fuera del sistema.",
+        ))
+    return hallazgos
+
+
 def _validar_esquema_entre_bases(texto: str, limpio: str) -> List[Hallazgo]:
     """Base..Tabla omite el esquema: entre bases se escribe Base.Esquema.Tabla."""
     hallazgos = []
@@ -756,6 +788,7 @@ def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_waitfor(texto_sql, limpio))
     hallazgos.extend(_validar_raiserror(texto_sql, limpio))
     hallazgos.extend(_validar_transacciones(texto_sql, limpio))
+    hallazgos.extend(_validar_envio_correo(texto_sql, limpio))
     hallazgos.extend(_validar_in_un_valor(texto_sql, limpio))
     hallazgos.extend(_validar_left_como_like(texto_sql, limpio))
     hallazgos.extend(_validar_replace_anidado(texto_sql, limpio))

@@ -315,5 +315,29 @@ END CATCH"""
             with self.subTest(sql=sql):
                 self.assertIn("NOLOCK_EN_TABLA_TEMPORAL", {h.regla for h in verificar_procedimiento_normal(sql)})
 
+    def test_nolock_solo_en_la_tabla_que_se_actualiza(self):
+        avisa = {
+            "UPDATE c SET c.a = 1 FROM dbo.Cliente c WITH(NOLOCK) JOIN dbo.Zona z ON z.n = c.n": "dbo.Cliente",
+            "UPDATE c SET c.a = 1 FROM dbo.Zona z JOIN dbo.Cliente c WITH(NOLOCK) ON z.n = c.n": "dbo.Cliente",
+            "UPDATE dbo.Cliente WITH(NOLOCK) SET a = 1": "dbo.Cliente",
+        }
+        for sql, tabla in avisa.items():
+            with self.subTest(sql=sql):
+                hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "NOLOCK_EN_TABLA_FISICA"]
+                self.assertEqual(len(hallazgos), 1)
+                self.assertIn(f"La tabla {tabla}, que es la que se actualiza", hallazgos[0].mensaje)
+        for sql in ("UPDATE c SET c.a = 1 FROM dbo.Cliente c JOIN dbo.Zona z WITH(NOLOCK) ON z.n = c.n",
+                    "UPDATE t SET t.a = 1 FROM #T t WITH(NOLOCK)",
+                    "SELECT a FROM dbo.Cliente c WITH(NOLOCK)"):
+            with self.subTest(sql=sql):
+                self.assertNotIn("NOLOCK_EN_TABLA_FISICA", {h.regla for h in verificar_procedimiento_normal(sql)})
+
+    def test_envio_de_correo_es_critico(self):
+        sql = "EXEC msdb.dbo.sp_send_dbmail @profile_name = 'Avisos', @recipients = 'a@b.com'"
+        hallazgo = [h for h in verificar_procedimiento_normal(sql) if h.regla == "ENVIO_CORREO_DESDE_BD"]
+        self.assertEqual(len(hallazgo), 1)
+        self.assertEqual(hallazgo[0].severidad.value, "critico")
+        self.assertIn("msdb.dbo.sp_send_dbmail", hallazgo[0].mensaje)
+
 if __name__ == "__main__":
     unittest.main()
