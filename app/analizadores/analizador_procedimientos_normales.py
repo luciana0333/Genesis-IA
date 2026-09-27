@@ -538,6 +538,18 @@ def _validar_waitfor(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _validar_raiserror(texto: str, limpio: str) -> List[Hallazgo]:
+    hallazgos = []
+    for match in re.finditer(r"\bRAISERROR\b", limpio, re.IGNORECASE):
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "RAISERROR_USAR_THROW",
+            "Se identificó RAISERROR para mostrar errores. Se recomienda usar THROW, ya que es la forma "
+            "actual de manejar errores y conserva el detalle del error original "
+            "(ej.: THROW 50001, 'No existe el cliente', 1;).",
+        ))
+    return hallazgos
+
+
 def _validar_esquema_entre_bases(texto: str, limpio: str) -> List[Hallazgo]:
     """Base..Tabla omite el esquema: entre bases se escribe Base.Esquema.Tabla."""
     hallazgos = []
@@ -564,7 +576,13 @@ _VECES_MAXIMAS_MISMA_TABLA = 3
 def _validar_tabla_repetida(texto: str, limpio: str) -> List[Hallazgo]:
     """Una misma tabla leída más de 3 veces (FROM/JOIN) dentro de una misma consulta."""
     hallazgos = []
-    cortes = [0] + [m.start() for m in _INICIO_SENTENCIA.finditer(limpio)] + [len(limpio)]
+    cortes = [m.start() for m in _INICIO_SENTENCIA.finditer(limpio)]
+    # Un SELECT al inicio de línea y fuera de paréntesis también es una consulta
+    # nueva (procedimientos sin ";"); dentro de paréntesis es una subconsulta.
+    for match in re.finditer(r"^\s*(?=SELECT\b)", limpio, re.IGNORECASE | re.MULTILINE):
+        if limpio.count("(", 0, match.start()) == limpio.count(")", 0, match.start()):
+            cortes.append(match.start())
+    cortes = sorted({0, len(limpio), *cortes})
     for inicio, fin in zip(cortes, cortes[1:]):
         accesos: Dict[str, List[int]] = {}
         nombres: Dict[str, str] = {}
@@ -603,6 +621,7 @@ def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_sintaxis_prohibida(texto_sql, limpio))
     hallazgos.extend(_validar_varchar_max(texto_sql, limpio))
     hallazgos.extend(_validar_waitfor(texto_sql, limpio))
+    hallazgos.extend(_validar_raiserror(texto_sql, limpio))
     hallazgos.extend(_validar_esquema_entre_bases(texto_sql, limpio))
     hallazgos.extend(_validar_tabla_repetida(texto_sql, limpio))
     hallazgos.extend(_validar_collate_temporales(texto_sql, limpio))

@@ -230,5 +230,21 @@ JOIN Cliente c4 ON c4.n = c1.n;"""
         tres = "SELECT c1.x FROM dbo.Cliente c1 JOIN dbo.Cliente c2 ON c2.n = c1.n JOIN dbo.Cliente c3 ON c3.n = c1.n;"
         self.assertNotIn("TABLA_REPETIDA_EN_CONSULTA", {h.regla for h in verificar_procedimiento_normal(tres)})
 
+    def test_recomienda_throw_en_lugar_de_raiserror(self):
+        hallazgo = [h for h in verificar_procedimiento_normal("RAISERROR('Error', 16, 1);")
+                    if h.regla == "RAISERROR_USAR_THROW"][0]
+        self.assertEqual(hallazgo.severidad.value, "medio")
+        self.assertIn("THROW", hallazgo.mensaje)
+
+    def test_consultas_seguidas_sin_punto_y_coma_no_se_suman(self):
+        sql = """ALTER PROCEDURE dbo.PA_X_Sel AS
+BEGIN
+    SELECT a FROM dbo.TB_Tabla WHERE n = 1
+    SELECT b FROM dbo.TB_Tabla WHERE n = 2
+    SELECT c FROM dbo.TB_Tabla WHERE n = 3
+    SELECT d FROM dbo.TB_Tabla WHERE n = 4
+END"""
+        self.assertNotIn("TABLA_REPETIDA_EN_CONSULTA", {h.regla for h in verificar_procedimiento_normal(sql)})
+
 if __name__ == "__main__":
     unittest.main()

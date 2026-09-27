@@ -132,6 +132,14 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "RAISERROR_USAR_THROW": ReglaDiccionario(
+        codigo="RAISERROR_USAR_THROW",
+        nombre="Usar THROW en lugar de RAISERROR",
+        severidad="medio",
+        descripcion="Para lanzar errores se recomienda THROW en lugar de RAISERROR.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "WHILE_PROHIBIDO": ReglaDiccionario(
         codigo="WHILE_PROHIBIDO",
         nombre="WHILE prohibido",
