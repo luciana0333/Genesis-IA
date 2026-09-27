@@ -272,12 +272,7 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
             f"(ej.: {_EJEMPLO_NOMBRE}).",
         ))
         return hallazgos
-    if segmentos[0] != "PA":
-        hallazgos.append(_hallazgo(
-            texto, posicion, "PROCEDIMIENTO_SIN_PREFIJO_PA",
-            f"El nombre del procedimiento {nombre} empieza con '{segmentos[0]}_' en minúsculas. Escribir "
-            f"el prefijo en mayúsculas (PA_), ya que así se identifican los procedimientos almacenados.",
-        ))
+    # PA_ y pa_ son equivalentes: el prefijo no distingue mayúsculas.
 
     if len(segmentos) < 3 or not all(segmentos[1:3]):
         hallazgos.append(_hallazgo(

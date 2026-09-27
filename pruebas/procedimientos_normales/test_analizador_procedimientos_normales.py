@@ -169,7 +169,7 @@ END"""
     def test_nombre_en_minusculas_mayusculas_y_sin_accion(self):
         hallazgos = {h.regla: h.mensaje for h in verificar_procedimiento_normal(
             "CREATE PROCEDURE dbo.pa_CLIENTE_completo AS SELECT 1")}
-        self.assertIn("minúsculas", hallazgos["PROCEDIMIENTO_SIN_PREFIJO_PA"])
+        self.assertNotIn("PROCEDIMIENTO_SIN_PREFIJO_PA", hallazgos)
         self.assertIn("PA_Cliente_Sel_Completo", hallazgos["PROCEDIMIENTO_SIN_ACCION"])
         self.assertIn("CLIENTE → Cliente", hallazgos["PROCEDIMIENTO_NOMBRE_NO_PASCALCASE"])
 
