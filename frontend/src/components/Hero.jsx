@@ -1,5 +1,5 @@
 import fotoAnalista from '../assets/analista-recorte.webp';
-import { IconoBajar, IconoEscudoCheck, IconoPunto } from './Iconos';
+import { IconoBajar, IconoPunto } from './Iconos';
 
 const PUNTOS_POR_DEFECTO = [
   'Reglas del manual de nomenclatura de CAJA ICA',
@@ -17,7 +17,7 @@ function irAlFormulario() {
 
 /**
  * Encabezado de cada pestaña: a la izquierda el título, los puntos clave y la
- * acción principal; a la derecha el analista recortado con una tarjeta flotante.
+ * acción principal; a la derecha el analista recortado.
  */
 export function Hero({ titulo, complemento, descripcion, puntos = PUNTOS_POR_DEFECTO, accion = 'Comenzar revisión' }) {
   return (
@@ -41,13 +41,6 @@ export function Hero({ titulo, complemento, descripcion, puntos = PUNTOS_POR_DEF
 
         <figure className="hero-figura" aria-hidden="true">
           <img className="hero-foto" src={fotoAnalista} alt="" />
-          <span className="hero-tarjeta">
-            <span className="hero-tarjeta-icono"><IconoEscudoCheck /></span>
-            <span>
-              <strong>Estándar CAJA ICA</strong>
-              <small>Nomenclatura y documentación</small>
-            </span>
-          </span>
         </figure>
       </div>
     </section>

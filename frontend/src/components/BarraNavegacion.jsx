@@ -35,10 +35,7 @@ export function BarraNavegacion({ vistaActiva, tema, onAlternarTema }) {
           <a className="brand" href="#/diccionarios" aria-label="CAJA ICA · Inicio">
             <img className="brand-logo" src={logoCajaIca} alt="CAJA ICA" width="289" height="58" />
             <span className="brand-divider" aria-hidden="true" />
-            <span className="brand-product">
-              Auditor SQL
-              <small>Genesis IA</small>
-            </span>
+            <span className="brand-product">Genesis IA</span>
           </a>
 
           <nav className="nav-links" aria-label="Tipos de revisión">
