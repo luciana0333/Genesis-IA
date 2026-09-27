@@ -1,16 +1,16 @@
 /**
- * Tarjeta de indicador: nombre arriba con su ícono a la derecha (en una
- * pastilla del color de la severidad, si la tiene), cifra grande y detalle.
+ * Celda del resumen superior: ícono de línea, título en mayúsculas, cifra y
+ * detalle. Se agrupan dentro de un panel único (.metrics-grid).
  */
-export function TarjetaMetrica({ titulo, valor, subtitulo, icono, severidad }) {
+export function TarjetaMetrica({ titulo, valor, subtitulo, icono }) {
   return (
-    <div className={severidad ? `metric-card sev-${severidad}` : 'metric-card'}>
-      <div className="metric-head">
+    <div className="metric-card">
+      <span className="metric-icon">{icono}</span>
+      <div className="metric-body">
         <span className="metric-title">{titulo}</span>
-        <span className="metric-icon">{icono}</span>
+        <strong className="metric-value">{valor}</strong>
+        <span className="metric-sub">{subtitulo}</span>
       </div>
-      <strong className="metric-value">{valor}</strong>
-      <span className="metric-sub">{subtitulo}</span>
     </div>
   );
 }
