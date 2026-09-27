@@ -68,7 +68,7 @@
 
   --focus-ring: 0 0 0 3px rgba(227, 6, 19, 0.2);
 
-  --hero-base: #d40f1c; /* un tono apenas más suave que el del logo */
+  --hero-base: #b8111d; /* rojo profundo de la marca: menos estridente que el del logo en áreas grandes */
 
   /* Resumen de métricas */
   --metric-value: #1d1d24;
