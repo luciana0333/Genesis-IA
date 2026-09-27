@@ -254,5 +254,40 @@ class TestAnalizadorReportes(unittest.TestCase):
                 self.assertEqual(len(hallazgos), 1)
                 self.assertIn("No está permitido emplear sintaxis que fuerce al motor", hallazgos[0].mensaje)
 
+    def test_collate_en_where_y_join(self):
+        where = "SELECT Nombre FROM #T WHERE Nombre COLLATE SQL_Latin1_General_CP1_CI_AS = 'Juan';"
+        join = "SELECT a.x FROM #A a INNER JOIN #B b ON a.c COLLATE SQL_Latin1_General_CP1_CI_AS = b.c;"
+        for sql, texto in ((where, "del WHERE"), (join, "del JOIN")):
+            with self.subTest(sql=sql):
+                hallazgos = [h for h in verificar_reporte(sql) if h.regla == "COLLATE_EN_PREDICADO"]
+                self.assertEqual(len(hallazgos), 1)
+                self.assertIn(texto, hallazgos[0].mensaje)
+        creacion = "CREATE TABLE #T (cNombre VARCHAR(20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL);"
+        self.assertNotIn("COLLATE_EN_PREDICADO", {h.regla for h in verificar_reporte(creacion)})
+
+    def test_recomienda_trim_string_agg_y_string_split(self):
+        sql = """
+        SELECT LTRIM(RTRIM(Calif0)) FROM #T;
+        SELECT STUFF((SELECT ',' + Nombre FROM #E FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS Lista;
+        SELECT items FROM dbo.fn_Split('Juan,Pedro', ',');
+        """
+        hallazgos = {h.regla: h for h in verificar_reporte(sql)}
+        self.assertIn("TRIM", hallazgos["LTRIM_RTRIM_PROHIBIDO"].mensaje)
+        self.assertIn("FOR XML PATH y STUFF", hallazgos["STUFF_FOR_XML_PATH_PROHIBIDO"].mensaje)
+        self.assertIn("STRING_SPLIT", hallazgos["FN_SPLIT_PROHIBIDO"].mensaje)
+        for regla in ("LTRIM_RTRIM_PROHIBIDO", "STUFF_FOR_XML_PATH_PROHIBIDO", "FN_SPLIT_PROHIBIDO"):
+            self.assertEqual(hallazgos[regla].severidad.value, "medio")
+
+    def test_funciones_nativas_no_generan_hallazgo(self):
+        sql = """
+        SELECT TRIM(Calif0) FROM #T;
+        SELECT STRING_AGG(Nombre, ',') FROM #E;
+        SELECT value FROM STRING_SPLIT('Juan,Pedro', ',');
+        """
+        reglas = {h.regla for h in verificar_reporte(sql)}
+        for regla in ("LTRIM_RTRIM_PROHIBIDO", "STUFF_FOR_XML_PATH_PROHIBIDO", "FN_SPLIT_PROHIBIDO"):
+            self.assertNotIn(regla, reglas)
+
+
 if __name__ == "__main__":
     unittest.main()

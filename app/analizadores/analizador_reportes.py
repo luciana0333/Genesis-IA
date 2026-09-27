@@ -343,6 +343,58 @@ def _validar_order_by_numerico(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+# Cláusulas que abren una parte de la consulta; la última antes de COLLATE
+# indica si está en una condición (WHERE, ON, HAVING) o en otra parte.
+_CLAUSULAS = re.compile(
+    r"\b(WHERE|ON|HAVING|SELECT|FROM|JOIN|GROUP|ORDER|SET|VALUES|TABLE|DECLARE|RETURNS)\b",
+    re.IGNORECASE,
+)
+
+
+def _validar_collate_en_condiciones(texto: str, limpio: str) -> List[Hallazgo]:
+    """COLLATE no se permite en las condiciones del WHERE ni del JOIN."""
+    hallazgos = []
+    for match in re.finditer(r"\bCOLLATE\s+\w+", limpio, re.IGNORECASE):
+        previo = limpio[:match.start()]
+        clausulas = _CLAUSULAS.findall(previo[previo.rfind(";") + 1:])
+        ultima = clausulas[-1].upper() if clausulas else ""
+        if ultima not in {"WHERE", "ON", "HAVING"}:
+            continue
+        donde = "del JOIN" if ultima == "ON" else f"del {ultima}"
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "COLLATE_EN_PREDICADO",
+            f"Se usa COLLATE en la condición {donde}. Definir el COLLATE al crear la tabla y no en la "
+            f"condición, ya que en el WHERE o en el JOIN impide usar los índices y vuelve lenta la consulta.",
+        ))
+    return hallazgos
+
+
+def _validar_funciones_reemplazables(texto: str, limpio: str) -> List[Hallazgo]:
+    """Funciones con una alternativa nativa mejor: TRIM, STRING_AGG y STRING_SPLIT."""
+    hallazgos = []
+    for match in re.finditer(r"\b(?:LTRIM\s*\(\s*RTRIM|RTRIM\s*\(\s*LTRIM)\s*\(", limpio, re.IGNORECASE):
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "LTRIM_RTRIM_PROHIBIDO",
+            "Se combinan LTRIM y RTRIM para quitar espacios. Se recomienda usar TRIM, ya que hace lo "
+            "mismo en una sola función (ej.: TRIM(Calif0)).",
+        ))
+    for match in re.finditer(r"\bFOR\s+XML\s+PATH\s*\(\s*(?:''|\"\")\s*\)", limpio, re.IGNORECASE):
+        con_stuff = re.search(r"\bSTUFF\s*\(", _sentencia(limpio, match.start()), re.IGNORECASE)
+        forma = "FOR XML PATH y STUFF" if con_stuff else "FOR XML PATH"
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "STUFF_FOR_XML_PATH_PROHIBIDO",
+            f"Se concatenan valores con {forma}. Se recomienda usar STRING_AGG, ya que concatena los "
+            f"valores con su separador de forma más simple (ej.: STRING_AGG(Nombre, ',')).",
+        ))
+    for match in re.finditer(r"(?:\b\w+\s*\.\s*)?\bfn_split\s*\(", limpio, re.IGNORECASE):
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "FN_SPLIT_PROHIBIDO",
+            "Se usa la función fn_Split para dividir un texto. Se recomienda usar STRING_SPLIT, ya que es "
+            "nativa y mejora el rendimiento (ej.: SELECT value FROM STRING_SPLIT('Juan,Pedro', ',')).",
+        ))
+    return hallazgos
+
+
 def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     declaraciones: Dict[str, int] = {}
@@ -416,6 +468,8 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_control_de_flujo(texto_sql, limpio))
     hallazgos.extend(_validar_esquema_entre_bases(texto_sql, limpio))
     hallazgos.extend(_validar_order_by_numerico(texto_sql, limpio))
+    hallazgos.extend(_validar_collate_en_condiciones(texto_sql, limpio))
+    hallazgos.extend(_validar_funciones_reemplazables(texto_sql, limpio))
     hallazgos.extend(_validar_modificaciones_fisicas(texto_sql, limpio))
     hallazgos.extend(_validar_variables(texto_sql, limpio))
     # Las reglas desactivadas en el catálogo no se reportan.
