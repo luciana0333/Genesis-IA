@@ -4,7 +4,7 @@ const NOMBRES = { critico: 'Críticos', alto: 'Altos', medio: 'Medios', bajo: 'B
 
 /**
  * Resumen del análisis: total de hallazgos, barra con la proporción de cada
- * severidad (tonos de rojo: más oscuro cuanto más grave) y el desglose.
+ * severidad y el desglose con un punto de color por severidad.
  */
 export function MetricasSeveridad({ conteo }) {
   const total = SEVERIDADES.reduce((suma, severidad) => suma + (conteo[severidad] || 0), 0);
@@ -34,7 +34,10 @@ export function MetricasSeveridad({ conteo }) {
       <div className="resumen-grid">
         {SEVERIDADES.map((severidad) => (
           <div key={severidad} className={`resumen-item sev-${severidad}`}>
-            <span className="resumen-nombre">{NOMBRES[severidad]}</span>
+            <span className="resumen-nombre">
+              <span className="resumen-punto" aria-hidden="true" />
+              {NOMBRES[severidad]}
+            </span>
             <strong className="resumen-cifra">{conteo[severidad] || 0}</strong>
           </div>
         ))}

@@ -1,6 +1,7 @@
 /* ───────── RESUMEN DE MÉTRICAS ─────────
  * Un solo panel blanco sin borde exterior, destacado con luz suave arriba y
- * sombra amplia; cuatro celdas separadas por líneas tenues. Sin íconos.
+ * sombra amplia; cuatro celdas separadas por líneas tenues. Sin íconos: un
+ * punto del color de la severidad junto al nombre.
  */
 .metrics-grid {
   display: grid;
@@ -64,10 +65,26 @@
   transform: scaleX(1);
 }
 
+.metric-card.sev-critico { --metric-punto: var(--sev-critico); }
+.metric-card.sev-alto { --metric-punto: var(--sev-alto); }
+.metric-card.sev-medio { --metric-punto: var(--sev-medio); }
+.metric-card.sev-bajo { --metric-punto: var(--sev-bajo); }
+
 .metric-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--text-secondary);
   font-size: 0.84rem;
   font-weight: 500;
+}
+
+.metric-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--metric-punto);
 }
 
 .metric-value {
@@ -134,11 +151,10 @@
     0 32px 64px -32px rgba(0, 0, 0, 0.7);
 }
 
-/* Escala de rojos de la marca: cuanto más grave, más oscuro. */
-.resumen .sev-critico { --resumen-tono: #6e0912; --resumen-tono-2: #8f0c18; }
-.resumen .sev-alto { --resumen-tono: #a50f1b; --resumen-tono-2: #c1121f; }
-.resumen .sev-medio { --resumen-tono: #d6414b; --resumen-tono-2: #e2636b; }
-.resumen .sev-bajo { --resumen-tono: #eda0a5; --resumen-tono-2: #f5c3c6; }
+.resumen .sev-critico { --resumen-tono: var(--sev-critico); }
+.resumen .sev-alto { --resumen-tono: var(--sev-alto); }
+.resumen .sev-medio { --resumen-tono: var(--sev-medio); }
+.resumen .sev-bajo { --resumen-tono: var(--sev-bajo); }
 
 .resumen-total {
   display: flex;
@@ -162,7 +178,7 @@
 
 .resumen-barra {
   display: flex;
-  gap: 3px;
+  gap: 2px;
   height: 8px;
   margin: 16px 0 18px;
   overflow: hidden;
@@ -172,7 +188,7 @@
 
 .resumen-segmento {
   height: 100%;
-  background: linear-gradient(180deg, var(--resumen-tono-2), var(--resumen-tono));
+  background: var(--resumen-tono);
   transition: width var(--dur) var(--ease);
 }
 
@@ -191,12 +207,22 @@
 .resumen-nombre {
   display: flex;
   align-items: center;
+  gap: 8px;
   color: var(--text-secondary);
   font-size: 0.84rem;
   font-weight: 500;
 }
 
+.resumen-punto {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--resumen-tono);
+}
+
 .resumen-cifra {
+  padding-left: 16px;
   color: var(--metric-value);
   font-size: 1.35rem;
   font-weight: 600;
