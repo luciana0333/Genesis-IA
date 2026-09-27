@@ -160,41 +160,44 @@
   padding: 36px 24px 56px;
   overflow: hidden;
   color: #ffffff;
-  /* Degradado de la paleta: rojo profundo a la izquierda, rojo del logo a la derecha. */
-  background: linear-gradient(115deg, var(--hero-deep) 0%, var(--hero-base) 48%, var(--hero-bright) 100%);
-  /* Borde inferior en diagonal: más alto a la izquierda, baja hacia la persona. */
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 calc(100% - 56px));
+  background: #1a0d0f;
   isolation: isolate;
 }
 
-/* Formas circulares translúcidas que dan profundidad al fondo. */
-.hero-formas {
+/* Foto financiera a todo el ancho, oscurecida y en tono cálido para que
+   combine con el rojo y no compita con la persona. */
+.hero-foto-fondo {
   position: absolute;
   inset: 0;
-  z-index: -1;
+  z-index: -3;
+  background:
+    linear-gradient(90deg, rgba(26, 6, 9, 0.2), rgba(26, 6, 9, 0.55)),
+    url('../assets/fondo.jpg') right center / cover no-repeat;
+  filter: grayscale(0.85) brightness(0.7) contrast(1.1);
   pointer-events: none;
 }
 
-.hero-formas::before,
-.hero-formas::after {
+/* Panel rojo con el borde derecho en diagonal (estilo Vulcanet) y una franja
+   más clara que acompaña el corte. */
+.hero-panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: -2;
+  width: 62%;
+  background: linear-gradient(120deg, var(--hero-deep) 0%, var(--hero-base) 55%, var(--hero-bright) 100%);
+  clip-path: polygon(0 0, 100% 0, 84% 100%, 0 100%);
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.hero-panel::after {
   content: '';
   position: absolute;
-  aspect-ratio: 1;
-  border-radius: 50%;
-}
-
-.hero-formas::before {
-  top: -46%;
-  left: -12%;
-  width: 46%;
-  background: radial-gradient(circle at 60% 60%, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04) 70%);
-}
-
-.hero-formas::after {
-  bottom: -62%;
-  left: 18%;
-  width: 34%;
-  background: radial-gradient(circle at 40% 30%, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.03) 70%);
+  inset: 0;
+  background: rgba(255, 255, 255, 0.08);
+  clip-path: polygon(92% 0, 100% 0, 84% 100%, 76% 100%);
 }
 
 /* Destello de luz diagonal que cruza el encabezado una sola vez. */
@@ -359,6 +362,11 @@
 
   .hero-figura {
     display: none;
+  }
+
+  .hero-panel {
+    width: 100%;
+    clip-path: none;
   }
 }
 
