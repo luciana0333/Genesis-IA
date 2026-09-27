@@ -1,47 +1,30 @@
-import { SEVERIDADES, etiquetaSeveridad } from '../../config/reglas';
+import { TarjetaMetrica } from '../../components/TarjetaMetrica';
+import {
+  IconoSeveridadAlta,
+  IconoSeveridadBaja,
+  IconoSeveridadCritica,
+  IconoSeveridadMedia,
+} from '../../components/Iconos';
 
-const NOMBRES = { critico: 'Críticos', alto: 'Altos', medio: 'Medios', bajo: 'Bajos' };
+const TARJETAS = [
+  { severidad: 'critico', titulo: 'Críticos', icono: <IconoSeveridadCritica /> },
+  { severidad: 'alto', titulo: 'Altos', icono: <IconoSeveridadAlta /> },
+  { severidad: 'medio', titulo: 'Medios', icono: <IconoSeveridadMedia /> },
+  { severidad: 'bajo', titulo: 'Bajos', icono: <IconoSeveridadBaja /> },
+];
 
-/**
- * Resumen del análisis: total de hallazgos, barra con la proporción de cada
- * severidad y el desglose con un punto de color por severidad.
- */
-export function MetricasSeveridad({ conteo }) {
-  const total = SEVERIDADES.reduce((suma, severidad) => suma + (conteo[severidad] || 0), 0);
-  const descripcionBarra = SEVERIDADES
-    .map((severidad) => `${conteo[severidad] || 0} ${etiquetaSeveridad(severidad).toLowerCase()}`)
-    .join(', ');
-
+export function MetricasSeveridad({ conteo, subtitulos }) {
   return (
-    <section className="resumen" aria-label="Resumen por severidad">
-      <p className="resumen-total">
-        <strong>{total}</strong>
-        <span>{total === 1 ? 'hallazgo en total' : 'hallazgos en total'}</span>
-      </p>
-
-      <div className="resumen-barra" role="img" aria-label={`Proporción: ${descripcionBarra}`}>
-        {total > 0 && SEVERIDADES.map((severidad) => (
-          conteo[severidad] > 0 && (
-            <span
-              key={severidad}
-              className={`resumen-segmento sev-${severidad}`}
-              style={{ width: `${(conteo[severidad] / total) * 100}%` }}
-            />
-          )
-        ))}
-      </div>
-
-      <div className="resumen-grid">
-        {SEVERIDADES.map((severidad) => (
-          <div key={severidad} className={`resumen-item sev-${severidad}`}>
-            <span className="resumen-nombre">
-              <span className="resumen-punto" aria-hidden="true" />
-              {NOMBRES[severidad]}
-            </span>
-            <strong className="resumen-cifra">{conteo[severidad] || 0}</strong>
-          </div>
-        ))}
-      </div>
+    <section className="metrics-grid" aria-label="Resumen por severidad">
+      {TARJETAS.map(({ severidad, titulo, icono }, indice) => (
+        <TarjetaMetrica
+          key={severidad}
+          titulo={titulo}
+          icono={icono}
+          valor={conteo[severidad]}
+          subtitulo={subtitulos[indice]}
+        />
+      ))}
     </section>
   );
 }

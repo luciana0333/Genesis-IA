@@ -80,7 +80,7 @@ describe('App', () => {
     expect(screen.getByText('REGLA_NUEVA')).toBeInTheDocument();
     expect(screen.getByText('Línea 3')).toBeInTheDocument();
 
-    const tarjetaAltos = screen.getByText('Altos').closest('.resumen-item');
+    const tarjetaAltos = screen.getByText('Altos').closest('.metric-card');
     expect(within(tarjetaAltos).getByText('1')).toBeInTheDocument();
   });
 
