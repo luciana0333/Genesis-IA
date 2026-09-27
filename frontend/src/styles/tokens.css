@@ -27,11 +27,13 @@
   --ink-text: #c9c9d2;
 
   /* Marca CAJA ICA */
-  --red-main: #e30613;
-  --red-dark: #b8000f;
-  --red-deep: #9e000d;
-  --red-light: rgba(227, 6, 19, 0.07);
-  --red-shadow: rgba(227, 6, 19, 0.28);
+  /* Rojo corporativo sobrio profundo: menos anaranjado que el
+     rojo del logo, más serio para una entidad financiera. */
+  --red-main: #c1121f;
+  --red-dark: #9e0e19;
+  --red-deep: #7f0b14;
+  --red-light: rgba(193, 18, 31, 0.07);
+  --red-shadow: rgba(193, 18, 31, 0.28);
 
   /* Severidades: solo para etiquetas e íconos de cada hallazgo */
   --sev-critico: #d50d1c;
@@ -65,9 +67,9 @@
   --shadow-md: 0 10px 30px -18px rgba(17, 17, 26, 0.28);
   --shadow-lg: 0 24px 48px -24px rgba(17, 17, 26, 0.32);
 
-  --focus-ring: 0 0 0 3px rgba(227, 6, 19, 0.2);
+  --focus-ring: 0 0 0 3px rgba(193, 18, 31, 0.2);
 
-  --hero-base: #e0101f;
+  --hero-base: #c1121f;
 
   /* Resumen de métricas */
   --metric-value: #1d1d24;
@@ -95,11 +97,11 @@
   --ink-soft: #15151a;
   --ink-text: #a9a9b5;
 
-  --red-main: #f0162a;
-  --red-dark: #c5000f;
-  --red-deep: #9e000d;
-  --red-light: rgba(240, 22, 42, 0.12);
-  --red-shadow: rgba(240, 22, 42, 0.35);
+  --red-main: #e0243f;
+  --red-dark: #b8142f;
+  --red-deep: #7f0b14;
+  --red-light: rgba(224, 36, 63, 0.12);
+  --red-shadow: rgba(224, 36, 63, 0.35);
 
   --sev-critico: #ff4455;
   --sev-critico-bg: rgba(255, 68, 85, 0.12);
@@ -119,10 +121,10 @@
   --shadow-md: 0 10px 30px -16px rgba(0, 0, 0, 0.7);
   --shadow-lg: 0 24px 48px -22px rgba(0, 0, 0, 0.8);
 
-  --focus-ring: 0 0 0 3px rgba(240, 22, 42, 0.32);
+  --focus-ring: 0 0 0 3px rgba(224, 36, 63, 0.32);
 
-  --hero-base: #a3000f;
+  --hero-base: #9a0c24;
 
   --metric-value: #f1f1f4;
-  --metric-icon: #ff4a58;
+  --metric-icon: #f0566a;
 }

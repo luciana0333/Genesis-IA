@@ -183,13 +183,13 @@
   position: absolute;
   inset: 0;
   z-index: -2;
-  /* Solo los números extraídos de la foto financiera, en blanco y con fondo
-     transparente: se leen nítidos sin manchar el rojo. */
-  background: url('../assets/numeros-fondo.png') right center / cover no-repeat;
-  opacity: 0.42;
+  background: url('../assets/fondo.jpg') right center / cover no-repeat;
+  filter: grayscale(1) contrast(1.4) brightness(1.15);
+  mix-blend-mode: soft-light;
+  opacity: 0.6;
   /* Se desvanece hacia la izquierda para que el texto se lea limpio. */
-  -webkit-mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0.45) 38%, #000 72%);
-  mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0.45) 38%, #000 72%);
+  -webkit-mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.18) 0%, rgba(0, 0, 0, 0.35) 38%, #000 72%);
+  mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.18) 0%, rgba(0, 0, 0, 0.35) 38%, #000 72%);
   pointer-events: none;
 }
 
