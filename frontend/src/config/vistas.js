@@ -75,6 +75,12 @@ export const VISTAS = [
     hero: {
       titulo: 'Análisis de planes de ejecución',
       descripcion: 'Analiza planes reales de SQL Server para detectar conversiones implícitas, spills, scans, lecturas elevadas y problemas de memoria.',
+      puntos: [
+        'Conversiones implícitas, spills y table scans',
+        'Lecturas lógicas, cardinalidad y memoria',
+        'Análisis local: el plan no sale de tu equipo',
+      ],
+      accion: 'Cargar plan',
     },
   },
 ];

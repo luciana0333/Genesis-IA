@@ -180,50 +180,30 @@
 }
 
 /* ───────── ENCABEZADO ─────────
- * Un solo recurso visual: la foto financiera como protagonista. Rojo de
- * marca sólido a la izquierda (lectura del texto) que se desvanece hacia la
- * derecha para dejar ver la imagen.
+ * Rojo de marca sólido con dos columnas: texto y acción a la izquierda; la
+ * foto enmarcada, con una tarjeta flotante, a la derecha. Un plano diagonal
+ * más claro da profundidad sin recargar.
  */
 .hero {
   position: relative;
-  padding: 64px 24px 136px;
+  padding: 56px 24px 128px;
   overflow: hidden;
   color: #ffffff;
   background: var(--hero-base);
   isolation: isolate;
 }
 
-/* Foto en blanco y negro con más contraste, fundida con el rojo (duotono):
-   se ve con claridad sin oscurecer el encabezado. */
-.hero-media {
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  background: url('../assets/fondo.jpg') right center / cover no-repeat;
-  filter: grayscale(1) contrast(1.55) brightness(1.2);
-  mix-blend-mode: soft-light;
-  pointer-events: none;
-}
-
 .hero::before {
   content: '';
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 46%;
   z-index: -1;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+  clip-path: polygon(22% 0, 100% 0, 100% 100%, 0 100%);
   pointer-events: none;
-  background:
-    linear-gradient(90deg,
-      var(--hero-overlay-1) 0%,
-      var(--hero-overlay-2) 36%,
-      var(--hero-overlay-3) 70%,
-      var(--hero-overlay-4) 100%);
-}
-
-.hero-container {
-  position: relative;
-  z-index: 1;
-  max-width: 1240px;
-  margin: 0 auto;
 }
 
 /* Destello de luz diagonal que cruza el encabezado una sola vez. */
@@ -231,13 +211,13 @@
   content: '';
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: 2;
   background: linear-gradient(
     105deg,
     transparent 38%,
-    rgba(255, 255, 255, 0.1) 44%,
-    rgba(255, 255, 255, 0.3) 50%,
-    rgba(255, 255, 255, 0.1) 56%,
+    rgba(255, 255, 255, 0.08) 44%,
+    rgba(255, 255, 255, 0.22) 50%,
+    rgba(255, 255, 255, 0.08) 56%,
     transparent 62%
   );
   transform: translateX(-100%);
@@ -249,12 +229,23 @@
   to { transform: translateX(100%); }
 }
 
+.hero-container {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+  gap: 56px;
+  align-items: center;
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
 .hero-eyebrow {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 20px;
-  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 18px;
+  color: rgba(255, 255, 255, 0.9);
   font-size: 0.86rem;
   font-weight: 600;
 }
@@ -266,21 +257,159 @@
   background: #ffffff;
 }
 
-
 .hero h1 {
-  max-width: 920px;
-  margin-bottom: 18px;
-  font-size: clamp(1.9rem, 3.4vw, 2.8rem);
-  font-weight: 700;
-  line-height: 1.12;
-  letter-spacing: -0.025em;
+  margin-bottom: 16px;
+  font-size: clamp(2rem, 3.3vw, 2.7rem);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
 }
 
 .hero-descripcion {
-  max-width: 580px;
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 1.02rem;
+  max-width: 540px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1rem;
   line-height: 1.7;
+}
+
+.hero-puntos {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 24px 0 30px;
+  padding: 0;
+  list-style: none;
+}
+
+.hero-puntos li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.hero-puntos svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: #ffffff;
+}
+
+.hero-accion {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 24px;
+  border: none;
+  border-radius: var(--radius-btn);
+  background: #ffffff;
+  color: var(--red-main);
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 12px 24px -12px rgba(60, 0, 6, 0.55);
+  transition: transform var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
+}
+
+.hero-accion svg {
+  width: 16px;
+  height: 16px;
+  transition: transform var(--dur) var(--ease);
+}
+
+.hero-accion:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 28px -12px rgba(60, 0, 6, 0.6);
+}
+
+.hero-accion:hover svg {
+  transform: translateY(2px);
+}
+
+.hero-accion:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 3px;
+}
+
+/* Foto enmarcada: un marco blanco desplazado detrás y una tarjeta flotante. */
+.hero-figura {
+  position: relative;
+  margin: 0 0 0 24px;
+  aspect-ratio: 16 / 11;
+}
+
+.hero-marco {
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  border-radius: var(--radius-xl);
+  transform: translate(18px, 18px);
+}
+
+.hero-foto {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-xl);
+  background: url('../assets/fondo.jpg') 35% center / cover no-repeat;
+  box-shadow: 0 30px 60px -28px rgba(40, 0, 4, 0.7);
+}
+
+.hero-tarjeta {
+  position: absolute;
+  bottom: -22px;
+  left: -28px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px 14px 14px;
+  border-radius: var(--radius-xl);
+  background: #ffffff;
+  color: #1d1d24;
+  box-shadow: 0 18px 40px -18px rgba(40, 0, 4, 0.55);
+  animation: aparecer 500ms var(--ease) 0.4s both;
+}
+
+.hero-tarjeta-icono {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-btn);
+  background: #e30613;
+  color: #ffffff;
+}
+
+.hero-tarjeta-icono svg {
+  width: 20px;
+  height: 20px;
+}
+
+.hero-tarjeta strong {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.hero-tarjeta small {
+  display: block;
+  color: #6b6b78;
+  font-size: 0.74rem;
+}
+
+@media (max-width: 960px) {
+  .hero-container {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .hero-figura,
+  .hero::before {
+    display: none;
+  }
 }
 
 /* ───────── CONTENIDO Y PIE ───────── */

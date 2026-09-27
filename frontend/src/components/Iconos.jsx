@@ -5,7 +5,9 @@
  * trazo y el tamaño son uniformes y cambiar de librería solo toca este archivo.
  */
 import {
+  ArrowDown,
   Check,
+  CircleCheck,
   CircleAlert,
   CircleX,
   CloudUpload,
@@ -72,3 +74,7 @@ export const IconoRejilla = crearIcono(Workflow);
 export const IconoMemoria = crearIcono(MemoryStick);
 export const IconoBarras = crearIcono(Gauge);
 export const IconoHallazgo = crearIcono(ListChecks);
+
+// Encabezado
+export const IconoPunto = crearIcono(CircleCheck);
+export const IconoBajar = crearIcono(ArrowDown);
