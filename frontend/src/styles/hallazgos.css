@@ -12,17 +12,77 @@
   white-space: nowrap;
 }
 
-.count-pill {
-  display: inline-flex;
+/* ───────── VEREDICTO ─────────
+ * Resumen del resultado: una franja con el color de la severidad más alta.
+ */
+.verdict {
+  --sev: var(--sev-bajo);
+  --sev-bg: var(--sev-bajo-bg);
+  --sev-text: var(--sev-bajo-text);
+
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 16px;
   align-items: center;
+  margin-bottom: 18px;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--sev);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(90deg, var(--sev-bg), transparent 55%), var(--bg-card);
+  animation: aparecer 260ms var(--ease) both;
+}
+
+.verdict.sev-critico { --sev: var(--sev-critico); --sev-bg: var(--sev-critico-bg); --sev-text: var(--sev-critico-text); }
+.verdict.sev-alto { --sev: var(--sev-alto); --sev-bg: var(--sev-alto-bg); --sev-text: var(--sev-alto-text); }
+.verdict.sev-medio { --sev: var(--sev-medio); --sev-bg: var(--sev-medio-bg); --sev-text: var(--sev-medio-text); }
+
+.verdict-icon {
+  display: flex;
+  color: var(--sev);
+}
+
+.verdict-icon svg {
+  width: 26px;
   height: 26px;
-  padding: 0 10px;
-  border-radius: var(--radius-sm);
-  background: var(--red-main);
-  color: #ffffff;
-  font-size: 0.76rem;
+  stroke-width: 1.5;
+}
+
+.verdict-title {
+  color: var(--text-primary);
+  font-size: 0.95rem;
   font-weight: 600;
+}
+
+.verdict-text {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 0.83rem;
+  line-height: 1.5;
+}
+
+.verdict-count {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding-left: 20px;
+  border-left: 1px solid var(--border);
+  text-align: right;
+}
+
+.verdict-count strong {
+  color: var(--text-primary);
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.1;
   font-variant-numeric: tabular-nums;
+}
+
+.verdict-count span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
 }
 
 /* Filtros por severidad: pestañas rectangulares */
@@ -121,16 +181,10 @@
   left: 0;
   width: 3px;
   background: var(--sev);
-  opacity: 0;
-  transition: opacity var(--dur-fast) ease;
 }
 
 .finding:hover {
   background: var(--bg-input);
-}
-
-.finding:hover::before {
-  opacity: 1;
 }
 
 .finding.sev-critico { --sev: var(--sev-critico); --sev-bg: var(--sev-critico-bg); --sev-text: var(--sev-critico-text); }
@@ -189,6 +243,39 @@
   color: var(--text-secondary);
   font-size: 0.87rem;
   line-height: 1.65;
+}
+
+.finding-fix {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.finding-fix-icon {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 4px;
+  color: var(--red-main);
+}
+
+.finding-fix .finding-token {
+  background: var(--bg-card);
+}
+
+.finding-line {
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
 }
 
 .finding-token {
@@ -376,6 +463,20 @@
 }
 
 @media (max-width: 640px) {
+  .verdict {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .verdict-count {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+    padding: 10px 0 0;
+    border-top: 1px solid var(--border);
+    border-left: none;
+  }
+
   .finding {
     grid-template-columns: auto minmax(0, 1fr);
     padding: 16px;

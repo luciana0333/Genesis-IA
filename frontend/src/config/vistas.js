@@ -16,7 +16,7 @@ export const VISTAS = [
       descripcion: 'Valida la estructura, consistencia y estándares de documentación de tus bases de datos SQL Server en tiempo real.',
     },
     resultados: {
-      titulo: 'Hallazgos de Diccionarios',
+      titulo: 'Hallazgos del diccionario',
       nombre: 'Diccionarios',
       subtitulos: ['Errores de estructura', 'Inconsistencias de documentación', 'Faltas de documentación', 'Sugerencias menores'],
     },
@@ -32,7 +32,7 @@ export const VISTAS = [
       descripcion: 'Valida la estructura, nomenclatura, tipos de datos, nulabilidad y reglas de diseño de tus tablas SQL Server.',
     },
     resultados: {
-      titulo: 'Hallazgos de Tablas',
+      titulo: 'Hallazgos de la tabla',
       nombre: 'Tablas',
       subtitulos: ['Errores de estructura', 'Reglas de diseño', 'Tipos y nulabilidad', 'Sugerencias menores'],
     },
@@ -47,7 +47,7 @@ export const VISTAS = [
       descripcion: 'Revisa procedimientos de reportes para detectar prácticas inseguras, lecturas innecesarias y consultas que dificultan su mantenimiento.',
     },
     resultados: {
-      titulo: 'Hallazgos de Reportes',
+      titulo: 'Hallazgos del reporte',
       nombre: 'Reportes',
       subtitulos: ['Riesgos críticos', 'Inconsistencias de consulta', 'Buenas prácticas', 'Sugerencias menores'],
     },
@@ -62,7 +62,7 @@ export const VISTAS = [
       descripcion: 'Valida procedimientos almacenados normales frente a reglas de control de flujo, consultas y buenas prácticas de desarrollo.',
     },
     resultados: {
-      titulo: 'Hallazgos de Procedimientos',
+      titulo: 'Hallazgos del procedimiento',
       nombre: 'Procedimientos',
       subtitulos: ['Riesgos críticos', 'Reglas incumplidas', 'Buenas prácticas', 'Sugerencias menores'],
     },

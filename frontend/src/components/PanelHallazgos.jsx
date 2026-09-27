@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { SEVERIDADES, etiquetaSeveridad, nombreRegla } from '../config/reglas';
-import { contarPorSeveridad, normalizarSeveridad, ordenarHallazgos } from '../utils/hallazgos';
+import { contarPorSeveridad, normalizarSeveridad, ordenarHallazgos, separarMensaje } from '../utils/hallazgos';
 import { EncabezadoSeccion } from './EncabezadoSeccion';
 import { EstadoVacio } from './EstadoVacio';
 import {
@@ -8,11 +8,13 @@ import {
   IconoCopiar,
   IconoCopiado,
   IconoErrorCirculo,
+  IconoEscudoAlerta,
   IconoEscudoCheck,
   IconoSeveridadAlta,
   IconoSeveridadBaja,
   IconoSeveridadCritica,
   IconoSeveridadMedia,
+  IconoSolucion,
 } from './Iconos';
 
 const ICONOS_SEVERIDAD = {
@@ -35,6 +37,36 @@ function MensajeResaltado({ texto }) {
     /^'[^'\n]+'$/.test(parte)
       ? <mark key={indice} className="finding-token">{parte.slice(1, -1)}</mark>
       : parte,
+  );
+}
+
+const VEREDICTOS = {
+  critico: { titulo: 'Requiere correcciones', texto: 'Hay errores críticos que impiden aprobar el objeto.' },
+  alto: { titulo: 'Requiere correcciones', texto: 'Corrija los hallazgos de severidad alta antes de pasar a producción.' },
+  medio: { titulo: 'Con observaciones', texto: 'Revise las observaciones de severidad media; no bloquean, pero conviene corregirlas.' },
+  bajo: { titulo: 'Observaciones menores', texto: 'Solo hay recomendaciones o puntos por validar.' },
+};
+
+function ResumenVeredicto({ conteo, total }) {
+  const mayor = SEVERIDADES.find((severidad) => conteo[severidad] > 0) ?? 'bajo';
+  const veredicto = VEREDICTOS[mayor];
+  const Icono = mayor === 'bajo' ? IconoEscudoCheck : IconoEscudoAlerta;
+  const desglose = SEVERIDADES
+    .filter((severidad) => conteo[severidad] > 0)
+    .map((severidad) => `${conteo[severidad]} ${etiquetaSeveridad(severidad).toLowerCase()}`)
+    .join(' · ');
+  return (
+    <div className={`verdict sev-${mayor}`} role="status">
+      <span className="verdict-icon"><Icono /></span>
+      <div className="verdict-body">
+        <p className="verdict-title">{veredicto.titulo}</p>
+        <p className="verdict-text">{veredicto.texto}</p>
+      </div>
+      <div className="verdict-count">
+        <strong>{total}</strong>
+        <span>{desglose}</span>
+      </div>
+    </div>
   );
 }
 
@@ -82,6 +114,7 @@ function FilaHallazgo({ hallazgo, origenPorDefecto, mostrarLinea }) {
   const titulo = nombreRegla(hallazgo.regla);
   const origen = hallazgo.origen || origenPorDefecto;
   const mensaje = hallazgo.mensaje || 'Revisa este hallazgo.';
+  const { problema, solucion } = separarMensaje(mensaje);
   return (
     <article className={`finding sev-${severidad}`}>
       <span className="finding-icon"><Icono /></span>
@@ -90,9 +123,15 @@ function FilaHallazgo({ hallazgo, origenPorDefecto, mostrarLinea }) {
           <h4 className="finding-title">{titulo}</h4>
           <span className={`sev-pill sev-${severidad}`}>{etiquetaSeveridad(severidad)}</span>
         </div>
-        <p className="finding-message"><MensajeResaltado texto={mensaje} /></p>
+        <p className="finding-message"><MensajeResaltado texto={problema} /></p>
+        {solucion && (
+          <p className="finding-fix">
+            <IconoSolucion className="finding-fix-icon" />
+            <span><MensajeResaltado texto={solucion} /></span>
+          </p>
+        )}
         <div className="finding-meta">
-          {mostrarLinea && <span>Línea {hallazgo.linea || 1}</span>}
+          {mostrarLinea && <span className="finding-line">Línea {hallazgo.linea || 1}</span>}
           <span>{ORIGENES[origen] ?? origen}</span>
           {hallazgo.regla && hallazgo.regla !== titulo && <code>{hallazgo.regla}</code>}
         </div>
@@ -218,15 +257,11 @@ export function PanelHallazgos({
         acciones={
           <>
             {meta && <span className="results-meta">{meta}</span>}
-            {hayHallazgos && (
-              <span className="count-pill">
-                {hallazgos.length} {hallazgos.length === 1 ? 'hallazgo' : 'hallazgos'}
-              </span>
-            )}
             {hayHallazgos && <BotonCopiar texto={textoTodos} etiqueta="Copiar todo" conTexto />}
           </>
         }
       />
+      {hayHallazgos && <ResumenVeredicto conteo={conteo} total={hallazgos.length} />}
       {hayHallazgos && (
         <FiltrosSeveridad conteo={conteo} total={hallazgos.length} filtro={filtro} onFiltrar={setFiltro} />
       )}

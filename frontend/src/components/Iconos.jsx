@@ -9,6 +9,7 @@ import {
   CircleAlert,
   CircleX,
   CloudUpload,
+  CornerDownRight,
   Copy,
   Database,
   Eraser,
@@ -22,6 +23,7 @@ import {
   OctagonAlert,
   Play,
   RotateCcw,
+  ShieldAlert,
   ShieldCheck,
   Sun,
   TriangleAlert,
@@ -54,6 +56,8 @@ export const IconoCopiado = crearIcono(Check);
 
 // Estados
 export const IconoEscudoCheck = crearIcono(ShieldCheck);
+export const IconoEscudoAlerta = crearIcono(ShieldAlert);
+export const IconoSolucion = crearIcono(CornerDownRight);
 export const IconoBandeja = crearIcono(Inbox);
 export const IconoErrorCirculo = crearIcono(CircleX);
 

@@ -28,3 +28,13 @@ export function ordenarHallazgos(hallazgos = []) {
 export function formatearKb(valor) {
   return valor ? `${Math.round(valor).toLocaleString()} KB` : '--';
 }
+
+/**
+ * Los mensajes siguen el formato "qué pasa. Qué hacer.": se separa la primera
+ * oración (el problema) del resto (la corrección) para mostrarlos por separado.
+ */
+export function separarMensaje(texto) {
+  const corte = texto.search(/(?<=[.?])\s+(?=[A-ZÁÉÍÓÚÑ¿(])/);
+  if (corte < 0) return { problema: texto, solucion: '' };
+  return { problema: texto.slice(0, corte), solucion: texto.slice(corte).trim() };
+}
