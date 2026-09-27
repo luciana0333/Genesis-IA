@@ -186,10 +186,11 @@
  */
 .hero {
   position: relative;
-  padding: 56px 24px 128px;
+  padding: 56px 24px 150px;
   overflow: hidden;
   color: #ffffff;
   background: var(--hero-base);
+  border-radius: 0 0 50% 50% / 0 0 120px 120px;
   isolation: isolate;
 }
 
@@ -350,33 +351,27 @@
   outline-offset: 3px;
 }
 
-/* Foto enmarcada: un marco blanco desplazado detrás y una tarjeta flotante. */
+/* Recorte del analista sin fondo, con una tarjeta flotante. */
 .hero-figura {
   position: relative;
-  margin: 0 0 0 24px;
-  aspect-ratio: 16 / 11;
+  align-self: end;
+  margin: 0 0 -56px 24px;
 }
 
-.hero-marco {
-  position: absolute;
-  inset: 0;
-  border: 2px solid rgba(255, 255, 255, 0.55);
-  border-radius: var(--radius-xl);
-  transform: translate(18px, 18px);
-}
-
+/* Foto: Pexels (licencia libre), pexels.com/photo/7567434, con el fondo recortado. */
 .hero-foto {
-  position: absolute;
-  inset: 0;
-  border-radius: var(--radius-xl);
-  /* Foto: Pexels (licencia libre), pexels.com/photo/7567434 */
-  background: url('../assets/foto-encabezado.jpg') center 30% / cover no-repeat;
-  box-shadow: 0 30px 60px -28px rgba(40, 0, 4, 0.7);
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 24px 30px rgba(60, 0, 6, 0.35));
+  /* El corte inferior (la mesa) se desvanece en lugar de terminar en línea recta. */
+  -webkit-mask-image: linear-gradient(180deg, #000 82%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 82%, transparent 100%);
 }
 
 .hero-tarjeta {
   position: absolute;
-  bottom: -22px;
+  bottom: 28px;
   left: -28px;
   display: flex;
   align-items: center;
@@ -528,6 +523,7 @@
 
   .hero {
     padding: 40px 16px 112px;
+    border-radius: 0 0 50% 50% / 0 0 40px 40px;
   }
 
   .brand-divider,

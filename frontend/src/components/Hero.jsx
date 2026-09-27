@@ -1,3 +1,4 @@
+import fotoAnalista from '../assets/analista-recorte.webp';
 import { IconoBajar, IconoEscudoCheck, IconoPunto } from './Iconos';
 
 const PUNTOS_POR_DEFECTO = [
@@ -16,7 +17,7 @@ function irAlFormulario() {
 
 /**
  * Encabezado de cada pestaña: a la izquierda el título, los puntos clave y la
- * acción principal; a la derecha la foto enmarcada con una tarjeta flotante.
+ * acción principal; a la derecha el analista recortado con una tarjeta flotante.
  */
 export function Hero({ titulo, complemento, descripcion, puntos = PUNTOS_POR_DEFECTO, accion = 'Comenzar revisión' }) {
   return (
@@ -39,8 +40,7 @@ export function Hero({ titulo, complemento, descripcion, puntos = PUNTOS_POR_DEF
         </div>
 
         <figure className="hero-figura" aria-hidden="true">
-          <span className="hero-marco" />
-          <span className="hero-foto" />
+          <img className="hero-foto" src={fotoAnalista} alt="" />
           <span className="hero-tarjeta">
             <span className="hero-tarjeta-icono"><IconoEscudoCheck /></span>
             <span>
