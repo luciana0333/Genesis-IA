@@ -247,12 +247,17 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
 
 
 def _contenido_entre_parentesis(texto: str, apertura: int) -> str:
-    """Texto dentro del paréntesis que abre en `apertura`, respetando los anidados."""
-    profundidad = 0
+    """Texto dentro del paréntesis que abre en `apertura`, respetando anidados y cadenas ('(')."""
+    profundidad, en_cadena = 0, False
     for indice in range(apertura, len(texto)):
-        if texto[indice] == "(":
+        caracter = texto[indice]
+        if caracter == "'":
+            en_cadena = not en_cadena
+        elif en_cadena:
+            continue
+        elif caracter == "(":
             profundidad += 1
-        elif texto[indice] == ")":
+        elif caracter == ")":
             profundidad -= 1
             if profundidad == 0:
                 return texto[apertura + 1:indice]
@@ -260,10 +265,14 @@ def _contenido_entre_parentesis(texto: str, apertura: int) -> str:
 
 
 def _separar_por_comas(contenido: str) -> List[tuple]:
-    """Partes separadas por comas de primer nivel, con su posición."""
-    partes, inicio, profundidad = [], 0, 0
+    """Partes separadas por comas de primer nivel (fuera de paréntesis y cadenas), con su posición."""
+    partes, inicio, profundidad, en_cadena = [], 0, 0, False
     for indice, caracter in enumerate(contenido):
-        if caracter == "(":
+        if caracter == "'":
+            en_cadena = not en_cadena
+        elif en_cadena:
+            continue
+        elif caracter == "(":
             profundidad += 1
         elif caracter == ")":
             profundidad -= 1

@@ -281,6 +281,7 @@ END"""
         hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "REPLACE_ANIDADO_TRANSLATE"]
         self.assertEqual(len(hallazgos), 1)
         self.assertIn("3 REPLACE anidados", hallazgos[0].mensaje)
+        self.assertIn("REPLACE(TRANSLATE(cTelefono, '-()', '|||'), '|', '')", hallazgos[0].mensaje)
         exacto = "SELECT REPLACE(REPLACE(REPLACE(cTexto, 'á', 'a'), 'é', 'e'), 'í', 'i') FROM #T"
         mensaje = [h.mensaje for h in verificar_procedimiento_normal(exacto) if h.regla == "REPLACE_ANIDADO_TRANSLATE"][0]
         self.assertIn("TRANSLATE(cTexto, 'áéí', 'aei')", mensaje)
