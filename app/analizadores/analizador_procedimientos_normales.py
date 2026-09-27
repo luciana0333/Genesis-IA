@@ -205,7 +205,9 @@ def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     declaraciones: Dict[str, int] = {}
     for match in re.finditer(r"\bDECLARE\s+(@[A-Za-z_]\w*)", limpio, re.IGNORECASE):
-        declaraciones[match.group(1).lower()] = match.start(1)
+        # Se conserva el nombre tal como se escribió (@cLista, no @clista).
+        if match.group(1).lower() not in {nombre.lower() for nombre in declaraciones}:
+            declaraciones[match.group(1)] = match.start(1)
     for variable, posicion in declaraciones.items():
         if not re.search(rf"(?<![\w]){re.escape(variable)}\b", limpio[posicion + len(variable):], re.IGNORECASE):
             hallazgos.append(_hallazgo(texto, posicion, "VARIABLE_DECLARADA_SIN_USO", f"La variable {variable} se declara pero no se usa en ninguna parte del procedimiento. Se recomienda "
