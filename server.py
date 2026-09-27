@@ -1,4 +1,6 @@
 import json
+import os
+import sys
 from email.parser import BytesParser
 from email.policy import default
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
@@ -251,7 +253,16 @@ class GenesisHandler(SimpleHTTPRequestHandler):
 
 
 if __name__ == '__main__':
-    server = ThreadingHTTPServer(('0.0.0.0', 8000), GenesisHandler)
+    # En Windows, SO_REUSEADDR deja que dos servidores escuchen el mismo puerto y
+    # el viejo sigue respondiendo en silencio. Sin él, un segundo arranque falla.
+    if os.name == 'nt':
+        ThreadingHTTPServer.allow_reuse_address = False
+    try:
+        server = ThreadingHTTPServer(('0.0.0.0', 8000), GenesisHandler)
+    except OSError:
+        print('El puerto 8000 ya está en uso: Genesis IA probablemente ya está corriendo.')
+        print('Cierre el otro servidor (Ctrl + C en su terminal) y vuelva a iniciar este.')
+        sys.exit(1)
     if not ortografia.disponible():
         print('AVISO: pyspellchecker no está instalado; no se revisará la ortografía de los diccionarios.')
         print('       Instálelo con: python -m pip install -r requirements.txt')
