@@ -210,7 +210,7 @@ def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
     for match in patron.finditer(limpio):
         tabla = _limpiar_nombre(match.group(1))
         hallazgos.append(_hallazgo(
-            texto, match.start(), "CAST_EN_JOIN_PROHIBIDO",
+            texto, match.start(2), "CAST_EN_JOIN_PROHIBIDO",
             f"Se identificó un {match.group(2).upper()} en la condición del JOIN con la tabla {tabla}. Convertir el dato antes del "
             f"JOIN (en una tabla temporal o variable) o unir columnas del mismo tipo, ya que el CAST en la "
             f"condición impide usar los índices y vuelve lenta la consulta.",
@@ -218,13 +218,20 @@ def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+# Cláusulas que indican en qué parte de la sentencia está un COLLATE.
+_CLAUSULAS_COLLATE = re.compile(
+    r"\b(WHERE|ON|HAVING|SELECT|FROM|JOIN|GROUP|ORDER|SET|VALUES|TABLE|DECLARE|RETURNS)\b",
+    re.IGNORECASE,
+)
+
+
 def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
-    for match in re.finditer(r"(?is)(?:^|;|\bGO\b)\s*SELECT\b(?:(?!;|\bGO\b).)*?\bINTO\b\s*([#@]?[\w\[\].]*)", limpio):
-        destino = match.group(1).strip()
+    for match in re.finditer(r"(?is)(?:^|;|\bGO\b)\s*(SELECT)\b(?:(?!;|\bGO\b).)*?\bINTO\b\s*([#@]?[\w\[\].]*)", limpio):
+        destino = match.group(2).strip()
         tabla = f"la tabla {destino}" if destino else "una tabla temporal"
         hallazgos.append(_hallazgo(
-            texto, match.start(), "SELECT_INTO_PROHIBIDO",
+            texto, match.start(1), "SELECT_INTO_PROHIBIDO",
             f"Se identificó que {tabla} se crea con SELECT INTO. Crear primero la tabla con CREATE TABLE, "
             f"indicando sus tipos y COLLATE, y luego llenarla con INSERT INTO seguido del SELECT, ya que así "
             f"se controlan sus tipos de datos.",
@@ -238,13 +245,17 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             f"columnas necesarias, ya que traer columnas de más consume memoria y vuelve más lento el "
             f"procedimiento (ej.: SELECT cNombre, dFecha).",
         ))
-    for match in re.finditer(r"\b(WHERE|ON)\b[^;\n]*?([\w.\[\]@#]+)\s+COLLATE\s+\w+", limpio, re.IGNORECASE):
+    for match in re.finditer(r"([\w.\[\]@#]+)\s+COLLATE\s+\w+", limpio, re.IGNORECASE):
         # La cláusula que manda es la más cercana al COLLATE (puede haber un ON antes del WHERE).
-        ultima = re.findall(r"\b(WHERE|ON)\b", match.group(0), re.IGNORECASE)[-1]
-        clausula = "del JOIN" if ultima.upper() == "ON" else "del WHERE"
+        previo = limpio[:match.start()]
+        clausulas = _CLAUSULAS_COLLATE.findall(previo[previo.rfind(";") + 1:])
+        ultima = clausulas[-1].upper() if clausulas else ""
+        if ultima not in {"WHERE", "ON", "HAVING"}:
+            continue
+        clausula = "del JOIN" if ultima == "ON" else f"del {ultima}"
         hallazgos.append(_hallazgo(
-            texto, match.start(), "COLLATE_EN_PREDICADO",
-            f"Se identificó COLLATE sobre {match.group(2)} en la condición {clausula}. Definir el COLLATE al "
+            texto, match.start(1), "COLLATE_EN_PREDICADO",
+            f"Se identificó COLLATE sobre {match.group(1)} en la condición {clausula}. Definir el COLLATE al "
             f"crear la tabla temporal y no en la condición, ya que en el WHERE o en el JOIN impide usar los "
             f"índices y vuelve lenta la consulta.",
         ))

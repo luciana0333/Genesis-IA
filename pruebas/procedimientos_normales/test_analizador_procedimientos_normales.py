@@ -353,5 +353,19 @@ END CATCH"""
         correcto = "CREATE PROCEDURE dbo.PA_Registro_Sel_EjecucionesDetalle AS SELECT a FROM #T"
         self.assertNotIn("PROCEDIMIENTO_ACCION_SIN_SEPARAR", {h.regla for h in verificar_procedimiento_normal(correcto)})
 
+    def test_linea_es_la_del_elemento_que_causa_el_hallazgo(self):
+        previo = "ALTER PROCEDURE dbo.PA_Cliente_Sel AS\nBEGIN\nDECLARE @n INT = 1;\n"
+        casos = [
+            ("SELECT_INTO_PROHIBIDO", "SELECT a FROM #T WHERE n = @n;\nSELECT a\nINTO #Y\nFROM #T;", 5),
+            ("STUFF_FOR_XML_PATH_PROHIBIDO", "SELECT STUFF((SELECT ',' + c FROM #T\nFOR XML PATH('')), 1, 1, '');", 4),
+            ("COLLATE_EN_PREDICADO", "SELECT a FROM #T\nWHERE n = @n\n  AND c COLLATE SQL_Latin1_General_CP1_CI_AS = 'x';", 6),
+            ("CAST_EN_JOIN_PROHIBIDO", "SELECT a FROM #A a\nJOIN #B b\n  ON CAST(a.n AS INT) = b.n;", 6),
+        ]
+        for regla, cuerpo, esperada in casos:
+            with self.subTest(regla=regla):
+                hallazgos = [h for h in verificar_procedimiento_normal(previo + cuerpo + "\nEND") if h.regla == regla]
+                self.assertTrue(hallazgos)
+                self.assertEqual(hallazgos[0].linea, esperada)
+
 if __name__ == "__main__":
     unittest.main()

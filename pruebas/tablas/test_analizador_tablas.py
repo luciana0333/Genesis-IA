@@ -187,6 +187,12 @@ class TestCatalogo(unittest.TestCase):
         self.assertTrue(emitidas)
         self.assertEqual(emitidas - set(REGLAS_TABLAS), set())
 
+    def test_hallazgos_de_la_tabla_en_la_linea_del_create(self):
+        sql = "-- Tabla de clientes\n\nCREATE TABLE cliente (\n  nId INT\n);"
+        hallazgos = {h.regla: h.linea for h in verificar_tabla(sql)}
+        for regla in ("TABLA_SIN_ESQUEMA", "TABLA_NOMBRE_NO_PASCALCASE", "PK_FALTANTE"):
+            self.assertEqual(hallazgos[regla], 3, regla)
+
 
 if __name__ == "__main__":
     unittest.main()

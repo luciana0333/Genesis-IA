@@ -64,10 +64,16 @@ def _numero_linea(texto: str, posicion: int) -> int:
     return texto.count("\n", 0, posicion) + 1
 
 
+def _posicion_tabla(texto: str) -> int:
+    """Posición del nombre en el CREATE/ALTER TABLE; ahí van los hallazgos de toda la tabla."""
+    coincidencia = re.search(r"\b(?:CREATE|ALTER)\s+TABLE\s+(\S)", texto, re.IGNORECASE)
+    return coincidencia.start(1) if coincidencia else 0
+
+
 def _hallazgo(texto: str, posicion: int, regla: str, mensaje: str) -> Hallazgo:
     """Hallazgo con la severidad definida en el catálogo de reglas."""
     return Hallazgo(
-        linea=_numero_linea(texto, posicion) if posicion >= 0 else 1,
+        linea=_numero_linea(texto, posicion if posicion >= 0 else _posicion_tabla(texto)),
         origen=OrigenAnalisis.REGLAS_ESTATICAS,
         severidad=Severidad(REGLAS_TABLAS[regla].severidad),
         regla=regla,

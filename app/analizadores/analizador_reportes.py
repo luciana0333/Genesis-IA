@@ -196,7 +196,7 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     reglas = [
         (
-            r"(?is)(?:^|;|\bGO\b)\s*SELECT\b(?:(?!;|\bGO\b).)*?\bINTO\b",
+            r"(?is)(?:^|;|\bGO\b)\s*(?P<pos>SELECT)\b(?:(?!;|\bGO\b).)*?\bINTO\b",
             "SELECT_INTO_PROHIBIDO",
             "Se crea una tabla temporal con SELECT INTO. Crear primero la tabla con CREATE TABLE y luego "
             "llenarla con INSERT INTO seguido del SELECT, ya que así se controlan sus tipos de datos.",
@@ -207,7 +207,9 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     ]
     for patron, regla, mensaje in reglas:
         for match in re.finditer(patron, limpio, re.IGNORECASE):
-            hallazgos.append(_hallazgo(texto, match.start(), regla, mensaje))
+            # Si el patrón marca con "pos" el elemento que causa el hallazgo, la línea es la suya.
+            posicion = match.start("pos") if "pos" in match.re.groupindex else match.start()
+            hallazgos.append(_hallazgo(texto, posicion, regla, mensaje))
     return hallazgos
 
 
@@ -441,8 +443,11 @@ def _validar_funciones_reemplazables(texto: str, limpio: str) -> List[Hallazgo]:
     for match in re.finditer(r"\bFOR\s+XML\s+PATH\s*\(\s*(?:''|\"\")\s*\)", limpio, re.IGNORECASE):
         con_stuff = re.search(r"\bSTUFF\s*\(", _sentencia(limpio, match.start()), re.IGNORECASE)
         forma = "FOR XML PATH y STUFF" if con_stuff else "FOR XML PATH"
+        inicio = limpio.rfind(";", 0, match.start()) + 1
+        stuff_previos = list(re.finditer(r"\bSTUFF\s*\(", limpio[inicio:match.start()], re.IGNORECASE))
+        posicion = inicio + stuff_previos[-1].start() if stuff_previos else match.start()
         hallazgos.append(_hallazgo(
-            texto, match.start(), "STUFF_FOR_XML_PATH_PROHIBIDO",
+            texto, posicion, "STUFF_FOR_XML_PATH_PROHIBIDO",
             f"Se concatenan valores con {forma}. Se recomienda usar STRING_AGG, ya que concatena los "
             f"valores con su separador de forma más simple (ej.: STRING_AGG(Nombre, ',')).",
         ))
