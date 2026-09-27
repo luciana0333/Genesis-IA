@@ -322,29 +322,20 @@
   isolation: isolate;
 }
 
-/* Disco sólido con un anillo fino, ambos centrados en el analista. */
-.hero-figura::before,
-.hero-figura::after {
+/* Halo de luz suave, sin bordes, detrás del analista: lo separa del fondo
+   sin agregar formas. */
+.hero-figura::before {
   content: '';
   position: absolute;
-  top: 50%;
-  left: 46%;
+  top: 46%;
+  left: 44%;
   z-index: -1;
+  width: 120%;
   aspect-ratio: 1;
   border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.1) 45%, rgba(255, 255, 255, 0) 100%);
   transform: translate(-50%, -50%);
   pointer-events: none;
-}
-
-.hero-figura::before {
-  width: 82%;
-  /* Rojo sólido apenas más profundo que el fondo: tapa la textura y enmarca a la persona. */
-  background: linear-gradient(160deg, #d20b1a 0%, #c4000f 100%);
-}
-
-.hero-figura::after {
-  width: 96%;
-  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 /* Foto: Pexels (licencia libre), pexels.com/photo/7567434, con el fondo recortado. */
