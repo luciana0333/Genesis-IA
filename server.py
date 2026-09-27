@@ -63,12 +63,14 @@ class GenesisHandler(SimpleHTTPRequestHandler):
             return
 
         tipo = (payload.get('tipoRevision') or 'tabla').strip()
-        sql_text = (payload.get('sqlObject') or '').strip()
-        dict_text = (payload.get('dictScript') or '').strip()
+        # Sin .strip(): quitar las líneas en blanco del inicio correría los
+        # números de línea de los hallazgos respecto a lo que ve el usuario.
+        sql_text = payload.get('sqlObject') or ''
+        dict_text = payload.get('dictScript') or ''
         es_dbcmaica = bool(payload.get('esDbcmaica', False))
         modo_revision = (payload.get('modoRevision') or 'diccionario').strip()
 
-        if not sql_text:
+        if not sql_text.strip():
             self._send_json({'error': 'Debes completar el SQL del objeto.'}, status=400)
             return
 
