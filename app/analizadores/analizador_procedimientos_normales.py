@@ -44,15 +44,56 @@ def _es_temporal(nombre: str) -> bool:
     return nombre.strip("[]").startswith("#")
 
 
+_REFERENCIA = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
+
+
+def _limpiar_nombre(nombre: str) -> str:
+    return re.sub(r"\s*\.\s*", ".", nombre.strip())
+
+
+def _tabla_del_from(limpio: str, posicion: int) -> str:
+    """Primera tabla del FROM de la sentencia que empieza en `posicion`."""
+    fin = limpio.find(";", posicion)
+    tramo = limpio[posicion:fin if fin >= 0 else len(limpio)]
+    encontrado = re.search(rf"\bFROM\s+({_REFERENCIA})", tramo, re.IGNORECASE)
+    return _limpiar_nombre(encontrado.group(1)) if encontrado else ""
+
+
+def _nombre_declarado_antes(limpio: str, posicion: int) -> str:
+    """Variable o columna declarada justo antes de un tipo (ej.: @doc VARBINARY)."""
+    encontrado = re.search(r"(@?[A-Za-z_]\w*)\s+$", limpio[:posicion])
+    if encontrado and encontrado.group(1).upper() not in {"AS", "CAST", "CONVERT", "DECLARE", "TABLE"}:
+        return encontrado.group(1)
+    return ""
+
+
 def _validar_control_flujo(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
-    for patron, regla, mensaje in (
-        (r"\bWHILE\b", "WHILE_PROHIBIDO", "Se identificó un bucle WHILE en el procedimiento. Evaluar otras formas de resolverlo sin WHILE (por ejemplo, una sola consulta que trabaje con todos los registros), ya que procesa los registros uno por uno, vuelve lento el procedimiento y puede quedar en un bucle infinito."),
-        (r"\bGOTO\b", "GOTO_PROHIBIDO", "Se identificó una instrucción GOTO, que salta a otra parte del código y hace difícil seguir su lógica. Reemplazarla por estructuras IF/ELSE o por un bloque TRY/CATCH, ya que así el flujo del procedimiento queda claro y fácil de mantener."),
-        (r"\bMERGE\b", "MERGE_PROHIBIDO", "Se identificó una sentencia MERGE, que inserta, actualiza y elimina en una sola instrucción. Reemplazarla por sentencias INSERT, UPDATE y DELETE separadas, ya que MERGE tiene errores conocidos en SQL Server y dificulta controlar cada operación."),
-    ):
-        for match in re.finditer(patron, limpio, re.IGNORECASE):
-            hallazgos.append(_hallazgo(texto, match.start(), regla, mensaje))
+    for match in re.finditer(r"\bWHILE\b\s*([^\n]*)", limpio, re.IGNORECASE):
+        condicion = re.split(r"\bBEGIN\b", match.group(1), flags=re.IGNORECASE)[0].strip()[:60]
+        cual = f" (WHILE {condicion})" if condicion else ""
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "WHILE_PROHIBIDO",
+            f"Se identificó un bucle WHILE{cual} en el procedimiento. Evaluar otras formas de resolverlo "
+            f"sin WHILE (por ejemplo, una sola consulta que trabaje con todos los registros), ya que procesa "
+            f"los registros uno por uno, vuelve lento el procedimiento y puede quedar en un bucle infinito.",
+        ))
+    for match in re.finditer(r"\bGOTO\b\s*(\w*)", limpio, re.IGNORECASE):
+        etiqueta = f" hacia la etiqueta {match.group(1)}" if match.group(1) else ""
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "GOTO_PROHIBIDO",
+            f"Se identificó una instrucción GOTO{etiqueta}, que salta a otra parte del código y hace difícil "
+            f"seguir su lógica. Reemplazarla por estructuras IF/ELSE o por un bloque TRY/CATCH, ya que así el "
+            f"flujo del procedimiento queda claro y fácil de mantener.",
+        ))
+    for match in re.finditer(rf"\bMERGE\b(?:\s+(?:TOP\s*\([^)]*\)\s*)?(?:INTO\s+)?({_REFERENCIA}))?", limpio, re.IGNORECASE):
+        tabla = f" sobre la tabla {_limpiar_nombre(match.group(1))}" if match.group(1) else ""
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "MERGE_PROHIBIDO",
+            f"Se identificó una sentencia MERGE{tabla}, que inserta, actualiza y elimina en una sola "
+            f"instrucción. Reemplazarla por sentencias INSERT, UPDATE y DELETE separadas, ya que MERGE tiene "
+            f"errores conocidos en SQL Server y dificulta controlar cada operación.",
+        ))
     return hallazgos
 
 
@@ -119,14 +160,13 @@ def _validar_temporales(texto: str, limpio: str) -> List[Hallazgo]:
 
 def _validar_order_by_numerico(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
-    for match in re.finditer(r"\bORDER\s+BY\s+\d+(?:\s*,\s*\d+)*", limpio, re.IGNORECASE):
+    for match in re.finditer(r"\bORDER\s+BY\s+(\d+(?:\s*,\s*\d+)*)", limpio, re.IGNORECASE):
+        posiciones = ", ".join(re.findall(r"\d+", match.group(1)))
         hallazgos.append(_hallazgo(
-            texto,
-            match.start(),
-            "ORDER_BY_NUMERICO_PROHIBIDO",
-            "Se identificó un ORDER BY por posición de columna (por ejemplo, ORDER BY 1). Se recomienda "
-            "escribir el nombre de la columna, ya que si cambia el SELECT el orden cambiaría sin notarlo "
-            "(ej.: ORDER BY cNombre).",
+            texto, match.start(), "ORDER_BY_NUMERICO_PROHIBIDO",
+            f"Se identificó un ORDER BY por posición de columna (ORDER BY {posiciones}). Se recomienda escribir "
+            f"el nombre de la columna, ya que si cambia el SELECT el orden cambiaría sin notarlo "
+            f"(ej.: ORDER BY cNombre).",
         ))
     return hallazgos
 
@@ -134,34 +174,75 @@ def _validar_order_by_numerico(texto: str, limpio: str) -> List[Hallazgo]:
 def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     patron = re.compile(
-        r"\bJOIN\b.*?\bON\b(?:(?!\bJOIN\b|\bWHERE\b|\bGROUP\s+BY\b|\bORDER\s+BY\b|;).)*CAST\s*\(",
+        rf"\bJOIN\s+({_REFERENCIA}).*?\bON\b(?:(?!\bJOIN\b|\bWHERE\b|\bGROUP\s+BY\b|\bORDER\s+BY\b|;).)*CAST\s*\(",
         re.IGNORECASE | re.DOTALL,
     )
     for match in patron.finditer(limpio):
+        tabla = _limpiar_nombre(match.group(1))
         hallazgos.append(_hallazgo(
-            texto,
-            match.start(),
-            "CAST_EN_JOIN_PROHIBIDO",
-            "Se identificó un CAST dentro de la condición del JOIN. Convertir el dato antes del JOIN (en una "
-            "tabla temporal o variable) o unir columnas del mismo tipo, ya que el CAST en la condición impide "
-            "usar los índices y vuelve lenta la consulta.",
+            texto, match.start(), "CAST_EN_JOIN_PROHIBIDO",
+            f"Se identificó un CAST en la condición del JOIN con la tabla {tabla}. Convertir el dato antes del "
+            f"JOIN (en una tabla temporal o variable) o unir columnas del mismo tipo, ya que el CAST en la "
+            f"condición impide usar los índices y vuelve lenta la consulta.",
         ))
     return hallazgos
 
 
 def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
-    reglas = (
-        (r"(?is)(?:^|;|\bGO\b)\s*SELECT\b(?:(?!;|\bGO\b).)*?\bINTO\b", "SELECT_INTO_PROHIBIDO", "Se identificó una tabla temporal creada con SELECT INTO. Crear primero la tabla con CREATE TABLE, indicando sus tipos y COLLATE, y luego llenarla con INSERT INTO seguido del SELECT, ya que así se controlan sus tipos de datos."),
-        (r"\bSELECT\s+(?:DISTINCT\s+)?\*", "SELECT_ESTRELLA_PROHIBIDO", "Se identificó un SELECT *, que trae todas las columnas de la tabla. Se recomienda escribir solo las columnas necesarias, ya que traer columnas de más consume memoria y vuelve más lento el procedimiento (ej.: SELECT cNombre, dFecha)."),
-        (r"\b(?:WHERE|ON)\b[^;\n]*(?:COLLATE\s+\w+)", "COLLATE_EN_PREDICADO", "Se identificó COLLATE en una condición del WHERE o del JOIN. Definir el COLLATE al crear la tabla temporal y no en la condición, ya que en el WHERE o en el JOIN impide usar los índices y vuelve lenta la consulta."),
-        (r"\bSTUFF\s*\([\s\S]*?\bFOR\s+XML\s+PATH\b", "STUFF_FOR_XML_PATH_PROHIBIDO", "Se identificó una concatenación con STUFF y FOR XML PATH. Reemplazarla por STRING_AGG, ya que es la función nativa para concatenar valores y es más simple y rápida (ej.: STRING_AGG(cNombre, ','))."),
-        (r"\b(?:dbo\.)?FN_SPLIT\s*\(", "FN_SPLIT_PROHIBIDO", "Se identificó la función dbo.FN_SPLIT para dividir textos. Reemplazarla por STRING_SPLIT, ya que es la función nativa de SQL Server y mejora el rendimiento (ej.: SELECT value FROM STRING_SPLIT('Juan,Pedro', ','))."),
-        (r"\bLTRIM\s*\([\s\S]*?\bRTRIM\s*\(", "LTRIM_RTRIM_PROHIBIDO", "Se identificó la combinación de LTRIM y RTRIM para quitar espacios. Se recomienda usar TRIM, ya que hace lo mismo en una sola función (ej.: TRIM(cNombre))."),
-    )
     hallazgos = []
-    for patron, regla, mensaje in reglas:
-        for match in re.finditer(patron, limpio, re.IGNORECASE):
-            hallazgos.append(_hallazgo(texto, match.start(), regla, mensaje))
+    for match in re.finditer(r"(?is)(?:^|;|\bGO\b)\s*SELECT\b(?:(?!;|\bGO\b).)*?\bINTO\b\s*([#@]?[\w\[\].]*)", limpio):
+        destino = match.group(1).strip()
+        tabla = f"la tabla {destino}" if destino else "una tabla temporal"
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "SELECT_INTO_PROHIBIDO",
+            f"Se identificó que {tabla} se crea con SELECT INTO. Crear primero la tabla con CREATE TABLE, "
+            f"indicando sus tipos y COLLATE, y luego llenarla con INSERT INTO seguido del SELECT, ya que así "
+            f"se controlan sus tipos de datos.",
+        ))
+    for match in re.finditer(r"\bSELECT\s+(?:DISTINCT\s+)?\*", limpio, re.IGNORECASE):
+        tabla = _tabla_del_from(limpio, match.start())
+        sobre = f" sobre la tabla {tabla}" if tabla else ""
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "SELECT_ESTRELLA_PROHIBIDO",
+            f"Se identificó un SELECT *{sobre}, que trae todas sus columnas. Se recomienda escribir solo las "
+            f"columnas necesarias, ya que traer columnas de más consume memoria y vuelve más lento el "
+            f"procedimiento (ej.: SELECT cNombre, dFecha).",
+        ))
+    for match in re.finditer(r"\b(WHERE|ON)\b[^;\n]*?([\w.\[\]@#]+)\s+COLLATE\s+\w+", limpio, re.IGNORECASE):
+        # La cláusula que manda es la más cercana al COLLATE (puede haber un ON antes del WHERE).
+        ultima = re.findall(r"\b(WHERE|ON)\b", match.group(0), re.IGNORECASE)[-1]
+        clausula = "del JOIN" if ultima.upper() == "ON" else "del WHERE"
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "COLLATE_EN_PREDICADO",
+            f"Se identificó COLLATE sobre {match.group(2)} en la condición {clausula}. Definir el COLLATE al "
+            f"crear la tabla temporal y no en la condición, ya que en el WHERE o en el JOIN impide usar los "
+            f"índices y vuelve lenta la consulta.",
+        ))
+    for match in re.finditer(r"\bSTUFF\s*\([\s\S]*?\bFOR\s+XML\s+PATH\b", limpio, re.IGNORECASE):
+        tabla = _tabla_del_from(limpio, match.start())
+        sobre = f" sobre la tabla {tabla}" if tabla else ""
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "STUFF_FOR_XML_PATH_PROHIBIDO",
+            f"Se identificó una concatenación con STUFF y FOR XML PATH{sobre}. Reemplazarla por STRING_AGG, "
+            f"ya que es la función nativa para concatenar valores y es más simple y rápida "
+            f"(ej.: STRING_AGG(cNombre, ',')).",
+        ))
+    for match in re.finditer(r"\b(?:dbo\.)?FN_SPLIT\s*\(\s*([^,)]*)", limpio, re.IGNORECASE):
+        dato = match.group(1).strip()
+        sobre = f" para dividir {dato}" if dato.startswith("@") else " para dividir textos"
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "FN_SPLIT_PROHIBIDO",
+            f"Se identificó la función dbo.FN_SPLIT{sobre}. Reemplazarla por STRING_SPLIT, ya que es la "
+            f"función nativa de SQL Server y mejora el rendimiento (ej.: SELECT value FROM "
+            f"STRING_SPLIT(@cLista, ',')).",
+        ))
+    for match in re.finditer(r"\b(LTRIM\s*\(\s*RTRIM|RTRIM\s*\(\s*LTRIM)\s*\(\s*([^()]*?)\s*\)\s*\)", limpio, re.IGNORECASE):
+        dato = match.group(2) or "cNombre"
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "LTRIM_RTRIM_PROHIBIDO",
+            f"Se identificó la combinación de LTRIM y RTRIM sobre {dato} para quitar espacios. Se recomienda "
+            f"usar TRIM, ya que hace lo mismo en una sola función (ej.: TRIM({dato})).",
+        ))
     return hallazgos
 
 
@@ -432,13 +513,30 @@ def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
 
 
 def _validar_sintaxis_prohibida(texto: str, limpio: str) -> List[Hallazgo]:
-    reglas = (
-        (_CATALOGO_SISTEMA, "CATALOGO_SISTEMA_PROHIBIDO", "Se identificó una consulta a tablas internas de SQL Server (sys). Consultar solo las tablas del negocio, ya que un procedimiento no debe depender de las tablas internas del motor."),
-        (_SQL_DINAMICO, "SQL_DINAMICO_PROHIBIDO", "Se identificó una consulta armada como texto y ejecutada con EXEC o sp_executesql (SQL dinámico). Escribir la consulta directamente y usar parámetros para los filtros, ya que el SQL dinámico es difícil de revisar y puede permitir ataques de inyección de SQL."),
-        (r"\bVARBINARY(?:\s*\(\s*(?:MAX|\d+)\s*\))?", "VARBINARY_DOCUMENTO_IDENTIFICADO", "Se identificó un tipo de dato VARBINARY, que guarda archivos dentro de la base de datos. Se recomienda evaluar si es necesario, ya que lo ideal es guardar el archivo fuera de la base de datos y registrar solo su ruta."),
-    )
     hallazgos = []
-    for patron, regla, mensaje in reglas:
-        for match in re.finditer(patron, limpio, re.IGNORECASE):
-            hallazgos.append(_hallazgo(texto, match.start(), regla, mensaje))
+    for match in re.finditer(_CATALOGO_SISTEMA, limpio, re.IGNORECASE):
+        objeto = _limpiar_nombre(match.group(0))
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "CATALOGO_SISTEMA_PROHIBIDO",
+            f"Se identificó una consulta a {objeto}, una tabla interna de SQL Server. Consultar solo las "
+            f"tablas del negocio, ya que un procedimiento no debe depender de las tablas internas del motor.",
+        ))
+    for match in re.finditer(_SQL_DINAMICO, limpio, re.IGNORECASE):
+        variable = re.search(r"@\w+", limpio[match.start():match.start() + 80])
+        guardada = f" guardada en {variable.group(0)}" if variable else ""
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "SQL_DINAMICO_PROHIBIDO",
+            f"Se identificó SQL dinámico: la consulta{guardada} se arma como texto y se ejecuta con EXEC o "
+            f"sp_executesql. Escribir la consulta directamente y usar parámetros para los filtros, ya que el "
+            f"SQL dinámico es difícil de revisar y puede permitir ataques de inyección de SQL.",
+        ))
+    for match in re.finditer(r"\bVARBINARY(?:\s*\(\s*(?:MAX|\d+)\s*\))?", limpio, re.IGNORECASE):
+        nombre = _nombre_declarado_antes(limpio, match.start())
+        en = f" en {nombre}" if nombre else ""
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "VARBINARY_DOCUMENTO_IDENTIFICADO",
+            f"Se identificó un tipo de dato VARBINARY{en}, que guarda archivos dentro de la base de datos. Se "
+            f"recomienda evaluar si es necesario, ya que lo ideal es guardar el archivo fuera de la base de "
+            f"datos y registrar solo su ruta.",
+        ))
     return hallazgos

@@ -180,5 +180,17 @@ END"""
                 self.assertFalse({r for r in reglas if r.startswith("PROCEDIMIENTO_")})
 
 
+    def test_los_mensajes_indican_el_objeto(self):
+        sql = """ALTER PROCEDURE dbo.PA_Cliente_Upd AS
+BEGIN
+SELECT * FROM dbo.TB_Estado;
+SELECT * FROM #TMP_Clientes t;
+SELECT a.x FROM #A a INNER JOIN dbo.B b ON a.n = b.n WHERE a.cNombre COLLATE SQL_Latin1_General_CP1_CI_AS = 'x';
+END"""
+        hallazgos = {h.regla: h.mensaje for h in verificar_procedimiento_normal(sql)}
+        self.assertIn("sobre la tabla dbo.TB_Estado", hallazgos["SELECT_ESTRELLA_PROHIBIDO"])
+        self.assertIn("sobre la tabla #TMP_Clientes", hallazgos["SELECT_ESTRELLA_PROHIBIDO"])
+        self.assertIn("sobre a.cNombre en la condición del WHERE", hallazgos["COLLATE_EN_PREDICADO"])
+
 if __name__ == "__main__":
     unittest.main()
