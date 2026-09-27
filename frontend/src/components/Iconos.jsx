@@ -16,11 +16,8 @@ import {
   Database,
   Eraser,
   FileCode2,
-  Gauge,
   Inbox,
   Info,
-  ListChecks,
-  MemoryStick,
   Moon,
   OctagonAlert,
   Play,
@@ -29,7 +26,6 @@ import {
   ShieldCheck,
   Sun,
   TriangleAlert,
-  Workflow,
   X,
 } from 'lucide-react';
 
@@ -70,10 +66,6 @@ export const IconoSeveridadMedia = crearIcono(CircleAlert);
 export const IconoSeveridadBaja = crearIcono(Info);
 
 // Métricas del plan de ejecución
-export const IconoRejilla = crearIcono(Workflow);
-export const IconoMemoria = crearIcono(MemoryStick);
-export const IconoBarras = crearIcono(Gauge);
-export const IconoHallazgo = crearIcono(ListChecks);
 
 // Encabezado
 export const IconoPunto = crearIcono(CircleCheck);

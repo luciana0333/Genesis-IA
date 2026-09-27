@@ -1,7 +1,7 @@
 /* ───────── RESUMEN DE MÉTRICAS ─────────
  * Un solo panel blanco sin borde exterior, destacado con luz suave arriba y
- * sombra amplia; cuatro celdas separadas por líneas tenues. Íconos de línea
- * en rojo de marca, sin cajas.
+ * sombra amplia; cuatro celdas separadas por líneas tenues. Sin íconos: un
+ * punto del color de la severidad junto al nombre.
  */
 .metrics-grid {
   display: grid;
@@ -29,9 +29,9 @@
 .metric-card {
   position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 26px 26px 24px;
+  flex-direction: column;
+  min-width: 0;
+  padding: 24px 28px;
   transition: background-color var(--dur) var(--ease);
 }
 
@@ -65,35 +65,35 @@
   transform: scaleX(1);
 }
 
-.metric-icon {
-  flex-shrink: 0;
-  color: var(--metric-icon);
-}
-
-.metric-icon svg {
-  width: 30px;
-  height: 30px;
-  stroke-width: 1.4;
-}
-
-.metric-body {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
+.metric-card.sev-critico { --metric-punto: var(--sev-critico); }
+.metric-card.sev-alto { --metric-punto: var(--sev-alto); }
+.metric-card.sev-medio { --metric-punto: var(--sev-medio); }
+.metric-card.sev-bajo { --metric-punto: var(--sev-bajo); }
 
 .metric-title {
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  font-weight: 500;
+}
+
+.metric-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--metric-punto);
 }
 
 .metric-value {
-  margin: 6px 0 2px;
+  margin: 10px 0 4px;
   color: var(--metric-value);
-  font-size: 1.7rem;
-  font-weight: 600;
-  line-height: 1.15;
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
@@ -119,8 +119,6 @@
 
 @media (max-width: 480px) {
   .metric-card {
-    flex-direction: column;
-    gap: 10px;
     padding: 18px;
   }
 

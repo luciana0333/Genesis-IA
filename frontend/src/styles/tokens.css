@@ -73,7 +73,6 @@
 
   /* Resumen de métricas */
   --metric-value: #1d1d24;
-  --metric-icon: var(--red-main);
 
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --dur-fast: 150ms;
@@ -126,5 +125,4 @@
   --hero-base: #9a0c24;
 
   --metric-value: #f1f1f4;
-  --metric-icon: #f0566a;
 }

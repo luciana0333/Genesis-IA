@@ -1,7 +1,7 @@
 import { useId, useRef } from 'react';
 import { Boton } from '../../components/Boton';
 import { EncabezadoSeccion } from '../../components/EncabezadoSeccion';
-import { IconoBarras, IconoEjecutar, IconoHallazgo, IconoLimpiar, IconoMemoria, IconoRejilla } from '../../components/Iconos';
+import { IconoEjecutar, IconoLimpiar } from '../../components/Iconos';
 import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { TarjetaMetrica } from '../../components/TarjetaMetrica';
@@ -23,25 +23,21 @@ function MetricasPlan({ analisis }) {
         titulo="Operadores"
         valor={analisis?.operadores?.length || 0}
         subtitulo="Nodos analizados"
-        icono={<IconoRejilla />}
       />
       <TarjetaMetrica
         titulo="Memoria concedida"
         valor={formatearKb(memoria?.concedidaKb)}
         subtitulo="Reserva del plan"
-        icono={<IconoMemoria />}
       />
       <TarjetaMetrica
         titulo="Memoria utilizada"
         valor={formatearKb(memoria?.maximaUtilizadaKb)}
         subtitulo={uso === undefined ? 'Máximo utilizado' : `Máximo utilizado · ${Math.round(uso * 100)}% de lo concedido`}
-        icono={<IconoBarras />}
       />
       <TarjetaMetrica
         titulo="Hallazgos"
         valor={analisis?.hallazgos?.length || 0}
         subtitulo="Observaciones del plan"
-        icono={<IconoHallazgo />}
       />
     </section>
   );
