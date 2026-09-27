@@ -59,7 +59,7 @@ export function AuditoriaWorkspace({ vista }) {
 
   return (
     <section className="workspace">
-      <MetricasSeveridad conteo={conteo} subtitulos={vista.resultados.subtitulos} />
+      <MetricasSeveridad conteo={conteo} />
 
       <section className="panel">
         <div className="panel-header">

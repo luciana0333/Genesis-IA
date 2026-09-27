@@ -126,3 +126,115 @@
     font-size: 1.45rem;
   }
 }
+
+/* ───────── RESUMEN POR SEVERIDAD ─────────
+ * Total de hallazgos, barra de proporción por severidad y desglose. Mismo
+ * panel sin borde, con luz arriba y sombra amplia, que el de métricas.
+ */
+.resumen {
+  margin-bottom: 28px;
+  padding: 22px 28px 24px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfbfd 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    0 1px 2px rgba(17, 17, 26, 0.04),
+    0 12px 32px -8px rgba(17, 17, 26, 0.12),
+    0 32px 64px -32px rgba(17, 17, 26, 0.18);
+}
+
+:root[data-theme="dark"] .resumen {
+  background: linear-gradient(180deg, #1c1c23 0%, #17171d 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 12px 32px -8px rgba(0, 0, 0, 0.5),
+    0 32px 64px -32px rgba(0, 0, 0, 0.7);
+}
+
+.resumen .sev-critico { --resumen-tono: var(--sev-critico); }
+.resumen .sev-alto { --resumen-tono: var(--sev-alto); }
+.resumen .sev-medio { --resumen-tono: var(--sev-medio); }
+.resumen .sev-bajo { --resumen-tono: var(--sev-bajo); }
+
+.resumen-total {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.resumen-total strong {
+  color: var(--metric-value);
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.resumen-total span {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.resumen-barra {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  margin: 16px 0 18px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--bg-subtle);
+}
+
+.resumen-segmento {
+  height: 100%;
+  background: var(--resumen-tono);
+  transition: width var(--dur) var(--ease);
+}
+
+.resumen-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.resumen-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.resumen-nombre {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  font-weight: 500;
+}
+
+.resumen-punto {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--resumen-tono);
+}
+
+.resumen-cifra {
+  padding-left: 16px;
+  color: var(--metric-value);
+  font-size: 1.35rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .resumen {
+    padding: 18px;
+  }
+
+  .resumen-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

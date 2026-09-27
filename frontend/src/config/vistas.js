@@ -18,7 +18,6 @@ export const VISTAS = [
     resultados: {
       titulo: 'Hallazgos del diccionario',
       nombre: 'Diccionarios',
-      subtitulos: ['Errores de estructura', 'Inconsistencias de documentación', 'Faltas de documentación', 'Sugerencias menores'],
     },
   },
   {
@@ -34,7 +33,6 @@ export const VISTAS = [
     resultados: {
       titulo: 'Hallazgos de la tabla',
       nombre: 'Tablas',
-      subtitulos: ['Errores de estructura', 'Reglas de diseño', 'Tipos y nulabilidad', 'Sugerencias menores'],
     },
   },
   {
@@ -49,7 +47,6 @@ export const VISTAS = [
     resultados: {
       titulo: 'Hallazgos del reporte',
       nombre: 'Reportes',
-      subtitulos: ['Riesgos críticos', 'Inconsistencias de consulta', 'Buenas prácticas', 'Sugerencias menores'],
     },
   },
   {
@@ -64,7 +61,6 @@ export const VISTAS = [
     resultados: {
       titulo: 'Hallazgos del procedimiento',
       nombre: 'Procedimientos',
-      subtitulos: ['Riesgos críticos', 'Reglas incumplidas', 'Buenas prácticas', 'Sugerencias menores'],
     },
   },
   {
