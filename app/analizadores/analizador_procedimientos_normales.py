@@ -393,6 +393,34 @@ def _en_pascal(parte: str) -> str:
     return parte[0].upper() + parte[1:]
 
 
+# Acción estándar pegada a la finalidad sin "_": SelEjecucionesDetalle, ConsultarDatos.
+_ACCION_PEGADA = re.compile(
+    r"(Sel|Upd|Ins|Del|Consultar|Actualizar|Insertar|Eliminar|Select|Update|Insert|Delete)([A-Z]\w*)$"
+)
+_ABREVIATURA_ACCION = {
+    "sel": "Sel", "upd": "Upd", "ins": "Ins", "del": "Del",
+    "consultar": "Sel", "select": "Sel", "actualizar": "Upd", "update": "Upd",
+    "insertar": "Ins", "insert": "Ins", "eliminar": "Del", "delete": "Del",
+}
+
+
+def _hallazgo_accion_pegada(texto: str, posicion: int, nombre: str, segmentos: List[str]):
+    """Hallazgo si la acción va pegada a la finalidad (PA_Tabla_SelFinalidad); si no, None."""
+    if len(segmentos) < 3:
+        return None
+    pegada = _ACCION_PEGADA.match(segmentos[2])
+    if not pegada:
+        return None
+    accion = _ABREVIATURA_ACCION[pegada.group(1).lower()]
+    sugerido = "_".join(["PA", segmentos[1], accion, pegada.group(2)] + [x for x in segmentos[3:] if x])
+    return _hallazgo(
+        texto, posicion, "PROCEDIMIENTO_ACCION_SIN_SEPARAR",
+        f"En el nombre {nombre}, la acción {pegada.group(1)} está pegada a la finalidad "
+        f"({segmentos[2]}). Separar la acción con un guion bajo, ya que el formato es "
+        f"PA_Tabla_Acción_Finalidad (ej.: {sugerido}).",
+    )
+
+
 def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
     """Nomenclatura: Esquema.PA_Tabla_Acción_Finalidad (en un ALTER solo el esquema)."""
     match = re.search(
@@ -436,6 +464,11 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
             f"PA_Tabla_Acción_Finalidad, ya que así se entiende qué hace el procedimiento "
             f"(ej.: {_EJEMPLO_NOMBRE}).",
         ))
+        return hallazgos
+
+    pegada = _hallazgo_accion_pegada(texto, posicion, nombre, segmentos)
+    if pegada:
+        hallazgos.append(pegada)
         return hallazgos
 
     tabla, accion, finalidad = segmentos[1], segmentos[2], [parte for parte in segmentos[3:] if parte]

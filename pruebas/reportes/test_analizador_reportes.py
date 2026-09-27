@@ -299,5 +299,19 @@ class TestAnalizadorReportes(unittest.TestCase):
         con_esquema = "CREATE PROCEDURE dbo.Registro_SelEjecucionesDetalle AS SELECT a FROM #T"
         self.assertNotIn("PROCEDIMIENTO_SIN_ESQUEMA", {h.regla for h in verificar_reporte(con_esquema)})
 
+    def test_accion_pegada_a_la_finalidad(self):
+        casos = {
+            "PA_Registro_SelEjecucionesDetalle": "PA_Registro_Sel_EjecucionesDetalle",
+            "PA_Cliente_ConsultarDatos": "PA_Cliente_Sel_Datos",
+        }
+        for nombre, sugerido in casos.items():
+            with self.subTest(nombre=nombre):
+                hallazgos = [h for h in verificar_reporte(f"CREATE PROCEDURE dbo.{nombre} AS SELECT a FROM #T")
+                             if h.regla == "PROCEDIMIENTO_ACCION_SIN_SEPARAR"]
+                self.assertEqual(len(hallazgos), 1)
+                self.assertIn(sugerido, hallazgos[0].mensaje)
+        correcto = "CREATE PROCEDURE dbo.PA_Registro_Sel_EjecucionesDetalle AS SELECT a FROM #T"
+        self.assertNotIn("PROCEDIMIENTO_ACCION_SIN_SEPARAR", {h.regla for h in verificar_reporte(correcto)})
+
 if __name__ == "__main__":
     unittest.main()

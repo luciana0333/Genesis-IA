@@ -180,6 +180,14 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "PROCEDIMIENTO_ACCION_SIN_SEPARAR": ReglaDiccionario(
+        codigo="PROCEDIMIENTO_ACCION_SIN_SEPARAR",
+        nombre="Acción sin separar",
+        severidad="alto",
+        descripcion="En PA_Tabla_Acción_Finalidad la acción va separada con guion bajo (PA_Registro_Sel_Ejecuciones).",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "WHILE_PROHIBIDO": ReglaDiccionario(
         codigo="WHILE_PROHIBIDO",
         nombre="WHILE prohibido",

@@ -140,6 +140,14 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "PROCEDIMIENTO_ACCION_SIN_SEPARAR": ReglaDiccionario(
+        codigo="PROCEDIMIENTO_ACCION_SIN_SEPARAR",
+        nombre="Acción sin separar",
+        severidad="alto",
+        descripcion="En PA_Tabla_Acción_Finalidad la acción va separada con guion bajo (PA_Registro_Sel_Ejecuciones).",
+        alcance="reporte",
+        activo=True,
+    ),
     "ESQUEMA_OMITIDO_ENTRE_BASES": ReglaDiccionario(
         codigo="ESQUEMA_OMITIDO_ENTRE_BASES",
         nombre="Esquema omitido entre bases",

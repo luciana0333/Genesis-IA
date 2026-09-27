@@ -301,6 +301,50 @@ def _validar_control_de_flujo(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+# Acción estándar pegada a la finalidad sin "_": SelEjecucionesDetalle, ConsultarDatos.
+_ACCION_PEGADA = re.compile(
+    r"(Sel|Upd|Ins|Del|Consultar|Actualizar|Insertar|Eliminar|Select|Update|Insert|Delete)([A-Z]\w*)$"
+)
+_ABREVIATURA_ACCION = {
+    "sel": "Sel", "upd": "Upd", "ins": "Ins", "del": "Del",
+    "consultar": "Sel", "select": "Sel", "actualizar": "Upd", "update": "Upd",
+    "insertar": "Ins", "insert": "Ins", "eliminar": "Del", "delete": "Del",
+}
+
+
+def _hallazgo_accion_pegada(texto: str, posicion: int, nombre: str, segmentos: List[str]):
+    """Hallazgo si la acción va pegada a la finalidad (PA_Tabla_SelFinalidad); si no, None."""
+    if len(segmentos) < 3:
+        return None
+    pegada = _ACCION_PEGADA.match(segmentos[2])
+    if not pegada:
+        return None
+    accion = _ABREVIATURA_ACCION[pegada.group(1).lower()]
+    sugerido = "_".join(["PA", segmentos[1], accion, pegada.group(2)] + [x for x in segmentos[3:] if x])
+    return _hallazgo(
+        texto, posicion, "PROCEDIMIENTO_ACCION_SIN_SEPARAR",
+        f"En el nombre {nombre}, la acción {pegada.group(1)} está pegada a la finalidad "
+        f"({segmentos[2]}). Separar la acción con un guion bajo, ya que el formato es "
+        f"PA_Tabla_Acción_Finalidad (ej.: {sugerido}).",
+    )
+
+
+def _validar_accion_del_nombre(texto: str, limpio: str) -> List[Hallazgo]:
+    """Al crear el reporte, la acción del nombre PA_Tabla_Acción_Finalidad va separada con "_"."""
+    match = re.search(
+        rf"\bCREATE\s+(?:OR\s+ALTER\s+)?PROC(?:EDURE)?\s+({_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}})",
+        limpio, re.IGNORECASE,
+    )
+    if not match:
+        return []
+    nombre = match.group(1).split(".")[-1].strip().strip("[]")
+    segmentos = nombre.split("_")
+    if segmentos[0].upper() != "PA":
+        return []
+    pegada = _hallazgo_accion_pegada(texto, match.start(1), nombre, segmentos)
+    return [pegada] if pegada else []
+
+
 def _validar_esquema_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
     """El procedimiento del reporte indica su esquema, tanto al crearlo como al modificarlo."""
     match = re.search(
@@ -482,6 +526,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_varchar_max(texto_sql, limpio))
     hallazgos.extend(_validar_control_de_flujo(texto_sql, limpio))
     hallazgos.extend(_validar_esquema_procedimiento(texto_sql, limpio))
+    hallazgos.extend(_validar_accion_del_nombre(texto_sql, limpio))
     hallazgos.extend(_validar_esquema_entre_bases(texto_sql, limpio))
     hallazgos.extend(_validar_order_by_numerico(texto_sql, limpio))
     hallazgos.extend(_validar_collate_en_condiciones(texto_sql, limpio))
