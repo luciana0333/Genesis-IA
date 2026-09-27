@@ -20,6 +20,7 @@ export function MetricasSeveridad({ conteo, subtitulos }) {
         <TarjetaMetrica
           key={severidad}
           titulo={titulo}
+          severidad={severidad}
           icono={icono}
           valor={conteo[severidad]}
           subtitulo={subtitulos[indice]}

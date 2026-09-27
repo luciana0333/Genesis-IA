@@ -1,113 +1,102 @@
 /* ───────── RESUMEN DE MÉTRICAS ─────────
- * Un solo panel blanco con cuatro celdas separadas por bordes finos que se
- * superpone al encabezado. Íconos de línea en rojo de marca, sin cajas.
+ * Cuatro tarjetas de indicador independientes: nombre e ícono arriba, cifra
+ * grande y detalle. El color de la severidad solo aparece en la pastilla del
+ * ícono; la tarjeta es blanca y neutra.
  */
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
   margin-bottom: 28px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  background: var(--bg-card);
-  box-shadow: var(--shadow-lg);
 }
 
 .metric-card {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 26px 26px 24px;
-  transition: background-color var(--dur) var(--ease);
-}
+  --metric-tono: var(--text-secondary);
+  --metric-tono-bg: var(--bg-subtle);
 
-.metric-card + .metric-card {
-  border-left: 1px solid var(--border);
-}
-
-/* Acento rojo inferior al pasar el mouse. */
-.metric-card::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 3px;
-  background: var(--red-main);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform var(--dur) var(--ease);
-}
-
-.metric-card:hover {
-  background: var(--bg-input);
-}
-
-.metric-card:hover::after {
-  transform: scaleX(1);
-}
-
-.metric-icon {
-  flex-shrink: 0;
-  color: var(--metric-icon);
-}
-
-.metric-icon svg {
-  width: 30px;
-  height: 30px;
-  stroke-width: 1.4;
-}
-
-.metric-body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  padding: 20px 22px 22px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+
+.metric-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.metric-card.sev-critico { --metric-tono: var(--sev-critico-text); --metric-tono-bg: var(--sev-critico-bg); }
+.metric-card.sev-alto { --metric-tono: var(--sev-alto-text); --metric-tono-bg: var(--sev-alto-bg); }
+.metric-card.sev-medio { --metric-tono: var(--sev-medio-text); --metric-tono-bg: var(--sev-medio-bg); }
+.metric-card.sev-bajo { --metric-tono: var(--sev-bajo-text); --metric-tono-bg: var(--sev-bajo-bg); }
+
+.metric-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
 .metric-title {
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+
+.metric-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--metric-tono-bg);
+  color: var(--metric-tono);
+}
+
+.metric-icon svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.8;
 }
 
 .metric-value {
-  margin: 6px 0 2px;
   color: var(--metric-value);
-  font-size: 1.7rem;
-  font-weight: 600;
-  line-height: 1.15;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
 .metric-sub {
+  margin-top: 8px;
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   line-height: 1.45;
 }
 
 @media (max-width: 900px) {
   .metrics-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .metric-card:nth-child(3) {
-    border-left: none;
-  }
-
-  .metric-card:nth-child(n + 3) {
-    border-top: 1px solid var(--border);
+    gap: 12px;
   }
 }
 
 @media (max-width: 480px) {
   .metric-card {
-    flex-direction: column;
-    gap: 10px;
-    padding: 18px;
+    padding: 16px;
   }
 
   .metric-value {
-    font-size: 1.45rem;
+    font-size: 1.6rem;
   }
 }
