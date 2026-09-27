@@ -22,9 +22,9 @@ REGLAS_REPORTES = {
     ),
     "HINT_PLAN_PROHIBIDO": ReglaDiccionario(
         codigo="HINT_PLAN_PROHIBIDO",
-        nombre="Hint de plan prohibido",
+        nombre="Comando que le dice al motor qué hacer",
         severidad="alto",
-        descripcion="No se deben forzar planes o decisiones del optimizador en reportes.",
+        descripcion="No se permiten comandos que le dicen al motor qué hacer (DBCC, FORCESEEK, RECOMPILE, OPTION...); el optimizador decide el mejor plan.",
         alcance="reporte",
         activo=True,
     ),

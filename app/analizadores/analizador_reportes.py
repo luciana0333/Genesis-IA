@@ -11,8 +11,10 @@ from app.reglas.reglas_reportes import REGLAS_REPORTES
 _IDENTIFICADOR = r"(?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)"
 _TIPOS_TEXTO = r"(?:N?VARCHAR|N?CHAR|TEXT|NTEXT)\b"
 _HINTS_PROHIBIDOS = (
-    r"FORCESEEK|FORCESCAN|RECOMPILE|HOLDLOCK|NOEXPAND|INDEX\s*\(|"
-    r"LOOP\s+JOIN|HASH\s+JOIN|MERGE\s+JOIN|OPTIMIZE\s+FOR|MAXDOP\s*\(|FAST\s+\d+"
+    r"\bOPTION\s*\([^)]*\)|\bDBCC\b|\bFORCESEEK\b|\bFORCESCAN\b|\bFORCE\s+ORDER\b|\bRECOMPILE\b|"
+    r"\bNOEXPAND\b|\bHOLDLOCK\b|\bTABLOCKX?\b|\bUPDLOCK\b|\bXLOCK\b|\bROWLOCK\b|\bPAGLOCK\b|"
+    r"\bREADPAST\b|\bINDEX\s*\(|\b(?:LOOP|HASH|MERGE)\s+JOIN\b|\bOPTIMIZE\s+FOR\b|\bMAXDOP\b|"
+    r"\bFAST\s+\d+|\bUSE\s+PLAN\b|\bKEEP(?:FIXED)?\s+PLAN\b|\bQUERYTRACEON\b"
 )
 _CATALOGOS_PROHIBIDOS = r"(?:sys|information_schema)\.[A-Za-z_][\w$]*"
 _PALABRAS_SQL_COMENTADAS = r"SELECT|INSERT|UPDATE|DELETE|MERGE|EXEC(?:UTE)?|DECLARE|CREATE|ALTER|DROP"
@@ -130,8 +132,9 @@ def _validar_hints(texto: str, limpio: str) -> List[Hallazgo]:
             texto,
             match.start(),
             "HINT_PLAN_PROHIBIDO",
-            f"Se usa la instrucción '{match.group(0)}'. Evitar el uso de esta instrucción, ya que obliga a "
-            f"SQL Server a ejecutar la consulta de una forma fija y puede volverla lenta.",
+            f"Se usa '{match.group(0)}', que le indica al motor de base de datos cómo ejecutar la consulta. "
+            f"No está permitido emplear sintaxis que fuerce al motor; se debe dejar que el optimizador "
+            f"decida el mejor plan.",
         ))
     return hallazgos
 
@@ -292,7 +295,8 @@ def _validar_control_de_flujo(texto: str, limpio: str) -> List[Hallazgo]:
     for match in re.finditer(r"\bWAITFOR\s+(?:DELAY|TIME)\b", limpio, re.IGNORECASE):
         hallazgos.append(_hallazgo(
             texto, match.start(), "WAITFOR_DELAY_PROHIBIDO",
-            "Se usa WAITFOR para hacer una pausa. Retirar la pausa, ya que hace esperar al reporte sin motivo.",
+            "Se usa WAITFOR, que fuerza al motor de base de datos a pausar la ejecución. No está permitido "
+            "emplear sintaxis que fuerce al motor; se debe retirar la pausa.",
         ))
     return hallazgos
 

@@ -246,5 +246,13 @@ class TestAnalizadorReportes(unittest.TestCase):
         self.assertNotIn("ORDER_BY_NUMERICO_PROHIBIDO", {h.regla for h in verificar_reporte(valido)})
 
 
+    def test_comandos_que_le_dicen_al_motor_que_hacer(self):
+        casos = ["DBCC FREEPROCCACHE;", "SELECT a FROM #T OPTION (MAXDOP 1);", "SELECT a FROM dbo.T WITH(NOLOCK, FORCESEEK)"]
+        for sql in casos:
+            with self.subTest(sql=sql):
+                hallazgos = [h for h in verificar_reporte(sql) if h.regla == "HINT_PLAN_PROHIBIDO"]
+                self.assertEqual(len(hallazgos), 1)
+                self.assertIn("No está permitido emplear sintaxis que fuerce al motor", hallazgos[0].mensaje)
+
 if __name__ == "__main__":
     unittest.main()
