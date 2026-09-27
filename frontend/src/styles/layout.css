@@ -317,10 +317,10 @@
 .hero-figura {
   position: relative;
   align-self: end;
-  justify-self: center;
-  width: min(430px, 100%);
+  justify-self: end;
+  width: min(480px, 100%);
   /* Baja hasta el borde de las tarjetas de métricas. */
-  margin: 0 0 -84px;
+  margin: 0 -40px -84px 0;
   isolation: isolate;
 }
 
