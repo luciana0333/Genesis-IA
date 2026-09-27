@@ -1,4 +1,4 @@
-import fotoEncabezado from '../assets/foto-encabezado.webp';
+import fotoEncabezado from '../assets/profesional-recorte.webp';
 import { IconoBajar, IconoPunto } from './Iconos';
 
 const PUNTOS_POR_DEFECTO = [
@@ -17,7 +17,7 @@ function irAlFormulario() {
 
 /**
  * Encabezado de cada pestaña: a la izquierda el título, los puntos clave y la
- * acción principal; a la derecha la foto del equipo.
+ * acción principal; a la derecha la profesional recortada sin fondo.
  */
 export function Hero({ titulo, complemento, descripcion, puntos = PUNTOS_POR_DEFECTO, accion = 'Comenzar revisión' }) {
   return (
