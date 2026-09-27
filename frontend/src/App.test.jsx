@@ -42,7 +42,7 @@ describe('App', () => {
     expect(screen.queryByLabelText('Tipo de revisión')).not.toBeInTheDocument();
     expect(screen.queryByText('Documentación')).not.toBeInTheDocument();
     expect(screen.getByLabelText(/DBCMAICA/)).toBeInTheDocument();
-    expect(screen.getByLabelText('Nombre de la Tabla')).toBeInTheDocument();
+    expect(screen.getByLabelText('Nombre de la tabla')).toBeInTheDocument();
   });
 
   it('en Diccionarios solo ofrece diccionario de procedimiento y de tabla', async () => {

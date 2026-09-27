@@ -4,7 +4,7 @@ export function PiePagina() {
       <div className="footer-container">
         <div className="footer-brand">
           <strong>Genesis IA</strong>
-          <span>Auditor SQL de CAJA ICA</span>
+          <span>Auditoría de objetos SQL Server</span>
         </div>
         <p className="footer-note">
           Análisis estático local: el código revisado no sale de tu equipo.

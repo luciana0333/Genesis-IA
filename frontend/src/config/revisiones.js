@@ -15,8 +15,8 @@ import {
   SQL_TABLA,
 } from './ejemplos';
 
-const NOMBRE_TABLA = 'Nombre de la Tabla';
-const NOMBRE_PROCEDIMIENTO = 'Nombre del Procedimiento';
+const NOMBRE_TABLA = 'Nombre de la tabla';
+const NOMBRE_PROCEDIMIENTO = 'Nombre del procedimiento';
 
 export const REVISIONES = {
   tabla: {
