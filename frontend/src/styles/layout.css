@@ -171,24 +171,24 @@
   inset: 0;
   z-index: -3;
   background:
-    linear-gradient(90deg, rgba(14, 4, 6, 0.72), rgba(14, 4, 6, 0.5)),
+    linear-gradient(90deg, rgba(14, 4, 6, 0.45), rgba(14, 4, 6, 0.7)),
     url('../assets/fondo.jpg') right center / cover no-repeat;
   filter: grayscale(0.85) brightness(0.55) contrast(1.1);
   pointer-events: none;
 }
 
-/* Panel rojo a la derecha, detrás de la persona, con el borde izquierdo en
-   diagonal (estilo Vulcanet) y una franja más clara que acompaña el corte. */
+/* Panel rojo con el borde derecho en diagonal (estilo Vulcanet) y una franja
+   más clara que acompaña el corte. */
 .hero-panel {
   position: absolute;
   top: 0;
-  right: 0;
   bottom: 0;
+  left: 0;
   z-index: -2;
-  width: 52%;
+  width: 62%;
   /* Rojo casi sólido: un degradado apenas perceptible. */
-  background: linear-gradient(120deg, #c2131f 0%, var(--hero-base) 45%, #a90f1a 100%);
-  clip-path: polygon(16% 0, 100% 0, 100% 100%, 0 100%);
+  background: linear-gradient(120deg, #a90f1a 0%, var(--hero-base) 55%, #c2131f 100%);
+  clip-path: polygon(0 0, 100% 0, 84% 100%, 0 100%);
   box-shadow: 0 0 60px rgba(0, 0, 0, 0.4);
   pointer-events: none;
 }
@@ -198,7 +198,7 @@
   position: absolute;
   inset: 0;
   background: rgba(255, 255, 255, 0.08);
-  clip-path: polygon(16% 0, 24% 0, 8% 100%, 0 100%);
+  clip-path: polygon(92% 0, 100% 0, 84% 100%, 76% 100%);
 }
 
 /* Destello de luz diagonal que cruza el encabezado una sola vez. */
