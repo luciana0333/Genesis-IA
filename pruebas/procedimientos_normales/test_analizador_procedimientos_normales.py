@@ -288,5 +288,32 @@ END"""
         dos = "SELECT REPLACE(REPLACE(cTexto, 'a', 'b'), 'c', 'd') FROM #T"
         self.assertNotIn("REPLACE_ANIDADO_TRANSLATE", {h.regla for h in verificar_procedimiento_normal(dos)})
 
+    def test_transaccion_sin_commit(self):
+        sin_commit = "BEGIN TRAN; UPDATE dbo.Cliente SET a = 1;"
+        hallazgo = [h for h in verificar_procedimiento_normal(sin_commit) if h.regla == "TRANSACCION_SIN_COMMIT"]
+        self.assertEqual(len(hallazgo), 1)
+        self.assertEqual(hallazgo[0].severidad.value, "alto")
+        faltante = "BEGIN TRAN; UPDATE dbo.A SET a = 1; COMMIT; BEGIN TRANSACTION; UPDATE dbo.B SET b = 1;"
+        self.assertIn("solo 1 COMMIT para 2", [h.mensaje for h in verificar_procedimiento_normal(faltante)
+                                                if h.regla == "TRANSACCION_SIN_COMMIT"][0])
+        correcta = """BEGIN TRY
+    BEGIN TRANSACTION
+    UPDATE dbo.Cliente SET a = 1
+    COMMIT TRANSACTION
+END TRY
+BEGIN CATCH
+    ROLLBACK TRANSACTION
+END CATCH"""
+        self.assertNotIn("TRANSACCION_SIN_COMMIT", {h.regla for h in verificar_procedimiento_normal(correcta)})
+
+    def test_nolock_en_fisicas_es_opcional_y_en_temporales_no(self):
+        for sql in ("SELECT a FROM dbo.Cliente c", "SELECT a FROM dbo.Cliente c WITH(NOLOCK)",
+                    "SELECT t.a FROM #T t JOIN dbo.Cliente c WITH(NOLOCK) ON c.n = t.n"):
+            with self.subTest(sql=sql):
+                self.assertNotIn("NOLOCK_EN_TABLA_TEMPORAL", {h.regla for h in verificar_procedimiento_normal(sql)})
+        for sql in ("SELECT t.a FROM #T t WITH(NOLOCK)", "SELECT a FROM @T v WITH (NOLOCK)"):
+            with self.subTest(sql=sql):
+                self.assertIn("NOLOCK_EN_TABLA_TEMPORAL", {h.regla for h in verificar_procedimiento_normal(sql)})
+
 if __name__ == "__main__":
     unittest.main()

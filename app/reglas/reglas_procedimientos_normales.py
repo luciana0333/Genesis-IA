@@ -164,6 +164,14 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "TRANSACCION_SIN_COMMIT": ReglaDiccionario(
+        codigo="TRANSACCION_SIN_COMMIT",
+        nombre="Transacción sin COMMIT",
+        severidad="alto",
+        descripcion="Toda transacción abierta con BEGIN TRANSACTION debe confirmarse con COMMIT.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "WHILE_PROHIBIDO": ReglaDiccionario(
         codigo="WHILE_PROHIBIDO",
         nombre="WHILE prohibido",

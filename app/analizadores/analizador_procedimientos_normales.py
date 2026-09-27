@@ -41,7 +41,8 @@ def _quitar_comentarios(texto: str) -> str:
 
 
 def _es_temporal(nombre: str) -> bool:
-    return nombre.strip("[]").startswith("#")
+    """Tabla temporal (#T) o variable de tabla (@T)."""
+    return nombre.strip("[]").startswith(("#", "@"))
 
 
 _REFERENCIA = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
@@ -111,9 +112,19 @@ def _validar_hints(texto: str, limpio: str) -> List[Hallazgo]:
     ]
 
 
+# Palabras que pueden seguir al nombre de una tabla y que no son un alias.
+_NO_ALIAS = (
+    "WITH|ON|WHERE|INNER|LEFT|RIGHT|FULL|CROSS|OUTER|JOIN|GROUP|ORDER|UNION|EXCEPT|"
+    "INTERSECT|HAVING|OPTION|SET|FOR|INTO|PIVOT|UNPIVOT|APPLY|AND|OR|WHEN|THEN|ELSE|END"
+)
+
+
 def _tiene_nolock_despues(texto: str, posicion: int) -> bool:
-    restante = texto[posicion:]
-    return bool(re.search(r"(?:\s+AS\s+)?(?:[A-Za-z_@#][\w$#]*\s+)?WITH\s*\(\s*NOLOCK\s*\)", restante, re.IGNORECASE))
+    """WITH(NOLOCK) justo después de la tabla o de su alias (no más adelante en el código)."""
+    return bool(re.match(
+        rf"(?:\s+(?:AS\s+)?(?!(?:{_NO_ALIAS})\b)[A-Za-z_@#][\w$#]*)?\s*(?:WITH\s*)?\(\s*NOLOCK\b",
+        texto[posicion:], re.IGNORECASE,
+    ))
 
 
 def _validar_update_from_nolock(texto: str, limpio: str) -> List[Hallazgo]:
@@ -152,8 +163,9 @@ def _validar_temporales(texto: str, limpio: str) -> List[Hallazgo]:
                 texto,
                 match.start(2),
                 "NOLOCK_EN_TABLA_TEMPORAL",
-                f"La tabla temporal {nombre} usa WITH(NOLOCK). Retirar el WITH(NOLOCK), ya que en las tablas "
-                f"temporales no es necesario: solo las usa este procedimiento.",
+                f"{'La variable de tabla' if nombre.startswith('@') else 'La tabla temporal'} {nombre} usa "
+                f"WITH(NOLOCK). Retirar el WITH(NOLOCK), ya que en las tablas temporales no es necesario: "
+                f"solo las usa este procedimiento.",
             ))
     return hallazgos
 
@@ -653,6 +665,24 @@ def _validar_replace_anidado(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _validar_transacciones(texto: str, limpio: str) -> List[Hallazgo]:
+    """Toda transacción abierta (BEGIN TRAN) debe cerrarse con COMMIT."""
+    inicios = list(re.finditer(r"\bBEGIN\s+(?:DISTRIBUTED\s+)?TRAN(?:SACTION)?\b", limpio, re.IGNORECASE))
+    commits = len(re.findall(r"\bCOMMIT(?:\s+(?:TRAN(?:SACTION)?|WORK))?\b", limpio, re.IGNORECASE))
+    if not inicios or commits >= len(inicios):
+        return []
+    if commits == 0:
+        detalle = "pero ningún COMMIT"
+    else:
+        detalle = f"pero solo {commits} COMMIT para {len(inicios)} BEGIN TRANSACTION"
+    return [_hallazgo(
+        texto, inicios[commits].start(), "TRANSACCION_SIN_COMMIT",
+        f"Se identificó una transacción abierta con BEGIN TRANSACTION {detalle}. Confirmar la transacción "
+        f"con COMMIT TRANSACTION al terminar (y deshacerla con ROLLBACK en el CATCH), ya que una "
+        f"transacción sin cerrar deja las tablas bloqueadas para los demás usuarios.",
+    )]
+
+
 def _validar_esquema_entre_bases(texto: str, limpio: str) -> List[Hallazgo]:
     """Base..Tabla omite el esquema: entre bases se escribe Base.Esquema.Tabla."""
     hallazgos = []
@@ -725,6 +755,7 @@ def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_varchar_max(texto_sql, limpio))
     hallazgos.extend(_validar_waitfor(texto_sql, limpio))
     hallazgos.extend(_validar_raiserror(texto_sql, limpio))
+    hallazgos.extend(_validar_transacciones(texto_sql, limpio))
     hallazgos.extend(_validar_in_un_valor(texto_sql, limpio))
     hallazgos.extend(_validar_left_como_like(texto_sql, limpio))
     hallazgos.extend(_validar_replace_anidado(texto_sql, limpio))
