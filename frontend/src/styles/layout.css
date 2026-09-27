@@ -322,8 +322,7 @@
   isolation: isolate;
 }
 
-/* Disco rojo más oscuro con un anillo fino, ambos centrados en el analista:
-   lo separa del fondo y lo hace resaltar. */
+/* Disco sólido con un anillo fino, ambos centrados en el analista. */
 .hero-figura::before,
 .hero-figura::after {
   content: '';
@@ -339,12 +338,13 @@
 
 .hero-figura::before {
   width: 82%;
-  background: radial-gradient(circle, rgba(130, 0, 10, 0.5) 0%, rgba(130, 0, 10, 0.34) 55%, rgba(130, 0, 10, 0.2) 70.5%, transparent 71%);
+  /* Rojo sólido apenas más profundo que el fondo: tapa la textura y enmarca a la persona. */
+  background: linear-gradient(160deg, #d20b1a 0%, #c4000f 100%);
 }
 
 .hero-figura::after {
   width: 96%;
-  border: 1px solid rgba(255, 255, 255, 0.24);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 /* Foto: Pexels (licencia libre), pexels.com/photo/7567434, con el fondo recortado. */
