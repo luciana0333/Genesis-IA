@@ -317,7 +317,10 @@
 .hero-figura {
   position: relative;
   align-self: end;
-  margin: 0 -16px -56px 48px;
+  justify-self: center;
+  width: min(320px, 100%);
+  /* Llega al borde inferior del encabezado: las tarjetas de métricas quedan delante. */
+  margin: 0 0 -150px;
   isolation: isolate;
 }
 
@@ -325,10 +328,10 @@
 .hero-figura::before {
   content: '';
   position: absolute;
-  top: 46%;
-  left: 58%;
+  top: 36%;
+  left: 50%;
   z-index: -1;
-  width: 110%;
+  width: 170%;
   aspect-ratio: 1;
   border-radius: 50%;
   background: radial-gradient(closest-side, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08) 45%, rgba(255, 255, 255, 0) 100%);
@@ -336,14 +339,12 @@
   pointer-events: none;
 }
 
-/* Persona recortada sin fondo; el borde inferior se desvanece. */
+/* Foto: Unsplash (licencia libre), unsplash.com/photos/IOvsEAEjnDE, sin fondo. */
 .hero-foto {
   display: block;
   width: 100%;
   height: auto;
-  filter: drop-shadow(0 24px 30px rgba(60, 0, 6, 0.35));
-  -webkit-mask-image: linear-gradient(180deg, #000 86%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 86%, transparent 100%);
+  filter: drop-shadow(0 20px 30px rgba(60, 0, 6, 0.3));
 }
 
 @media (max-width: 960px) {
