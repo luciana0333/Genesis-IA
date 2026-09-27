@@ -206,6 +206,22 @@
   pointer-events: none;
 }
 
+/* Foto de fondo en blanco y negro fundida con el rojo: se ve como textura,
+   con transparencia, sin quitarle lectura al texto. */
+.hero-media {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: url('../assets/fondo.jpg') right center / cover no-repeat;
+  filter: grayscale(1) contrast(1.4) brightness(1.15);
+  mix-blend-mode: soft-light;
+  opacity: 0.9;
+  /* Se desvanece hacia la izquierda para que el texto se lea limpio. */
+  -webkit-mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.18) 0%, rgba(0, 0, 0, 0.35) 38%, #000 72%);
+  mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.18) 0%, rgba(0, 0, 0, 0.35) 38%, #000 72%);
+  pointer-events: none;
+}
+
 /* Destello de luz diagonal que cruza el encabezado una sola vez. */
 .hero::after {
   content: '';
