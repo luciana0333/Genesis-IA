@@ -279,8 +279,9 @@ def _validar_control_de_flujo(texto: str, limpio: str) -> List[Hallazgo]:
         for match in re.finditer(r"\bWHILE\b", limpio, re.IGNORECASE):
             hallazgos.append(_hallazgo(
                 texto, match.start(), "WHILE_PROHIBIDO",
-                "El procedimiento nuevo usa WHILE. Por favor reemplácelo por una sola consulta para "
-                "todos los registros, ya que WHILE procesa uno por uno y vuelve lento el reporte.",
+                "El procedimiento nuevo usa WHILE. Por favor evalúe otras formas de resolverlo sin WHILE "
+                "(por ejemplo, una sola consulta que trabaje con todos los registros), ya que procesa "
+                "uno por uno, vuelve lento el reporte y puede quedar en un bucle infinito.",
             ))
     for match in re.finditer(r"\bRAISERROR\b", limpio, re.IGNORECASE):
         hallazgos.append(_hallazgo(

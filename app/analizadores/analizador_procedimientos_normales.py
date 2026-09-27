@@ -45,7 +45,7 @@ def _es_temporal(nombre: str) -> bool:
 def _validar_control_flujo(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     for patron, regla, mensaje in (
-        (r"\bWHILE\b", "WHILE_PROHIBIDO", "El procedimiento usa WHILE, que procesa registro por registro y lo vuelve lento. Use una sola consulta para todos los registros (ej.: SELECT nClienteId, SUM(nSaldo) FROM dbo.Cuenta GROUP BY nClienteId)."),
+        (r"\bWHILE\b", "WHILE_PROHIBIDO", "El procedimiento usa WHILE. Por favor evalúe otras formas de resolverlo sin WHILE (por ejemplo, una sola consulta que trabaje con todos los registros), ya que procesa uno por uno, vuelve lento el procedimiento y puede quedar en un bucle infinito."),
         (r"\bGOTO\b", "GOTO_PROHIBIDO", "Se usa GOTO, que está prohibido porque vuelve difícil de seguir el código. Use IF/ELSE o TRY/CATCH."),
         (r"\bMERGE\b", "MERGE_PROHIBIDO", "Se usa MERGE, que está prohibido. Reemplácelo por sentencias INSERT, UPDATE y DELETE separadas."),
     ):
