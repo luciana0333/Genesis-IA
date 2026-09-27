@@ -265,6 +265,39 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _agrupar_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
+    """Une los hallazgos de una misma regla en uno solo, con todas sus líneas.
+
+    Formato: "Se encontraron N observaciones de este tipo, en las líneas 3, 8:
+    hecho uno; hecho dos. Acción." La interfaz lo muestra como lista.
+    """
+    grupos: Dict[str, List[Hallazgo]] = {}
+    for hallazgo in hallazgos:
+        grupos.setdefault(hallazgo.regla, []).append(hallazgo)
+
+    resumidos: List[Hallazgo] = []
+    for regla, grupo in grupos.items():
+        if len(grupo) == 1:
+            resumidos.append(grupo[0])
+            continue
+        numeros = sorted({hallazgo.linea for hallazgo in grupo})
+        lineas = ("la línea " if len(numeros) == 1 else "las líneas ") + ", ".join(map(str, numeros))
+        partes = [re.split(r"(?<=[.?])\s+(?=[A-ZÁÉÍÓÚÑ¿(])", h.mensaje, maxsplit=1) for h in grupo]
+        if all(len(parte) == 2 for parte in partes):
+            hechos = list(dict.fromkeys(parte[0][:1].lower() + parte[0][1:].rstrip(".") for parte in partes))
+            detalle = "; ".join(hechos) + ". " + partes[0][1]
+        else:
+            detalle = " ".join(dict.fromkeys(h.mensaje for h in grupo))
+        resumidos.append(Hallazgo(
+            linea=numeros[0],
+            origen=grupo[0].origen,
+            severidad=grupo[0].severidad,
+            regla=regla,
+            mensaje=f"Se encontraron {len(grupo)} observaciones de este tipo, en {lineas}: {detalle}",
+        ))
+    return resumidos
+
+
 def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     """Aplica exclusivamente las reglas de procedimientos normales."""
     limpio = _quitar_comentarios(texto_sql)
@@ -281,7 +314,7 @@ def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_collate_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_comentarios(texto_sql))
     hallazgos.extend(_validar_variables(texto_sql, limpio))
-    return hallazgos
+    return _agrupar_repetidos(hallazgos)
 
 
 def _validar_sintaxis_prohibida(texto: str, limpio: str) -> List[Hallazgo]:

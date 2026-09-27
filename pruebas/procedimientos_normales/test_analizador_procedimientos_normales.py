@@ -135,5 +135,17 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         self.assertNotIn("PROCEDIMIENTO_SIN_ESQUEMA", con_esquema)
 
 
+    def test_agrupa_hallazgos_del_mismo_tipo(self):
+        sql = """ALTER PROCEDURE dbo.PA_Cliente_Upd AS
+BEGIN
+SELECT * FROM #T;
+SELECT * FROM #U;
+END"""
+        hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "SELECT_ESTRELLA_PROHIBIDO"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertIn("2 observaciones", hallazgos[0].mensaje)
+        self.assertIn("las líneas 3, 4", hallazgos[0].mensaje)
+
+
 if __name__ == "__main__":
     unittest.main()
