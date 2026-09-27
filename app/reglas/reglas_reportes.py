@@ -132,6 +132,14 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "ESQUEMA_OMITIDO_ENTRE_BASES": ReglaDiccionario(
+        codigo="ESQUEMA_OMITIDO_ENTRE_BASES",
+        nombre="Esquema omitido entre bases",
+        severidad="alto",
+        descripcion="Al consultar otra base de datos se escribe Base.Esquema.Tabla, no Base..Tabla.",
+        alcance="reporte",
+        activo=True,
+    ),
     "VARBINARY_DOCUMENTO_IDENTIFICADO": ReglaDiccionario(
         codigo="VARBINARY_DOCUMENTO_IDENTIFICADO",
         nombre="VARBINARY para documento identificado",

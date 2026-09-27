@@ -189,5 +189,23 @@ class TestAnalizadorReportes(unittest.TestCase):
         self.assertEqual(hallazgos["VARBINARY_DOCUMENTO_IDENTIFICADO"].severidad.value, "bajo")
 
 
+    def test_exige_esquema_al_consultar_otra_base(self):
+        sql = """
+        SELECT a.cNombre
+        FROM dbo.Cliente c WITH(NOLOCK)
+        INNER JOIN DBCMACICA..Agencias a WITH(NOLOCK) ON a.nAgenciaId = c.nAgenciaId
+        INNER JOIN [DBCMACICA] . . [Zonas] z WITH(NOLOCK) ON z.nZonaId = a.nZonaId
+        """
+        hallazgos = verificar_reporte(sql)
+        omitidos = [h for h in hallazgos if h.regla == "ESQUEMA_OMITIDO_ENTRE_BASES"]
+        self.assertEqual(len(omitidos), 1)
+        self.assertIn("DBCMACICA.dbo.Agencias", omitidos[0].mensaje)
+        self.assertIn("2 observaciones", omitidos[0].mensaje)
+
+    def test_referencia_completa_entre_bases_es_valida(self):
+        sql = "SELECT a.cNombre FROM DBCMACICA.dbo.Agencias a WITH(NOLOCK)"
+        self.assertNotIn("ESQUEMA_OMITIDO_ENTRE_BASES", {h.regla for h in verificar_reporte(sql)})
+
+
 if __name__ == "__main__":
     unittest.main()

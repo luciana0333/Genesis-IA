@@ -67,7 +67,7 @@ def _esta_en_update(limpio: str, posicion: int) -> bool:
 def _validar_nolock(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     patron = re.compile(
-        rf"\b(FROM|JOIN)\s+({_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}})(?!\s*\()",
+        rf"\b(FROM|JOIN)\s+({_IDENTIFICADOR}(?:\s*\.(?:\s*\.)?\s*{_IDENTIFICADOR}){{0,2}})(?!\s*\()",
         re.IGNORECASE,
     )
     for match in patron.finditer(limpio):
@@ -177,7 +177,7 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
 
 def _validar_modificaciones_fisicas(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
-    patron = re.compile(rf"\b(UPDATE|INSERT\s+INTO|DELETE\s+FROM|MERGE\s+INTO)\s+({_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}})", re.IGNORECASE)
+    patron = re.compile(rf"\b(UPDATE|INSERT\s+INTO|DELETE\s+FROM|MERGE\s+INTO)\s+({_IDENTIFICADOR}(?:\s*\.(?:\s*\.)?\s*{_IDENTIFICADOR}){{0,2}})", re.IGNORECASE)
     for match in patron.finditer(limpio):
         tabla = match.group(2).strip()
         if not _es_temporal(tabla):
@@ -263,6 +263,20 @@ def _validar_control_de_flujo(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _validar_esquema_entre_bases(texto: str, limpio: str) -> List[Hallazgo]:
+    """Base..Tabla omite el esquema: entre bases se escribe Base.Esquema.Tabla."""
+    hallazgos = []
+    patron = re.compile(r"(\[[^\]]+\]|[A-Za-z_][\w$#]*)\s*\.\s*\.\s*(\[[^\]]+\]|[A-Za-z_][\w$#]*)")
+    for match in patron.finditer(limpio):
+        base, tabla = match.group(1), match.group(2)
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "ESQUEMA_OMITIDO_ENTRE_BASES",
+            f"La referencia {base}..{tabla} omite el esquema (usa '..'). Entre bases de datos escriba "
+            f"base, esquema y tabla (ej.: {base}.dbo.{tabla}).",
+        ))
+    return hallazgos
+
+
 def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     declaraciones: Dict[str, int] = {}
@@ -332,6 +346,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_sintaxis_prohibida(texto_sql, limpio))
     hallazgos.extend(_validar_varchar_max(texto_sql, limpio))
     hallazgos.extend(_validar_control_de_flujo(texto_sql, limpio))
+    hallazgos.extend(_validar_esquema_entre_bases(texto_sql, limpio))
     hallazgos.extend(_validar_modificaciones_fisicas(texto_sql, limpio))
     hallazgos.extend(_validar_variables(texto_sql, limpio))
     # Las reglas desactivadas en el catálogo no se reportan.
