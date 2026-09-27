@@ -48,7 +48,7 @@
   --sev-bajo-text: #0c6b41;
 
   /* Tipografía */
-  --font-sans: 'Poppins', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
   --tracking-label: 0.12em;
 
@@ -70,8 +70,8 @@
   /* Encabezado: rojo sólido a la izquierda que deja ver la foto a la derecha */
   --hero-base: #e0101f;
   --hero-overlay-1: rgba(214, 8, 26, 0.96);
-  --hero-overlay-2: rgba(214, 8, 26, 0.82);
-  --hero-overlay-3: rgba(222, 14, 32, 0.22);
+  --hero-overlay-2: rgba(214, 8, 26, 0.72);
+  --hero-overlay-3: rgba(222, 14, 32, 0.08);
   --hero-overlay-4: rgba(230, 20, 38, 0);
 
   /* Resumen de métricas */

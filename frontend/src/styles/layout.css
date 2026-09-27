@@ -7,7 +7,7 @@
 }
 
 .topbar-item svg {
-  color: var(--red-main);
+  color: #ffffff;
 }
 
 .topbar-container {
@@ -124,11 +124,9 @@
   align-items: center;
   padding: 0 16px;
   color: var(--text-secondary);
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.09em;
+  font-size: 0.92rem;
+  font-weight: 500;
   text-decoration: none;
-  text-transform: uppercase;
   white-space: nowrap;
   transition: color var(--dur-fast) ease;
 }
@@ -151,6 +149,7 @@
 
 .nav-link.active {
   color: var(--red-main);
+  font-weight: 600;
 }
 
 .nav-link.active::after,
@@ -170,10 +169,8 @@
   border-radius: var(--radius-btn);
   background: var(--red-main);
   color: #ffffff;
-  font-size: 0.74rem;
+  font-size: 0.86rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   cursor: pointer;
   transition: background-color var(--dur-fast) ease;
 }
@@ -192,11 +189,20 @@
   padding: 64px 24px 136px;
   overflow: hidden;
   color: #ffffff;
-  background: var(--hero-base) url('../assets/fondo.jpg') right center / cover no-repeat;
-  /* La foto (fondo oscuro) se funde con el rojo como textura luminosa en
-     lugar de oscurecerlo. */
-  background-blend-mode: soft-light;
+  background: var(--hero-base);
   isolation: isolate;
+}
+
+/* Foto en blanco y negro con más contraste, fundida con el rojo (duotono):
+   se ve con claridad sin oscurecer el encabezado. */
+.hero-media {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: url('../assets/fondo.jpg') right center / cover no-repeat;
+  filter: grayscale(1) contrast(1.55) brightness(1.2);
+  mix-blend-mode: soft-light;
+  pointer-events: none;
 }
 
 .hero::before {
@@ -204,6 +210,7 @@
   position: absolute;
   inset: 0;
   z-index: -1;
+  pointer-events: none;
   background:
     linear-gradient(90deg,
       var(--hero-overlay-1) 0%,
@@ -248,10 +255,8 @@
   gap: 12px;
   margin-bottom: 20px;
   color: rgba(255, 255, 255, 0.85);
-  font-size: 0.72rem;
+  font-size: 0.86rem;
   font-weight: 600;
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
 }
 
 .hero-eyebrow::before {
@@ -267,8 +272,8 @@
   margin-bottom: 18px;
   font-size: clamp(1.9rem, 3.4vw, 2.8rem);
   font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: -0.015em;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
 }
 
 .hero-descripcion {

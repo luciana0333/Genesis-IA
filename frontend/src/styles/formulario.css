@@ -48,13 +48,12 @@
 .section-eyebrow {
   margin-bottom: 6px;
   color: var(--red-main);
-  font-size: 0.68rem;
+  font-size: 0.84rem;
   font-weight: 600;
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
 }
 
 .section-title {
+  letter-spacing: -0.015em;
   color: var(--text-primary);
   font-size: 1.3rem;
   font-weight: 700;
@@ -102,10 +101,8 @@ h3.section-title {
 
 .field-label {
   color: var(--text-primary);
-  font-size: 0.72rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .field-note {
@@ -159,10 +156,8 @@ h3.section-title {
 .field-kicker {
   display: block;
   color: var(--red-main);
-  font-size: 0.64rem;
+  font-size: 0.74rem;
   font-weight: 600;
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
 }
 
 .field-card-secondary .field-kicker {
@@ -182,10 +177,8 @@ h3.section-title {
 
 .field-status {
   color: var(--text-muted);
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 0.72rem;
+  font-weight: 500;
 }
 
 .field-status::before {
@@ -221,10 +214,8 @@ h3.section-title {
   border: none;
   background: none;
   color: var(--text-secondary);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 0.8rem;
+  font-weight: 500;
   cursor: pointer;
   transition: color var(--dur-fast) ease;
 }
@@ -317,10 +308,8 @@ h3.section-title {
   border-top: 1px solid var(--border);
   background: var(--bg-subtle);
   color: var(--text-muted);
-  font-size: 0.66rem;
+  font-size: 0.72rem;
   font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 /* ───────── BOTONES ─────────
@@ -350,10 +339,8 @@ h3.section-title {
   height: 46px;
   padding: 0 26px;
   border-radius: var(--radius-btn);
-  font-size: 0.76rem;
+  font-size: 0.88rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   white-space: nowrap;
   cursor: pointer;
   transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease;

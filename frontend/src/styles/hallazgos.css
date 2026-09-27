@@ -20,10 +20,8 @@
   border-radius: var(--radius-sm);
   background: var(--red-main);
   color: #ffffff;
-  font-size: 0.68rem;
+  font-size: 0.76rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   font-variant-numeric: tabular-nums;
 }
 
@@ -47,10 +45,8 @@
   border-radius: var(--radius-btn);
   background: var(--bg-card);
   color: var(--text-secondary);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.8rem;
+  font-weight: 500;
   cursor: pointer;
   transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
@@ -272,10 +268,8 @@
   border-color: var(--text-primary);
   background: transparent;
   color: var(--text-primary);
-  font-size: 0.68rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   opacity: 1;
 }
 

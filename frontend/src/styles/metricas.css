@@ -67,10 +67,8 @@
 
 .metric-title {
   color: var(--text-muted);
-  font-size: 0.68rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
 }
 
 .metric-value {

@@ -5,6 +5,7 @@
 export function Hero({ titulo, complemento, descripcion }) {
   return (
     <section className="hero">
+      <span className="hero-media" aria-hidden="true" />
       <div className="hero-container">
         <p className="hero-eyebrow">{complemento ?? 'Auditoría inteligente'}</p>
         <h1>{titulo}</h1>
