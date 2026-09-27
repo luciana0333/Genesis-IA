@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { SEVERIDADES, etiquetaSeveridad, nombreRegla } from '../config/reglas';
-import { contarPorSeveridad, normalizarSeveridad, ordenarHallazgos, separarMensaje } from '../utils/hallazgos';
+import { contarPorSeveridad, desglosarGrupo, normalizarSeveridad, ordenarHallazgos, separarMensaje } from '../utils/hallazgos';
 import { EncabezadoSeccion } from './EncabezadoSeccion';
 import { EstadoVacio } from './EstadoVacio';
 import {
@@ -10,19 +10,7 @@ import {
   IconoErrorCirculo,
   IconoEscudoAlerta,
   IconoEscudoCheck,
-  IconoSeveridadAlta,
-  IconoSeveridadBaja,
-  IconoSeveridadCritica,
-  IconoSeveridadMedia,
-  IconoSolucion,
 } from './Iconos';
-
-const ICONOS_SEVERIDAD = {
-  critico: IconoSeveridadCritica,
-  alto: IconoSeveridadAlta,
-  medio: IconoSeveridadMedia,
-  bajo: IconoSeveridadBaja,
-};
 
 const ORIGENES = {
   diccionario: 'Diccionario',
@@ -108,35 +96,56 @@ function BotonCopiar({ texto, etiqueta, conTexto = false }) {
   );
 }
 
+/**
+ * Ficha de un hallazgo: encabezado (regla, severidad y líneas) y dos columnas,
+ * "Qué se encontró" y "Qué hacer". Si el hallazgo agrupa varias ocurrencias,
+ * cada una se lista por separado.
+ */
 function FilaHallazgo({ hallazgo, origenPorDefecto, mostrarLinea }) {
   const severidad = normalizarSeveridad(hallazgo.severidad);
-  const Icono = ICONOS_SEVERIDAD[severidad] ?? IconoSeveridadMedia;
   const titulo = nombreRegla(hallazgo.regla);
   const origen = hallazgo.origen || origenPorDefecto;
   const mensaje = hallazgo.mensaje || 'Revisa este hallazgo.';
   const { problema, solucion } = separarMensaje(mensaje);
+  const { lineas, ocurrencias } = desglosarGrupo(problema);
+  const etiquetaLinea = lineas
+    ? `${lineas.includes(',') ? 'Líneas' : 'Línea'} ${lineas}`
+    : `Línea ${hallazgo.linea || 1}`;
+
   return (
     <article className={`finding sev-${severidad}`}>
-      <span className="finding-icon"><Icono /></span>
-      <div className="finding-content">
-        <div className="finding-head">
-          <h4 className="finding-title">{titulo}</h4>
-          <span className={`sev-pill sev-${severidad}`}>{etiquetaSeveridad(severidad)}</span>
-        </div>
-        <p className="finding-message"><MensajeResaltado texto={problema} /></p>
+      <header className="finding-head">
+        <h4 className="finding-title">{titulo}</h4>
+        <span className={`sev-pill sev-${severidad}`}>{etiquetaSeveridad(severidad)}</span>
+        <span className="finding-head-side">
+          {mostrarLinea && <span className="finding-line">{etiquetaLinea}</span>}
+          <BotonCopiar texto={textoParaCopiar(hallazgo, mostrarLinea)} etiqueta="Copiar observación" />
+        </span>
+      </header>
+
+      <div className={solucion ? 'finding-body' : 'finding-body finding-body--simple'}>
+        <section className="finding-col">
+          <p className="finding-label">Qué se encontró</p>
+          {ocurrencias.length > 1 ? (
+            <ul className="finding-list">
+              {ocurrencias.map((texto) => <li key={texto}><MensajeResaltado texto={texto} /></li>)}
+            </ul>
+          ) : (
+            <p className="finding-message"><MensajeResaltado texto={ocurrencias[0]} /></p>
+          )}
+        </section>
         {solucion && (
-          <p className="finding-fix">
-            <IconoSolucion className="finding-fix-icon" />
-            <span><MensajeResaltado texto={solucion} /></span>
-          </p>
+          <section className="finding-col finding-col--fix">
+            <p className="finding-label">Qué hacer</p>
+            <p className="finding-message"><MensajeResaltado texto={solucion} /></p>
+          </section>
         )}
-        <div className="finding-meta">
-          {mostrarLinea && <span className="finding-line">Línea {hallazgo.linea || 1}</span>}
-          <span>{ORIGENES[origen] ?? origen}</span>
-          {hallazgo.regla && hallazgo.regla !== titulo && <code>{hallazgo.regla}</code>}
-        </div>
       </div>
-      <BotonCopiar texto={textoParaCopiar(hallazgo, mostrarLinea)} etiqueta="Copiar observación" />
+
+      <footer className="finding-meta">
+        <span>{ORIGENES[origen] ?? origen}</span>
+        {hallazgo.regla && hallazgo.regla !== titulo && <code>{hallazgo.regla}</code>}
+      </footer>
     </article>
   );
 }

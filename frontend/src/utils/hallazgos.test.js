@@ -1,4 +1,4 @@
-import { contarPorSeveridad, formatearKb, normalizarSeveridad, ordenarHallazgos } from './hallazgos';
+import { contarPorSeveridad, formatearKb, normalizarSeveridad, ordenarHallazgos, desglosarGrupo, separarMensaje } from './hallazgos';
 
 describe('contarPorSeveridad', () => {
   it('cuenta cada severidad e ignora valores desconocidos', () => {
@@ -44,5 +44,30 @@ describe('ordenarHallazgos', () => {
     const ordenados = ordenarHallazgos(entrada);
     expect(ordenados.map((h) => `${h.severidad}:${h.linea}`)).toEqual(['critico:5', 'alto:3', 'alto:8', 'bajo:1']);
     expect(entrada[0].severidad).toBe('bajo');
+  });
+});
+
+describe('desglosarGrupo', () => {
+  it('separa cada ocurrencia de un hallazgo agrupado y sus líneas', () => {
+    const mensaje =
+      'Se encontraron 2 observaciones de este tipo, en las líneas 4, 5: la columna cEstado de la temporal #TMP no tiene COLLATE; '
+      + 'la columna cDescripcion de la temporal #TMP no tiene COLLATE. Añadir COLLATE a la columna, ya que sin él puede fallar.';
+    const { problema, solucion } = separarMensaje(mensaje);
+
+    expect(desglosarGrupo(problema)).toEqual({
+      lineas: '4, 5',
+      ocurrencias: [
+        'La columna cEstado de la temporal #TMP no tiene COLLATE',
+        'La columna cDescripcion de la temporal #TMP no tiene COLLATE',
+      ],
+    });
+    expect(solucion).toBe('Añadir COLLATE a la columna, ya que sin él puede fallar.');
+  });
+
+  it('deja intacto un hallazgo simple', () => {
+    expect(desglosarGrupo('La tabla dbo.TB_Estado no tiene WITH(NOLOCK).')).toEqual({
+      lineas: null,
+      ocurrencias: ['La tabla dbo.TB_Estado no tiene WITH(NOLOCK).'],
+    });
   });
 });

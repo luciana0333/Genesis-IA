@@ -38,3 +38,18 @@ export function separarMensaje(texto) {
   if (corte < 0) return { problema: texto, solucion: '' };
   return { problema: texto.slice(0, corte), solucion: texto.slice(corte).trim() };
 }
+
+/**
+ * Un hallazgo agrupado llega como "Se encontraron N observaciones de este
+ * tipo, en las líneas 3, 8: hecho uno; hecho dos." Devuelve las líneas y cada
+ * ocurrencia por separado para mostrarlas como lista.
+ */
+export function desglosarGrupo(problema) {
+  const grupo = problema.match(/^Se encontraron \d+ observaciones de este tipo, en (?:la línea|las líneas) ([\d, ]+): ([\s\S]+)$/);
+  if (!grupo) return { lineas: null, ocurrencias: [problema] };
+  const ocurrencias = grupo[2]
+    .replace(/\.$/, '')
+    .split(/;\s+/)
+    .map((texto) => texto.charAt(0).toUpperCase() + texto.slice(1));
+  return { lineas: grupo[1].trim(), ocurrencias };
+}

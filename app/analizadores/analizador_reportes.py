@@ -432,13 +432,12 @@ def _agrupar_hallazgos_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
 
         numeros = sorted({hallazgo.linea for hallazgo in grupo})
         lineas = ("la línea " if len(numeros) == 1 else "las líneas ") + ", ".join(map(str, numeros))
-        # Cada mensaje es "qué pasa. Qué hacer.": si todos piden lo mismo, la
-        # acción se dice una sola vez al final.
+        # Cada mensaje es "qué pasa. Qué hacer.": se listan los hechos y la acción
+        # se dice una sola vez (la del primero; solo cambia el ejemplo).
         partes = [re.split(r"(?<=\.)\s+", h.mensaje, maxsplit=1) for h in grupo]
-        acciones = {p[1] for p in partes if len(p) == 2}
-        if len(acciones) == 1 and all(len(p) == 2 for p in partes):
+        if all(len(p) == 2 for p in partes):
             hechos = list(dict.fromkeys(p[0][:1].lower() + p[0][1:].rstrip(".") for p in partes))
-            detalles = ["; ".join(hechos) + ".", acciones.pop()]
+            detalles = ["; ".join(hechos) + ".", partes[0][1]]
         else:
             detalles = list(dict.fromkeys(h.mensaje for h in grupo))
         resumidos.append(Hallazgo(
