@@ -301,6 +301,22 @@ def _validar_control_de_flujo(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _validar_esquema_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
+    """El procedimiento del reporte indica su esquema, tanto al crearlo como al modificarlo."""
+    match = re.search(
+        rf"\b(CREATE|ALTER)\s+(?:OR\s+ALTER\s+)?PROC(?:EDURE)?\s+({_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}})",
+        limpio, re.IGNORECASE,
+    )
+    if not match or "." in match.group(2):
+        return []
+    nombre = match.group(2).strip("[]")
+    return [_hallazgo(
+        texto, match.start(2), "PROCEDIMIENTO_SIN_ESQUEMA",
+        f"El procedimiento {nombre} no indica su esquema. Anteponer el esquema al nombre, ya que así se "
+        f"evita crear o modificar un objeto equivocado (ej.: dbo.{nombre}).",
+    )]
+
+
 def _validar_esquema_entre_bases(texto: str, limpio: str) -> List[Hallazgo]:
     """Base..Tabla omite el esquema: entre bases se escribe Base.Esquema.Tabla."""
     hallazgos = []
@@ -465,6 +481,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_sintaxis_prohibida(texto_sql, limpio))
     hallazgos.extend(_validar_varchar_max(texto_sql, limpio))
     hallazgos.extend(_validar_control_de_flujo(texto_sql, limpio))
+    hallazgos.extend(_validar_esquema_procedimiento(texto_sql, limpio))
     hallazgos.extend(_validar_esquema_entre_bases(texto_sql, limpio))
     hallazgos.extend(_validar_order_by_numerico(texto_sql, limpio))
     hallazgos.extend(_validar_collate_en_condiciones(texto_sql, limpio))

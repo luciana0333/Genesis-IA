@@ -132,6 +132,14 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "PROCEDIMIENTO_SIN_ESQUEMA": ReglaDiccionario(
+        codigo="PROCEDIMIENTO_SIN_ESQUEMA",
+        nombre="Procedimiento sin esquema",
+        severidad="alto",
+        descripcion="El procedimiento del reporte indica su esquema (dbo.), tanto en CREATE como en ALTER.",
+        alcance="reporte",
+        activo=True,
+    ),
     "ESQUEMA_OMITIDO_ENTRE_BASES": ReglaDiccionario(
         codigo="ESQUEMA_OMITIDO_ENTRE_BASES",
         nombre="Esquema omitido entre bases",

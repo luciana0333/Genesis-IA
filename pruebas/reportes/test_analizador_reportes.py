@@ -289,5 +289,15 @@ class TestAnalizadorReportes(unittest.TestCase):
             self.assertNotIn(regla, reglas)
 
 
+    def test_procedimiento_sin_esquema_en_create_y_alter(self):
+        for verbo in ("CREATE", "ALTER"):
+            with self.subTest(verbo=verbo):
+                sql = f"{verbo} PROCEDURE Registro_SelEjecucionesDetalle AS SELECT a FROM #T"
+                hallazgos = [h for h in verificar_reporte(sql) if h.regla == "PROCEDIMIENTO_SIN_ESQUEMA"]
+                self.assertEqual(len(hallazgos), 1)
+                self.assertIn("dbo.Registro_SelEjecucionesDetalle", hallazgos[0].mensaje)
+        con_esquema = "CREATE PROCEDURE dbo.Registro_SelEjecucionesDetalle AS SELECT a FROM #T"
+        self.assertNotIn("PROCEDIMIENTO_SIN_ESQUEMA", {h.regla for h in verificar_reporte(con_esquema)})
+
 if __name__ == "__main__":
     unittest.main()
