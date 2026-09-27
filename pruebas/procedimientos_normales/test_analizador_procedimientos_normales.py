@@ -166,5 +166,19 @@ END"""
         self.assertEqual(hallazgos["VARBINARY_DOCUMENTO_IDENTIFICADO"], "bajo")
 
 
+    def test_nombre_en_minusculas_mayusculas_y_sin_accion(self):
+        hallazgos = {h.regla: h.mensaje for h in verificar_procedimiento_normal(
+            "CREATE PROCEDURE dbo.pa_CLIENTE_completo AS SELECT 1")}
+        self.assertIn("minúsculas", hallazgos["PROCEDIMIENTO_SIN_PREFIJO_PA"])
+        self.assertIn("PA_Cliente_Sel_Completo", hallazgos["PROCEDIMIENTO_SIN_ACCION"])
+        self.assertIn("CLIENTE → Cliente", hallazgos["PROCEDIMIENTO_NOMBRE_NO_PASCALCASE"])
+
+    def test_verbo_personalizado_y_siglas_son_validos(self):
+        for nombre in ("dbo.PA_Credito_Calcular_Interes", "dbo.PA_BI_Sel_Resumen", "dbo.PA_TipoCambio_Upd"):
+            with self.subTest(nombre=nombre):
+                reglas = {h.regla for h in verificar_procedimiento_normal(f"CREATE PROCEDURE {nombre} AS SELECT 1")}
+                self.assertFalse({r for r in reglas if r.startswith("PROCEDIMIENTO_")})
+
+
 if __name__ == "__main__":
     unittest.main()

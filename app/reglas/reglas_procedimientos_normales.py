@@ -92,6 +92,22 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "PROCEDIMIENTO_SIN_ACCION": ReglaDiccionario(
+        codigo="PROCEDIMIENTO_SIN_ACCION",
+        nombre="Nombre sin acción",
+        severidad="alto",
+        descripcion="Después de la tabla va la acción: Sel, Upd, Ins, Del o un verbo personalizado.",
+        alcance="procedimiento",
+        activo=True,
+    ),
+    "PROCEDIMIENTO_NOMBRE_NO_PASCALCASE": ReglaDiccionario(
+        codigo="PROCEDIMIENTO_NOMBRE_NO_PASCALCASE",
+        nombre="Nombre de procedimiento fuera del estándar",
+        severidad="alto",
+        descripcion="Tabla, acción y finalidad van en PascalCase (ej.: PA_Cliente_Sel_PorDocumento).",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "WHILE_PROHIBIDO": ReglaDiccionario(
         codigo="WHILE_PROHIBIDO",
         nombre="WHILE prohibido",

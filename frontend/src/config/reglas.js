@@ -60,6 +60,8 @@ export const NOMBRES_REGLAS = {
   PROCEDIMIENTO_SIN_PREFIJO_PA: 'Nombre sin prefijo PA_',
   PROCEDIMIENTO_NOMBRE_INCOMPLETO: 'Nombre de procedimiento incompleto',
   PROCEDIMIENTO_ACCION_NO_ABREVIADA: 'Acción sin abreviar',
+  PROCEDIMIENTO_SIN_ACCION: 'Nombre sin acción',
+  PROCEDIMIENTO_NOMBRE_NO_PASCALCASE: 'Nombre de procedimiento fuera del estándar',
   WHILE_PROHIBIDO: 'WHILE prohibido',
   GOTO_PROHIBIDO: 'GOTO prohibido',
   MERGE_PROHIBIDO: 'MERGE prohibido',

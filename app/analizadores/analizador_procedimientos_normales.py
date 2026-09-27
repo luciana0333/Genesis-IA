@@ -225,6 +225,19 @@ _ACCIONES_ABREVIADAS = {
 _EJEMPLO_NOMBRE = "PA_Cliente_Sel_PorDocumento"
 
 
+def _es_pascal(parte: str) -> bool:
+    """PascalCase: mayúscula inicial (Cliente, TipoCambio). Se aceptan siglas cortas (BI, IGV)."""
+    return bool(re.fullmatch(r"(?:[A-Z][a-z0-9]+)+", parte)) or bool(re.fullmatch(r"[A-Z]{2,3}", parte)) \
+        or parte in {"Sel", "Upd", "Ins", "Del"}
+
+
+def _en_pascal(parte: str) -> str:
+    """CLIENTE o cliente → Cliente; TipoCambio se respeta."""
+    if parte.isupper() or parte.islower():
+        return parte.capitalize()
+    return parte[0].upper() + parte[1:]
+
+
 def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
     """Nomenclatura: Esquema.PA_Tabla_Acción_Finalidad (en un ALTER solo el esquema)."""
     match = re.search(
@@ -251,7 +264,7 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
         return hallazgos
 
     segmentos = nombre.split("_")
-    if segmentos[0] != "PA":
+    if segmentos[0].upper() != "PA":
         hallazgos.append(_hallazgo(
             texto, posicion, "PROCEDIMIENTO_SIN_PREFIJO_PA",
             f"El nombre del procedimiento {nombre} no empieza con PA_. Usar el formato "
@@ -259,6 +272,54 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
             f"(ej.: {_EJEMPLO_NOMBRE}).",
         ))
         return hallazgos
+    if segmentos[0] != "PA":
+        hallazgos.append(_hallazgo(
+            texto, posicion, "PROCEDIMIENTO_SIN_PREFIJO_PA",
+            f"El nombre del procedimiento {nombre} empieza con '{segmentos[0]}_' en minúsculas. Escribir "
+            f"el prefijo en mayúsculas (PA_), ya que así se identifican los procedimientos almacenados.",
+        ))
+
+    if len(segmentos) < 3 or not all(segmentos[1:3]):
+        hallazgos.append(_hallazgo(
+            texto, posicion, "PROCEDIMIENTO_NOMBRE_INCOMPLETO",
+            f"El nombre del procedimiento {nombre} no indica la tabla y la acción. Usar el formato "
+            f"PA_Tabla_Acción_Finalidad, ya que así se entiende qué hace el procedimiento "
+            f"(ej.: {_EJEMPLO_NOMBRE}).",
+        ))
+        return hallazgos
+
+    tabla, accion, finalidad = segmentos[1], segmentos[2], [parte for parte in segmentos[3:] if parte]
+    abreviatura = _ACCIONES_ABREVIADAS.get(accion.lower())
+    es_estandar = accion.lower() in {"sel", "upd", "ins", "del"}
+    es_verbo = bool(re.fullmatch(r"[A-Za-zÁÉÍÓÚáéíóúñÑ]+(?:ar|er|ir)", accion, re.IGNORECASE))
+
+    if abreviatura and accion != abreviatura:
+        sugerido = "_".join(["PA", _en_pascal(tabla), abreviatura] + [_en_pascal(x) for x in finalidad])
+        hallazgos.append(_hallazgo(
+            texto, posicion, "PROCEDIMIENTO_ACCION_NO_ABREVIADA",
+            f"La acción del procedimiento {nombre} está escrita como '{accion}'. Usar la abreviatura "
+            f"del manual, {abreviatura}, ya que así se nombran las acciones estándar (ej.: {sugerido}).",
+        ))
+    elif not es_estandar and not es_verbo:
+        sugerido = "_".join(["PA", _en_pascal(tabla), "Sel", _en_pascal(accion)] + [_en_pascal(x) for x in finalidad])
+        hallazgos.append(_hallazgo(
+            texto, posicion, "PROCEDIMIENTO_SIN_ACCION",
+            f"El nombre del procedimiento {nombre} no indica una acción: '{accion}' no es Sel, Upd, Ins, "
+            f"Del ni un verbo. Añadir la acción después de la tabla, ya que así se entiende qué hace el "
+            f"procedimiento (ej.: {sugerido}).",
+        ))
+        accion = None  # su mayúscula ya se corrige en la sugerencia anterior
+
+    partes = [tabla] + ([accion] if accion and not abreviatura else []) + finalidad
+    fuera_de_estandar = [parte for parte in partes if not _es_pascal(parte)]
+    if fuera_de_estandar:
+        corregidas = ", ".join(f"{parte} → {_en_pascal(parte)}" for parte in fuera_de_estandar)
+        hallazgos.append(_hallazgo(
+            texto, posicion, "PROCEDIMIENTO_NOMBRE_NO_PASCALCASE",
+            f"Partes del nombre {nombre} no están en PascalCase ({corregidas}). Escribir cada palabra "
+            f"con mayúscula inicial y el resto en minúscula, ya que es el estándar de nomenclatura.",
+        ))
+    return hallazgos
 
     if len(segmentos) < 3 or not all(segmentos[1:3]):
         hallazgos.append(_hallazgo(
