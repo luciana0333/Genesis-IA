@@ -134,6 +134,23 @@ class TestVarbinaryProhibido(unittest.TestCase):
                 self.assertIn("COLUMNA_VARBINARY_PROHIBIDA", reglas(sql))
 
 
+class TestNombreSinNumeros(unittest.TestCase):
+    def test_columna_con_numeros_en_create(self):
+        sql = TABLA_CORRECTA.replace("cPersonaNombre", "cPersonaNombre89")
+        hallazgos = [h for h in verificar_tabla(sql) if h.regla == "COLUMNA_NOMBRE_CON_NUMERO"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertEqual(hallazgos[0].severidad, Severidad.ALTO)
+        self.assertIn("89", hallazgos[0].mensaje)
+        self.assertIn("(ej.: cPersonaNombre)", hallazgos[0].mensaje)
+
+    def test_columna_con_numeros_en_alter(self):
+        sql = f"ALTER TABLE dbo.Persona ADD cDireccion2 VARCHAR(100) {COLLATE} NOT NULL DEFAULT '';"
+        self.assertEqual(reglas(sql), ["COLUMNA_NOMBRE_CON_NUMERO"])
+
+    def test_columnas_sin_numeros_no_generan_hallazgo(self):
+        self.assertNotIn("COLUMNA_NOMBRE_CON_NUMERO", reglas(TABLA_CORRECTA))
+
+
 class TestAlterTable(unittest.TestCase):
     """ALTER TABLE: solo se revisan las columnas nuevas."""
 

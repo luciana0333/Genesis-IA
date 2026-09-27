@@ -77,6 +77,10 @@ REGLAS_TABLAS = {
         "Después del prefijo, el nombre de la columna va en PascalCase, sin guiones bajos "
         "(ej.: cPersonaNombre, dPersonaFechaNacimiento).",
     ),
+    "COLUMNA_NOMBRE_CON_NUMERO": _regla(
+        "COLUMNA_NOMBRE_CON_NUMERO", "Nombre de columna con números", "alto",
+        "El nombre de una columna nueva no puede contener números (ej.: cNombre89).",
+    ),
     "COLUMNA_VARBINARY_PROHIBIDA": _regla(
         "COLUMNA_VARBINARY_PROHIBIDA", "Columna VARBINARY prohibida", "alto",
         "No se permiten columnas VARBINARY: guardar archivos en la base de datos la infla, "

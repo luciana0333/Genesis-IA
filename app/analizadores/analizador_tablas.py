@@ -394,6 +394,19 @@ def _validar_columna(
             f"cada palabra va con mayúscula inicial y sin guiones bajos. {accion}",
         ))
 
+    numeros = re.findall(r"\d+", columna.nombre)
+    if numeros:
+        sin_numeros = re.sub(r"\d+", "", columna.nombre)
+        accion = (
+            f"Quite los números (ej.: {sin_numeros}) o use una palabra que describa el dato."
+            if _NOMBRE_COLUMNA.match(sin_numeros) else "Use una palabra que describa el dato."
+        )
+        hallazgos.append(_hallazgo(
+            texto, columna.posicion, "COLUMNA_NOMBRE_CON_NUMERO",
+            f"El nombre de la columna {columna.nombre} contiene números ({', '.join(numeros)}); los "
+            f"nombres de columna no pueden llevar números. {accion}",
+        ))
+
     if re.search(r"^\s*VARBINARY\b", definicion, re.IGNORECASE):
         hallazgos.append(_hallazgo(
             texto, columna.posicion, "COLUMNA_VARBINARY_PROHIBIDA",
