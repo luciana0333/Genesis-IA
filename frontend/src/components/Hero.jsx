@@ -1,4 +1,4 @@
-import fotoEncabezado from '../assets/ejecutiva-recorte.webp';
+import fotoEncabezado from '../assets/profesional-laptop.webp';
 import { IconoBajar, IconoPunto } from './Iconos';
 
 const PUNTOS_POR_DEFECTO = [
@@ -17,7 +17,7 @@ function irAlFormulario() {
 
 /**
  * Encabezado de cada pestaña: a la izquierda el título, los puntos clave y la
- * acción principal; a la derecha la ejecutiva recortada sin fondo.
+ * acción principal; a la derecha el profesional con su laptop, sin fondo.
  */
 export function Hero({ titulo, complemento, descripcion, puntos = PUNTOS_POR_DEFECTO, accion = 'Comenzar revisión' }) {
   return (
