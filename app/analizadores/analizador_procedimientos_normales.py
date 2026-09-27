@@ -550,6 +550,25 @@ def _validar_raiserror(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _validar_in_un_valor(texto: str, limpio: str) -> List[Hallazgo]:
+    """IN se usa con dos o más valores; con uno solo corresponde = (o <> si es NOT IN)."""
+    hallazgos = []
+    patron = re.compile(r"([\w.\[\]@#]+)\s+(NOT\s+)?IN\s*\(\s*([^,()]+?)\s*\)", re.IGNORECASE)
+    for match in patron.finditer(limpio):
+        columna, negado, valor = match.group(1), bool(match.group(2)), match.group(3)
+        if re.match(r"SELECT\b", valor, re.IGNORECASE):
+            continue  # IN (SELECT ...) es una subconsulta, no una lista de valores
+        operador_in = "NOT IN" if negado else "IN"
+        operador = "<>" if negado else "="
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "IN_CON_UN_SOLO_VALOR",
+            f"Se identificó {columna} {operador_in} ({valor}) con un solo valor. Se recomienda usar {operador}, "
+            f"ya que {operador_in} está pensado para dos o más valores y con uno solo es más claro y directo "
+            f"(ej.: {columna} {operador} {valor}).",
+        ))
+    return hallazgos
+
+
 def _validar_esquema_entre_bases(texto: str, limpio: str) -> List[Hallazgo]:
     """Base..Tabla omite el esquema: entre bases se escribe Base.Esquema.Tabla."""
     hallazgos = []
@@ -622,6 +641,7 @@ def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_varchar_max(texto_sql, limpio))
     hallazgos.extend(_validar_waitfor(texto_sql, limpio))
     hallazgos.extend(_validar_raiserror(texto_sql, limpio))
+    hallazgos.extend(_validar_in_un_valor(texto_sql, limpio))
     hallazgos.extend(_validar_esquema_entre_bases(texto_sql, limpio))
     hallazgos.extend(_validar_tabla_repetida(texto_sql, limpio))
     hallazgos.extend(_validar_collate_temporales(texto_sql, limpio))

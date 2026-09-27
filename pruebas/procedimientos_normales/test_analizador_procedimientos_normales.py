@@ -246,5 +246,22 @@ BEGIN
 END"""
         self.assertNotIn("TABLA_REPETIDA_EN_CONSULTA", {h.regla for h in verificar_procedimiento_normal(sql)})
 
+    def test_in_con_un_solo_valor(self):
+        casos = {
+            "SELECT a FROM #T WHERE cCodigo IN ('34')": "cCodigo = '34'",
+            "SELECT a FROM #T WHERE nEstado IN (1)": "nEstado = 1",
+            "SELECT a FROM #T WHERE nEstado NOT IN (@nEstado)": "nEstado <> @nEstado",
+        }
+        for sql, sugerencia in casos.items():
+            with self.subTest(sql=sql):
+                hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "IN_CON_UN_SOLO_VALOR"]
+                self.assertEqual(len(hallazgos), 1)
+                self.assertIn(sugerencia, hallazgos[0].mensaje)
+                self.assertEqual(hallazgos[0].severidad.value, "medio")
+        for sql in ("SELECT a FROM #T WHERE cCodigo IN ('34', '35')",
+                    "SELECT a FROM #T WHERE nId IN (SELECT nId FROM #U)"):
+            with self.subTest(sql=sql):
+                self.assertNotIn("IN_CON_UN_SOLO_VALOR", {h.regla for h in verificar_procedimiento_normal(sql)})
+
 if __name__ == "__main__":
     unittest.main()

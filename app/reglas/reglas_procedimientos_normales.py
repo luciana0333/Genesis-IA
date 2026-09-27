@@ -140,6 +140,14 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "IN_CON_UN_SOLO_VALOR": ReglaDiccionario(
+        codigo="IN_CON_UN_SOLO_VALOR",
+        nombre="IN con un solo valor",
+        severidad="medio",
+        descripcion="IN se usa con dos o más valores; con uno solo se usa = (o <> en lugar de NOT IN).",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "WHILE_PROHIBIDO": ReglaDiccionario(
         codigo="WHILE_PROHIBIDO",
         nombre="WHILE prohibido",
