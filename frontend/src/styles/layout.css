@@ -314,41 +314,21 @@
   outline-offset: 3px;
 }
 
-/* Recorte del analista sin fondo. */
 .hero-figura {
   position: relative;
-  align-self: end;
-  margin: 0 -24px -56px 72px;
-  isolation: isolate;
+  margin: 0 0 0 40px;
 }
 
-/* Halo de luz suave, sin bordes, detrás del analista: lo separa del fondo
-   sin agregar formas. */
-.hero-figura::before {
-  content: '';
-  position: absolute;
-  top: 46%;
-  left: 44%;
-  z-index: -1;
-  width: 120%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.1) 45%, rgba(255, 255, 255, 0) 100%);
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
-/* Foto: Pexels (licencia libre), pexels.com/photo/7567434, con el fondo recortado. */
+/* Foto completa en un recuadro limpio: esquinas suaves y sombra profunda. */
 .hero-foto {
   display: block;
   width: 100%;
   height: auto;
-  filter: drop-shadow(0 24px 30px rgba(60, 0, 6, 0.35));
-  /* El corte inferior (la mesa) se desvanece en lugar de terminar en línea recta. */
-  -webkit-mask-image: linear-gradient(180deg, #000 82%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 82%, transparent 100%);
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 8px;
+  box-shadow: 0 30px 60px -24px rgba(60, 0, 6, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
-
 
 @media (max-width: 960px) {
   .hero-container {
