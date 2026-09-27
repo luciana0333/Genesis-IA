@@ -157,7 +157,7 @@
  */
 .hero {
   position: relative;
-  padding: 56px 24px 150px;
+  padding: 56px 24px 56px;
   overflow: hidden;
   color: #ffffff;
   background: var(--hero-base);
@@ -319,8 +319,8 @@
   align-self: end;
   justify-self: end;
   width: min(540px, 115%);
-  /* Baja hasta el borde de las tarjetas de métricas. */
-  margin: 0 -40px -84px 0;
+  /* Llega justo al borde inferior del rojo. */
+  margin: 0 -40px -56px 0;
   isolation: isolate;
 }
 
@@ -345,9 +345,6 @@
   width: 100%;
   height: auto;
   filter: drop-shadow(0 20px 30px rgba(60, 0, 6, 0.3));
-  /* El corte inferior de la foto se desvanece. */
-  -webkit-mask-image: linear-gradient(180deg, #000 88%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 88%, transparent 100%);
 }
 
 @media (max-width: 960px) {
@@ -368,7 +365,7 @@
   flex: 1;
   width: 100%;
   max-width: 1240px;
-  margin: -72px auto 72px;
+  margin: 32px auto 72px;
   padding: 0 24px;
 }
 
@@ -460,7 +457,7 @@
   }
 
   .hero {
-    padding: 40px 16px 112px;
+    padding: 40px 16px 40px;
   }
 
   .brand-divider,
