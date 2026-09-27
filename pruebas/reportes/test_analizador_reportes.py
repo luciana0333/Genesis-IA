@@ -231,5 +231,20 @@ class TestAnalizadorReportes(unittest.TestCase):
         self.assertIn("NOLOCK_EN_TABLA_TEMPORAL", {h.regla for h in verificar_reporte(temporal)})
 
 
+    def test_order_by_por_posicion(self):
+        casos = {
+            "SELECT cNombre, dFecha FROM #T ORDER BY 1, 2": "ORDER BY 1, 2",
+            "SELECT cNombre, dFecha FROM #T ORDER BY cNombre, 2 DESC;": "ORDER BY 2",
+        }
+        for sql, texto in casos.items():
+            with self.subTest(sql=sql):
+                hallazgos = [h for h in verificar_reporte(sql) if h.regla == "ORDER_BY_NUMERICO_PROHIBIDO"]
+                self.assertEqual(len(hallazgos), 1)
+                self.assertIn(texto, hallazgos[0].mensaje)
+                self.assertEqual(hallazgos[0].severidad.value, "medio")
+        valido = "SELECT cNombre FROM #T ORDER BY cNombre DESC, dFecha"
+        self.assertNotIn("ORDER_BY_NUMERICO_PROHIBIDO", {h.regla for h in verificar_reporte(valido)})
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -140,6 +140,14 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "ORDER_BY_NUMERICO_PROHIBIDO": ReglaDiccionario(
+        codigo="ORDER_BY_NUMERICO_PROHIBIDO",
+        nombre="ORDER BY numérico prohibido",
+        severidad="medio",
+        descripcion="No se ordena por posición (ORDER BY 1, 2); se escribe el nombre de la columna.",
+        alcance="reporte",
+        activo=True,
+    ),
     "VARBINARY_DOCUMENTO_IDENTIFICADO": ReglaDiccionario(
         codigo="VARBINARY_DOCUMENTO_IDENTIFICADO",
         nombre="VARBINARY para documento identificado",
