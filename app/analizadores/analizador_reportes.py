@@ -64,16 +64,44 @@ def _esta_en_update(limpio: str, posicion: int) -> bool:
     return bool(re.search(r"\bUPDATE\b", prefijo, re.IGNORECASE))
 
 
+# Palabras que pueden seguir al nombre de una tabla y que no son un alias.
+_NO_ALIAS = (
+    "WITH|ON|WHERE|INNER|LEFT|RIGHT|FULL|CROSS|OUTER|JOIN|GROUP|ORDER|UNION|EXCEPT|"
+    "INTERSECT|HAVING|OPTION|SET|FOR|INTO|PIVOT|UNPIVOT|APPLY|AND|OR|WHEN|THEN|ELSE|END"
+)
+# Tras la tabla: alias opcional (con o sin AS) y el hint WITH(NOLOCK) o (NOLOCK).
+_ALIAS_Y_NOLOCK = re.compile(
+    rf"(?:\s+(?:AS\s+)?(?!(?:{_NO_ALIAS})\b)[A-Za-z_][\w$#]*)?"
+    r"\s*(?:WITH\s*)?\(\s*(?:NOLOCK|READUNCOMMITTED)\b",
+    re.IGNORECASE,
+)
+
+
+def _nombres_cte(limpio: str) -> Set[str]:
+    """Nombres definidos con WITH nombre AS (...): no son tablas físicas."""
+    return {
+        nombre.lower()
+        for nombre in re.findall(
+            r"(?:\bWITH|,)\s*([A-Za-z_]\w*)\s*(?:\([^)]*\))?\s+AS\s*\(", limpio, re.IGNORECASE
+        )
+    }
+
+
 def _validar_nolock(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     patron = re.compile(
-        rf"\b(FROM|JOIN)\s+({_IDENTIFICADOR}(?:\s*\.(?:\s*\.)?\s*{_IDENTIFICADOR}){{0,2}})(?!\s*\()",
+        rf"\b(FROM|JOIN)\s+({_IDENTIFICADOR}(?:\s*\.(?:\s*\.)?\s*{_IDENTIFICADOR}){{0,2}})(?![\w$#.\]])",
         re.IGNORECASE,
     )
+    ctes = _nombres_cte(limpio)
     for match in patron.finditer(limpio):
+        # Función de tabla o subconsulta (nombre seguido de "(" que no es un hint).
+        if re.match(r"\s*\((?!\s*(?:NOLOCK|READUNCOMMITTED)\b)", limpio[match.end():], re.IGNORECASE):
+            continue
         tabla = _nombre_tabla(match)
+        tiene_nolock = bool(_ALIAS_Y_NOLOCK.match(limpio, match.end()))
         if _es_temporal(tabla):
-            if re.match(r"\s*WITH\s*\(\s*NOLOCK\s*\)", limpio[match.end():], re.IGNORECASE):
+            if tiene_nolock:
                 hallazgos.append(_hallazgo(
                     texto,
                     match.start(2),
@@ -81,14 +109,14 @@ def _validar_nolock(texto: str, limpio: str) -> List[Hallazgo]:
                     f"La tabla temporal {tabla} usa WITH(NOLOCK), que no aplica a temporales. Quite el WITH(NOLOCK).",
                 ))
             continue
-        if _esta_en_update(limpio, match.start()):
+        if tabla.strip("[]").lower() in ctes or _esta_en_update(limpio, match.start()):
             continue
-        if not re.match(r"\s+WITH\s*\(\s*NOLOCK\s*\)", limpio[match.end():], re.IGNORECASE):
+        if not tiene_nolock:
             hallazgos.append(_hallazgo(
                 texto,
                 match.start(2),
                 "TABLA_FISICA_SIN_NOLOCK",
-                f"La tabla {tabla} se consulta sin WITH(NOLOCK). En un reporte agregue WITH(NOLOCK) después del nombre de la tabla para no bloquear las operaciones del sistema.",
+                f"La tabla {tabla} se consulta sin WITH(NOLOCK). En un reporte agregue WITH(NOLOCK) después del nombre de la tabla (o de su alias) para no bloquear las operaciones del sistema.",
             ))
     return hallazgos
 

@@ -207,5 +207,29 @@ class TestAnalizadorReportes(unittest.TestCase):
         self.assertNotIn("ESQUEMA_OMITIDO_ENTRE_BASES", {h.regla for h in verificar_reporte(sql)})
 
 
+    def test_nolock_con_alias_es_valido(self):
+        casos = [
+            "SELECT c.cNombre FROM dbo.TB_Clientes c WITH(NOLOCK)",
+            "SELECT c.cNombre FROM dbo.TB_Clientes AS c WITH (NOLOCK)",
+            "SELECT c.cNombre FROM dbo.TB_Cuentas a WITH(NOLOCK) INNER JOIN dbo.TB_Clientes c WITH(NOLOCK) ON c.nId = a.nId",
+            "SELECT c.cNombre FROM dbo.TB_Clientes c (NOLOCK)",
+        ]
+        for sql in casos:
+            with self.subTest(sql=sql):
+                self.assertNotIn("TABLA_FISICA_SIN_NOLOCK", {h.regla for h in verificar_reporte(sql)})
+
+    def test_alias_sin_nolock_se_observa(self):
+        sql = "SELECT c.cNombre FROM dbo.TB_Clientes c INNER JOIN dbo.TB_Cuentas a ON a.nId = c.nId WHERE c.nId = 1"
+        hallazgos = [h for h in verificar_reporte(sql) if h.regla == "TABLA_FISICA_SIN_NOLOCK"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertIn("2 observaciones", hallazgos[0].mensaje)
+
+    def test_cte_no_exige_nolock_y_temporal_con_alias_no_debe_usarlo(self):
+        cte = "WITH Base AS (SELECT a FROM dbo.T WITH(NOLOCK)) SELECT b.a FROM Base b"
+        self.assertNotIn("TABLA_FISICA_SIN_NOLOCK", {h.regla for h in verificar_reporte(cte)})
+        temporal = "SELECT t.a FROM #Temp t WITH(NOLOCK)"
+        self.assertIn("NOLOCK_EN_TABLA_TEMPORAL", {h.regla for h in verificar_reporte(temporal)})
+
+
 if __name__ == "__main__":
     unittest.main()
