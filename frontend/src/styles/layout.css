@@ -318,7 +318,7 @@
   position: relative;
   align-self: end;
   justify-self: end;
-  width: min(480px, 100%);
+  width: min(540px, 115%);
   /* Baja hasta el borde de las tarjetas de métricas. */
   margin: 0 -40px -84px 0;
   isolation: isolate;
