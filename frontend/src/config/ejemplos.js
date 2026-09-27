@@ -12,9 +12,10 @@ BEGIN
 END;`;
 
 export const SQL_TABLA = `CREATE TABLE CLICKTOPAY.Cliente (
-    nClienteId INT PRIMARY KEY IDENTITY(1,1) NOT NULL COLLATE Latin1_General_CI_AS,
-    cCodPersona VARCHAR(20) NOT NULL COLLATE Latin1_General_CI_AS,
-    cCorreoElectronico VARCHAR(64) NOT NULL COLLATE Latin1_General_CI_AS
+    nClienteId INT IDENTITY(1,1) NOT NULL,
+    cCodPersona VARCHAR(20) COLLATE Latin1_General_CI_AS NOT NULL,
+    cCorreoElectronico VARCHAR(64) COLLATE Latin1_General_CI_AS NOT NULL,
+    CONSTRAINT PK_Cliente PRIMARY KEY CLUSTERED (nClienteId)
 );`;
 
 export const SQL_REPORTE = `ALTER PROCEDURE dbo.PA_BI_Reporte

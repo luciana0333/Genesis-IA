@@ -1,127 +1,156 @@
+import inspect
+import re
 import unittest
 
+from app.analizadores import analizador_tablas
 from app.analizadores.analizador_tablas import verificar_tabla
+from app.modelos.hallazgo import Severidad
+from app.reglas.reglas_tablas import REGLAS_TABLAS
+
+COLLATE = "COLLATE Modern_Spanish_CI_AS"
+
+# Tabla que cumple el manual de nomenclatura (ejemplos del manual).
+TABLA_CORRECTA = f"""
+CREATE TABLE dbo.Persona (
+    nPersonaId INT IDENTITY(1,1) NOT NULL,
+    cPersonaNombre VARCHAR(100) {COLLATE} NOT NULL,
+    nConceptoMayor DECIMAL(12, 2) NOT NULL DEFAULT 0,
+    bPersonaEstado BIT NOT NULL DEFAULT 1,
+    dPersonaFechaNacimiento DATE NOT NULL,
+    CONSTRAINT PK_Persona PRIMARY KEY CLUSTERED (nPersonaId)
+);
+"""
 
 
-class TestAnalizadorTablas(unittest.TestCase):
-    def test_create_exige_esquema_y_reglas_de_columna(self):
-        hallazgos = verificar_tabla("CREATE TABLE Cliente (Id INT);")
-        reglas = {hallazgo.regla for hallazgo in hallazgos}
+def reglas(sql, **opciones):
+    return [h.regla for h in verificar_tabla(sql, **opciones)]
 
-        self.assertEqual(
-            reglas,
-            {
-                "TABLA_SIN_ESQUEMA",
-                "COLUMNA_PREFIJO_TIPO_INVALIDO",
-                "COLUMNA_SIN_NOT_NULL_NI_DEFAULT",
-            },
-        )
 
-    def test_create_valida_columnas_completas_fuera_de_dbcmaica(self):
-        sql = """
-        CREATE TABLE dbo.Cliente (
-            nClienteId INT NOT NULL,
-            bEstado BIT DEFAULT 1 NOT NULL
-        );
-        """
+class TestCreateTable(unittest.TestCase):
+    """CREATE TABLE: la tabla es nueva, se aplican todas las reglas del manual."""
 
-        self.assertEqual(verificar_tabla(sql), [])
+    def test_tabla_que_cumple_el_manual_no_genera_hallazgos(self):
+        self.assertEqual(verificar_tabla(TABLA_CORRECTA), [])
 
-    def test_alter_add_exige_not_null_o_default_y_collate(self):
-        sql = "ALTER TABLE dbo.Cliente ADD Nombre VARCHAR(100);"
-        reglas = {hallazgo.regla for hallazgo in verificar_tabla(sql)}
+    def test_exige_esquema(self):
+        sql = TABLA_CORRECTA.replace("dbo.Persona", "Persona")
+        self.assertEqual(reglas(sql), ["TABLA_SIN_ESQUEMA"])
 
-        self.assertEqual(
-            reglas,
-            {
-                "COLUMNA_PREFIJO_TIPO_INVALIDO",
-                "COLUMNA_SIN_NOT_NULL_NI_DEFAULT",
-                "COLUMNA_SIN_COLLATE",
-            },
-        )
-
-    def test_alter_con_parentesis_reconoce_not_null_y_default(self):
-        sql = """
-        ALTER TABLE dbo.Productos (
-            ADD cNombre VARCHAR(100) NOT NULL DEFAULT '' COLLATE Latin1_General_CI_AS
-        )
-        """
-
-        reglas = {hallazgo.regla for hallazgo in verificar_tabla(sql)}
-        self.assertNotIn("COLUMNA_SIN_NOT_NULL_NI_DEFAULT", reglas)
-        self.assertNotIn("COLUMNA_SIN_COLLATE", reglas)
-
-    def test_dbcmaica_permite_omitir_collate(self):
-        sql = "CREATE TABLE DBCMAICA.dbo.Cliente (nId INT NOT NULL);"
-
-        self.assertEqual(verificar_tabla(sql), [])
-
-    def test_opcion_dbcmaica_permite_omitir_collate(self):
-        sql = "CREATE TABLE dbo.Cliente (nId INT NOT NULL);"
-
-        self.assertEqual(verificar_tabla(sql, es_dbcmaica=True), [])
-
-    def test_valida_prefijos_de_columnas_por_tipo(self):
-        sql = """
-        CREATE TABLE dbo.Persona (
-            cNombre VARCHAR(100) NOT NULL COLLATE Latin1_General_CI_AS,
-            nMonto DECIMAL(12, 2) NOT NULL,
-            bActivo BIT NOT NULL,
-            dFecha DATETIME NOT NULL
-        );
-        """
-
-        self.assertEqual(verificar_tabla(sql), [])
-
-    def test_collate_solo_se_exige_en_varchar_y_char(self):
-        sql = """
-        CREATE TABLE dbo.Persona (
-            nId INT NOT NULL,
-            nMonto MONEY NOT NULL,
-            bActivo BIT NOT NULL,
-            dFecha DATETIME NOT NULL,
-            cNombre VARCHAR(100) NOT NULL
-        );
-        """
-        reglas = [hallazgo.regla for hallazgo in verificar_tabla(sql)]
-
-        self.assertEqual(reglas.count("COLUMNA_SIN_COLLATE"), 1)
-
-    def test_collate_en_tipo_no_textual_es_invalido(self):
-        sql = "CREATE TABLE dbo.Persona (nId INT NOT NULL COLLATE Latin1_General_CI_AS);"
-        reglas = [hallazgo.regla for hallazgo in verificar_tabla(sql)]
-
-        self.assertIn("COLLATE_EN_TIPO_NO_TEXTO", reglas)
-
-    def test_detecta_prefijo_incorrecto(self):
-        sql = "CREATE TABLE dbo.Persona (Nombre VARCHAR(100) NOT NULL COLLATE Latin1_General_CI_AS);"
-        reglas = {hallazgo.regla for hallazgo in verificar_tabla(sql)}
-
-        self.assertIn("COLUMNA_PREFIJO_TIPO_INVALIDO", reglas)
-
-    def test_caso_cliente_detecta_prefijos_n_c_c(self):
-        sql = """
-        CREATE TABLE CLICKTOPAY.Cliente (
-            ClienteId INT PRIMARY KEY IDENTITY(1,1) NOT NULL COLLATE Latin1_General_CI_AS,
-            CodPersona VARCHAR(20) NOT NULL COLLATE Latin1_General_CI_AS,
-            CorreoElectronico VARCHAR(64) NOT NULL COLLATE Latin1_General_CI_AS
-        );
-        """
-
-        hallazgos = verificar_tabla(sql)
-        prefijos = [
-            hallazgo for hallazgo in hallazgos
-            if hallazgo.regla == "COLUMNA_PREFIJO_TIPO_INVALIDO"
-        ]
-
-        self.assertEqual(len(prefijos), 3)
-        self.assertEqual([hallazgo.linea for hallazgo in prefijos], [3, 4, 5])
+    def test_nombre_de_tabla_en_pascal_case_sin_guiones_bajos(self):
+        for nombre in ("TB_Persona", "persona", "PERSONA", "Persona_Datos"):
+            with self.subTest(nombre=nombre):
+                sql = TABLA_CORRECTA.replace("dbo.Persona", f"dbo.{nombre}")
+                self.assertIn("TABLA_NOMBRE_NO_PASCALCASE", reglas(sql))
+        for nombre in ("Persona", "CuentasPorPagar", "LibroVisitas", "SeguridadInformacion"):
+            with self.subTest(nombre=nombre):
+                sql = TABLA_CORRECTA.replace("dbo.Persona", f"dbo.{nombre}")
+                self.assertNotIn("TABLA_NOMBRE_NO_PASCALCASE", reglas(sql))
 
     def test_detecta_palabra_omitible_en_nombre_de_tabla(self):
-        sql = "CREATE TABLE dbo.PersonaDeCliente (nId INT NOT NULL COLLATE Latin1_General_CI_AS);"
-        reglas = {hallazgo.regla for hallazgo in verificar_tabla(sql)}
+        sql = TABLA_CORRECTA.replace("dbo.Persona", "dbo.PersonaDeCliente")
+        self.assertIn("TABLA_CON_PALABRA_OMITIBLE", reglas(sql))
 
-        self.assertIn("TABLA_CON_PALABRA_OMITIBLE", reglas)
+    def test_exige_clave_primaria(self):
+        sql = f"CREATE TABLE dbo.CuentasPorPagar (cCuentaCodigo VARCHAR(10) {COLLATE} NOT NULL);"
+        hallazgos = verificar_tabla(sql)
+        self.assertEqual([h.regla for h in hallazgos], ["PK_FALTANTE"])
+        self.assertIn("nCuentasPorPagarId", hallazgos[0].mensaje)
+
+    def test_pk_debe_llamarse_n_nombre_tabla_id(self):
+        sql = TABLA_CORRECTA.replace("nPersonaId", "nId")
+        self.assertIn("PK_NOMBRE_INVALIDO", reglas(sql))
+
+    def test_pk_debe_ser_identity_cluster_y_numerica(self):
+        sql = f"CREATE TABLE dbo.Persona (nPersonaId VARCHAR(10) {COLLATE} NOT NULL PRIMARY KEY NONCLUSTERED);"
+        encontradas = set(reglas(sql))
+        self.assertTrue({"PK_SIN_IDENTITY", "PK_NO_CLUSTER", "PK_NO_NUMERICA"} <= encontradas)
+
+    def test_pk_compuesta(self):
+        sql = TABLA_CORRECTA.replace("(nPersonaId)", "(nPersonaId, cPersonaNombre)")
+        self.assertIn("PK_COMPUESTA", reglas(sql))
+
+    def test_pk_en_la_columna_o_agregada_con_alter_en_el_mismo_script(self):
+        en_columna = "CREATE TABLE dbo.Persona (nPersonaId INT IDENTITY(1,1) PRIMARY KEY);"
+        self.assertEqual(verificar_tabla(en_columna), [])
+        con_alter = (
+            "CREATE TABLE dbo.Persona (nPersonaId INT IDENTITY(1,1) NOT NULL);\n"
+            "ALTER TABLE dbo.Persona ADD CONSTRAINT PK_Persona PRIMARY KEY (nPersonaId);"
+        )
+        self.assertEqual(verificar_tabla(con_alter), [])
+
+    def test_columnas_exigen_not_null_o_default(self):
+        sql = TABLA_CORRECTA.replace("dPersonaFechaNacimiento DATE NOT NULL", "dPersonaFechaNacimiento DATE NULL")
+        self.assertEqual(reglas(sql), ["COLUMNA_SIN_NOT_NULL_NI_DEFAULT"])
+
+
+class TestColumnas(unittest.TestCase):
+    """Reglas de columna: aplican al CREATE y a las columnas nuevas de un ALTER."""
+
+    def test_valida_prefijo_segun_el_tipo(self):
+        sql = TABLA_CORRECTA.replace("cPersonaNombre", "PersonaNombre")
+        hallazgos = verificar_tabla(sql)
+        self.assertEqual([h.regla for h in hallazgos], ["COLUMNA_PREFIJO_TIPO_INVALIDO"])
+        self.assertIn("debe iniciar con 'c'", hallazgos[0].mensaje)
+
+    def test_despues_del_prefijo_va_pascal_case(self):
+        for nombre in ("cpersonanombre", "c_persona_nombre", "cPERSONA"):
+            with self.subTest(nombre=nombre):
+                sql = TABLA_CORRECTA.replace("cPersonaNombre", nombre)
+                self.assertIn("COLUMNA_NOMBRE_NO_PASCALCASE", reglas(sql))
+
+    def test_prefijos_de_los_ejemplos_del_manual(self):
+        self.assertEqual(verificar_tabla(TABLA_CORRECTA), [])
+
+    def test_collate_obligatorio_en_texto_fuera_de_dbcmaica(self):
+        sql = TABLA_CORRECTA.replace(f"VARCHAR(100) {COLLATE}", "VARCHAR(100)")
+        self.assertEqual(reglas(sql), ["COLUMNA_SIN_COLLATE"])
+        self.assertEqual(verificar_tabla(sql, es_dbcmaica=True), [])
+        self.assertEqual(verificar_tabla(sql.replace("dbo.Persona", "DBCMAICA.dbo.Persona")), [])
+
+    def test_collate_en_tipo_no_textual_es_invalido(self):
+        sql = TABLA_CORRECTA.replace("BIT NOT NULL", f"BIT {COLLATE} NOT NULL")
+        self.assertIn("COLLATE_EN_TIPO_NO_TEXTO", reglas(sql))
+
+    def test_linea_del_hallazgo_es_la_de_la_columna(self):
+        sql = TABLA_CORRECTA.replace("cPersonaNombre", "PersonaNombre")
+        self.assertEqual(verificar_tabla(sql)[0].linea, 4)
+
+
+class TestAlterTable(unittest.TestCase):
+    """ALTER TABLE: solo se revisan las columnas nuevas."""
+
+    def test_no_aplica_reglas_de_tabla_ni_de_pk(self):
+        sql = f"ALTER TABLE TB_Persona ADD cPersonaApodo VARCHAR(30) {COLLATE} NOT NULL DEFAULT '';"
+        self.assertEqual(verificar_tabla(sql), [])
+
+    def test_columna_que_acepta_null_solo_pide_evaluar_un_default(self):
+        sql = f"ALTER TABLE dbo.Persona ADD cPersonaApodo VARCHAR(30) {COLLATE} NULL;"
+        hallazgos = verificar_tabla(sql)
+        self.assertEqual([h.regla for h in hallazgos], ["COLUMNA_NULL_EN_ALTER"])
+        self.assertEqual(hallazgos[0].severidad, Severidad.BAJO)
+        self.assertIn("¿Evaluó definir un valor por defecto", hallazgos[0].mensaje)
+
+    def test_revisa_prefijo_nombre_y_collate_de_la_columna_nueva(self):
+        sql = "ALTER TABLE dbo.Persona ADD Apodo VARCHAR(30) NOT NULL DEFAULT '';"
+        self.assertEqual(set(reglas(sql)), {"COLUMNA_PREFIJO_TIPO_INVALIDO", "COLUMNA_SIN_COLLATE"})
+
+    def test_add_con_varias_columnas_y_con_parentesis(self):
+        sql = f"ALTER TABLE dbo.Persona ADD cPersonaApodo VARCHAR(30) {COLLATE} NOT NULL DEFAULT '', Activo BIT NULL;"
+        self.assertEqual(set(reglas(sql)), {"COLUMNA_PREFIJO_TIPO_INVALIDO", "COLUMNA_NULL_EN_ALTER"})
+        con_parentesis = f"ALTER TABLE dbo.Persona ADD (cPersonaApodo VARCHAR(30) {COLLATE} NOT NULL DEFAULT '')"
+        self.assertEqual(verificar_tabla(con_parentesis), [])
+
+    def test_add_constraint_no_es_una_columna(self):
+        sql = "ALTER TABLE dbo.Persona ADD CONSTRAINT DF_Persona_bActivo DEFAULT 1 FOR bPersonaActivo;"
+        self.assertEqual(verificar_tabla(sql), [])
+
+
+class TestCatalogo(unittest.TestCase):
+    def test_toda_regla_emitida_esta_en_el_catalogo(self):
+        codigo = inspect.getsource(analizador_tablas)
+        emitidas = set(re.findall(r'_hallazgo\(\s*[^,]+,\s*[^,]+,\s*"([A-Z_]+)"', codigo))
+        self.assertTrue(emitidas)
+        self.assertEqual(emitidas - set(REGLAS_TABLAS), set())
 
 
 if __name__ == "__main__":
