@@ -41,12 +41,13 @@ function ResumenVeredicto({ conteo, total }) {
     <div className={`verdict sev-${mayor}`} role="status">
       <span className="verdict-icon"><Icono /></span>
       <div className="verdict-body">
+        <p className="verdict-kicker">Resultado de la revisión</p>
         <p className="verdict-title">{veredicto.titulo}</p>
         <p className="verdict-text">{veredicto.texto}</p>
       </div>
       <div className="verdict-count">
         <strong>{total}</strong>
-        <span>{desglose}</span>
+        <span>{total === 1 ? 'hallazgo' : 'hallazgos'} · {desglose}</span>
       </div>
     </div>
   );

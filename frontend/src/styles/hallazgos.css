@@ -20,20 +20,40 @@
   --sev-bg: var(--sev-bajo-bg);
   --sev-text: var(--sev-bajo-text);
 
+  position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 16px;
+  gap: 18px;
   align-items: center;
   margin-bottom: 18px;
-  padding: 18px 22px 18px 26px;
+  padding: 18px 24px 18px 28px;
+  overflow: hidden;
   border-radius: 10px;
-  /* Barra de severidad a la izquierda + sombra suave, sin borde. */
+  /* Mismo relieve que las fichas: fondo blanco, luz arriba y sombra suave. */
+  background: linear-gradient(180deg, #ffffff 0%, #fcfcfd 100%);
   box-shadow:
-    inset 4px 0 0 var(--sev),
+    inset 0 1px 0 rgba(255, 255, 255, 1),
     0 1px 2px rgba(17, 17, 26, 0.05),
-    0 6px 18px -6px rgba(17, 17, 26, 0.1);
-  background: linear-gradient(90deg, var(--sev-bg), transparent 55%), var(--bg-card);
+    0 10px 28px -12px rgba(17, 17, 26, 0.16);
   animation: aparecer 260ms var(--ease) both;
+}
+
+:root[data-theme="dark"] .verdict {
+  background: linear-gradient(180deg, #1c1c23 0%, #17171d 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 10px 28px -12px rgba(0, 0, 0, 0.7);
+}
+
+/* Barra de la severidad más alta a la izquierda. */
+.verdict::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background: var(--sev);
 }
 
 .verdict.sev-critico { --sev: var(--sev-critico); --sev-bg: var(--sev-critico-bg); --sev-text: var(--sev-critico-text); }
@@ -51,10 +71,17 @@
   stroke-width: 1.5;
 }
 
+.verdict-kicker {
+  margin-bottom: 2px;
+  color: var(--red-main);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
 .verdict-title {
   color: var(--text-primary);
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: 1.02rem;
+  font-weight: 700;
 }
 
 .verdict-text {
@@ -76,8 +103,8 @@
 
 .verdict-count strong {
   color: var(--text-primary);
-  font-size: 1.35rem;
-  font-weight: 600;
+  font-size: 1.7rem;
+  font-weight: 700;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
