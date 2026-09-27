@@ -147,5 +147,24 @@ END"""
         self.assertIn("las líneas 3, 4", hallazgos[0].mensaje)
 
 
+    def test_varchar_max_es_medio_y_se_permite_para_json_o_xml(self):
+        observado = [h for h in verificar_procedimiento_normal("DECLARE @cNombre VARCHAR(MAX);")
+                     if h.regla == "VARCHAR_MAX_PROHIBIDO"]
+        self.assertEqual(len(observado), 1)
+        self.assertEqual(observado[0].severidad.value, "medio")
+        self.assertIn("no guarda JSON ni XML", observado[0].mensaje)
+        for sql in ("DECLARE @cJson NVARCHAR(MAX);",
+                    "DECLARE @d NVARCHAR(MAX); SET @d = (SELECT a FROM #T FOR JSON PATH);"):
+            with self.subTest(sql=sql):
+                self.assertNotIn("VARCHAR_MAX_PROHIBIDO", {h.regla for h in verificar_procedimiento_normal(sql)})
+
+    def test_severidades_salen_del_catalogo(self):
+        hallazgos = {h.regla: h.severidad.value for h in verificar_procedimiento_normal(
+            "SELECT * FROM #T ORDER BY 1; DECLARE @doc VARBINARY(MAX);")}
+        self.assertEqual(hallazgos["SELECT_ESTRELLA_PROHIBIDO"], "medio")
+        self.assertEqual(hallazgos["ORDER_BY_NUMERICO_PROHIBIDO"], "medio")
+        self.assertEqual(hallazgos["VARBINARY_DOCUMENTO_IDENTIFICADO"], "bajo")
+
+
 if __name__ == "__main__":
     unittest.main()
