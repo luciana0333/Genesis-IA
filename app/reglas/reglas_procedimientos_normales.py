@@ -142,7 +142,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "GOTO_PROHIBIDO": ReglaDiccionario(
         codigo="GOTO_PROHIBIDO",
-        nombre="GOTO prohibido",
+        nombre="Uso de GOTO",
         severidad="medio",
         descripcion="No se permite el uso de GOTO en procedimientos normales.",
         alcance="procedimiento",
@@ -150,7 +150,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "MERGE_PROHIBIDO": ReglaDiccionario(
         codigo="MERGE_PROHIBIDO",
-        nombre="MERGE prohibido",
+        nombre="Uso de MERGE",
         severidad="medio",
         descripcion="No se permite la sentencia MERGE en procedimientos normales.",
         alcance="procedimiento",
