@@ -369,7 +369,8 @@
   position: absolute;
   inset: 0;
   border-radius: var(--radius-xl);
-  background: url('../assets/fondo.jpg') 35% center / cover no-repeat;
+  /* Foto: Pexels (licencia libre), pexels.com/photo/7567434 */
+  background: url('../assets/foto-encabezado.jpg') center 30% / cover no-repeat;
   box-shadow: 0 30px 60px -28px rgba(40, 0, 4, 0.7);
 }
 
