@@ -54,7 +54,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "TEMPORAL_TEXTO_SIN_COLLATE": ReglaDiccionario(
         codigo="TEMPORAL_TEXTO_SIN_COLLATE",
-        nombre="Texto temporal sin COLLATE",
+        nombre="Columna de texto sin COLLATE en tabla temporal",
         severidad="alto",
         descripcion="Las columnas de texto de tablas temporales deben declarar COLLATE.",
         alcance="procedimiento",
@@ -126,7 +126,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "TABLA_REPETIDA_EN_CONSULTA": ReglaDiccionario(
         codigo="TABLA_REPETIDA_EN_CONSULTA",
-        nombre="Tabla consultada muchas veces",
+        nombre="Misma tabla en varios JOIN",
         severidad="medio",
         descripcion="Una misma tabla no debe leerse más de 3 veces (FROM/JOIN) en la misma consulta.",
         alcance="procedimiento",
