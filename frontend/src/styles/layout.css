@@ -131,18 +131,6 @@
   transition: color var(--dur-fast) ease;
 }
 
-.nav-link::after {
-  content: '';
-  position: absolute;
-  right: 16px;
-  bottom: -1px;
-  left: 16px;
-  height: 3px;
-  background: var(--red-main);
-  transform: scaleX(0);
-  transition: transform var(--dur) var(--ease);
-}
-
 .nav-link:hover {
   color: var(--text-primary);
 }
@@ -150,15 +138,6 @@
 .nav-link.active {
   color: var(--red-main);
   font-weight: 600;
-}
-
-.nav-link.active::after,
-.nav-link:hover::after {
-  transform: scaleX(1);
-}
-
-.nav-link:hover:not(.active)::after {
-  background: var(--border-strong);
 }
 
 .cta-btn {
@@ -264,13 +243,6 @@
   color: rgba(255, 255, 255, 0.9);
   font-size: 0.86rem;
   font-weight: 600;
-}
-
-.hero-eyebrow::before {
-  content: '';
-  width: 28px;
-  height: 2px;
-  background: #ffffff;
 }
 
 .hero h1 {
