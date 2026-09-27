@@ -245,8 +245,9 @@ def _validar_control_de_flujo(texto: str, limpio: str) -> List[Hallazgo]:
         for match in re.finditer(r"\bWHILE\b", limpio, re.IGNORECASE):
             hallazgos.append(_hallazgo(
                 texto, match.start(), "WHILE_PROHIBIDO",
-                "El procedimiento nuevo usa WHILE, que no se permite: procesar fila por fila es lento. "
-                "Resuélvalo con una sola consulta sobre todo el conjunto (INSERT/UPDATE con JOIN).",
+                "El procedimiento nuevo usa un bucle WHILE, que no está permitido: repite el mismo proceso "
+                "registro por registro y, con muchos datos, el reporte se vuelve muy lento. "
+                "Reemplace el bucle por una sola consulta que trabaje con todos los registros a la vez; por ejemplo, en lugar de recorrer los clientes uno por uno para sumar sus saldos, use SELECT nClienteId, SUM(nSaldo) FROM dbo.Cuenta GROUP BY nClienteId.",
             ))
     for match in re.finditer(r"\bRAISERROR\b", limpio, re.IGNORECASE):
         hallazgos.append(_hallazgo(
