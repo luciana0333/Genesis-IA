@@ -22,6 +22,7 @@ function irAlFormulario() {
 export function Hero({ titulo, complemento, descripcion, puntos = PUNTOS_POR_DEFECTO, accion = 'Comenzar revisión' }) {
   return (
     <section className="hero">
+      <span className="hero-formas" aria-hidden="true" />
       <div className="hero-container">
         <div className="hero-texto">
           <p className="hero-eyebrow">{complemento ?? 'Auditoría inteligente'}</p>

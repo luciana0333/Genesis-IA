@@ -160,8 +160,41 @@
   padding: 36px 24px 56px;
   overflow: hidden;
   color: #ffffff;
-  background: var(--hero-base);
+  /* Degradado de la paleta: rojo profundo a la izquierda, rojo del logo a la derecha. */
+  background: linear-gradient(115deg, var(--hero-deep) 0%, var(--hero-base) 48%, var(--hero-bright) 100%);
+  /* Borde inferior en diagonal: más alto a la izquierda, baja hacia la persona. */
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 calc(100% - 56px));
   isolation: isolate;
+}
+
+/* Formas circulares translúcidas que dan profundidad al fondo. */
+.hero-formas {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.hero-formas::before,
+.hero-formas::after {
+  content: '';
+  position: absolute;
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+.hero-formas::before {
+  top: -46%;
+  left: -12%;
+  width: 46%;
+  background: radial-gradient(circle at 60% 60%, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04) 70%);
+}
+
+.hero-formas::after {
+  bottom: -62%;
+  left: 18%;
+  width: 34%;
+  background: radial-gradient(circle at 40% 30%, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.03) 70%);
 }
 
 /* Destello de luz diagonal que cruza el encabezado una sola vez. */
