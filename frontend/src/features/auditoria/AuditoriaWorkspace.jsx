@@ -16,7 +16,7 @@ function esAtajoEjecutar(evento) {
 
 /**
  * Espacio de trabajo de las revisiones por reglas (Diccionarios, Tablas,
- * Reportes y Normales). Se monta una instancia por vista, así cada pestaña
+ * Reportes y Procedimientos). Se monta una instancia por vista, así cada pestaña
  * arranca con su propio ejemplo y sin resultados de otra.
  */
 export function AuditoriaWorkspace({ vista }) {

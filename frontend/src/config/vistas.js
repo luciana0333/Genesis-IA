@@ -53,8 +53,8 @@ export const VISTAS = [
   },
   {
     id: 'normal',
-    ruta: 'normales',
-    etiqueta: 'Normales',
+    ruta: 'procedimientos',
+    etiqueta: 'Procedimientos',
     tipoRevision: 'procedimiento_normal',
     hero: {
       titulo: 'Auditoría de procedimientos SQL',
