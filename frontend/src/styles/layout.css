@@ -157,7 +157,7 @@
  */
 .hero {
   position: relative;
-  padding: 56px 24px 56px;
+  padding: 36px 24px 56px;
   overflow: hidden;
   color: #ffffff;
   background: var(--hero-base);
@@ -318,7 +318,7 @@
   position: relative;
   align-self: end;
   justify-self: end;
-  width: min(540px, 115%);
+  width: min(470px, 110%);
   /* Llega justo al borde inferior del rojo. */
   margin: 0 -40px -56px 0;
   isolation: isolate;
@@ -365,7 +365,7 @@
   flex: 1;
   width: 100%;
   max-width: 1240px;
-  margin: 32px auto 72px;
+  margin: -40px auto 72px;
   padding: 0 24px;
 }
 
