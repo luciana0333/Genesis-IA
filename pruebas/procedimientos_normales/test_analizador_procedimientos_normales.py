@@ -106,5 +106,34 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         self.assertNotIn("VARCHAR_MAX_PROHIBIDO", reglas)
 
 
+    def test_nombre_correcto_al_crear(self):
+        for nombre in ("dbo.PA_Cliente_Sel_PorDocumento", "dbo.PA_Cliente_Upd", "dbo.PA_Credito_Calcular_Interes"):
+            with self.subTest(nombre=nombre):
+                reglas = {h.regla for h in verificar_procedimiento_normal(f"CREATE PROCEDURE {nombre} AS SELECT 1")}
+                self.assertFalse(reglas & {"PROCEDIMIENTO_SIN_ESQUEMA", "PROCEDIMIENTO_SIN_PREFIJO_PA",
+                                           "PROCEDIMIENTO_NOMBRE_INCOMPLETO", "PROCEDIMIENTO_ACCION_NO_ABREVIADA"})
+
+    def test_nomenclatura_al_crear(self):
+        casos = {
+            "CREATE PROCEDURE PA_Cliente_Sel AS SELECT 1": "PROCEDIMIENTO_SIN_ESQUEMA",
+            "CREATE PROCEDURE dbo.sp_ClienteConsultar AS SELECT 1": "PROCEDIMIENTO_SIN_PREFIJO_PA",
+            "CREATE PROCEDURE dbo.PA_Cliente AS SELECT 1": "PROCEDIMIENTO_NOMBRE_INCOMPLETO",
+            "CREATE PROCEDURE dbo.PA_Cliente_Consultar AS SELECT 1": "PROCEDIMIENTO_ACCION_NO_ABREVIADA",
+        }
+        for sql, regla in casos.items():
+            with self.subTest(sql=sql):
+                self.assertIn(regla, {h.regla for h in verificar_procedimiento_normal(sql)})
+        accion = [h for h in verificar_procedimiento_normal("CREATE PROCEDURE dbo.PA_Cliente_Consultar_PorId AS SELECT 1")
+                  if h.regla == "PROCEDIMIENTO_ACCION_NO_ABREVIADA"][0]
+        self.assertIn("PA_Cliente_Sel_PorId", accion.mensaje)
+
+    def test_en_alter_solo_se_exige_el_esquema(self):
+        sin_esquema = {h.regla for h in verificar_procedimiento_normal("ALTER PROCEDURE sp_Viejo AS SELECT 1")}
+        self.assertIn("PROCEDIMIENTO_SIN_ESQUEMA", sin_esquema)
+        self.assertFalse(sin_esquema & {"PROCEDIMIENTO_SIN_PREFIJO_PA", "PROCEDIMIENTO_NOMBRE_INCOMPLETO"})
+        con_esquema = {h.regla for h in verificar_procedimiento_normal("ALTER PROCEDURE dbo.sp_Viejo AS SELECT 1")}
+        self.assertNotIn("PROCEDIMIENTO_SIN_ESQUEMA", con_esquema)
+
+
 if __name__ == "__main__":
     unittest.main()

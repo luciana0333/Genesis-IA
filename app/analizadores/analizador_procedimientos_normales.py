@@ -199,10 +199,77 @@ def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+# Acciones estándar del manual: la palabra completa se abrevia.
+_ACCIONES_ABREVIADAS = {
+    "consultar": "Sel", "consulta": "Sel", "select": "Sel", "seleccionar": "Sel",
+    "actualizar": "Upd", "actualiza": "Upd", "update": "Upd",
+    "insertar": "Ins", "inserta": "Ins", "insert": "Ins",
+    "eliminar": "Del", "elimina": "Del", "delete": "Del", "borrar": "Del",
+}
+_EJEMPLO_NOMBRE = "PA_Cliente_Sel_PorDocumento"
+
+
+def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
+    """Nomenclatura: Esquema.PA_Tabla_Acción_Finalidad (en un ALTER solo el esquema)."""
+    match = re.search(
+        rf"\b(CREATE|ALTER)\s+(?:OR\s+ALTER\s+)?PROC(?:EDURE)?\s+"
+        rf"({_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}})",
+        limpio, re.IGNORECASE,
+    )
+    if not match:
+        return []
+    partes = [parte.strip().strip("[]") for parte in match.group(2).split(".")]
+    nombre = partes[-1]
+    posicion = match.start(2)
+    hallazgos = []
+
+    if len(partes) == 1:
+        hallazgos.append(_hallazgo(
+            texto, posicion, "PROCEDIMIENTO_SIN_ESQUEMA",
+            f"El procedimiento {nombre} no indica su esquema. Anteponer el esquema al nombre, ya que "
+            f"así se evita crear o modificar un objeto equivocado (ej.: dbo.{nombre}).",
+        ))
+
+    # En un ALTER el procedimiento ya existe: su nombre no se puede cambiar.
+    if match.group(1).upper() != "CREATE":
+        return hallazgos
+
+    segmentos = nombre.split("_")
+    if segmentos[0] != "PA":
+        hallazgos.append(_hallazgo(
+            texto, posicion, "PROCEDIMIENTO_SIN_PREFIJO_PA",
+            f"El nombre del procedimiento {nombre} no empieza con PA_. Usar el formato "
+            f"PA_Tabla_Acción_Finalidad, ya que PA identifica a los procedimientos almacenados "
+            f"(ej.: {_EJEMPLO_NOMBRE}).",
+        ))
+        return hallazgos
+
+    if len(segmentos) < 3 or not all(segmentos[1:3]):
+        hallazgos.append(_hallazgo(
+            texto, posicion, "PROCEDIMIENTO_NOMBRE_INCOMPLETO",
+            f"El nombre del procedimiento {nombre} no indica la tabla y la acción. Usar el formato "
+            f"PA_Tabla_Acción_Finalidad, ya que así se entiende qué hace el procedimiento "
+            f"(ej.: {_EJEMPLO_NOMBRE}).",
+        ))
+        return hallazgos
+
+    accion = segmentos[2]
+    abreviatura = _ACCIONES_ABREVIADAS.get(accion.lower())
+    if abreviatura and accion != abreviatura:
+        sugerido = "_".join(segmentos[:2] + [abreviatura] + segmentos[3:])
+        hallazgos.append(_hallazgo(
+            texto, posicion, "PROCEDIMIENTO_ACCION_NO_ABREVIADA",
+            f"La acción del procedimiento {nombre} está escrita como '{accion}'. Usar la abreviatura "
+            f"del manual, {abreviatura}, ya que así se nombran las acciones estándar (ej.: {sugerido}).",
+        ))
+    return hallazgos
+
+
 def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     """Aplica exclusivamente las reglas de procedimientos normales."""
     limpio = _quitar_comentarios(texto_sql)
     hallazgos: List[Hallazgo] = []
+    hallazgos.extend(_validar_nombre_procedimiento(texto_sql, limpio))
     hallazgos.extend(_validar_control_flujo(texto_sql, limpio))
     hallazgos.extend(_validar_hints(texto_sql, limpio))
     hallazgos.extend(_validar_temporales(texto_sql, limpio))

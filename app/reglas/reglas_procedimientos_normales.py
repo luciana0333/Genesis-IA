@@ -4,6 +4,38 @@
 from app.reglas.reglas_base import ReglaDiccionario
 
 REGLAS_PROCEDIMIENTOS_NORMALES = {
+    "PROCEDIMIENTO_SIN_ESQUEMA": ReglaDiccionario(
+        codigo="PROCEDIMIENTO_SIN_ESQUEMA",
+        nombre="Procedimiento sin esquema",
+        severidad="alto",
+        descripcion="El procedimiento debe indicar su esquema (CREATE y ALTER).",
+        alcance="procedimiento",
+        activo=True,
+    ),
+    "PROCEDIMIENTO_SIN_PREFIJO_PA": ReglaDiccionario(
+        codigo="PROCEDIMIENTO_SIN_PREFIJO_PA",
+        nombre="Nombre sin prefijo PA_",
+        severidad="alto",
+        descripcion="Al crearlo, el nombre sigue el formato Esquema.PA_Tabla_Acción_Finalidad.",
+        alcance="procedimiento",
+        activo=True,
+    ),
+    "PROCEDIMIENTO_NOMBRE_INCOMPLETO": ReglaDiccionario(
+        codigo="PROCEDIMIENTO_NOMBRE_INCOMPLETO",
+        nombre="Nombre de procedimiento incompleto",
+        severidad="alto",
+        descripcion="Al crearlo, el nombre indica la tabla y la acción: PA_Tabla_Acción_Finalidad.",
+        alcance="procedimiento",
+        activo=True,
+    ),
+    "PROCEDIMIENTO_ACCION_NO_ABREVIADA": ReglaDiccionario(
+        codigo="PROCEDIMIENTO_ACCION_NO_ABREVIADA",
+        nombre="Acción sin abreviar",
+        severidad="alto",
+        descripcion="Las acciones estándar se abrevian: Sel (consultar), Upd (actualizar), Ins (insertar) y Del (eliminar).",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "WHILE_PROHIBIDO": ReglaDiccionario(
         codigo="WHILE_PROHIBIDO",
         nombre="WHILE prohibido",
