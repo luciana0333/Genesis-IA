@@ -80,6 +80,32 @@ def _palabras_nombre_tabla(nombre: str) -> List[str]:
     return [parte.lower() for parte in re.findall(r"[A-Z]+(?=[A-Z][a-z]|$)|[A-Z]?[a-z]+|\d+", nombre)]
 
 
+def _a_pascal_case(nombre: str) -> str:
+    """Propone el nombre en PascalCase: quita guiones bajos, espacios y el prefijo TB_."""
+    partes = [p for p in re.split(r"[_\s]+", nombre) if p]
+    if len(partes) > 1 and partes[0].upper() in {"TB", "TBL"}:
+        partes = partes[1:]
+    return "".join(
+        p.capitalize() if p.isupper() or p.islower() else p[0].upper() + p[1:]
+        for p in partes
+    )
+
+
+def _sugerencia_tabla(tabla: str) -> Optional[str]:
+    sugerido = _a_pascal_case(tabla)
+    return sugerido if sugerido != tabla and _PASCAL_CASE.match(sugerido) else None
+
+
+def _sugerencia_columna(nombre: str, prefijo: Optional[str]) -> Optional[str]:
+    """Propone el nombre corregido de la columna (prefijo correcto + PascalCase)."""
+    # Si ya trae un prefijo de otro tipo (nPersonaNombre en un VARCHAR), se reemplaza.
+    resto = nombre[1:] if re.match(r"^[a-z][A-Z_]", nombre) else nombre
+    if "_" not in resto and " " not in resto and resto.islower() and len(resto) > 1:
+        return None  # 'cpersonanombre': no se pueden separar las palabras con certeza.
+    sugerido = (prefijo or nombre[:1].lower()) + _a_pascal_case(resto.lstrip("_"))
+    return sugerido if sugerido != nombre and _NOMBRE_COLUMNA.match(sugerido) else None
+
+
 def _prefijo_esperado(definicion: str) -> Optional[str]:
     for prefijo, patron_tipo in _PREFIJOS_TIPO:
         if re.search(rf"^\s*{patron_tipo}", definicion, re.IGNORECASE):
@@ -90,6 +116,15 @@ def _prefijo_esperado(definicion: str) -> Optional[str]:
 def _tipo_de_dato(definicion: str) -> str:
     coincidencia = re.match(r"\s*([A-Za-z0-9_]+)", definicion)
     return coincidencia.group(1).upper() if coincidencia else "?"
+
+
+_DESCRIPCION_PREFIJO = {"c": "texto", "n": "número", "b": "bit", "d": "fecha"}
+
+
+def _tipo_completo(definicion: str) -> str:
+    """Tipo con su longitud, tal como se escribió (ej.: VARCHAR(100))."""
+    coincidencia = re.match(r"\s*([A-Za-z0-9_]+\s*(?:\([^)]*\))?)", definicion)
+    return coincidencia.group(1).upper().replace(" ", "") if coincidencia else "VARCHAR"
 
 
 def _es_tipo_texto(definicion: str) -> bool:
@@ -253,20 +288,26 @@ def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: s
     if not esquema:
         hallazgos.append(_hallazgo(
             texto, -1, "TABLA_SIN_ESQUEMA",
-            f"La tabla {tabla} no indica su esquema. Escríbala como esquema.tabla (ej.: dbo.{tabla}).",
+            f"La tabla {tabla} se crea sin indicar su esquema. Escriba el esquema antes del nombre: "
+            f"dbo.{tabla}.",
         ))
     if not _PASCAL_CASE.match(tabla):
+        sugerido = _sugerencia_tabla(tabla)
+        accion = (
+            f"Renómbrela como {sugerido}." if sugerido
+            else "Use PascalCase: cada palabra con mayúscula inicial (ej.: CuentasPorPagar)."
+        )
         hallazgos.append(_hallazgo(
             texto, -1, "TABLA_NOMBRE_NO_PASCALCASE",
-            f"El nombre de la tabla {tabla} no sigue el estándar: debe ir en PascalCase, cada palabra "
-            f"con mayúscula inicial y sin guiones bajos ni espacios (ej.: Persona, CuentasPorPagar).",
+            f"El nombre de la tabla {tabla} no cumple la nomenclatura: cada palabra va con mayúscula "
+            f"inicial, sin guiones bajos, espacios ni prefijos como TB_. {accion}",
         ))
     omitibles = sorted(set(_palabras_nombre_tabla(tabla)) & _PALABRAS_OMITIBLES_TABLA)
     if omitibles:
         hallazgos.append(_hallazgo(
             texto, -1, "TABLA_CON_PALABRA_OMITIBLE",
-            f"El nombre de la tabla {tabla} contiene la palabra '{omitibles[0]}', que debe omitirse "
-            f"según la nomenclatura.",
+            f"El nombre de la tabla {tabla} incluye la palabra de enlace '{omitibles[0]}'. Quítela "
+            f"del nombre: la nomenclatura no usa palabras como de, del, mi o su.",
         ))
     return hallazgos
 
@@ -277,24 +318,26 @@ def _validar_clave_primaria(
     nombre_esperado = f"n{tabla}Id"
     pk, es_cluster, posicion = _clave_primaria(texto, columnas)
     if not pk:
-        return [_hallazgo(
-            texto, -1, "PK_FALTANTE",
-            f"La tabla {referencia} no tiene clave primaria. Defina un índice clúster identidad "
-            f"llamado {nombre_esperado}.",
-        )]
+        existe = any(c.nombre == nombre_esperado for c in columnas)
+        accion = (
+            f"Defina la columna {nombre_esperado} como PRIMARY KEY CLUSTERED." if existe
+            else f"Agregue la columna {nombre_esperado} INT IDENTITY(1,1) y defínala como PRIMARY KEY CLUSTERED."
+        )
+        return [_hallazgo(texto, -1, "PK_FALTANTE", f"La tabla {referencia} no tiene clave primaria. {accion}")]
 
     hallazgos = []
     if len(pk) > 1:
         hallazgos.append(_hallazgo(
             texto, posicion, "PK_COMPUESTA",
-            f"La clave primaria de {referencia} usa varias columnas ({', '.join(pk)}). Debe ser una "
-            f"sola columna identidad llamada {nombre_esperado}.",
+            f"La clave primaria de {referencia} combina varias columnas ({', '.join(pk)}). Use una "
+            f"sola columna identidad, {nombre_esperado}; si necesita que la combinación no se repita, "
+            f"cree un índice UNIQUE aparte.",
         ))
     if not es_cluster:
         hallazgos.append(_hallazgo(
             texto, posicion, "PK_NO_CLUSTER",
-            f"La clave primaria de {referencia} está definida como NONCLUSTERED. Debe ser el índice "
-            f"clúster de la tabla.",
+            f"La clave primaria de {referencia} está definida como NONCLUSTERED. Cámbiela a "
+            f"PRIMARY KEY CLUSTERED: debe ser el índice clúster de la tabla.",
         ))
     if len(pk) > 1:
         return hallazgos
@@ -305,21 +348,22 @@ def _validar_clave_primaria(
     if _PASCAL_CASE.match(tabla) and nombre_pk != nombre_esperado:
         hallazgos.append(_hallazgo(
             texto, posicion, "PK_NOMBRE_INVALIDO",
-            f"La clave primaria {nombre_pk} debe llamarse {nombre_esperado} (n + nombre de la tabla + Id).",
+            f"La clave primaria se llama {nombre_pk}, pero debe llamarse n + nombre de la tabla + Id. "
+            f"Renómbrela como {nombre_esperado}.",
         ))
     columna_pk = next((c for c in columnas if c.nombre.upper() == nombre_pk.upper()), None)
     if columna_pk:
         if not re.search(r"\bIDENTITY\b", columna_pk.definicion, re.IGNORECASE):
             hallazgos.append(_hallazgo(
                 texto, columna_pk.posicion, "PK_SIN_IDENTITY",
-                f"La clave primaria {nombre_pk} no es IDENTITY. Debe ser una identidad de la tabla "
-                f"(ej.: INT IDENTITY(1,1) NOT NULL).",
+                f"La clave primaria {nombre_pk} no es autoincremental. Defínala como identidad: "
+                f"{nombre_pk} INT IDENTITY(1,1) NOT NULL.",
             ))
         if not re.search(rf"^\s*{_TIPOS_NUMERICOS}", columna_pk.definicion, re.IGNORECASE):
             hallazgos.append(_hallazgo(
                 texto, columna_pk.posicion, "PK_NO_NUMERICA",
-                f"La clave primaria {nombre_pk} es {_tipo_de_dato(columna_pk.definicion)}. De preferencia "
-                f"debe ser numérica (INT o BIGINT).",
+                f"La clave primaria {nombre_pk} es de tipo {_tipo_de_dato(columna_pk.definicion)}. "
+                f"De preferencia use un tipo numérico (INT o BIGINT): ocupa menos y se busca más rápido.",
             ))
     return hallazgos
 
@@ -331,39 +375,46 @@ def _validar_columna(
     definicion = columna.definicion
     prefijo = _prefijo_esperado(definicion)
 
+    sugerido = _sugerencia_columna(columna.nombre, prefijo)
     if prefijo and not columna.nombre.startswith(prefijo):
+        accion = f"Renómbrela como {sugerido}." if sugerido else f"Agregue la '{prefijo}' al inicio del nombre."
         hallazgos.append(_hallazgo(
             texto, columna.posicion, "COLUMNA_PREFIJO_TIPO_INVALIDO",
-            f"La columna {columna.nombre} de {referencia} debe iniciar con '{prefijo}' porque su tipo "
-            f"de dato es {_tipo_de_dato(definicion)}.",
+            f"La columna {columna.nombre} es de tipo {_tipo_de_dato(definicion)}, así que su nombre "
+            f"debe iniciar con '{prefijo}' ({_DESCRIPCION_PREFIJO[prefijo]}). {accion}",
         ))
     elif not _NOMBRE_COLUMNA.match(columna.nombre):
+        accion = (
+            f"Renómbrela como {sugerido}." if sugerido
+            else "Escriba cada palabra con mayúscula inicial (ej.: cPersonaNombre)."
+        )
         hallazgos.append(_hallazgo(
             texto, columna.posicion, "COLUMNA_NOMBRE_NO_PASCALCASE",
-            f"El nombre de la columna {columna.nombre} no sigue el estándar: después del prefijo debe ir "
-            f"en PascalCase, sin guiones bajos (ej.: cPersonaNombre, dPersonaFechaNacimiento).",
+            f"El nombre de la columna {columna.nombre} no cumple la nomenclatura: después del prefijo, "
+            f"cada palabra va con mayúscula inicial y sin guiones bajos. {accion}",
         ))
 
     if re.search(r"^\s*VARBINARY\b", definicion, re.IGNORECASE):
         hallazgos.append(_hallazgo(
             texto, columna.posicion, "COLUMNA_VARBINARY_PROHIBIDA",
-            f"La columna {columna.nombre} de {referencia} es de tipo VARBINARY, que está prohibido: "
-            f"guardar archivos en la base de datos la infla y degrada el rendimiento. Guarde el archivo "
-            f"fuera de la base de datos y registre su ruta (ej.: cRutaArchivo VARCHAR).",
+            f"La columna {columna.nombre} es de tipo VARBINARY, que está prohibido: guardar archivos "
+            f"en la base de datos la hace crecer y vuelve lentas las consultas y los respaldos. Guarde "
+            f"el archivo en el servidor de archivos y registre solo su ruta (ej.: cRutaArchivo VARCHAR).",
         ))
 
     tiene_collate = re.search(r"\bCOLLATE\s+\w+", definicion, re.IGNORECASE)
     if _es_tipo_texto(definicion) and not es_dbcmaica and not tiene_collate:
         hallazgos.append(_hallazgo(
             texto, columna.posicion, "COLUMNA_SIN_COLLATE",
-            f"La columna {columna.nombre} de {referencia} debe definir COLLATE porque la tabla no "
-            f"pertenece a DBCMAICA.",
+            f"La columna de texto {columna.nombre} no define COLLATE. Agréguelo después del tipo "
+            f"(ej.: {_tipo_completo(definicion)} COLLATE Modern_Spanish_CI_AS); solo las tablas de "
+            f"DBCMAICA pueden omitirlo.",
         ))
     if not _es_tipo_texto(definicion) and tiene_collate:
         hallazgos.append(_hallazgo(
             texto, columna.posicion, "COLLATE_EN_TIPO_NO_TEXTO",
-            f"La columna {columna.nombre} de {referencia} tiene COLLATE, pero COLLATE solo corresponde "
-            f"a columnas de texto (CHAR o VARCHAR).",
+            f"La columna {columna.nombre} es de tipo {_tipo_de_dato(definicion)} y tiene COLLATE, que "
+            f"solo aplica a columnas de texto (CHAR o VARCHAR). Quite el COLLATE de esta columna.",
         ))
     return hallazgos
 
@@ -399,7 +450,8 @@ def verificar_tabla(texto_sql: str, es_dbcmaica: bool = False) -> List[Hallazgo]
             if not implicita and not _tiene_not_null_o_default(columna.definicion):
                 hallazgos.append(_hallazgo(
                     texto, columna.posicion, "COLUMNA_SIN_NOT_NULL_NI_DEFAULT",
-                    f"La columna {columna.nombre} de {referencia} debe ser NOT NULL o tener un valor DEFAULT.",
+                    f"La columna {columna.nombre} acepta valores nulos. Defínala como NOT NULL o "
+                    f"asígnele un valor por defecto (DEFAULT).",
                 ))
     else:
         for columna in _columnas_alter(texto):
@@ -407,8 +459,9 @@ def verificar_tabla(texto_sql: str, es_dbcmaica: bool = False) -> List[Hallazgo]
             if not _tiene_not_null_o_default(columna.definicion):
                 hallazgos.append(_hallazgo(
                     texto, columna.posicion, "COLUMNA_NULL_EN_ALTER",
-                    f"La columna {columna.nombre} se agrega permitiendo NULL. ¿Evaluó definir un valor por "
-                    f"defecto (DEFAULT)? No se exige NOT NULL porque la tabla ya tiene registros.",
+                    f"La columna nueva {columna.nombre} acepta valores nulos. ¿Evaluó definir un valor por "
+                    f"defecto (DEFAULT)? No es obligatorio: como la tabla ya tiene registros, no se exige "
+                    f"NOT NULL.",
                 ))
 
     # Las reglas desactivadas en el catálogo no se reportan.

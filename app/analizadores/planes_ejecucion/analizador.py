@@ -1,4 +1,4 @@
-"""Analisis conservador de planes de ejecucion reales en formato XML."""
+"""Análisis conservador de planes de ejecución reales en formato XML."""
 
 from __future__ import annotations
 
@@ -144,30 +144,34 @@ def _hallazgo(regla: str, severidad: Severidad, mensaje: str) -> Hallazgo:
 
 def _revisar_operador(operador: OperadorPlan, umbrales: UmbralesPlan) -> List[Hallazgo]:
     hallazgos = []
-    referencia = operador.objeto or f"nodo {operador.nodo_id}"
+    referencia = operador.objeto or f"el nodo {operador.nodo_id}"
     if operador.tiene_conversion_implicita:
         hallazgos.append(_hallazgo(
             "CONVERSION_IMPLICITA",
             Severidad.ALTO,
-            f"El operador {referencia} contiene una conversion implicita que puede impedir el uso eficiente de un indice.",
+            f"En {referencia} SQL Server convierte un tipo de dato a otro por su cuenta (conversión implícita), "
+            f"lo que puede impedir usar el índice. Compare columnas y variables del mismo tipo.",
         ))
     if operador.tiene_spill:
         hallazgos.append(_hallazgo(
             "SPILL_TEMPDB",
             Severidad.ALTO,
-            f"El operador {referencia} reporta un spill hacia TempDB; revise memoria, cardinalidad e indices.",
+            f"En {referencia} la memoria no alcanzó y SQL Server tuvo que usar el disco (TempDB). Revise que "
+            f"las estadísticas estén actualizadas y que existan los índices necesarios.",
         ))
     if operador.operacion_fisica.lower() == "table scan":
         hallazgos.append(_hallazgo(
             "TABLE_SCAN",
             Severidad.MEDIO,
-            f"Se detecto Table Scan en {referencia}; confirme si la lectura completa de la tabla es necesaria.",
+            f"Se lee la tabla {referencia} completa (Table Scan). Confirme si es necesario; si la consulta "
+            f"filtra datos, cree un índice sobre las columnas del filtro.",
         ))
     if operador.lecturas_logicas is not None and operador.lecturas_logicas >= umbrales.lecturas_logicas_altas:
         hallazgos.append(_hallazgo(
             "LECTURAS_LOGICAS_ELEVADAS",
             Severidad.ALTO,
-            f"El operador {referencia} registra {operador.lecturas_logicas:.0f} lecturas logicas, por encima del umbral configurado.",
+            f"En {referencia} se leyeron {operador.lecturas_logicas:.0f} páginas (lecturas lógicas), más de lo "
+            f"permitido. Revise los filtros y los índices para leer menos datos.",
         ))
     if (
         operador.estimacion_filas
@@ -178,7 +182,9 @@ def _revisar_operador(operador: OperadorPlan, umbrales: UmbralesPlan) -> List[Ha
         hallazgos.append(_hallazgo(
             "SOBREESTIMACION_FILAS",
             Severidad.ALTO,
-            f"El operador {referencia} produjo {operador.filas_reales:.0f} filas frente a {operador.estimacion_filas:.0f} estimadas; revise estadisticas y cardinalidad.",
+            f"En {referencia} SQL Server estimó {operador.estimacion_filas:.0f} filas, pero salieron "
+            f"{operador.filas_reales:.0f}. Una estimación tan distinta lleva a malos planes: actualice las "
+            f"estadísticas de la tabla (UPDATE STATISTICS).",
         ))
     return hallazgos
 
@@ -205,6 +211,8 @@ def analizar_plan_ejecucion(
         hallazgos.append(_hallazgo(
             "MEMORIA_CONCEDIDA_SOBREDIMENSIONADA",
             Severidad.MEDIO,
-            f"La memoria concedida ({memoria.memoria_concedida_kb:.0f} KB) supera ampliamente la maxima utilizada ({memoria.memoria_maxima_utilizada_kb:.0f} KB).",
+            f"La consulta reservó {memoria.memoria_concedida_kb:.0f} KB de memoria pero solo usó "
+            f"{memoria.memoria_maxima_utilizada_kb:.0f} KB, quitándosela a otras consultas. Suele deberse a "
+            f"estadísticas desactualizadas o a columnas de texto demasiado grandes.",
         ))
     return hallazgos, operadores, memoria
