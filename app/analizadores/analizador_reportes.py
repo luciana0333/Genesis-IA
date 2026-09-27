@@ -198,8 +198,8 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
         (
             r"(?is)(?:^|;|\bGO\b)\s*SELECT\b(?:(?!;|\bGO\b).)*?\bINTO\b",
             "SELECT_INTO_PROHIBIDO",
-            "Se crea una tabla temporal con SELECT ... INTO. Crear primero la tabla con CREATE TABLE y luego "
-            "llenarla con INSERT INTO ... SELECT, ya que así se controlan sus tipos de datos.",
+            "Se crea una tabla temporal con SELECT INTO. Crear primero la tabla con CREATE TABLE y luego "
+            "llenarla con INSERT INTO seguido del SELECT, ya que así se controlan sus tipos de datos.",
         ),
         (r"\bSELECT\s+(?:DISTINCT\s+)?\*", "SELECT_ESTRELLA_PROHIBIDO", "Se usa SELECT *. Se recomienda escribir solo las columnas necesarias, ya que traer todas vuelve más lento el reporte (ej.: SELECT cNombre, dFecha)."),
         (r"\bIN\s*\(\s*[^,()]+\s*\)", "IN_CON_UN_SOLO_VALOR", "Se usa IN con un solo valor. Se recomienda usar el signo igual, ya que es más claro y directo (ej.: WHERE nEstado = 1)."),
