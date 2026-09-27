@@ -153,5 +153,41 @@ class TestAnalizadorReportes(unittest.TestCase):
         self.assertNotIn("VARCHAR_MAX_PROHIBIDO", reglas)
 
 
+    def test_while_solo_se_observa_al_crear_el_procedimiento(self):
+        cuerpo = "AS BEGIN DECLARE @i INT = 0; WHILE @i < 3 SET @i = @i + 1; END"
+        crear = [h for h in verificar_reporte(f"CREATE PROCEDURE dbo.R {cuerpo}") if h.regla == "WHILE_PROHIBIDO"]
+        self.assertEqual(len(crear), 1)
+        self.assertEqual(crear[0].severidad.value, "alto")
+        alterar = {h.regla for h in verificar_reporte(f"ALTER PROCEDURE dbo.R {cuerpo}")}
+        self.assertNotIn("WHILE_PROHIBIDO", alterar)
+
+    def test_varchar_max_permitido_para_json_o_xml(self):
+        casos_permitidos = [
+            "DECLARE @cJson NVARCHAR(MAX);",
+            "DECLARE @datos NVARCHAR(MAX); SET @datos = (SELECT a FROM #T FOR JSON PATH);",
+            "DECLARE @d VARCHAR(MAX); SELECT * FROM OPENJSON(@d);",
+            "DECLARE @d VARCHAR(MAX); SELECT CAST(@d AS XML);",
+            "SELECT CAST((SELECT a FROM #T FOR XML PATH('')) AS VARCHAR(MAX));",
+        ]
+        for sql in casos_permitidos:
+            with self.subTest(sql=sql):
+                self.assertNotIn("VARCHAR_MAX_PROHIBIDO", {h.regla for h in verificar_reporte(sql)})
+        observado = [h for h in verificar_reporte("DECLARE @cNombre VARCHAR(MAX);") if h.regla == "VARCHAR_MAX_PROHIBIDO"]
+        self.assertEqual(len(observado), 1)
+        self.assertIn("@cNombre", observado[0].mensaje)
+
+    def test_recomienda_throw_y_prohibe_waitfor(self):
+        sql = "RAISERROR('Error', 16, 1); WAITFOR DELAY '00:00:01';"
+        hallazgos = {h.regla: h for h in verificar_reporte(sql)}
+        self.assertEqual(hallazgos["RAISERROR_USAR_THROW"].severidad.value, "medio")
+        self.assertIn("THROW", hallazgos["RAISERROR_USAR_THROW"].mensaje)
+        self.assertEqual(hallazgos["WAITFOR_DELAY_PROHIBIDO"].severidad.value, "alto")
+
+    def test_severidad_sale_del_catalogo(self):
+        hallazgos = {h.regla: h for h in verificar_reporte("UPDATE dbo.Cliente SET a = 1; DECLARE @doc VARBINARY(MAX);")}
+        self.assertEqual(hallazgos["MODIFICACION_TABLA_FISICA"].severidad.value, "critico")
+        self.assertEqual(hallazgos["VARBINARY_DOCUMENTO_IDENTIFICADO"].severidad.value, "bajo")
+
+
 if __name__ == "__main__":
     unittest.main()

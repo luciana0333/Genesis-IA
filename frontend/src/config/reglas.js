@@ -68,6 +68,8 @@ export const NOMBRES_REGLAS = {
   CAST_EN_JOIN_PROHIBIDO: 'CAST en JOIN prohibido',
   SQL_DINAMICO_PROHIBIDO: 'SQL dinámico prohibido',
   VARCHAR_MAX_PROHIBIDO: 'VARCHAR(MAX) prohibido',
+  RAISERROR_USAR_THROW: 'Usar THROW en lugar de RAISERROR',
+  WAITFOR_DELAY_PROHIBIDO: 'WAITFOR prohibido',
   SINTAXIS_DICCIONARIO: 'Error de sintaxis en el diccionario',
   PARAMETROS_INCOMPLETOS: 'Faltan datos en la sentencia',
   TIPO_NIVEL_INCORRECTO: 'Tipo de nivel incorrecto',

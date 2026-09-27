@@ -5,6 +5,7 @@ import re
 from typing import Dict, List, Set, Tuple
 
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
+from app.reglas.reglas_reportes import REGLAS_REPORTES
 
 
 _IDENTIFICADOR = r"(?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)"
@@ -16,6 +17,12 @@ _HINTS_PROHIBIDOS = (
 _CATALOGOS_PROHIBIDOS = r"(?:sys|information_schema)\.[A-Za-z_][\w$]*"
 _PALABRAS_SQL_COMENTADAS = r"SELECT|INSERT|UPDATE|DELETE|MERGE|EXEC(?:UTE)?|DECLARE|CREATE|ALTER|DROP"
 _SQL_DINAMICO = r"\b(?:sp_executesql\b|EXEC(?:UTE)?\s*(?:\(\s*)?(?:N?['\"]|@))"
+# Uso de JSON o XML: justifica un VARCHAR(MAX).
+_USO_JSON_XML = re.compile(
+    r"\bFOR\s+(?:JSON|XML)\b|\bOPENJSON\s*\(|\bJSON_(?:VALUE|QUERY|MODIFY)\s*\(|\bISJSON\s*\(|"
+    r"\bOPENXML\s*\(|\bAS\s+XML\b|\bCONVERT\s*\(\s*XML\b|\.(?:value|nodes|query|exist)\s*\(",
+    re.IGNORECASE,
+)
 
 
 def _linea(texto: str, posicion: int) -> int:
@@ -23,10 +30,11 @@ def _linea(texto: str, posicion: int) -> int:
 
 
 def _hallazgo(texto: str, posicion: int, regla: str, mensaje: str) -> Hallazgo:
+    """Hallazgo con la severidad definida en el catálogo de reglas de reportes."""
     return Hallazgo(
         linea=_linea(texto, posicion),
         origen=OrigenAnalisis.REGLAS_ESTATICAS,
-        severidad=Severidad.ALTO,
+        severidad=Severidad(REGLAS_REPORTES[regla].severidad),
         regla=regla,
         mensaje=mensaje,
     )
@@ -185,13 +193,73 @@ def _validar_modificaciones_fisicas(texto: str, limpio: str) -> List[Hallazgo]:
 def _validar_sintaxis_prohibida(texto: str, limpio: str) -> List[Hallazgo]:
     reglas = (
         (_SQL_DINAMICO, "SQL_DINAMICO_PROHIBIDO", "Se ejecuta SQL dinámico (EXEC o sp_executesql), que está prohibido. Escriba la consulta de forma directa, usando parámetros para los filtros."),
-        (r"\bN?VARCHAR\s*\(\s*MAX\s*\)", "VARCHAR_MAX_PROHIBIDO", "Se usa VARCHAR(MAX), que está prohibido: reserva memoria de más y vuelve lentas las consultas. Defina una longitud acorde al dato (ej.: VARCHAR(500))."),
         (r"\bVARBINARY(?:\s*\(\s*(?:MAX|\d+)\s*\))?", "VARBINARY_DOCUMENTO_IDENTIFICADO", "Se usa VARBINARY, un tipo para guardar archivos o documentos. Confirme que es necesario: lo recomendado es guardar el archivo fuera de la base de datos y manejar solo su ruta."),
     )
     hallazgos = []
     for patron, regla, mensaje in reglas:
         for match in re.finditer(patron, limpio, re.IGNORECASE):
             hallazgos.append(_hallazgo(texto, match.start(), regla, mensaje))
+    return hallazgos
+
+
+def _sentencia(limpio: str, posicion: int) -> str:
+    """Sentencia que contiene la posición (entre ';' o GO)."""
+    inicio = max(limpio.rfind(";", 0, posicion), limpio.upper().rfind("GO\n", 0, posicion)) + 1
+    fin = limpio.find(";", posicion)
+    return limpio[inicio:fin if fin >= 0 else len(limpio)]
+
+
+def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
+    """VARCHAR(MAX) solo se permite para guardar JSON o XML."""
+    hallazgos = []
+    for match in re.finditer(r"\bN?VARCHAR\s*\(\s*MAX\s*\)", limpio, re.IGNORECASE):
+        declarado = re.search(r"(@?[A-Za-z_]\w*)\s+(?:AS\s+)?$", limpio[:match.start()])
+        nombre = declarado.group(1) if declarado and declarado.group(1).upper() not in {"AS", "CAST", "CONVERT"} else None
+        if nombre:
+            usos = re.finditer(rf"(?<![\w@]){re.escape(nombre)}\b", limpio, re.IGNORECASE)
+            es_json_xml = re.search(r"json|xml", nombre, re.IGNORECASE) or any(
+                _USO_JSON_XML.search(_sentencia(limpio, uso.start())) for uso in usos
+            )
+        else:
+            es_json_xml = _USO_JSON_XML.search(_sentencia(limpio, match.start()))
+        if es_json_xml:
+            continue
+        referencia = f"en {nombre} " if nombre else ""
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "VARCHAR_MAX_PROHIBIDO",
+            f"Se usa VARCHAR(MAX) {referencia}y no se identifica que guarde JSON o XML. Defina una "
+            f"longitud acorde al dato (ej.: VARCHAR(500)); VARCHAR(MAX) solo se permite para JSON o XML.",
+        ))
+    return hallazgos
+
+
+def _es_creacion_de_procedimiento(limpio: str) -> bool:
+    """True si el script crea el procedimiento (CREATE PROCEDURE); False si es un ALTER."""
+    return bool(re.search(r"\bCREATE\s+(?:OR\s+ALTER\s+)?PROC(?:EDURE)?\b", limpio, re.IGNORECASE))
+
+
+def _validar_control_de_flujo(texto: str, limpio: str) -> List[Hallazgo]:
+    hallazgos = []
+    # WHILE: solo en procedimientos nuevos; en un ALTER se respeta la lógica existente.
+    if _es_creacion_de_procedimiento(limpio):
+        for match in re.finditer(r"\bWHILE\b", limpio, re.IGNORECASE):
+            hallazgos.append(_hallazgo(
+                texto, match.start(), "WHILE_PROHIBIDO",
+                "El procedimiento nuevo usa WHILE, que no se permite: procesar fila por fila es lento. "
+                "Resuélvalo con una sola consulta sobre todo el conjunto (INSERT/UPDATE con JOIN).",
+            ))
+    for match in re.finditer(r"\bRAISERROR\b", limpio, re.IGNORECASE):
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "RAISERROR_USAR_THROW",
+            "Se usa RAISERROR para lanzar errores. Se recomienda THROW, que es la forma actual: "
+            "conserva el número y la línea del error original (ej.: THROW 50001, 'Mensaje', 1;).",
+        ))
+    for match in re.finditer(r"\bWAITFOR\s+(?:DELAY|TIME)\b", limpio, re.IGNORECASE):
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "WAITFOR_DELAY_PROHIBIDO",
+            "Se usa WAITFOR para pausar la ejecución, lo que retrasa el reporte y mantiene recursos "
+            "ocupados sin necesidad. Quite la espera.",
+        ))
     return hallazgos
 
 
@@ -262,6 +330,10 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_tablas_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_sentencias(texto_sql, limpio))
     hallazgos.extend(_validar_sintaxis_prohibida(texto_sql, limpio))
+    hallazgos.extend(_validar_varchar_max(texto_sql, limpio))
+    hallazgos.extend(_validar_control_de_flujo(texto_sql, limpio))
     hallazgos.extend(_validar_modificaciones_fisicas(texto_sql, limpio))
     hallazgos.extend(_validar_variables(texto_sql, limpio))
+    # Las reglas desactivadas en el catálogo no se reportan.
+    hallazgos = [h for h in hallazgos if REGLAS_REPORTES[h.regla].activo]
     return _agrupar_hallazgos_repetidos(hallazgos)
