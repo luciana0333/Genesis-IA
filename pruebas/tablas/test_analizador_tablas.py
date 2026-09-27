@@ -7,7 +7,7 @@ from app.analizadores.analizador_tablas import verificar_tabla
 from app.modelos.hallazgo import Severidad
 from app.reglas.reglas_tablas import REGLAS_TABLAS
 
-COLLATE = "COLLATE Modern_Spanish_CI_AS"
+COLLATE = "COLLATE SQL_Latin1_General_CP1_CI_AS"
 
 # Tabla que cumple el manual de nomenclatura (ejemplos del manual).
 TABLA_CORRECTA = f"""

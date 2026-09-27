@@ -144,7 +144,7 @@ def _validar_tablas_temporales(texto: str, limpio: str) -> List[Hallazgo]:
                     texto,
                     inicio + columna.start(),
                     "TEMPORAL_TEXTO_SIN_COLLATE",
-                    f"La columna de texto {columna.group(1)} de la tabla temporal {tabla} no define COLLATE. Agréguelo (ej.: VARCHAR(50) COLLATE Modern_Spanish_CI_AS) para evitar conflictos al compararla con otras tablas.",
+                    f"La columna de texto {columna.group(1)} de la tabla temporal {tabla} no define COLLATE. Agréguelo (ej.: VARCHAR(50) COLLATE SQL_Latin1_General_CP1_CI_AS) para evitar conflictos al compararla con otras tablas.",
                 ))
     return hallazgos
 

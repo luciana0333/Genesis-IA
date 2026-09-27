@@ -407,7 +407,7 @@ def _validar_columna(
         hallazgos.append(_hallazgo(
             texto, columna.posicion, "COLUMNA_SIN_COLLATE",
             f"La columna de texto {columna.nombre} no define COLLATE. Agréguelo después del tipo "
-            f"(ej.: {_tipo_completo(definicion)} COLLATE Modern_Spanish_CI_AS); solo las tablas de "
+            f"(ej.: {_tipo_completo(definicion)} COLLATE SQL_Latin1_General_CP1_CI_AS); solo las tablas de "
             f"DBCMAICA pueden omitirlo.",
         ))
     if not _es_tipo_texto(definicion) and tiene_collate:

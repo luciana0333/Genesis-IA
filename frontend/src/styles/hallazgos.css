@@ -25,10 +25,13 @@
   gap: 16px;
   align-items: center;
   margin-bottom: 18px;
-  padding: 16px 20px;
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--sev);
-  border-radius: var(--radius-lg);
+  padding: 18px 22px 18px 26px;
+  border-radius: 10px;
+  /* Barra de severidad a la izquierda + sombra suave, sin borde. */
+  box-shadow:
+    inset 4px 0 0 var(--sev),
+    0 1px 2px rgba(17, 17, 26, 0.05),
+    0 6px 18px -6px rgba(17, 17, 26, 0.1);
   background: linear-gradient(90deg, var(--sev-bg), transparent 55%), var(--bg-card);
   animation: aparecer 260ms var(--ease) both;
 }
@@ -147,11 +150,11 @@
  * Lista unificada con separadores. El color se reserva al ícono y a la
  * etiqueta de severidad; el resto es neutro.
  */
+/* Cada hallazgo es una tarjeta blanca con sombra suave, separada de las demás. */
 .findings-list {
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .finding {
@@ -164,13 +167,21 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 16px;
   align-items: start;
-  padding: 20px 22px;
+  padding: 20px 22px 20px 24px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--bg-card);
+  box-shadow:
+    0 1px 2px rgba(17, 17, 26, 0.05),
+    0 6px 18px -6px rgba(17, 17, 26, 0.1);
   animation: aparecer 260ms var(--ease) both;
-  transition: background-color var(--dur-fast) ease;
+  transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
 
-.finding + .finding {
-  border-top: 1px solid var(--border);
+:root[data-theme="dark"] .finding {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 6px 18px -6px rgba(0, 0, 0, 0.6);
 }
 
 .finding::before {
@@ -179,12 +190,15 @@
   top: 0;
   bottom: 0;
   left: 0;
-  width: 3px;
+  width: 4px;
   background: var(--sev);
 }
 
 .finding:hover {
-  background: var(--bg-input);
+  box-shadow:
+    0 1px 2px rgba(17, 17, 26, 0.05),
+    0 14px 30px -10px rgba(17, 17, 26, 0.18);
+  transform: translateY(-1px);
 }
 
 .finding.sev-critico { --sev: var(--sev-critico); --sev-bg: var(--sev-critico-bg); --sev-text: var(--sev-critico-text); }
@@ -399,8 +413,10 @@
   align-items: center;
   gap: 6px;
   padding: 44px 24px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: 10px;
+  box-shadow:
+    0 1px 2px rgba(17, 17, 26, 0.05),
+    0 6px 18px -6px rgba(17, 17, 26, 0.1);
   background: var(--bg-card);
   text-align: center;
 }

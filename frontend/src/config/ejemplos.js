@@ -13,8 +13,8 @@ END;`;
 
 export const SQL_TABLA = `CREATE TABLE CLICKTOPAY.Cliente (
     nClienteId INT IDENTITY(1,1) NOT NULL,
-    cCodPersona VARCHAR(20) COLLATE Latin1_General_CI_AS NOT NULL,
-    cCorreoElectronico VARCHAR(64) COLLATE Latin1_General_CI_AS NOT NULL,
+    cCodPersona VARCHAR(20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+    cCorreoElectronico VARCHAR(64) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
     CONSTRAINT PK_Cliente PRIMARY KEY CLUSTERED (nClienteId)
 );`;
 
