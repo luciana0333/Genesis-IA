@@ -35,18 +35,19 @@
   --red-shadow: rgba(227, 6, 19, 0.28);
 
   /* Severidades: solo para etiquetas e íconos de cada hallazgo */
-  --sev-critico: #d50d1c;
-  --sev-critico-bg: rgba(213, 13, 28, 0.08);
-  --sev-critico-text: #b50a17;
-  --sev-alto: #e36a00;
-  --sev-alto-bg: rgba(227, 106, 0, 0.09);
-  --sev-alto-text: #a94f00;
-  --sev-medio: #d9a300;
-  --sev-medio-bg: rgba(217, 163, 0, 0.11);
-  --sev-medio-text: #7f6000;
-  --sev-bajo: #13925a;
-  --sev-bajo-bg: rgba(19, 146, 90, 0.09);
-  --sev-bajo-text: #0c6b41;
+  /* Severidades en la paleta de la marca: rojo más oscuro cuanto más grave. */
+  --sev-critico: #9e000d;
+  --sev-critico-bg: rgba(158, 0, 13, 0.08);
+  --sev-critico-text: #8a000b;
+  --sev-alto: #e30613;
+  --sev-alto-bg: rgba(227, 6, 19, 0.08);
+  --sev-alto-text: #c0050f;
+  --sev-medio: #ec5b64;
+  --sev-medio-bg: rgba(236, 91, 100, 0.1);
+  --sev-medio-text: #b5323b;
+  --sev-bajo: #8a8a96;
+  --sev-bajo-bg: rgba(120, 120, 132, 0.1);
+  --sev-bajo-text: #5c5c68;
 
   /* Tipografía */
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -104,18 +105,18 @@
   --red-light: rgba(240, 22, 42, 0.12);
   --red-shadow: rgba(240, 22, 42, 0.35);
 
-  --sev-critico: #ff4455;
-  --sev-critico-bg: rgba(255, 68, 85, 0.12);
-  --sev-critico-text: #ff7b87;
-  --sev-alto: #ff9536;
-  --sev-alto-bg: rgba(255, 149, 54, 0.12);
-  --sev-alto-text: #ffae66;
-  --sev-medio: #f2c440;
-  --sev-medio-bg: rgba(242, 196, 64, 0.12);
-  --sev-medio-text: #f4d170;
-  --sev-bajo: #34c880;
-  --sev-bajo-bg: rgba(52, 200, 128, 0.12);
-  --sev-bajo-text: #62d89c;
+  --sev-critico: #ff3b4b;
+  --sev-critico-bg: rgba(255, 59, 75, 0.14);
+  --sev-critico-text: #ff6b77;
+  --sev-alto: #f0162a;
+  --sev-alto-bg: rgba(240, 22, 42, 0.12);
+  --sev-alto-text: #ff5a68;
+  --sev-medio: #f47f86;
+  --sev-medio-bg: rgba(244, 127, 134, 0.12);
+  --sev-medio-text: #f7a1a7;
+  --sev-bajo: #9a9aa6;
+  --sev-bajo-bg: rgba(154, 154, 166, 0.12);
+  --sev-bajo-text: #b8b8c2;
 
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
