@@ -171,9 +171,9 @@
   inset: 0;
   z-index: -3;
   background:
-    linear-gradient(90deg, rgba(26, 6, 9, 0.2), rgba(26, 6, 9, 0.55)),
+    linear-gradient(90deg, rgba(14, 4, 6, 0.45), rgba(14, 4, 6, 0.7)),
     url('../assets/fondo.jpg') right center / cover no-repeat;
-  filter: grayscale(0.85) brightness(0.7) contrast(1.1);
+  filter: grayscale(0.85) brightness(0.55) contrast(1.1);
   pointer-events: none;
 }
 
@@ -186,7 +186,8 @@
   left: 0;
   z-index: -2;
   width: 62%;
-  background: linear-gradient(120deg, var(--hero-deep) 0%, var(--hero-base) 55%, var(--hero-bright) 100%);
+  /* Rojo casi sólido: un degradado apenas perceptible. */
+  background: linear-gradient(120deg, #a90f1a 0%, var(--hero-base) 55%, #c2131f 100%);
   clip-path: polygon(0 0, 100% 0, 84% 100%, 0 100%);
   box-shadow: 0 0 60px rgba(0, 0, 0, 0.4);
   pointer-events: none;
