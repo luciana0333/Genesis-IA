@@ -61,7 +61,11 @@
   z-index: 100;
   /* Sin línea divisoria: la separa del encabezado una sombra ligera. */
   background: var(--bg-card);
-  box-shadow: 0 8px 24px -14px rgba(17, 17, 26, 0.22);
+  /* Sombra marcada para que el menú se despegue del encabezado rojo. */
+  box-shadow:
+    0 1px 0 rgba(17, 17, 26, 0.05),
+    0 4px 10px -2px rgba(25, 0, 4, 0.5),
+    0 12px 28px -6px rgba(25, 0, 4, 0.55);
 }
 
 .navbar-container {
