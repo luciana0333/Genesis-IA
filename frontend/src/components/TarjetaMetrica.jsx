@@ -1,11 +1,10 @@
 /**
- * Celda del resumen superior: ícono en un círculo del color de su tono, título,
- * cifra y detalle. Se agrupan dentro de un panel único (.metrics-grid).
- * `tono`: critico | alto | medio | bajo (por defecto, el rojo de marca).
+ * Celda del resumen superior: ícono de línea, título en mayúsculas, cifra y
+ * detalle. Se agrupan dentro de un panel único (.metrics-grid).
  */
-export function TarjetaMetrica({ titulo, valor, subtitulo, icono, tono = 'alto' }) {
+export function TarjetaMetrica({ titulo, valor, subtitulo, icono }) {
   return (
-    <div className={`metric-card tono-${tono}`}>
+    <div className="metric-card">
       <span className="metric-icon">{icono}</span>
       <div className="metric-body">
         <span className="metric-title">{titulo}</span>

@@ -27,19 +27,13 @@
 }
 
 .metric-card {
-  --tono: var(--red-main);
   position: relative;
   display: flex;
-  align-items: center;
-  gap: 18px;
-  padding: 24px 26px;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 26px 26px 24px;
   transition: background-color var(--dur) var(--ease);
 }
-
-.metric-card.tono-critico { --tono: var(--sev-critico); }
-.metric-card.tono-alto { --tono: var(--sev-alto); }
-.metric-card.tono-medio { --tono: var(--sev-medio); }
-.metric-card.tono-bajo { --tono: var(--sev-bajo); }
 
 .metric-card + .metric-card {
   border-left: 1px solid rgba(17, 17, 26, 0.06);
@@ -49,33 +43,37 @@
   border-left-color: rgba(255, 255, 255, 0.06);
 }
 
+/* Acento rojo inferior al pasar el mouse. */
+.metric-card::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: var(--red-main);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur) var(--ease);
+}
+
 .metric-card:hover {
   background: var(--bg-input);
 }
 
-/* Ícono blanco dentro de un círculo del color de la severidad, con sombra
-   del mismo tono. */
-.metric-icon {
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: var(--tono);
-  color: #ffffff;
-  box-shadow: 0 10px 20px -8px var(--tono);
-  transition: transform var(--dur) var(--ease);
+.metric-card:hover::after {
+  transform: scaleX(1);
 }
 
-.metric-card:hover .metric-icon {
-  transform: translateY(-2px);
+.metric-icon {
+  flex-shrink: 0;
+  color: var(--metric-icon);
 }
 
 .metric-icon svg {
-  width: 24px;
-  height: 24px;
-  stroke-width: 1.7;
+  width: 30px;
+  height: 30px;
+  stroke-width: 1.4;
 }
 
 .metric-body {
@@ -85,25 +83,23 @@
 }
 
 .metric-title {
-  color: var(--text-secondary);
-  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
   font-weight: 600;
 }
 
 .metric-value {
-  margin: 2px 0 1px;
+  margin: 6px 0 2px;
   color: var(--metric-value);
-  font-size: 2rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
+  font-size: 1.7rem;
+  font-weight: 600;
+  line-height: 1.15;
   font-variant-numeric: tabular-nums;
 }
 
 .metric-sub {
   color: var(--text-muted);
-  font-family: var(--font-texto);
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   line-height: 1.45;
 }
 

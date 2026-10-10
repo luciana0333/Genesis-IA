@@ -23,7 +23,6 @@ export function MetricasSeveridad({ conteo, subtitulos }) {
           icono={icono}
           valor={conteo[severidad]}
           subtitulo={subtitulos[indice]}
-          tono={severidad}
         />
       ))}
     </section>
