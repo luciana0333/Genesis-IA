@@ -256,18 +256,14 @@ h3.section-title {
   background: transparent;
 }
 
-/* Al escribir, la tarjeta completa muestra el foco. */
-.field-card:has(.code-editor:focus-within) {
-  box-shadow: var(--focus-ring), 0 8px 20px -12px rgba(17, 17, 26, 0.25);
+/* Sin contorno de foco ni líneas: al escribir solo se resalta la línea del cursor. */
+.field-card-body > .code-editor:focus-within {
+  box-shadow: none;
 }
 
-/* Columna de números en blanco, separada por una línea finísima. */
-.field-card-body > .code-editor .code-gutter {
-  border-right: 1px solid var(--border);
-}
-
+.field-card-body > .code-editor .code-gutter,
 .field-card-body > .code-editor .code-footer {
-  border-top: 1px solid var(--border);
+  border: none;
 }
 
 /* Línea donde está el cursor: fondo suave y su número en rojo. */
