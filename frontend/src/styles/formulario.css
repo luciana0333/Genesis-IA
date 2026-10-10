@@ -242,6 +242,34 @@ h3.section-title {
   box-shadow: none;
 }
 
+/* Campos del formulario: blancos, sin borde, separados por una sombra suave
+   (mismo estilo que el botón Limpiar). */
+.control-row select,
+.control-row input[type="text"] {
+  border-color: transparent;
+  background-color: var(--bg-card);
+  box-shadow:
+    0 0 0 1px rgba(17, 17, 26, 0.04),
+    0 2px 6px rgba(17, 17, 26, 0.06),
+    0 8px 20px -8px rgba(17, 17, 26, 0.16);
+}
+
+.control-row select:hover,
+.control-row input[type="text"]:hover {
+  border-color: transparent;
+  box-shadow:
+    0 0 0 1px rgba(17, 17, 26, 0.06),
+    0 4px 10px rgba(17, 17, 26, 0.08),
+    0 12px 26px -8px rgba(17, 17, 26, 0.2);
+}
+
+.control-row select:focus,
+.control-row input[type="text"]:focus {
+  border-color: var(--red-main);
+  background-color: var(--bg-card);
+  box-shadow: var(--focus-ring), 0 8px 20px -8px rgba(17, 17, 26, 0.16);
+}
+
 /* Campos con ícono a la izquierda (tipo de revisión y nombre del objeto). */
 input.campo-icono[type="text"],
 select.campo-icono {
