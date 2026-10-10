@@ -194,6 +194,17 @@
   pointer-events: none;
 }
 
+/* La foto financiera fundida dentro del rojo, sutil: se insinúa sin lavar el color. */
+.hero-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('../assets/fondo.jpg') center / cover no-repeat;
+  filter: grayscale(1);
+  mix-blend-mode: soft-light;
+  opacity: 0.32;
+}
+
 .hero-panel::after {
   content: '';
   position: absolute;
