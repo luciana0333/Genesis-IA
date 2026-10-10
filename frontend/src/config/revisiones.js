@@ -49,7 +49,7 @@ export const REVISIONES = {
       etiqueta: 'Código del diccionario de procedimiento',
       objetivo: 'el procedimiento y sus parámetros',
     },
-    ejemplo: { sql: SQL_PROCEDIMIENTO, diccionario: DICCIONARIO_PROCEDIMIENTO, nombre: 'CLICKTOPAY.PA_Cliente_Consultar' },
+    ejemplo: { sql: SQL_PROCEDIMIENTO, diccionario: DICCIONARIO_PROCEDIMIENTO, nombre: 'CLICKTOPAY.PA_Cliente_Sel_PorId' },
   },
   reporte: {
     id: 'reporte',

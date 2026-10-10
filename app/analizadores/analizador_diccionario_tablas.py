@@ -15,6 +15,7 @@ import unicodedata
 from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.diccionario_agrupar import agrupar, con_elemento, ubicar
+from app.analizadores.diccionario_nomenclatura import nomenclatura_tabla
 from app.analizadores.ortografia import palabras_mal_escritas
 from app.analizadores.propiedades_extendidas import (
     LlamadaPropiedad,
@@ -290,14 +291,18 @@ def _validar_tabla_documentada(
     )]
 
 
+def _linea_tabla(texto_tabla: str) -> int:
+    """Línea del CREATE o ALTER TABLE: ahí van los hallazgos del nombre de la tabla."""
+    m = re.search(r"\b(?:CREATE|ALTER)\s+TABLE\b", _sin_comentarios(texto_tabla), re.IGNORECASE)
+    return texto_tabla.count("\n", 0, m.start()) + 1 if m else 1
+
+
 def _validar_esquema_declarado(texto_tabla: str, esquema: Optional[str], nombre_tabla: str) -> List[Hallazgo]:
     """La tabla indica su esquema en el CREATE o ALTER."""
     if esquema:
         return []
-    m = re.search(r"\b(?:CREATE|ALTER)\s+TABLE\b", _sin_comentarios(texto_tabla), re.IGNORECASE)
-    linea = texto_tabla.count("\n", 0, m.start()) + 1 if m else 1
     return [_hallazgo(
-        linea, "OBJETO_SIN_ESQUEMA",
+        _linea_tabla(texto_tabla), "OBJETO_SIN_ESQUEMA",
         f"La tabla {nombre_tabla} no indica su esquema. Anteponer el esquema al nombre, ya que así se "
         f"evita crear o modificar la tabla en un esquema equivocado y el diccionario puede "
         f"documentarla correctamente (ej.: dbo.{nombre_tabla}).",
@@ -638,6 +643,12 @@ def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> Li
     )
     hallazgos += _validar_duplicados(llamadas)
     hallazgos += _validar_esquema_declarado(texto_tabla, esquema, nombre_tabla)
+    if tipo_sentencia == "CREATE":
+        # Al crear la tabla se revisa su nombre; en un ALTER solo el esquema.
+        hallazgos += [
+            _hallazgo(_linea_tabla(texto_tabla), regla, mensaje)
+            for regla, mensaje in nomenclatura_tabla(nombre_tabla)
+        ]
     hallazgos += _validar_esquema(llamadas, esquema)
     hallazgos += _validar_nombre_tabla(llamadas, nombre_tabla)
     hallazgos += _validar_descripciones_vacias(llamadas)

@@ -17,6 +17,7 @@ import re
 from typing import List, Set, Tuple, Dict, Optional
 
 from app.analizadores.diccionario_agrupar import agrupar, con_elemento, ubicar
+from app.analizadores.diccionario_nomenclatura import nomenclatura_procedimiento
 from app.analizadores.ortografia import palabras_mal_escritas
 from app.analizadores.propiedades_extendidas import como_llamadas_crudas, leer_propiedades_extendidas
 from app.modelos.hallazgo import Hallazgo, Severidad, OrigenAnalisis
@@ -80,6 +81,24 @@ def _validar_esquema_declarado(texto_procedimiento: str, esquema: Optional[str],
                 f"ya que así se evita crear o modificar el objeto en un esquema equivocado y el "
                 f"diccionario puede documentarlo correctamente (ej.: dbo.{nombre_proc}).",
     )]
+
+
+def _validar_nomenclatura(texto_procedimiento: str, tipo_sentencia: str, nombre_proc: str) -> List[Hallazgo]:
+    """Al crear el procedimiento, su nombre sigue PA_Tabla_Acción_Finalidad (en ALTER no se revisa)."""
+    if tipo_sentencia != "CREATE":
+        return []
+    m = re.search(r"CREATE\s+PROC", texto_procedimiento, re.IGNORECASE)
+    linea = _numero_linea(texto_procedimiento, m.start() if m else 0)
+    return [
+        Hallazgo(
+            linea=linea,
+            origen=OrigenAnalisis.DICCIONARIO,
+            severidad=Severidad(REGLAS_DICCIONARIO_PROCEDIMIENTOS[regla].severidad),
+            regla=regla,
+            mensaje=mensaje,
+        )
+        for regla, mensaje in nomenclatura_procedimiento(nombre_proc)
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -451,6 +470,7 @@ def verificar_diccionario(
     # no tiene sentido seguir comparando parametro por parametro si no
     # hay nada con que comparar.
     hallazgos += _validar_esquema_declarado(texto_procedimiento, esquema, nombre_proc)
+    hallazgos += _validar_nomenclatura(texto_procedimiento, tipo_sentencia, nombre_proc)
     hallazgos += _validar_alter_sin_diccionario(
         tipo_sentencia, llamadas, esquema, nombre_proc
     )

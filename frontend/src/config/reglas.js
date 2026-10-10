@@ -34,6 +34,7 @@ export const NOMBRES_REGLAS = {
   COLUMNA_PREFIJO_TIPO_INVALIDO: 'Prefijo de columna inválido',
   TABLA_CON_PALABRA_OMITIBLE: 'Nombre de tabla con palabra omitible',
   TABLA_NOMBRE_NO_PASCALCASE: 'Nombre de tabla fuera del estándar',
+  TABLA_NOMBRE_NO_ESTANDAR: 'Nombre de tabla fuera del estándar',
   COLUMNA_NOMBRE_NO_PASCALCASE: 'Nombre de columna fuera del estándar',
   COLUMNA_NULL_EN_ALTER: 'Evaluar valor por defecto',
   COLUMNA_NOMBRE_CON_NUMERO: 'Nombre de columna con números',

@@ -1,13 +1,13 @@
 """
 Caso 6: el diccionario no depende de GO.
 
-Incluye el script real de TB_SolicitudArchivos (sentencias separadas con ";",
+Incluye el script real de SolicitudArchivos (sentencias separadas con ";",
 sin GO, con una coma sobrante y nombres sin comillas) y variantes del mismo
 diccionario correcto separado de distintas formas.
 """
 
 TABLA = """
-CREATE TABLE dbo.TB_SolicitudArchivos
+CREATE TABLE dbo.SolicitudArchivos
 (
     nSolicitudArchivoId INT IDENTITY(1,1) NOT NULL,
     nSolicitudId INT NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE dbo.TB_SolicitudArchivos
     dFechaRegistro DATETIME NOT NULL DEFAULT GETDATE(),
     bActivo BIT NOT NULL DEFAULT 1,
 
-    CONSTRAINT PK_TB_SolicitudArchivos PRIMARY KEY CLUSTERED (nSolicitudArchivoId)
+    CONSTRAINT PK_SolicitudArchivos PRIMARY KEY CLUSTERED (nSolicitudArchivoId)
 );
 """
 
@@ -25,14 +25,14 @@ DICCIONARIO_REAL = """EXEC sys.sp_addextendedproperty
 @name = N'MS_Description',
 @value = N'Identificador único de la tabla SolicitudArchivos',
 @level0type = N'SCHEMA', @level0name = dbo,
-@level1type = N'TABLE',  @level1name = TB_SolicitudArchivos,
+@level1type = N'TABLE',  @level1name = SolicitudArchivos,
 
 
 EXEC sys.sp_addextendedproperty
 @name = N'MS_Description',
 @value = N'Identificador único de la tabla SolicitudArchivos',
 @level0type = N'SCHEMA', @level0name = dbo,
-@level1type = N'TABLE',  @level1name = TB_SolicitudArchivos,
+@level1type = N'TABLE',  @level1name = SolicitudArchivos,
 @level2type = N'COLUMN', @level2name = nSolicitudArchivoId;
 
 -- nSolicitudId
@@ -40,7 +40,7 @@ EXEC sys.sp_addextendedproperty
 @name = N'MS_Description',
 @value = N'Identificador de la solicitud asociada',
 @level0type = N'SCHEMA', @level0name = dbo,
-@level1type = N'TABLE',  @level1name = TB_SolicitudArchivos,
+@level1type = N'TABLE',  @level1name = SolicitudArchivos,
 @level2type = N'COLUMN', @level2name = nSolicitudId;
 
 -- cNombreArchivo
@@ -48,7 +48,7 @@ EXEC sys.sp_addextendedproperty
 @name = N'MS_Description',
 @value = N'Nombre del archivo adjunto',
 @level0type = N'SCHEMA', @level0name = dbo,
-@level1type = N'TABLE',  @level1name = TB_SolicitudArchivos,
+@level1type = N'TABLE',  @level1name = SolicitudArchivos,
 @level2type = N'COLUMN', @level2name = cNombreArchivo;
 
 -- cRutaArchivo
@@ -56,7 +56,7 @@ EXEC sys.sp_addextendedproperty
 @name = N'MS_Description',
 @value = N'Ruta de almacenamiento del archivo',
 @level0type = N'SCHEMA', @level0name = dbo,
-@level1type = N'TABLE',  @level1name = TB_SolicitudArchivos,
+@level1type = N'TABLE',  @level1name = SolicitudArchivos,
 @level2type = N'COLUMN', @level2name = cRutaArchivo;
 
 -- dFechaRegistro
@@ -64,7 +64,7 @@ EXEC sys.sp_addextendedproperty
 @name = N'MS_Description',
 @value = N'Fecha de registro del archivo',
 @level0type = N'SCHEMA', @level0name = dbo,
-@level1type = N'TABLE',  @level1name = TB_SolicitudArchivos,
+@level1type = N'TABLE',  @level1name = SolicitudArchivos,
 @level2type = N'COLUMN', @level2name = dFechaRegistro;
 
 -- bActivo
@@ -72,7 +72,7 @@ EXEC sys.sp_addextendedproperty
 @name = N'MS_Description',
 @value = N'Indica si el registro se encuentra activo (1=Activo, 0=Inactivo)',
 @level0type = N'SCHEMA', @level0name = dbo,
-@level1type = N'TABLE',  @level1name = TB_SolicitudArchivos,
+@level1type = N'TABLE',  @level1name = SolicitudArchivos,
 @level2type = N'COLUMN', @level2name = bActivo;
 """
 
@@ -93,7 +93,7 @@ def _sentencia(columna, descripcion):
         "@name = N'MS_Description',\n"
         f"@value = N'{descripcion}',\n"
         "@level0type = N'SCHEMA', @level0name = N'dbo',\n"
-        "@level1type = N'TABLE', @level1name = N'TB_SolicitudArchivos'"
+        "@level1type = N'TABLE', @level1name = N'SolicitudArchivos'"
     )
     if columna:
         texto += f",\n@level2type = N'COLUMN', @level2name = N'{columna}'"

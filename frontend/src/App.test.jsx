@@ -23,7 +23,7 @@ describe('App', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Auditoría de diccionarios SQL');
     expect(screen.getByRole('link', { name: 'Diccionarios' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByLabelText('Tipo de revisión')).toHaveValue('procedimiento');
-    expect(screen.getByLabelText('SQL del procedimiento').value).toContain('PA_Cliente_Consultar');
+    expect(screen.getByLabelText('SQL del procedimiento').value).toContain('PA_Cliente_Sel_PorId');
     expect(screen.getByText('Listo para iniciar la revisión')).toBeInTheDocument();
   });
 
@@ -136,7 +136,7 @@ describe('App', () => {
     expect(screen.getByLabelText('SQL del procedimiento')).toHaveValue('');
 
     await usuario.click(screen.getByRole('button', { name: 'Restaurar ejemplo' }));
-    expect(screen.getByLabelText('SQL del procedimiento').value).toContain('PA_Cliente_Consultar');
+    expect(screen.getByLabelText('SQL del procedimiento').value).toContain('PA_Cliente_Sel_PorId');
   });
 
   it('en Diccionarios detecta una tabla pegada y aplica el diccionario de tabla', async () => {

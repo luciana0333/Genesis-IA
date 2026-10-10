@@ -246,9 +246,9 @@ class TestDiccionarioTablasAlter(unittest.TestCase):
     """ALTER: la tabla ya existe; solo se exigen las columnas nuevas."""
 
     ALTER = (
-        "ALTER TABLE dbo.TB_Estado\n"
+        "ALTER TABLE dbo.Estado\n"
         "ADD cCodigo VARCHAR(10) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL DEFAULT '',\n"
-        "    bActivo BIT NOT NULL CONSTRAINT DF_TB_Estado_bActivo DEFAULT 1;"
+        "    bActivo BIT NOT NULL CONSTRAINT DF_Estado_bActivo DEFAULT 1;"
     )
 
     @staticmethod
@@ -256,7 +256,7 @@ class TestDiccionarioTablasAlter(unittest.TestCase):
         return (
             "EXEC sys.sp_addextendedproperty @name = N'MS_Description', "
             f"@value = N'{descripcion}', @level0type = N'SCHEMA', @level0name = N'dbo', "
-            "@level1type = N'TABLE', @level1name = N'TB_Estado', "
+            "@level1type = N'TABLE', @level1name = N'Estado', "
             f"@level2type = N'COLUMN', @level2name = N'{nombre}';"
         )
 
@@ -287,7 +287,7 @@ class TestDiccionarioTablasAlter(unittest.TestCase):
         tabla = (
             "EXEC sys.sp_addextendedproperty @name = N'MS_Description', "
             "@value = N'Estados posibles de una solicitud', @level0type = N'SCHEMA', @level0name = N'dbo', "
-            "@level1type = N'TABLE', @level1name = N'TB_Estado';"
+            "@level1type = N'TABLE', @level1name = N'Estado';"
         )
         diccionario = "\n".join([
             tabla,
@@ -301,8 +301,8 @@ class TestDiccionarioTablasAlter(unittest.TestCase):
 
     def test_create_con_alter_add_constraint_se_trata_como_create(self):
         script = (
-            "CREATE TABLE dbo.TB_Estado (nEstadoId INT NOT NULL, cDescripcion VARCHAR(100) NOT NULL);\n"
-            "ALTER TABLE dbo.TB_Estado ADD CONSTRAINT PK_TB_Estado PRIMARY KEY (nEstadoId);"
+            "CREATE TABLE dbo.Estado (nEstadoId INT NOT NULL, cDescripcion VARCHAR(100) NOT NULL);\n"
+            "ALTER TABLE dbo.Estado ADD CONSTRAINT PK_Estado PRIMARY KEY (nEstadoId);"
         )
         reglas = [h.regla for h in verificar_diccionario_tablas(script, "")]
         self.assertIn("TABLA_SIN_DESCRIPCION", reglas)
@@ -351,7 +351,7 @@ class TestCatalogoDiccionarioTablas(unittest.TestCase):
 
     def test_nombres_sin_comillas_no_se_reportan(self):
         diccionario = caso6.diccionario_correcto(";").replace("N'dbo'", "dbo").replace(
-            "N'TB_SolicitudArchivos'", "TB_SolicitudArchivos"
+            "N'SolicitudArchivos'", "SolicitudArchivos"
         )
         self.assertEqual(verificar_diccionario_tablas(caso6.TABLA, diccionario), [])
 
@@ -361,7 +361,7 @@ class TestCatalogoDiccionarioTablas(unittest.TestCase):
         )
         faltante = verificar_diccionario_tablas(caso6.TABLA, solo_columnas)
         self.assertEqual([h.regla for h in faltante], ["TABLA_SIN_DESCRIPCION"])
-        self.assertIn("La tabla dbo.TB_SolicitudArchivos no se encuentra documentada", faltante[0].mensaje)
+        self.assertIn("La tabla dbo.SolicitudArchivos no se encuentra documentada", faltante[0].mensaje)
 
         vacia = verificar_diccionario_tablas(
             caso6.TABLA,
@@ -420,7 +420,7 @@ class TestDiccionarioTablasSinDependerDeGO(unittest.TestCase):
         diccionario = caso6.diccionario_correcto(";") + (
             "\n-- EXEC sys.sp_addextendedproperty @name = N'MS_Description', @value = N'x', "
             "@level0type = N'SCHEMA', @level0name = N'dbo', @level1type = N'TABLE', "
-            "@level1name = N'TB_SolicitudArchivos', @level2type = N'COLUMN', @level2name = N'cOtra';"
+            "@level1name = N'SolicitudArchivos', @level2type = N'COLUMN', @level2name = N'cOtra';"
         )
         self.assertEqual(verificar_diccionario_tablas(caso6.TABLA, diccionario), [])
 
@@ -439,8 +439,8 @@ class TestDiccionarioTablasSinDependerDeGO(unittest.TestCase):
 
     def test_sentencia_sin_parametros_obligatorios(self):
         diccionario = caso6.diccionario_correcto(";").replace(
-            "@level1type = N'TABLE', @level1name = N'TB_SolicitudArchivos',\n@level2type = N'COLUMN', @level2name = N'bActivo'",
-            "@level1type = N'TABLE', @level1name = N'TB_SolicitudArchivos',\n@level2type = N'COLUMN'",
+            "@level1type = N'TABLE', @level1name = N'SolicitudArchivos',\n@level2type = N'COLUMN', @level2name = N'bActivo'",
+            "@level1type = N'TABLE', @level1name = N'SolicitudArchivos',\n@level2type = N'COLUMN'",
         )
         reglas = {h.regla for h in verificar_diccionario_tablas(caso6.TABLA, diccionario)}
         self.assertIn("PARAMETROS_INCOMPLETOS", reglas)

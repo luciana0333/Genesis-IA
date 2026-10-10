@@ -7,7 +7,7 @@ RESULTADO ESPERADO: 2 hallazgos.
 from app.analizadores.diccionario import verificar_diccionario
 
 PROCEDIMIENTO = """
-CREATE PROCEDURE RRHH.PA_PersonaTrabajador_SelContrato
+CREATE PROCEDURE RRHH.PA_PersonaTrabajador_Sel_Contrato
 (
     @cPersCod VARCHAR(13),
     @nTipoContrato INT,
@@ -27,7 +27,7 @@ EXEC sys.sp_addextendedproperty
 @level0type=N'SCHEMA',
 @level0name=N'RRHH',
 @level1type=N'PROCEDURE',
-@level1name=N'PA_PersonaTrabajador_SelContrato'
+@level1name=N'PA_PersonaTrabajador_Sel_Contrato'
 GO
 
 EXEC sys.sp_addextendedproperty
@@ -36,7 +36,7 @@ EXEC sys.sp_addextendedproperty
 @level0type=N'SCHEMA',
 @level0name=N'RRHH',
 @level1type=N'PROCEDURE',
-@level1name=N'PA_PersonaTrabajador_SelContrato',
+@level1name=N'PA_PersonaTrabajador_Sel_Contrato',
 @level2type=N'PARAMETER',
 @level2name=N'@cPersCod'
 GO
@@ -47,7 +47,7 @@ EXEC sys.sp_addextendedproperty
 @level0type=N'SCHEMA',
 @level0name=N'RRHH',
 @level1type=N'PROCEDURE',
-@level1name=N'PA_PersonaTrabajador_SelContrato',
+@level1name=N'PA_PersonaTrabajador_Sel_Contrato',
 @level2type=N'PARAMETER',
 @level2name=N'@nTipoContrato'
 GO

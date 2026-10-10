@@ -71,6 +71,14 @@ REGLAS_DICCIONARIO_TABLAS = {
         alcance="tabla",
         activo=True,
     ),
+    "TABLA_NOMBRE_NO_ESTANDAR": ReglaDiccionario(
+        codigo="TABLA_NOMBRE_NO_ESTANDAR",
+        nombre="Nombre de tabla fuera del estándar",
+        severidad="alto",
+        descripcion="Al crear la tabla, su nombre no lleva prefijos como TB_, guiones bajos ni espacios, y empieza con mayúscula.",
+        alcance="tabla",
+        activo=True,
+    ),
     "ESQUEMA_NO_COINCIDE": ReglaDiccionario(
         codigo="ESQUEMA_NO_COINCIDE",
         nombre="Esquema no coincide",

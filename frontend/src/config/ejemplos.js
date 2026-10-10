@@ -2,7 +2,7 @@
  * Scripts de ejemplo con los que se precargan los editores de cada vista.
  */
 
-export const SQL_PROCEDIMIENTO = `CREATE PROCEDURE CLICKTOPAY.PA_Cliente_Consultar
+export const SQL_PROCEDIMIENTO = `CREATE PROCEDURE CLICKTOPAY.PA_Cliente_Sel_PorId
     @nClienteId INT
 AS
 BEGIN
@@ -39,7 +39,7 @@ export const DICCIONARIO_PROCEDIMIENTO = `EXEC sys.sp_addextendedproperty
 @name=N'MS_Description',
 @value=N'Consulta la informacion del cliente',
 @level0type=N'SCHEMA', @level0name=N'CLICKTOPAY',
-@level1type=N'PROCEDURE', @level1name=N'PA_Cliente_Consultar'
+@level1type=N'PROCEDURE', @level1name=N'PA_Cliente_Sel_PorId'
 GO`;
 
 export const DICCIONARIO_TABLA = `EXEC sys.sp_addextendedproperty

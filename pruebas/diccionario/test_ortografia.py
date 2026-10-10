@@ -23,7 +23,7 @@ DESCRIPCIONES_CORRECTAS = [
     "Clientes que tienen deuda vencida",
     "Campo que sirve para auditar cambios",
     "Motivo por el cual se rechaza la solicitud",
-    "Se usa en @level2name y TB_Estado.nEstadoId",
+    "Se usa en @level2name y Estado.nEstadoId",
 ]
 
 
@@ -91,20 +91,20 @@ class TestOrtografia(unittest.TestCase):
         self.assertEqual(ortografia.palabras_mal_escritas("Descripcion del codigo unico"), [])
 
     def test_ignora_nombres_de_objetos_siglas_y_vocabulario(self):
-        texto = "Valor de nEstadoId para el RUC del cliente enviado por email desde TB_Estado"
-        self.assertEqual(ortografia.palabras_mal_escritas(texto, ["TB_Estado"]), [])
+        texto = "Valor de nEstadoId para el RUC del cliente enviado por email desde Estado"
+        self.assertEqual(ortografia.palabras_mal_escritas(texto, ["Estado"]), [])
 
     def test_ejemplo_del_equipo_en_el_diccionario_de_tablas(self):
-        tabla = "CREATE TABLE dbo.TB_Estado (nEstadoId INT NOT NULL);"
+        tabla = "CREATE TABLE dbo.Estado (nEstadoId INT NOT NULL);"
         diccionario = (
             "EXEC sys.sp_addextendedproperty @name = N'MS_Description', "
             "@value = N'Estados que puede tener una solicitud', "
-            "@level0type = N'SCHEMA', @level0name = dbo, @level1type = N'TABLE', @level1name = TB_Estado;\n"
+            "@level0type = N'SCHEMA', @level0name = dbo, @level1type = N'TABLE', @level1name = Estado;\n"
             "-- nEstadoId\n"
             "EXEC sys.sp_addextendedproperty \n@name = N'MS_Description',\n"
             "@value = N'Identificadodr único del estado',\n"
             "@level0type = N'SCHEMA', @level0name = dbo,\n"
-            "@level1type = N'TABLE',  @level1name = TB_Estado,\n"
+            "@level1type = N'TABLE',  @level1name = Estado,\n"
             "@level2type = N'COLUMN', @level2name = nEstadoId;"
         )
         hallazgos = verificar_diccionario_tablas(tabla, diccionario)

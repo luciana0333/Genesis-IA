@@ -12,7 +12,7 @@ from pruebas.diccionario.DD_PA.casos.test_caso5_sucio import PROCEDIMIENTO as PR
 class TestDiccionarioProcedimientos(unittest.TestCase):
     def test_procedimiento_sin_diccionario_detecta_parametros_faltantes(self):
         procedimiento = """
-        CREATE PROCEDURE CLICKTOPAY.PA_Cliente_ActualizarCorreo
+        CREATE PROCEDURE CLICKTOPAY.PA_Cliente_Upd_Correo
         (
             @nClienteId INT,
             @cCorreoElectronico VARCHAR(64),
@@ -35,7 +35,7 @@ class TestDiccionarioProcedimientos(unittest.TestCase):
 
     def test_diccionario_sin_go_ignora_comentarios(self):
         procedimiento = """
-        CREATE PROCEDURE CLICKTOPAY.PA_Cliente_ActualizarCorreo
+        CREATE PROCEDURE CLICKTOPAY.PA_Cliente_Upd_Correo
         (
             @nClienteId INT,
             @cCorreoElectronico VARCHAR(64),
@@ -55,21 +55,21 @@ class TestDiccionarioProcedimientos(unittest.TestCase):
         EXEC sys.sp_addextendedproperty
         @name=N'MS_Description', @value=N'Actualiza el correo del cliente',
         @level0type=N'SCHEMA', @level0name='CLICKTOPAY',
-        @level1type=N'PROCEDURE', @level1name='PA_Cliente_ActualizarCorreo';
+        @level1type=N'PROCEDURE', @level1name='PA_Cliente_Upd_Correo';
         EXEC sys.sp_addextendedproperty
         @name=N'MS_Description', @value=N'Identificador',
         @level0type=N'SCHEMA', @level0name='CLICKTOPAY',
-        @level1type=N'PROCEDURE', @level1name='PA_Cliente_ActualizarCorreo',
+        @level1type=N'PROCEDURE', @level1name='PA_Cliente_Upd_Correo',
         @level2type=N'PARAMETER', @level2name='@nClienteId';
         EXEC sys.sp_addextendedproperty
         @name=N'MS_Description', @value=N'Correo',
         @level0type=N'SCHEMA', @level0name='CLICKTOPAY',
-        @level1type=N'PROCEDURE', @level1name='PA_Cliente_ActualizarCorreo',
+        @level1type=N'PROCEDURE', @level1name='PA_Cliente_Upd_Correo',
         @level2type=N'PARAMETER', @level2name='@cCorreoElectronico';
         EXEC sys.sp_addextendedproperty
         @name=N'MS_Description', @value=N'Usuario',
         @level0type=N'SCHEMA', @level0name='CLICKTOPAY',
-        @level1type=N'PROCEDURE', @level1name='PA_Cliente_ActualizarCorreo',
+        @level1type=N'PROCEDURE', @level1name='PA_Cliente_Upd_Correo',
         @level2type=N'PARAMETER', @level2name='@cUsuario';
         """
 
