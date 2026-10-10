@@ -80,7 +80,7 @@ export function AuditoriaWorkspace({ vista }) {
             {esSelectorVisible && (
               <div className="field-group">
                 <label className="field-label" htmlFor={`${ids}-tipo`}>Tipo de revisión</label>
-                <select id={`${ids}-tipo`} value={tipoRevision} onChange={(evento) => cambiarTipo(evento.target.value)}>
+                <select className="campo-icono campo-icono-tipo" id={`${ids}-tipo`} value={tipoRevision} onChange={(evento) => cambiarTipo(evento.target.value)}>
                   {OPCIONES_SELECTOR.map((opcion) => (
                     <option key={opcion.id} value={opcion.id}>{opcion.etiquetaSelector}</option>
                   ))}
@@ -93,6 +93,7 @@ export function AuditoriaWorkspace({ vista }) {
               <label className="field-label" htmlFor={`${ids}-objeto`}>{revision.etiquetaObjeto}</label>
               <input
                 id={`${ids}-objeto`}
+                className="campo-icono campo-icono-nombre"
                 type="text"
                 autoComplete="off"
                 value={campos.objetoNombre}
@@ -116,7 +117,7 @@ export function AuditoriaWorkspace({ vista }) {
           <div className="editor-grid">
             <TarjetaEditor
               className={tieneDiccionario ? 'field-card-primary' : 'field-card-primary field-card-full'}
-              kicker="Entrada principal"
+              numero={1}
               etiqueta={revision.sql.etiqueta}
               htmlFor={`${ids}-sql`}
               estado="Requerido"
@@ -139,7 +140,7 @@ export function AuditoriaWorkspace({ vista }) {
             {tieneDiccionario && (
               <TarjetaEditor
                 className="field-card-secondary"
-                kicker="Documentación"
+                numero={2}
                 etiqueta={revision.diccionario.etiqueta}
                 htmlFor={`${ids}-diccionario`}
                 estado="Requerido"

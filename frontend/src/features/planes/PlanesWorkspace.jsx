@@ -105,7 +105,7 @@ export function PlanesWorkspace() {
           <div className="plan-layout">
             <TarjetaEditor
               className="field-card-primary"
-              kicker="Entrada principal"
+              numero={1}
               etiqueta="Archivo .sqlplan"
               htmlFor={idArchivo}
               estado="Requerido"
@@ -123,7 +123,6 @@ export function PlanesWorkspace() {
 
             <TarjetaEditor
               className="field-card-secondary"
-              kicker="Análisis profesional"
               etiqueta="Diagnóstico técnico"
               estado="Automático"
               requerido={false}

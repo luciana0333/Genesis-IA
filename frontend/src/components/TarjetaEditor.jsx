@@ -1,10 +1,11 @@
 /**
- * Bloque del formulario con encabezado (kicker, etiqueta, estado y acciones
- * opcionales), texto de ayuda y el control que se pase como hijo.
+ * Tarjeta de una entrada del formulario: cabecera con número de paso (opcional),
+ * título, ayuda corta, acciones y estado ("Requerido"); debajo, el control que
+ * se pase como hijo (editor, zona de archivo, lista...).
  */
 export function TarjetaEditor({
   className = '',
-  kicker,
+  numero,
   etiqueta,
   htmlFor,
   estado,
@@ -17,17 +18,17 @@ export function TarjetaEditor({
   return (
     <div className={`field-card ${className}`.trim()}>
       <div className="field-card-heading">
+        {numero && <span className="field-card-numero" aria-hidden="true">{numero}</span>}
         <div className="field-card-titles">
-          <span className="field-kicker">{kicker}</span>
           <Etiqueta className="field-label" htmlFor={htmlFor}>{etiqueta}</Etiqueta>
+          {ayuda && <p className="field-hint">{ayuda}</p>}
         </div>
         <div className="field-card-side">
           {acciones}
           {estado && <span className={requerido ? 'field-status' : 'field-status optional'}>{estado}</span>}
         </div>
       </div>
-      {ayuda && <p className="field-hint">{ayuda}</p>}
-      {children}
+      <div className="field-card-body">{children}</div>
     </div>
   );
 }
