@@ -155,8 +155,9 @@ def _validar_esquema(
                     severidad=Severidad.ALTO,
                     regla="ESQUEMA_NO_COINCIDE",
                     mensaje=f"El diccionario indica el esquema '{valor}', pero el procedimiento está "
-                            f"en '{esquema_real}'. Corregir @level0name, ya que si no coinciden el "
-                            f"diccionario documenta un objeto que no existe."
+                            f"en '{esquema_real}'. Corregir el esquema en el diccionario por "
+                            f"'{esquema_real}', ya que no coincide con el esquema del procedimiento y "
+                            f"la documentación quedaría en un objeto que no existe."
                 ))
     return hallazgos
 
@@ -282,8 +283,9 @@ def _validar_nombre_procedimiento(
                     severidad=Severidad.ALTO,
                     regla="NOMBRE_NO_COINCIDE",
                     mensaje=f"El diccionario indica el nombre '{valor}', pero el procedimiento "
-                            f"se llama '{nombre_proc}'. Corregir @level1name, ya que si no coinciden "
-                            f"el diccionario documenta un objeto que no existe."
+                            f"se llama '{nombre_proc}'. Corregir el nombre en el diccionario por "
+                            f"'{nombre_proc}', ya que no coincide con el nombre del procedimiento y "
+                            f"la documentación quedaría en un objeto que no existe."
                 ))
     return hallazgos
 

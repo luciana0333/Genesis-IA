@@ -312,8 +312,9 @@ def _validar_esquema(llamadas: List[LlamadaPropiedad], esquema_real: Optional[st
         _hallazgo(
             ll.linea, "ESQUEMA_NO_COINCIDE",
             f"El diccionario indica el esquema '{ll.texto('level0name')}', pero la tabla está en "
-            f"'{esquema_real}'. Corregir @level0name, ya que si no coinciden el diccionario "
-            f"documenta un objeto que no existe.",
+            f"'{esquema_real}'. Corregir el esquema en el diccionario por '{esquema_real}', ya que "
+            f"no coincide con el esquema de la tabla y la documentación quedaría en un objeto que "
+            f"no existe.",
         )
         for ll in llamadas
         if ll.texto("level0name") and ll.texto("level0name").lower() != esquema_real.lower()
@@ -325,8 +326,9 @@ def _validar_nombre_tabla(llamadas: List[LlamadaPropiedad], nombre_tabla: str) -
         _hallazgo(
             ll.linea, "NOMBRE_TABLA_NO_COINCIDE",
             f"El diccionario indica el nombre '{ll.texto('level1name')}', pero la tabla se llama "
-            f"'{nombre_tabla}'. Corregir @level1name, ya que si no coinciden el diccionario "
-            f"documenta un objeto que no existe.",
+            f"'{nombre_tabla}'. Corregir el nombre en el diccionario por '{nombre_tabla}', ya que "
+            f"no coincide con el nombre de la tabla y la documentación quedaría en un objeto que "
+            f"no existe.",
         )
         for ll in llamadas
         if ll.texto("level1type").upper() == "TABLE"
