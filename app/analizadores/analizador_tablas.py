@@ -314,9 +314,8 @@ def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: s
     if not esquema:
         hallazgos.append(_hallazgo(
             texto, -1, "TABLA_SIN_ESQUEMA",
-            f"Se identificó que la tabla {tabla} no tiene declarado un esquema. Se recomienda añadirlo "
-            f"antes del nombre y, si la tabla va en dbo, definirlo explícitamente (ej.: dbo.{tabla}), "
-            f"ya que así se evita crear la tabla en un esquema equivocado.",
+            f"Se identificó que la tabla {tabla} no tiene declarado un esquema. Se recomienda añadir el "
+            f"esquema; si es dbo, definirlo explícitamente.",
         ))
     if not _PASCAL_CASE.match(tabla):
         sugerido = _sugerencia_tabla(tabla)
