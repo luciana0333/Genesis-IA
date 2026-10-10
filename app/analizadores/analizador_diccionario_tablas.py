@@ -472,11 +472,11 @@ def _validar_duplicados(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
         else:
             continue
         if clave in vistos:
-            hallazgos.append(_hallazgo(
+            hallazgos.append(con_elemento(_hallazgo(
                 ll.linea, "DOCUMENTACION_DUPLICADA",
                 f"{objeto[0].upper()}{objeto[1:]} está documentada dos veces (la primera en la línea "
                 f"{vistos[clave]}). Retirar una de las dos sentencias, ya que SQL Server rechaza la repetida.",
-            ))
+            ), f"{objeto.split(' ', 2)[2]} (la primera vez en la línea {vistos[clave]})"))
         else:
             vistos[clave] = ll.linea
     return hallazgos
@@ -609,6 +609,10 @@ _PLANTILLAS_AGRUPADAS = {
     "COLUMNA_NO_EXISTE": (
         "columnas documentadas que no existen en la tabla",
         "Corregir el nombre en @level2name o retirar esas sentencias, ya que SQL Server las rechaza.",
+    ),
+    "DOCUMENTACION_DUPLICADA": (
+        "documentaciones repetidas",
+        "Retirar las sentencias repetidas y dejar una sola por cada una, ya que SQL Server rechaza la repetida.",
     ),
 }
 

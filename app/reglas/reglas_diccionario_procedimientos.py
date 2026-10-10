@@ -52,6 +52,14 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
         alcance="procedimiento",
         activo=True,
     ),
+    "DOCUMENTACION_DUPLICADA": ReglaDiccionario(
+        codigo="DOCUMENTACION_DUPLICADA",
+        nombre="Documentado dos veces",
+        severidad="alto",
+        descripcion="El mismo procedimiento o parámetro se documenta más de una vez con sp_addextendedproperty; SQL Server rechaza la segunda.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "ESQUEMA_NO_COINCIDE": ReglaDiccionario(
         codigo="ESQUEMA_NO_COINCIDE",
         nombre="Esquema no coincide",

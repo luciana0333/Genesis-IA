@@ -206,6 +206,38 @@ def _validar_descripciones_vacias(
     return hallazgos
 
 
+def _validar_duplicados(texto_diccionario: str) -> List[Hallazgo]:
+    """
+    Agregar dos veces la misma descripción falla en SQL Server ("property
+    already exists"). Solo aplica a sp_addextendedproperty.
+    """
+    vistos: Dict[Tuple[str, str], int] = {}
+    hallazgos = []
+    for ll in leer_propiedades_extendidas(texto_diccionario):
+        if ll.operacion != "add" or ll.texto("name").upper() != "MS_DESCRIPTION":
+            continue
+        if "PARAMETER" in ll.texto("level2type").upper():
+            nombre = ll.texto("level2name")
+            clave, objeto = ("parametro", nombre.upper()), f"El parámetro {nombre}"
+        elif ll.texto("level1name") and not ll.texto("level2type"):
+            nombre = ll.texto("level1name")
+            clave, objeto = ("procedimiento", nombre.upper()), f"El procedimiento {nombre}"
+        else:
+            continue
+        if clave not in vistos:
+            vistos[clave] = ll.linea
+            continue
+        hallazgos.append(con_elemento(Hallazgo(
+            linea=ll.linea,
+            origen=OrigenAnalisis.DICCIONARIO,
+            severidad=Severidad(REGLAS_DICCIONARIO_PROCEDIMIENTOS["DOCUMENTACION_DUPLICADA"].severidad),
+            regla="DOCUMENTACION_DUPLICADA",
+            mensaje=f"{objeto} está documentado dos veces (la primera en la línea {vistos[clave]}). "
+                    f"Retirar una de las dos sentencias, ya que SQL Server rechaza la repetida.",
+        ), f"{nombre} (la primera vez en la línea {vistos[clave]})"))
+    return hallazgos
+
+
 def _validar_parametros_faltantes(
     parametros_reales: Set[str],
     llamadas: List[Tuple[int, Dict[str, str]]],
@@ -445,6 +477,10 @@ _PLANTILLAS_AGRUPADAS = {
         "parámetros con la descripción vacía",
         "Se recomienda indicar en @value para qué se usa cada parámetro.",
     ),
+    "DOCUMENTACION_DUPLICADA": (
+        "documentaciones repetidas",
+        "Retirar las sentencias repetidas y dejar una sola por cada uno, ya que SQL Server rechaza la repetida.",
+    ),
 }
 
 
@@ -484,6 +520,7 @@ def verificar_diccionario(
     hallazgos += _validar_nombre_procedimiento(llamadas, nombre_proc, texto_diccionario)
     hallazgos += _validar_esquema(llamadas, esquema, texto_diccionario)
     hallazgos += _validar_descripciones_vacias(llamadas, texto_diccionario)
+    hallazgos += _validar_duplicados(texto_diccionario)
     hallazgos += _validar_ortografia(llamadas, texto_diccionario, esquema, nombre_proc, parametros_reales)
     if REGLAS_DICCIONARIO_PROCEDIMIENTOS["VALOR_SIN_COMILLAS"].activo:
         hallazgos += _validar_valores_sin_comillas(llamadas, texto_diccionario)
