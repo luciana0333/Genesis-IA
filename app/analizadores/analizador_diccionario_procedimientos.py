@@ -13,6 +13,7 @@ Compara la "realidad" (procedimiento) contra la "documentacion"
 (diccionario) y reporta discrepancias.
 """
 
+import difflib
 import re
 from typing import List, Set, Tuple, Dict, Optional
 
@@ -28,43 +29,53 @@ from app.reglas.reglas_diccionario_procedimientos import REGLAS_DICCIONARIO_PROC
 # EXTRACCION - leer la "realidad" (el procedimiento)
 # ---------------------------------------------------------------------------
 
-def extraer_parametros(texto_procedimiento: str) -> Set[str]:
-    """Extrae los parametros declarados en CREATE/ALTER PROCEDURE."""
-    patron = re.compile(
-        r"(?:CREATE|ALTER)\s+PROCEDURE\s+[\w\.]+\s*\(?(.*?)\)?\s*AS\b",
-        re.IGNORECASE | re.DOTALL
+# Encabezado del procedimiento: CREATE, ALTER o CREATE OR ALTER, PROC o PROCEDURE,
+# y el nombre con o sin esquema y corchetes.
+_ENCABEZADO = re.compile(
+    r"\b(CREATE(?:\s+OR\s+ALTER)?|ALTER)\s+PROC(?:EDURE)?\s+"
+    r"(?:\[[^\]]+\]|[\w$#]+)(?:\s*\.\s*(?:\[[^\]]+\]|[\w$#]+)){0,2}",
+    re.IGNORECASE,
+)
+
+
+def _sin_comentarios_ni_textos(texto: str) -> str:
+    """Reemplaza comentarios y textos entre comillas por espacios (conserva posiciones)."""
+    return re.sub(
+        r"--[^\n]*|/\*[\s\S]*?\*/|N?'(?:[^']|'')*'",
+        lambda m: re.sub(r"[^\n]", " ", m.group(0)),
+        texto,
     )
-    coincidencia = patron.search(texto_procedimiento)
-    if not coincidencia:
-        coincidencia = re.search(
-            r"(?:CREATE|ALTER)\s+PROCEDURE\s+[\w\.]+\s*\((.*?)\)\s*(?:;|\Z)",
-            texto_procedimiento,
-            re.IGNORECASE | re.DOTALL,
-        )
-    if not coincidencia:
+
+
+def extraer_parametros(texto_procedimiento: str) -> Set[str]:
+    """Parámetros declarados entre el nombre del procedimiento y su AS."""
+    limpio = _sin_comentarios_ni_textos(texto_procedimiento)
+    encabezado = _ENCABEZADO.search(limpio)
+    if not encabezado:
         return set()
-    bloque_parametros = coincidencia.group(1)
-    return set(re.findall(r"@\w+", bloque_parametros))
+    resto = limpio[encabezado.end():]
+    fin = re.search(r"\bAS\b", resto, re.IGNORECASE)
+    bloque = resto[:fin.start()] if fin else resto
+    return set(re.findall(r"(?<![@\w])@\w+", bloque))
 
 
 def extraer_tipo_sentencia(texto_procedimiento: str) -> str:
-    """Determina si el procedimiento es un CREATE o un ALTER."""
-    if re.search(r"\bALTER\s+PROCEDURE\b", texto_procedimiento, re.IGNORECASE):
-        return "ALTER"
-    if re.search(r"\bCREATE\s+PROCEDURE\b", texto_procedimiento, re.IGNORECASE):
-        return "CREATE"
-    return "DESCONOCIDO"
+    """CREATE o ALTER. CREATE OR ALTER cuenta como CREATE: puede crear un procedimiento nuevo."""
+    encabezado = _ENCABEZADO.search(_sin_comentarios_ni_textos(texto_procedimiento))
+    if not encabezado:
+        return "DESCONOCIDO"
+    return "ALTER" if encabezado.group(1).upper() == "ALTER" else "CREATE"
 
 
 def extraer_esquema_y_nombre(texto_procedimiento: str) -> Tuple[Optional[str], Optional[str]]:
     """Devuelve (esquema, nombre) del procedimiento, o (None, None)."""
-    m = re.search(
-        r"(?:CREATE|ALTER)\s+PROC(?:EDURE)?\s+(?:\[?(\w+)\]?\s*\.\s*)?\[?(\w+)\]?",
-        texto_procedimiento, re.IGNORECASE
-    )
-    if m:
-        return m.group(1), m.group(2)
-    return None, None
+    encabezado = _ENCABEZADO.search(_sin_comentarios_ni_textos(texto_procedimiento))
+    if not encabezado:
+        return None, None
+    # Hasta tres partes (Base.Esquema.Nombre): el nombre es la última y el esquema la anterior.
+    nombre_completo = encabezado.group(0)[re.match(r"\S+(?:\s+OR\s+ALTER)?\s+\S+\s+", encabezado.group(0), re.IGNORECASE).end():]
+    partes = [p.strip().strip("[]") for p in nombre_completo.split(".")]
+    return (partes[-2] if len(partes) > 1 else None), partes[-1]
 
 
 def _validar_esquema_declarado(texto_procedimiento: str, esquema: Optional[str], nombre_proc: str) -> List[Hallazgo]:
@@ -87,7 +98,7 @@ def _validar_nomenclatura(texto_procedimiento: str, tipo_sentencia: str, nombre_
     """Al crear el procedimiento, su nombre sigue PA_Tabla_Acción_Finalidad (en ALTER no se revisa)."""
     if tipo_sentencia != "CREATE":
         return []
-    m = re.search(r"CREATE\s+PROC", texto_procedimiento, re.IGNORECASE)
+    m = _ENCABEZADO.search(_sin_comentarios_ni_textos(texto_procedimiento))
     linea = _numero_linea(texto_procedimiento, m.start() if m else 0)
     return [
         Hallazgo(
@@ -203,6 +214,58 @@ def _validar_descripciones_vacias(
                             f"(@value) está vacía. Se recomienda indicar para qué se usa el parámetro, "
                             f"ya que así el diccionario es útil para quien lo consulte."
                 ), nombre_param))
+    return hallazgos
+
+
+_PARAMETROS_OBLIGATORIOS = ("name", "value", "level0type", "level0name", "level1type", "level1name")
+
+
+def _hallazgo_catalogo(linea: int, regla: str, mensaje: str) -> Hallazgo:
+    """Hallazgo con la severidad definida en el catálogo de reglas."""
+    return Hallazgo(
+        linea=linea,
+        origen=OrigenAnalisis.DICCIONARIO,
+        severidad=Severidad(REGLAS_DICCIONARIO_PROCEDIMIENTOS[regla].severidad),
+        regla=regla,
+        mensaje=mensaje,
+    )
+
+
+def _validar_sentencias(texto_diccionario: str) -> List[Hallazgo]:
+    """Sentencias mal escritas o a las que les faltan datos obligatorios: SQL Server no las ejecuta."""
+    hallazgos = []
+    for ll in leer_propiedades_extendidas(texto_diccionario):
+        hallazgos += [_hallazgo_catalogo(linea, "SINTAXIS_DICCIONARIO", mensaje) for linea, mensaje in ll.errores]
+        faltantes = [f"@{p}" for p in _PARAMETROS_OBLIGATORIOS if not ll.tiene(p)]
+        if ll.tiene("level2type") != ll.tiene("level2name"):
+            faltantes.append("@level2name" if ll.tiene("level2type") else "@level2type")
+        if faltantes:
+            hallazgos.append(_hallazgo_catalogo(
+                ll.linea, "PARAMETROS_INCOMPLETOS",
+                f"A esta sentencia le faltan datos obligatorios: {', '.join(faltantes)}. Completar la "
+                f"sentencia, ya que sin esos datos no se puede ejecutar.",
+            ))
+    return hallazgos
+
+
+def _validar_parametros_inexistentes(texto_diccionario: str, parametros_reales: Set[str], nombre_proc: str) -> List[Hallazgo]:
+    """Se documenta un parámetro que el procedimiento no tiene (mal escrito o eliminado)."""
+    reales = {p.upper(): p for p in parametros_reales}
+    hallazgos = []
+    for ll in leer_propiedades_extendidas(texto_diccionario):
+        if "PARAMETER" not in ll.texto("level2type").upper():
+            continue
+        nombre = ll.texto("level2name")
+        if not nombre or nombre.upper() in reales:
+            continue
+        parecido = difflib.get_close_matches(nombre.upper(), list(reales), n=1, cutoff=0.75)
+        sugerencia = f" ¿Quiso decir '{reales[parecido[0]]}'?" if parecido else ""
+        hallazgos.append(con_elemento(_hallazgo_catalogo(
+            ll.linea, "PARAMETRO_NO_EXISTE",
+            f"Se documenta el parámetro '{nombre}', pero no existe en el procedimiento {nombre_proc}."
+            f"{sugerencia} Corregir el nombre en @level2name o retirar la sentencia, ya que SQL Server "
+            f"la rechaza.",
+        ), nombre))
     return hallazgos
 
 
@@ -475,6 +538,10 @@ _PLANTILLAS_AGRUPADAS = {
         "descripciones con errores de escritura",
         "Se recomienda corregir cada palabra por la sugerida (o revisar su escritura si no hay sugerencia), ya que el diccionario es la documentación oficial del procedimiento.",
     ),
+    "PARAMETRO_NO_EXISTE": (
+        "parámetros documentados que no existen en el procedimiento",
+        "Corregir el nombre en @level2name o retirar esas sentencias, ya que SQL Server las rechaza.",
+    ),
     "DOCUMENTACION_DUPLICADA": (
         "documentaciones repetidas",
         "Retirar las sentencias repetidas y dejar una sola por cada uno, ya que SQL Server rechaza la repetida.",
@@ -519,6 +586,8 @@ def verificar_diccionario(
     hallazgos += _validar_esquema(llamadas, esquema, texto_diccionario)
     hallazgos += _validar_descripciones_vacias(llamadas, texto_diccionario)
     hallazgos += _validar_duplicados(texto_diccionario)
+    hallazgos += _validar_sentencias(texto_diccionario)
+    hallazgos += _validar_parametros_inexistentes(texto_diccionario, parametros_reales, nombre_proc)
     hallazgos += _validar_ortografia(llamadas, texto_diccionario, esquema, nombre_proc, parametros_reales)
     if REGLAS_DICCIONARIO_PROCEDIMIENTOS["VALOR_SIN_COMILLAS"].activo:
         hallazgos += _validar_valores_sin_comillas(llamadas, texto_diccionario)

@@ -103,22 +103,22 @@ def extraer_esquema_y_nombre(texto_sql: str) -> Tuple[Optional[str], Optional[st
     """Devuelve (esquema, nombre) de la tabla (prioriza el CREATE), o (None, None)."""
     texto = _sin_comentarios(texto_sql)
     for verbo in ("CREATE", "ALTER"):
+        # Hasta tres partes (Base.Esquema.Tabla): la tabla es la última y el esquema la anterior.
         m = re.search(
-            rf"\b{verbo}\s+TABLE\s+({_IDENTIFICADOR_SQL})(?:\s*\.\s*({_IDENTIFICADOR_SQL}))?",
+            rf"\b{verbo}\s+TABLE\s+({_IDENTIFICADOR_SQL}(?:\s*\.\s*{_IDENTIFICADOR_SQL}){{0,2}})",
             texto,
             re.IGNORECASE,
         )
         if m:
-            if m.group(2):
-                return _limpiar_identificador_sql(m.group(1)), _limpiar_identificador_sql(m.group(2))
-            return None, _limpiar_identificador_sql(m.group(1))
+            partes = [_limpiar_identificador_sql(p.strip()) for p in re.findall(_IDENTIFICADOR_SQL, m.group(1))]
+            return (partes[-2] if len(partes) > 1 else None), partes[-1]
     return None, None
 
 
 def _columnas_create(texto: str) -> Set[str]:
     """Columnas definidas entre los paréntesis del CREATE TABLE."""
     m = re.search(
-        rf"\bCREATE\s+TABLE\s+{_IDENTIFICADOR_SQL}(?:\s*\.\s*{_IDENTIFICADOR_SQL})?\s*\(",
+        rf"\bCREATE\s+TABLE\s+{_IDENTIFICADOR_SQL}(?:\s*\.\s*{_IDENTIFICADOR_SQL}){{0,2}}\s*\(",
         texto,
         re.IGNORECASE,
     )
