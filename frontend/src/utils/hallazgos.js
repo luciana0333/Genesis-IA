@@ -41,15 +41,20 @@ export function separarMensaje(texto) {
 
 /**
  * Un hallazgo agrupado llega como "Se encontraron N observaciones de este
- * tipo, en las líneas 3, 8: hecho uno; hecho dos." Devuelve las líneas y cada
- * ocurrencia por separado para mostrarlas como lista.
+ * tipo, en las líneas 3, 8: hecho uno; hecho dos." o "Se identificaron N
+ * parámetros sin documentar, en las líneas 2, 3: @a; @b." Devuelve las líneas,
+ * la introducción (si no es el resumen genérico) y cada ocurrencia por separado.
  */
 export function desglosarGrupo(problema) {
-  const grupo = problema.match(/^Se encontraron \d+ observaciones de este tipo, en (?:la línea|las líneas) ([\d, ]+): ([\s\S]+)$/);
-  if (!grupo) return { lineas: null, ocurrencias: [problema] };
-  const ocurrencias = grupo[2]
+  const grupo = problema.match(/^(Se (?:encontraron|identificaron) \d+ [^:]+?), en (?:la línea|las líneas) ([\d, ]+): ([\s\S]+)$/);
+  if (!grupo) return { lineas: null, intro: null, ocurrencias: [problema] };
+  // "Se identificaron 2 parámetros sin documentar" se muestra como introducción
+  // de la lista; el resumen genérico ("observaciones de este tipo") no.
+  const intro = /observaciones de este tipo$/.test(grupo[1]) ? null : `${grupo[1]}:`;
+  const ocurrencias = grupo[3]
     .replace(/\.$/, '')
     .split(/;\s+/)
-    .map((texto) => texto.charAt(0).toUpperCase() + texto.slice(1));
-  return { lineas: grupo[1].trim(), ocurrencias };
+    // Los nombres (@nClienteId, cCodPersona) se respetan tal cual; las frases, con mayúscula.
+    .map((texto) => (intro ? texto : texto.charAt(0).toUpperCase() + texto.slice(1)));
+  return { lineas: grupo[2].trim(), intro, ocurrencias };
 }

@@ -23,9 +23,15 @@ class TestDiccionarioProcedimientos(unittest.TestCase):
         hallazgos = verificar_diccionario(procedimiento, "")
         reglas = [hallazgo.regla for hallazgo in hallazgos]
 
-        self.assertEqual(len(hallazgos), 4)
+        self.assertEqual(len(hallazgos), 2)
         self.assertIn("PROCEDIMIENTO_SIN_DESCRIPCION", reglas)
-        self.assertEqual(reglas.count("PARAMETRO_FALTANTE"), 3)
+        # Los tres parámetros van en un solo hallazgo, con sus nombres.
+        faltantes = [h for h in hallazgos if h.regla == "PARAMETRO_FALTANTE"]
+        self.assertEqual(len(faltantes), 1)
+        self.assertIn("Se identificaron 3 parámetros sin documentar", faltantes[0].mensaje)
+        for nombre in ("@nClienteId", "@cCorreoElectronico", "@cUsuario"):
+            self.assertIn(nombre, faltantes[0].mensaje)
+        self.assertIn("Se recomienda añadir los parámetros faltantes", faltantes[0].mensaje)
 
     def test_diccionario_sin_go_ignora_comentarios(self):
         procedimiento = """
@@ -72,7 +78,7 @@ class TestDiccionarioProcedimientos(unittest.TestCase):
     def test_casos_historicos(self):
         casos = [
             ("caso_1_perfecto", PROC_1, DIC_1, 0),
-            ("caso_2_parametros_faltantes", PROC_2, DIC_2, 2),
+            ("caso_2_parametros_faltantes", PROC_2, DIC_2, 1),  # agrupados en un solo hallazgo
             ("caso_3_texto_invalido", PROC_3, DIC_3, 0),
             ("caso_4_sin_descripcion_procedimiento", PROC_4, DIC_4, 1),
             ("caso_5_sucio", PROC_5, DIC_5, 4),
@@ -122,7 +128,8 @@ END"""
     def test_parametro_documentado_sin_descripcion_tiene_mensaje_propio(self):
         hallazgos = verificar_diccionario("CREATE" + self.CUERPO, self.DICCIONARIO)
         vacia = next(h for h in hallazgos if h.regla == "DESCRIPCION_VACIA")
-        self.assertIn("El parámetro @nClienteId no tiene una descripción", vacia.mensaje)
+        self.assertIn("El parámetro @nClienteId está documentado, pero su descripción (@value) está vacía",
+                      vacia.mensaje)
 
     def test_procedimiento_documentado_sin_descripcion_no_es_lo_mismo_que_no_documentado(self):
         con_sentencia_vacia = self.DICCIONARIO + (
@@ -141,9 +148,12 @@ END"""
         self.assertNotIn("PROCEDIMIENTO_SIN_DESCRIPCION", reglas)
         self.assertNotIn("PARAMETRO_FALTANTE", reglas)
         validar = [h for h in hallazgos if h.regla == "VALIDAR_DOCUMENTACION_ALTER"]
-        self.assertEqual(len(validar), 2)  # el procedimiento y @cCodigo
-        self.assertTrue(all(h.severidad == Severidad.BAJO for h in validar))
-        self.assertTrue(all("Valide" in h.mensaje for h in validar))
+        # El procedimiento y @cCodigo se piden validar en un solo hallazgo.
+        self.assertEqual(len(validar), 1)
+        self.assertEqual(validar[0].severidad, Severidad.BAJO)
+        self.assertIn("Se encontraron 2 observaciones", validar[0].mensaje)
+        self.assertIn("@cCodigo", validar[0].mensaje)
+        self.assertIn("Se recomienda validar", validar[0].mensaje)
 
     def test_alter_procedure_revisa_lo_demas_igual_que_create(self):
         hallazgos = {h.regla: h for h in verificar_diccionario("ALTER" + self.CUERPO, self.DICCIONARIO)}
@@ -175,12 +185,14 @@ class TestOrtografiaProcedimientos(unittest.TestCase):
             "@level2type = N'PARAMETER', @level2name = N'@nClienteId';"
         )
         hallazgos = [h for h in verificar_diccionario(procedimiento, diccionario) if h.regla == "ERROR_ORTOGRAFICO"]
-        self.assertEqual(len(hallazgos), 2)
-        self.assertIn("del procedimiento dbo.PA_Cliente_Consultar", hallazgos[0].mensaje)
-        self.assertIn("'clienet' (¿quiso decir 'cliente'?)", hallazgos[0].mensaje)
-        self.assertIn("del parámetro @nClienteId", hallazgos[1].mensaje)
-        self.assertIn("'Identificadodr'", hallazgos[1].mensaje)
-        self.assertEqual(hallazgos[1].linea, 2)
+        # Las dos descripciones con errores se reportan juntas, en sus líneas.
+        self.assertEqual(len(hallazgos), 1)
+        mensaje = hallazgos[0].mensaje
+        self.assertIn("en las líneas 1, 2", mensaje)
+        self.assertIn("del procedimiento dbo.PA_Cliente_Consultar", mensaje)
+        self.assertIn("'clienet' (¿quiso decir 'cliente'?)", mensaje)
+        self.assertIn("del parámetro @nClienteId", mensaje)
+        self.assertIn("'Identificadodr'", mensaje)
 
 
 if __name__ == "__main__":

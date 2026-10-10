@@ -16,6 +16,7 @@ Compara la "realidad" (procedimiento) contra la "documentacion"
 import re
 from typing import List, Set, Tuple, Dict, Optional
 
+from app.analizadores.diccionario_agrupar import agrupar, con_elemento, ubicar
 from app.analizadores.ortografia import palabras_mal_escritas
 from app.analizadores.propiedades_extendidas import como_llamadas_crudas, leer_propiedades_extendidas
 from app.modelos.hallazgo import Hallazgo, Severidad, OrigenAnalisis
@@ -153,8 +154,9 @@ def _validar_esquema(
                     origen=OrigenAnalisis.DICCIONARIO,
                     severidad=Severidad.ALTO,
                     regla="ESQUEMA_NO_COINCIDE",
-                    mensaje=f"El esquema no coincide: el diccionario dice '{valor}', pero el "
-                            f"procedimiento está en '{esquema_real}'. Corrija @level0name."
+                    mensaje=f"El diccionario indica el esquema '{valor}', pero el procedimiento está "
+                            f"en '{esquema_real}'. Corregir @level0name, ya que si no coinciden el "
+                            f"diccionario documenta un objeto que no existe."
                 ))
     return hallazgos
 
@@ -172,14 +174,15 @@ def _validar_descripciones_vacias(
             valor_desc = _limpiar_valor(args["value"])
             nombre_param = _limpiar_valor(args.get("level2name", "?"))
             if valor_desc == "":
-                hallazgos.append(Hallazgo(
+                hallazgos.append(con_elemento(Hallazgo(
                     linea=_numero_linea(texto_diccionario, pos),
                     origen=OrigenAnalisis.DICCIONARIO,
                     severidad=Severidad.MEDIO,
                     regla="DESCRIPCION_VACIA",
-                    mensaje=f"El parámetro {nombre_param} no tiene una descripción: está "
-                            f"documentado, pero @value está vacío. Escriba para qué se usa."
-                ))
+                    mensaje=f"El parámetro {nombre_param} está documentado, pero su descripción "
+                            f"(@value) está vacía. Se recomienda indicar para qué se usa el parámetro, "
+                            f"ya que así el diccionario es útil para quien lo consulte."
+                ), nombre_param))
     return hallazgos
 
 
@@ -208,29 +211,30 @@ def _validar_parametros_faltantes(
         if tipo_sentencia == "ALTER":
             # El procedimiento ya existía: el parámetro puede estar documentado
             # de antes. No es error; se pide validar.
-            hallazgos.append(Hallazgo(
+            hallazgos.append(con_elemento(Hallazgo(
                 linea=1,
                 origen=OrigenAnalisis.DICCIONARIO,
                 severidad=Severidad.BAJO,
                 regla="VALIDAR_DOCUMENTACION_ALTER",
                 mensaje=(
                     f"Es un ALTER PROCEDURE y el parámetro {p} no está en el diccionario. "
-                    f"Valide si ya estaba documentado; si es nuevo, agréguelo con su descripción."
+                    f"Se recomienda validar si ya estaba documentado y, si es nuevo, añadirlo con su descripción."
                 ),
-            ))
+            ), p))
             continue
 
         # En un CREATE el procedimiento es nuevo: todo debe documentarse.
-        hallazgos.append(Hallazgo(
+        hallazgos.append(con_elemento(Hallazgo(
             linea=1,
             origen=OrigenAnalisis.DICCIONARIO,
             severidad=Severidad.ALTO,
             regla="PARAMETRO_FALTANTE",
             mensaje=(
-                f"El parámetro {p} no se encuentra documentado. Agréguelo al "
-                f"diccionario con su descripción."
+                f"El parámetro {p} no se encuentra documentado. Se recomienda añadirlo al "
+                f"diccionario del procedimiento con su descripción, ya que todo parámetro de un "
+                f"procedimiento nuevo debe estar documentado."
             ),
-        ))
+        ), p))
 
     return hallazgos
 
@@ -254,8 +258,8 @@ def _validar_alter_sin_diccionario(
             regla="ALTER_SIN_DICCIONARIO",
             mensaje=(
                 f"Se modifica el procedimiento {_nombre_completo(esquema, nombre_proc)} (ALTER), pero no "
-                f"se pegó ningún diccionario. Si agrega o cambia parámetros, "
-                f"documéntelos."
+                f"se pegó ningún diccionario. Se recomienda documentar los parámetros que se "
+                f"agreguen o cambien."
             )
         )]
     return []
@@ -277,9 +281,9 @@ def _validar_nombre_procedimiento(
                     origen=OrigenAnalisis.DICCIONARIO,
                     severidad=Severidad.ALTO,
                     regla="NOMBRE_NO_COINCIDE",
-                    mensaje=f"El nombre del procedimiento no coincide: el diccionario dice "
-                            f"'{valor}', pero el procedimiento se llama '{nombre_proc}'. "
-                            f"Corrija @level1name."
+                    mensaje=f"El diccionario indica el nombre '{valor}', pero el procedimiento "
+                            f"se llama '{nombre_proc}'. Corregir @level1name, ya que si no coinciden "
+                            f"el diccionario documenta un objeto que no existe."
                 ))
     return hallazgos
 
@@ -301,7 +305,7 @@ def _validar_valores_sin_comillas(
                         severidad=Severidad.CRITICO,
                         regla="VALOR_SIN_COMILLAS",
                         mensaje=f"El nombre @{clave}={valor} no está entre comillas. "
-                                f"Escríbalo como N'...'."
+                                f"Escribirlo como N'...', ya que sin comillas la sentencia falla."
                     ))
     return hallazgos
 
@@ -326,8 +330,8 @@ def _validar_procedimiento_documentado(
             severidad=Severidad.MEDIO,
             regla="DESCRIPCION_PROCEDIMIENTO_VACIA",
             mensaje=f"El procedimiento {_nombre_completo(esquema, nombre_proc)} está documentado, pero no "
-                    f"tiene una descripción (@value está vacío). Escriba para qué sirve "
-                    f"el procedimiento."
+                    f"tiene una descripción (@value está vacío). Se recomienda indicar para qué "
+                    f"sirve el procedimiento."
         )]
 
     if tipo_sentencia == "ALTER":
@@ -337,8 +341,8 @@ def _validar_procedimiento_documentado(
             severidad=Severidad.BAJO,
             regla="VALIDAR_DOCUMENTACION_ALTER",
             mensaje=f"Es un ALTER PROCEDURE y el diccionario no incluye la descripción del "
-                    f"procedimiento {_nombre_completo(esquema, nombre_proc)}. Valide que ya esté documentado; "
-                    f"si no lo está, agréguelo."
+                    f"procedimiento {_nombre_completo(esquema, nombre_proc)}. Se recomienda validar que ya "
+                    f"esté documentado y, si no lo está, añadir su descripción."
         )]
 
     return [Hallazgo(
@@ -347,7 +351,8 @@ def _validar_procedimiento_documentado(
         severidad=Severidad.ALTO,
         regla="PROCEDIMIENTO_SIN_DESCRIPCION",
         mensaje=f"El procedimiento {_nombre_completo(esquema, nombre_proc)} no se encuentra "
-                f"documentado. Agréguelo al diccionario con su descripción."
+                f"documentado. Añadir la descripción del procedimiento al diccionario, ya que todo "
+                f"procedimiento nuevo debe estar documentado."
     )]
 
 
@@ -394,7 +399,8 @@ def _validar_ortografia(
             origen=OrigenAnalisis.DICCIONARIO,
             severidad=Severidad.MEDIO,
             regla="ERROR_ORTOGRAFICO",
-            mensaje=f"La descripción {objeto} tiene {texto}: {detalle}. Corríjala.",
+            mensaje=f"La descripción {objeto} tiene {texto}: {detalle}. Se recomienda corregirla, "
+                    f"ya que el diccionario es la documentación oficial del objeto.",
         ))
     return hallazgos
 
@@ -402,6 +408,24 @@ def _validar_ortografia(
 # ---------------------------------------------------------------------------
 # ORQUESTADOR PRINCIPAL
 # ---------------------------------------------------------------------------
+
+# Reglas que, repetidas, se reportan una vez con la lista de elementos.
+_PLANTILLAS_AGRUPADAS = {
+    "PARAMETRO_FALTANTE": (
+        "parámetros sin documentar",
+        "Se recomienda añadir los parámetros faltantes al diccionario del procedimiento, cada uno "
+        "con su descripción, ya que todo parámetro de un procedimiento nuevo debe estar documentado.",
+    ),
+    "VALIDAR_DOCUMENTACION_ALTER": (
+        "parámetros que no están en el diccionario",
+        "Se recomienda validar si ya estaban documentados y, si son nuevos, añadirlos con su descripción.",
+    ),
+    "DESCRIPCION_VACIA": (
+        "parámetros con la descripción vacía",
+        "Se recomienda indicar en @value para qué se usa cada parámetro.",
+    ),
+}
+
 
 def verificar_diccionario(
     texto_procedimiento: str,
@@ -442,4 +466,8 @@ def verificar_diccionario(
     if REGLAS_DICCIONARIO_PROCEDIMIENTOS["VALOR_SIN_COMILLAS"].activo:
         hallazgos += _validar_valores_sin_comillas(llamadas, texto_diccionario)
 
-    return hallazgos
+    # Los parámetros se ubican en su línea del CREATE/ALTER.
+    for hallazgo in hallazgos:
+        if getattr(hallazgo, "elemento", None) and hallazgo.regla != "DESCRIPCION_VACIA":
+            ubicar(hallazgo, texto_procedimiento)
+    return agrupar(hallazgos, _PLANTILLAS_AGRUPADAS)

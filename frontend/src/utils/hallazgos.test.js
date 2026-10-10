@@ -56,6 +56,7 @@ describe('desglosarGrupo', () => {
 
     expect(desglosarGrupo(problema)).toEqual({
       lineas: '4, 5',
+      intro: null,
       ocurrencias: [
         'La columna cEstado de la temporal #TMP no tiene COLLATE',
         'La columna cDescripcion de la temporal #TMP no tiene COLLATE',
@@ -67,7 +68,22 @@ describe('desglosarGrupo', () => {
   it('deja intacto un hallazgo simple', () => {
     expect(desglosarGrupo('La tabla dbo.TB_Estado no tiene WITH(NOLOCK).')).toEqual({
       lineas: null,
+      intro: null,
       ocurrencias: ['La tabla dbo.TB_Estado no tiene WITH(NOLOCK).'],
     });
+  });
+
+  it('lista los nombres de un grupo con introducción, sin cambiar sus mayúsculas', () => {
+    const mensaje =
+      'Se identificaron 2 columnas sin documentar, en las líneas 2, 3: cCodPersona; nClienteId. '
+      + 'Se recomienda añadir las columnas faltantes al diccionario de la tabla.';
+    const { problema, solucion } = separarMensaje(mensaje);
+
+    expect(desglosarGrupo(problema)).toEqual({
+      lineas: '2, 3',
+      intro: 'Se identificaron 2 columnas sin documentar:',
+      ocurrencias: ['cCodPersona', 'nClienteId'],
+    });
+    expect(solucion).toBe('Se recomienda añadir las columnas faltantes al diccionario de la tabla.');
   });
 });

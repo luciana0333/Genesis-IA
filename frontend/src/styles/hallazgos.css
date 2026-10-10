@@ -793,3 +793,7 @@
     position: static;
   }
 }
+
+.finding-message + .finding-list {
+  margin-top: 6px;
+}

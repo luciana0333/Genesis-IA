@@ -18,8 +18,8 @@ function MensajeResaltado({ texto }) {
 
 const VEREDICTOS = {
   critico: { titulo: 'Requiere correcciones', texto: 'Hay errores críticos que impiden aprobar el objeto.' },
-  alto: { titulo: 'Requiere correcciones', texto: 'Corrija los hallazgos de severidad alta antes de pasar a producción.' },
-  medio: { titulo: 'Con observaciones', texto: 'Revise las observaciones de severidad media; no bloquean, pero conviene corregirlas.' },
+  alto: { titulo: 'Requiere correcciones', texto: 'Corregir los hallazgos de severidad alta antes de pasar a producción.' },
+  medio: { titulo: 'Con observaciones', texto: 'Se recomienda revisar las observaciones de severidad media; no bloquean, pero conviene corregirlas.' },
   bajo: { titulo: 'Observaciones menores', texto: 'Solo hay recomendaciones o puntos por validar.' },
 };
 
@@ -114,7 +114,7 @@ function FilaHallazgo({ hallazgo, mostrarLinea }) {
   const titulo = nombreRegla(hallazgo.regla);
   const mensaje = hallazgo.mensaje || 'Revisa este hallazgo.';
   const { problema, solucion } = separarMensaje(mensaje);
-  const { lineas, ocurrencias } = desglosarGrupo(problema);
+  const { lineas, intro, ocurrencias } = desglosarGrupo(problema);
   const etiquetaLinea = lineas
     ? `${lineas.includes(',') ? 'Líneas' : 'Línea'} ${lineas}`
     : `Línea ${hallazgo.linea || 1}`;
@@ -131,6 +131,7 @@ function FilaHallazgo({ hallazgo, mostrarLinea }) {
       </header>
 
       <div className="finding-body">
+        {intro && <p className="finding-message">{intro}</p>}
         {ocurrencias.length > 1 ? (
           <ul className="finding-list">
             {ocurrencias.map((texto) => <li key={texto}><MensajeResaltado texto={texto} /></li>)}

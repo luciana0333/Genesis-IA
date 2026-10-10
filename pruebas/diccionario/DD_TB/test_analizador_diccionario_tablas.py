@@ -212,7 +212,9 @@ class TestDiccionarioTablas(unittest.TestCase):
             DICCIONARIO_SOLO_TABLA_CON_CORCHETES,
         )
         columnas_faltantes = [h for h in hallazgos if h.regla == "COLUMNA_FALTANTE"]
-        self.assertEqual(len(columnas_faltantes), 5)
+        # Las cinco columnas van en un solo hallazgo agrupado.
+        self.assertEqual(len(columnas_faltantes), 1)
+        self.assertIn("Se identificaron 5 columnas sin documentar", columnas_faltantes[0].mensaje)
 
     def test_casos_organizados_del_diccionario_de_tablas(self):
         casos = [
@@ -295,7 +297,7 @@ class TestDiccionarioTablasAlter(unittest.TestCase):
         hallazgos = verificar_diccionario_tablas(self.ALTER, diccionario)
         self.assertEqual([h.regla for h in hallazgos], ["DOCUMENTACION_EXISTENTE_EN_ALTER"])
         self.assertEqual(hallazgos[0].severidad, Severidad.BAJO)
-        self.assertIn("Valide", hallazgos[0].mensaje)
+        self.assertIn("Se recomienda validar", hallazgos[0].mensaje)
 
     def test_create_con_alter_add_constraint_se_trata_como_create(self):
         script = (
@@ -304,7 +306,10 @@ class TestDiccionarioTablasAlter(unittest.TestCase):
         )
         reglas = [h.regla for h in verificar_diccionario_tablas(script, "")]
         self.assertIn("TABLA_SIN_DESCRIPCION", reglas)
-        self.assertEqual(reglas.count("COLUMNA_FALTANTE"), 2)
+        faltantes = [h for h in verificar_diccionario_tablas(script, "") if h.regla == "COLUMNA_FALTANTE"]
+        self.assertEqual(len(faltantes), 1)
+        self.assertIn("Se identificaron 2 columnas sin documentar", faltantes[0].mensaje)
+        self.assertIn("nEstadoId; cDescripcion", faltantes[0].mensaje)
 
 
 class TestCatalogoDiccionarioTablas(unittest.TestCase):
@@ -365,7 +370,7 @@ class TestCatalogoDiccionarioTablas(unittest.TestCase):
             ),
         )
         self.assertEqual([h.regla for h in vacia], ["DESCRIPCION_TABLA_VACIA"])
-        self.assertIn("no tiene una descripción", vacia[0].mensaje)
+        self.assertIn("su descripción (@value) está vacía", vacia[0].mensaje)
         self.assertGreater(vacia[0].linea, 0)
 
     def test_regla_desactivada_no_se_reporta(self):
