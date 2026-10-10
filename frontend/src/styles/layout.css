@@ -151,39 +151,30 @@
 }
 
 /* ───────── ENCABEZADO ─────────
- * Estilo "banda roja": encabezado claro y luminoso con el texto a la
- * izquierda y la persona a la derecha sobre la foto financiera, que nace
- * del fondo claro. El rojo de marca baja a la banda de métricas.
+ * Estilo "banda roja": foto financiera oscura a todo el ancho, el texto en
+ * blanco a la izquierda y la persona a la derecha. El rojo de marca baja a
+ * la banda de métricas.
  */
 .hero {
   position: relative;
   padding: 64px 0;
   overflow: hidden;
-  color: var(--text-primary);
-  /* Un gris apenas perceptible arriba que se aclara: recibe la sombra del menú
-     y da profundidad sin cortes. */
-  background: linear-gradient(180deg, var(--bg-page) 0%, var(--bg-card) 38%);
+  color: #ffffff;
+  background: #111116;
   isolation: isolate;
 }
 
-/* Foto financiera en gris claro en la mitad derecha; se funde con el fondo
-   hacia el texto. */
+/* Foto financiera oscura y cinematográfica a todo el ancho, en blanco y
+   negro; más oscura hacia el texto y hacia la banda roja. */
 .hero-foto-fondo {
   position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 40%;
+  inset: 0;
   z-index: -2;
-  /* Foto financiera oscura y cinematográfica, en blanco y negro. */
   background:
-    linear-gradient(180deg, rgba(14, 14, 18, 0.5) 0%, rgba(14, 14, 18, 0.72) 100%),
+    linear-gradient(90deg, rgba(14, 14, 18, 0.55) 0%, rgba(14, 14, 18, 0.2) 60%, rgba(14, 14, 18, 0.1) 100%),
+    linear-gradient(180deg, rgba(14, 14, 18, 0.55) 0%, rgba(14, 14, 18, 0.78) 55%, rgba(14, 14, 18, 0.95) 100%),
     url('../assets/fondo.jpg') center / cover no-repeat;
   filter: grayscale(1) contrast(1.05);
-  /* Transición larga y gradual (curva suave) para que el paso del claro al
-     rojo no se note. */
-  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.08) 14%, rgba(0, 0, 0, 0.25) 26%, rgba(0, 0, 0, 0.5) 38%, rgba(0, 0, 0, 0.78) 50%, #000 64%);
-  mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.08) 14%, rgba(0, 0, 0, 0.25) 26%, rgba(0, 0, 0, 0.5) 38%, rgba(0, 0, 0, 0.78) 50%, #000 64%);
   pointer-events: none;
 }
 
@@ -211,7 +202,7 @@
 
 .hero h1 {
   margin-bottom: 18px;
-  color: var(--text-primary);
+  color: #ffffff;
   font-size: clamp(2.2rem, 3.9vw, 3.2rem);
   font-weight: 800;
   line-height: 1.05;
@@ -221,7 +212,7 @@
 
 .hero-descripcion {
   max-width: 560px;
-  color: var(--text-secondary);
+  color: #c4c4ce;
   font-size: 1.02rem;
   line-height: 1.7;
 }
@@ -239,7 +230,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  color: var(--text-primary);
+  color: #ffffff;
   font-size: 0.92rem;
   font-weight: 500;
 }
@@ -248,7 +239,7 @@
   flex: none;
   width: 18px;
   height: 18px;
-  color: var(--red-main);
+  color: #ff4d57;
 }
 
 .hero-acciones {
@@ -290,16 +281,16 @@
   transform: translateY(2px);
 }
 
-/* Acción secundaria: contorno fino sobre el fondo claro. */
+/* Acción secundaria: contorno blanco sobre el fondo oscuro. */
 .hero-accion-secundaria {
   display: inline-flex;
   align-items: center;
   height: 48px;
   padding: 0 26px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid rgba(255, 255, 255, 0.45);
   border-radius: var(--radius-btn);
-  background: var(--bg-card);
-  color: var(--text-primary);
+  background: transparent;
+  color: #ffffff;
   font-family: inherit;
   font-size: 0.92rem;
   font-weight: 700;
@@ -308,13 +299,13 @@
 }
 
 .hero-accion-secundaria:hover {
-  border-color: var(--red-main);
-  color: var(--red-main);
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .hero-accion:focus-visible,
 .hero-accion-secundaria:focus-visible {
-  outline: 2px solid var(--red-main);
+  outline: 2px solid #ffffff;
   outline-offset: 3px;
 }
 
@@ -330,7 +321,7 @@
   display: block;
   width: 100%;
   height: auto;
-  filter: drop-shadow(0 20px 30px rgba(17, 17, 26, 0.22));
+  filter: drop-shadow(0 20px 30px rgba(0, 0, 0, 0.45));
 }
 
 @media (max-width: 960px) {
@@ -338,8 +329,7 @@
     grid-template-columns: 1fr;
   }
 
-  .hero-figura,
-  .hero-foto-fondo {
+  .hero-figura {
     display: none;
   }
 }
