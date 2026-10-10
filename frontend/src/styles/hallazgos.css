@@ -419,6 +419,134 @@
 .tag.sev-medio { background: var(--sev-medio-bg); color: var(--sev-medio-text); }
 .tag.sev-bajo { background: var(--sev-bajo-bg); color: var(--sev-bajo-text); }
 
+/* ───────── ESTADO INICIAL ─────────
+ * Ilustración de documento con lupa roja y los pasos numerados para empezar.
+ */
+.estado-inicial {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 36px;
+  align-items: center;
+  padding: 30px 34px;
+  border-radius: 8px;
+  background: var(--bg-card);
+  box-shadow: 0 1px 2px rgba(17, 17, 26, 0.04);
+}
+
+.estado-inicial-ilustracion {
+  position: relative;
+  height: 150px;
+}
+
+.estado-inicial-doc {
+  position: absolute;
+  top: 6px;
+  left: 30px;
+  width: 130px;
+  height: 140px;
+  padding: 16px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  box-shadow: 0 14px 30px -14px rgba(17, 17, 26, 0.25);
+}
+
+.estado-inicial-doc i {
+  display: block;
+  height: 7px;
+  margin-bottom: 9px;
+  border-radius: 3px;
+  background: var(--bg-subtle);
+}
+
+.estado-inicial-doc i.marcada {
+  width: 70%;
+  background: rgba(227, 6, 19, 0.14);
+}
+
+.estado-inicial-doc i.corta {
+  width: 55%;
+}
+
+.estado-inicial-lupa {
+  position: absolute;
+  top: 66px;
+  left: 120px;
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: var(--red-main);
+  color: #ffffff;
+  box-shadow: 0 14px 28px -10px rgba(227, 6, 19, 0.6);
+}
+
+.estado-inicial-lupa svg {
+  width: 34px;
+  height: 34px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.estado-inicial-titulo {
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.estado-inicial-descripcion {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.estado-inicial-pasos {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.estado-inicial-pasos li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-texto);
+  font-size: 0.86rem;
+}
+
+.estado-inicial-pasos li > span {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(227, 6, 19, 0.08);
+  color: var(--red-main);
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .estado-inicial {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .estado-inicial-ilustracion {
+    display: none;
+  }
+}
+
 /* ───────── ESTADOS ───────── */
 .empty-state {
   --tono: var(--text-muted);

@@ -173,7 +173,12 @@ export function AuditoriaWorkspace({ vista }) {
             hallazgos={resultado.hallazgos}
             mensajeError={resultado.mensaje}
             textos={{
-              inicial: 'Presiona "Ejecutar revisión" para analizar el objeto.',
+              inicialTitulo: 'Listo para iniciar la revisión',
+              pasos: [
+                'Pega el código del objeto en el editor',
+                <>Presiona «Ejecutar revisión» o <kbd>Ctrl</kbd> + <kbd>Enter</kbd></>,
+                'Revisa cada hallazgo y cómo corregirlo',
+              ],
               cargando: `Analizando las reglas de ${vista.resultados.nombre}...`,
               sinHallazgos: 'La revisión terminó sin hallazgos.',
               tituloError: 'No se pudo completar la revisión',

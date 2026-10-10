@@ -149,7 +149,12 @@ export function PlanesWorkspace() {
             hallazgos={analisis?.hallazgos}
             mostrarLinea={false}
             textos={{
-              inicial: 'Selecciona un archivo .sqlplan para iniciar el análisis.',
+              inicialTitulo: 'Listo para analizar tu plan',
+              pasos: [
+                'Selecciona o arrastra tu archivo .sqlplan',
+                'Presiona «Analizar plan»',
+                'Revisa cada hallazgo y cómo corregirlo',
+              ],
               cargando: 'Analizando el plan real...',
               sinHallazgos: 'El plan terminó sin hallazgos según las reglas activas.',
               tituloError: 'No se pudo analizar el plan',

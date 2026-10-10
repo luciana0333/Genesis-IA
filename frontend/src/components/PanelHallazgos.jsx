@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react';
 import { SEVERIDADES, etiquetaSeveridad, nombreRegla } from '../config/reglas';
 import { contarPorSeveridad, desglosarGrupo, normalizarSeveridad, ordenarHallazgos, separarMensaje } from '../utils/hallazgos';
 import { EncabezadoSeccion } from './EncabezadoSeccion';
+import { EstadoInicial } from './EstadoInicial';
 import { EstadoVacio } from './EstadoVacio';
 import {
-  IconoBandeja,
   IconoCopiar,
   IconoCopiado,
   IconoErrorCirculo,
@@ -237,9 +237,11 @@ export function PanelHallazgos({
     );
   } else {
     contenido = (
-      <EstadoVacio icono={<IconoBandeja />} titulo="Aún no hay resultados">
-        {textos.inicial}
-      </EstadoVacio>
+      <EstadoInicial
+        titulo={textos.inicialTitulo}
+        descripcion="Los hallazgos aparecerán aquí, ordenados por severidad."
+        pasos={textos.pasos}
+      />
     );
   }
 

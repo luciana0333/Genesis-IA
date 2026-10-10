@@ -24,7 +24,7 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: 'Diccionarios' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByLabelText('Tipo de revisión')).toHaveValue('procedimiento');
     expect(screen.getByLabelText('SQL del procedimiento').value).toContain('PA_Cliente_Consultar');
-    expect(screen.getByText('Presiona "Ejecutar revisión" para analizar el objeto.')).toBeInTheDocument();
+    expect(screen.getByText('Listo para iniciar la revisión')).toBeInTheDocument();
   });
 
   it('no muestra ningún elemento de la capa de IA', () => {
