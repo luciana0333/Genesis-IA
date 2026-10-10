@@ -17,13 +17,13 @@ function irAlFormulario() {
 
 /**
  * Encabezado de cada pestaña: a la izquierda el título, los puntos clave y la
- * acción principal; a la derecha el profesional con su laptop, sin fondo.
+ * acción principal; a la derecha el profesional con su laptop sobre la foto
+ * financiera fundida en rojo.
  */
 export function Hero({ titulo, descripcion, puntos = PUNTOS_POR_DEFECTO, accion = 'Comenzar revisión' }) {
   return (
     <section className="hero">
       <span className="hero-foto-fondo" aria-hidden="true" />
-      <span className="hero-panel" aria-hidden="true" />
       <div className="hero-container">
         <div className="hero-texto">
           <h1>{titulo}</h1>
