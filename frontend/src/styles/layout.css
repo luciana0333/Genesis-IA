@@ -151,42 +151,55 @@
 }
 
 /* ───────── ENCABEZADO ─────────
- * Estilo cinematográfico: foto financiera oscura a todo el ancho y el
- * contenido centrado, como la presentación de un producto.
+ * Rojo de marca sólido con dos columnas: texto y acción a la izquierda; la
+ * foto enmarcada, con una tarjeta flotante, a la derecha. Un plano diagonal
+ * más claro da profundidad sin recargar.
  */
 .hero {
   position: relative;
-  padding: 72px 24px 112px;
+  padding: 36px 24px 56px;
   overflow: hidden;
   color: #ffffff;
-  text-align: center;
-  background: #111116;
+  background: #1a0d0f;
   isolation: isolate;
 }
 
-/* Foto financiera en blanco y negro, oscurecida hacia abajo para que la
-   tarjeta de métricas destaque al montarse sobre ella. */
+/* Foto financiera a todo el ancho, oscurecida y en tono cálido para que
+   combine con el rojo y no compita con la persona. */
 .hero-foto-fondo {
   position: absolute;
   inset: 0;
-  z-index: -2;
+  z-index: -3;
   background:
-    linear-gradient(180deg, rgba(14, 14, 18, 0.55) 0%, rgba(14, 14, 18, 0.78) 55%, rgba(14, 14, 18, 0.95) 100%),
-    url('../assets/fondo.jpg') center / cover no-repeat;
-  filter: grayscale(1) contrast(1.05);
+    linear-gradient(90deg, rgba(14, 4, 6, 0.45), rgba(14, 4, 6, 0.7)),
+    url('../assets/fondo.jpg') right center / cover no-repeat;
+  filter: grayscale(0.85) brightness(0.55) contrast(1.1);
   pointer-events: none;
 }
 
-/* Hilo rojo que baja desde el menú hacia el título. */
-.hero::before {
-  content: '';
+/* Panel rojo con el borde derecho en diagonal (estilo Vulcanet) y una franja
+   más clara que acompaña el corte. */
+.hero-panel {
   position: absolute;
   top: 0;
-  left: 50%;
-  z-index: 1;
-  width: 2px;
-  height: 44px;
-  background: var(--red-main);
+  bottom: 0;
+  left: 0;
+  z-index: -2;
+  width: 74%;
+  /* Rojo de la marca con algo de transparencia para que se vea la foto de fondo. */
+  background: linear-gradient(120deg, rgba(192, 9, 20, 0.9) 0%, rgba(204, 10, 23, 0.9) 55%, rgba(210, 11, 24, 0.92) 100%);
+  clip-path: polygon(0 0, 100% 0, 84% 100%, 0 100%);
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.hero-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  /* Franja en el rojo exacto del logo (una capa blanca lo volvía rosado). */
+  background: rgba(227, 6, 19, 0.94);
+  clip-path: polygon(92% 0, 100% 0, 84% 100%, 76% 100%);
 }
 
 /* Destello de luz diagonal que cruza el encabezado una sola vez. */
@@ -198,9 +211,9 @@
   background: linear-gradient(
     105deg,
     transparent 38%,
-    rgba(255, 255, 255, 0.05) 44%,
-    rgba(255, 255, 255, 0.12) 50%,
-    rgba(255, 255, 255, 0.05) 56%,
+    rgba(255, 255, 255, 0.08) 44%,
+    rgba(255, 255, 255, 0.22) 50%,
+    rgba(255, 255, 255, 0.08) 56%,
     transparent 62%
   );
   transform: translateX(-100%);
@@ -215,33 +228,34 @@
 .hero-container {
   position: relative;
   z-index: 1;
-  max-width: 860px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+  gap: 56px;
+  align-items: center;
+  max-width: 1240px;
   margin: 0 auto;
 }
 
 .hero h1 {
-  margin-bottom: 18px;
-  font-size: clamp(2.3rem, 4.4vw, 3.6rem);
+  margin-bottom: 16px;
+  font-size: clamp(2rem, 3.3vw, 2.7rem);
   font-weight: 800;
-  line-height: 1.04;
-  letter-spacing: -0.035em;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
 }
 
 .hero-descripcion {
-  max-width: 640px;
-  margin: 0 auto;
-  color: #c4c4ce;
-  font-size: 1.05rem;
+  max-width: 540px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1rem;
   line-height: 1.7;
 }
 
-/* Puntos clave en una sola fila, separados por aire. */
 .hero-puntos {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px 28px;
-  margin: 26px 0 34px;
+  flex-direction: column;
+  gap: 10px;
+  margin: 24px 0 30px;
   padding: 0;
   list-style: none;
 }
@@ -249,8 +263,8 @@
 .hero-puntos li {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.9rem;
+  gap: 10px;
+  font-size: 0.92rem;
   font-weight: 500;
 }
 
@@ -258,7 +272,7 @@
   flex: none;
   width: 18px;
   height: 18px;
-  color: #ff4d57;
+  color: #ffffff;
 }
 
 .hero-accion {
@@ -266,17 +280,17 @@
   align-items: center;
   gap: 10px;
   height: 48px;
-  padding: 0 28px;
+  padding: 0 24px;
   border: none;
   border-radius: var(--radius-btn);
-  background: var(--red-main);
-  color: #ffffff;
+  background: #ffffff;
+  color: var(--red-main);
   font-family: inherit;
   font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 14px 28px -12px rgba(227, 6, 19, 0.6);
-  transition: transform var(--dur-fast) ease, background-color var(--dur-fast) ease;
+  box-shadow: 0 12px 24px -12px rgba(60, 0, 6, 0.55);
+  transition: transform var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
 }
 
 .hero-accion svg {
@@ -287,7 +301,7 @@
 
 .hero-accion:hover {
   transform: translateY(-1px);
-  background: var(--red-dark);
+  box-shadow: 0 16px 28px -12px rgba(60, 0, 6, 0.6);
 }
 
 .hero-accion:hover svg {
@@ -299,11 +313,43 @@
   outline-offset: 3px;
 }
 
-/* Acciones centradas: principal roja y "Ver ejemplo" con contorno blanco. */
+.hero-figura {
+  position: relative;
+  align-self: end;
+  justify-self: end;
+  width: min(470px, 110%);
+  /* Llega justo al borde inferior del rojo. */
+  margin: 0 -40px -56px 0;
+  isolation: isolate;
+}
+
+/* Halo de luz suave, sin bordes, detrás de la persona: la separa del fondo. */
+.hero-figura::before {
+  content: '';
+  position: absolute;
+  top: 42%;
+  left: 45%;
+  z-index: -1;
+  width: 140%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08) 45%, rgba(255, 255, 255, 0) 100%);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* Persona con laptop, en PNG sin fondo (imagen proporcionada por el equipo). */
+.hero-foto {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 20px 30px rgba(60, 0, 6, 0.3));
+}
+
+/* Acciones: principal blanca y "Ver ejemplo" con contorno blanco. */
 .hero-acciones {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
   gap: 12px;
 }
 
@@ -311,8 +357,8 @@
   display: inline-flex;
   align-items: center;
   height: 48px;
-  padding: 0 26px;
-  border: 1px solid rgba(255, 255, 255, 0.45);
+  padding: 0 24px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: var(--radius-btn);
   background: transparent;
   color: #ffffff;
@@ -325,7 +371,7 @@
 
 .hero-accion-secundaria:hover {
   border-color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .hero-accion-secundaria:focus-visible {
@@ -333,9 +379,20 @@
   outline-offset: 3px;
 }
 
-/* En este estilo centrado no va la persona. */
-.hero-figura {
-  display: none;
+@media (max-width: 960px) {
+  .hero-container {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .hero-figura {
+    display: none;
+  }
+
+  .hero-panel {
+    width: 100%;
+    clip-path: none;
+  }
 }
 
 /* ───────── CONTENIDO Y PIE ───────── */

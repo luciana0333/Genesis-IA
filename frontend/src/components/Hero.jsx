@@ -23,14 +23,14 @@ function verEjemplo() {
 }
 
 /**
- * Encabezado de cada pestaña: a la izquierda el título, los puntos clave y las
- * acciones; a la derecha el profesional con su laptop sobre la foto
- * financiera. Debajo va la banda roja de métricas.
+ * Encabezado de cada pestaña: panel rojo con corte diagonal y el título, los
+ * puntos clave y las acciones; a la derecha el profesional con su laptop.
  */
 export function Hero({ titulo, descripcion, puntos = PUNTOS_POR_DEFECTO, accion = 'Comenzar revisión' }) {
   return (
     <section className="hero">
       <span className="hero-foto-fondo" aria-hidden="true" />
+      <span className="hero-panel" aria-hidden="true" />
       <div className="hero-container">
         <div className="hero-texto">
           <h1>{titulo}</h1>
