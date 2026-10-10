@@ -28,6 +28,7 @@ export const NOMBRES_REGLAS = {
   DESCRIPCION_TABLA_VACIA: 'Tabla sin descripción',
   ALTER_SIN_DICCIONARIO: 'ALTER sin diccionario',
   VALOR_SIN_COMILLAS: 'Valor sin comillas',
+  CREATE_SIN_PARENTESIS: 'Columnas sin paréntesis',
   TABLA_SIN_ESQUEMA: 'Tabla sin esquema',
   COLUMNA_SIN_NOT_NULL_NI_DEFAULT: 'Columna sin NOT NULL ni DEFAULT',
   COLUMNA_SIN_COLLATE: 'Columna sin COLLATE',

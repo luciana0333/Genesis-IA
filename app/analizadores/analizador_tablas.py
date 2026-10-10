@@ -198,6 +198,18 @@ def extraer_tipo_sentencia(texto_sql: str) -> str:
     return "DESCONOCIDO"
 
 
+def _create_sin_parentesis(texto: str) -> Optional[int]:
+    """Posición donde empiezan las columnas si el CREATE TABLE no las encierra entre paréntesis."""
+    m = re.search(
+        rf"\bCREATE\s+TABLE\s+(?:{_IDENTIFICADOR}\s*\.\s*){{0,2}}{_IDENTIFICADOR}",
+        texto,
+        re.IGNORECASE,
+    )
+    if not m or texto[m.end():].lstrip().startswith("("):
+        return None
+    return m.end()
+
+
 def _segmentos_create(texto: str) -> List[Tuple[str, int]]:
     """Definiciones (columnas y restricciones) entre los paréntesis del CREATE TABLE."""
     inicio = re.search(
@@ -206,7 +218,14 @@ def _segmentos_create(texto: str) -> List[Tuple[str, int]]:
         re.IGNORECASE,
     )
     if not inicio:
-        return []
+        # Sin paréntesis (error de sintaxis): las columnas se leen igual, hasta el ";" o GO,
+        # para revisar también su nomenclatura.
+        sin_parentesis = _create_sin_parentesis(texto)
+        if not sin_parentesis:
+            return []
+        fin = re.search(r";|\bGO\b", texto[sin_parentesis:], re.IGNORECASE)
+        cuerpo = texto[sin_parentesis:sin_parentesis + fin.start()] if fin else texto[sin_parentesis:]
+        return [(segmento, sin_parentesis + posicion) for segmento, posicion in _separar_por_comas(cuerpo)]
     apertura = inicio.end()
     profundidad, cierre = 0, len(texto)
     for indice in range(apertura, len(texto)):
@@ -460,6 +479,14 @@ def verificar_tabla(texto_sql: str, es_dbcmaica: bool = False) -> List[Hallazgo]
 
     if tipo == "CREATE":
         columnas = _columnas_create(texto)
+        sin_parentesis = _create_sin_parentesis(texto)
+        if sin_parentesis is not None:
+            hallazgos.append(_hallazgo(
+                texto, sin_parentesis, "CREATE_SIN_PARENTESIS",
+                f"El CREATE TABLE de la tabla {referencia} no encierra sus columnas entre paréntesis. "
+                f"Encerrar las columnas entre paréntesis, ya que sin ellos SQL Server no puede crear la "
+                f"tabla (ej.: CREATE TABLE {referencia} ( ... );).",
+            ))
         hallazgos += _validar_tabla(texto, esquema, tabla, referencia)
         hallazgos += _validar_clave_primaria(texto, tabla, referencia, columnas)
         for columna in columnas:

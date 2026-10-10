@@ -27,6 +27,10 @@ def _regla(codigo, nombre, severidad, descripcion):
 
 REGLAS_TABLAS = {
     # --- Tabla (solo CREATE) --------------------------------------------
+    "CREATE_SIN_PARENTESIS": _regla(
+        "CREATE_SIN_PARENTESIS", "Columnas sin paréntesis", "critico",
+        "En un CREATE TABLE las columnas van entre paréntesis; sin ellos SQL Server no puede crear la tabla.",
+    ),
     "TABLA_SIN_ESQUEMA": _regla(
         "TABLA_SIN_ESQUEMA", "Tabla sin esquema", "alto",
         "Toda tabla nueva debe indicar explícitamente su esquema (ej.: dbo.Persona).",
