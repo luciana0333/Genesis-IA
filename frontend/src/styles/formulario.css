@@ -40,7 +40,7 @@
 }
 
 /* ───────── ENCABEZADO DE SECCIÓN ─────────
- * Etiqueta roja en mayúsculas + título + línea corta de acento.
+ * Etiqueta roja + título.
  */
 .section-heading {
   display: flex;
@@ -74,14 +74,6 @@
 h3.section-title {
   font-size: 1.1rem;
 }
-
-.section-rule {
-  width: 36px;
-  height: 3px;
-  margin-top: 12px;
-  background: var(--red-main);
-}
-
 .section-description {
   max-width: 640px;
   margin-top: 12px;
