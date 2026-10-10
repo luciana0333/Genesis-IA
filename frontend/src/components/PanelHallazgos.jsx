@@ -218,9 +218,16 @@ export function PanelHallazgos({
     );
   } else if (estado === 'listo' && !hallazgos.length) {
     contenido = (
-      <EstadoVacio tono="exito" icono={<IconoEscudoCheck />} titulo="Sin hallazgos">
-        {textos.sinHallazgos}
-      </EstadoVacio>
+      <EstadoInicial
+        variante="exito"
+        titulo="Todo en orden"
+        descripcion={textos.sinHallazgos}
+        pasos={[
+          'Se aplicaron todas las reglas de la revisión',
+          'No hay observaciones de ninguna severidad',
+          'Puedes continuar con el siguiente paso',
+        ]}
+      />
     );
   } else if (hayHallazgos) {
     contenido = (

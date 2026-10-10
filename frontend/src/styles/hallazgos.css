@@ -536,6 +536,30 @@
   font-weight: 700;
 }
 
+/* Éxito: sello en tinta oscura (sin verde, fuera de la paleta) y checks. */
+.estado-exito .estado-inicial-lupa {
+  background: var(--text-primary);
+  box-shadow: 0 14px 28px -10px rgba(17, 17, 26, 0.5);
+}
+
+.estado-exito .estado-inicial-lupa svg {
+  stroke-width: 2.4;
+}
+
+.estado-exito .estado-inicial-doc i.marcada {
+  background: var(--bg-subtle);
+}
+
+.estado-inicial-pasos li > span svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 @media (max-width: 640px) {
   .estado-inicial {
     grid-template-columns: 1fr;
