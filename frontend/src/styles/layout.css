@@ -187,7 +187,7 @@
   z-index: -2;
   width: 74%;
   /* Rojo de la marca con algo de transparencia para que se vea la foto de fondo. */
-  background: linear-gradient(120deg, rgba(192, 9, 20, 0.78) 0%, rgba(204, 10, 23, 0.78) 55%, rgba(210, 11, 24, 0.8) 100%);
+  background: linear-gradient(120deg, rgba(192, 9, 20, 0.9) 0%, rgba(204, 10, 23, 0.9) 55%, rgba(210, 11, 24, 0.92) 100%);
   clip-path: polygon(0 0, 100% 0, 84% 100%, 0 100%);
   box-shadow: 0 0 60px rgba(0, 0, 0, 0.4);
   pointer-events: none;
@@ -198,7 +198,7 @@
   position: absolute;
   inset: 0;
   /* Franja en el rojo exacto del logo (una capa blanca lo volvía rosado). */
-  background: rgba(227, 6, 19, 0.85);
+  background: rgba(227, 6, 19, 0.94);
   clip-path: polygon(92% 0, 100% 0, 84% 100%, 76% 100%);
 }
 
