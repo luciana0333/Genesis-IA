@@ -21,7 +21,8 @@ describe('App', () => {
     render(<App />);
 
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Auditoría de diccionarios SQL');
-    expect(screen.getByRole('link', { name: 'Diccionarios' })).toHaveAttribute('aria-current', 'page');
+    const menu = screen.getByRole('navigation', { name: 'Tipos de revisión' });
+    expect(within(menu).getByRole('link', { name: 'Diccionarios' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByLabelText('Tipo de revisión')).toHaveValue('procedimiento');
     expect(screen.getByLabelText('SQL del procedimiento').value).toContain('PA_Cliente_Sel_PorId');
     expect(screen.getByText('Listo para iniciar la revisión')).toBeInTheDocument();

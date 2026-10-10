@@ -17,9 +17,11 @@ import {
   Eraser,
   FileCode2,
   Gauge,
+  BookOpen,
   Inbox,
   Info,
   ListChecks,
+  Lock,
   MemoryStick,
   Moon,
   OctagonAlert,
@@ -77,4 +79,6 @@ export const IconoHallazgo = crearIcono(ListChecks);
 
 // Encabezado
 export const IconoPunto = crearIcono(CircleCheck);
+export const IconoLibro = crearIcono(BookOpen);
+export const IconoCandado = crearIcono(Lock);
 export const IconoBajar = crearIcono(ArrowDown);
