@@ -484,23 +484,32 @@
   color: var(--text-primary);
 }
 
+/* "Copiar todo": botón blanco elevado, sin borde, con ícono rojo. */
 .copy-btn--texto {
   width: auto;
-  height: 32px;
+  height: 36px;
   padding: 0 14px;
-  border-radius: var(--radius-btn);
-  border-color: var(--text-primary);
-  background: transparent;
+  border: none;
+  border-radius: 8px;
+  background: var(--bg-card);
   color: var(--text-primary);
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: 700;
   opacity: 1;
+  box-shadow: 0 1px 2px rgba(17, 17, 26, 0.06), 0 6px 14px -8px rgba(17, 17, 26, 0.25);
+  transition: box-shadow var(--dur-fast) ease, transform var(--dur-fast) ease;
+}
+
+.copy-btn--texto svg {
+  color: var(--red-main);
 }
 
 .copy-btn--texto:hover {
-  border-color: var(--text-primary);
-  background: var(--text-primary);
-  color: var(--bg-card);
+  border: none;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 1px 2px rgba(17, 17, 26, 0.06), 0 10px 20px -8px rgba(17, 17, 26, 0.3);
 }
 
 @media (hover: none) {
