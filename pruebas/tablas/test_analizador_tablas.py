@@ -208,5 +208,33 @@ class TestCreateSinParentesis(unittest.TestCase):
         sql = "CREATE TABLE CLICKTOPAY.Cliente (\n cPersona VARCHAR(20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL\n);"
         self.assertNotIn("CREATE_SIN_PARENTESIS", {h.regla for h in verificar_tabla(sql)})
 
+
+class TestAgrupacion(unittest.TestCase):
+    def test_observaciones_del_mismo_tipo_en_un_solo_hallazgo(self):
+        sql = (
+            "CREATE TABLE dbo.Cliente (\n"
+            "    nClienteId INT IDENTITY(1,1) NOT NULL,\n"
+            "    cNombre VARCHAR(50) COLLATE SQL_Latin1_General_CP1_CI_AS,\n"
+            "    cCorreo VARCHAR(50) COLLATE SQL_Latin1_General_CP1_CI_AS,\n"
+            "    Edad INT NOT NULL,\n"
+            "    Monto DECIMAL(10,2) NOT NULL,\n"
+            "    CONSTRAINT PK_Cliente PRIMARY KEY CLUSTERED (nClienteId)\n"
+            ");"
+        )
+        hallazgos = {h.regla: h for h in verificar_tabla(sql)}
+        nulos = hallazgos["COLUMNA_SIN_NOT_NULL_NI_DEFAULT"]
+        self.assertIn("Se identificaron 2 columnas que aceptan valores nulos, en las líneas 3, 4: cNombre; cCorreo", nulos.mensaje)
+        self.assertEqual(nulos.linea, 3)
+        prefijos = hallazgos["COLUMNA_PREFIJO_TIPO_INVALIDO"]
+        self.assertIn("en las líneas 5, 6: Edad → nEdad; Monto → nMonto", prefijos.mensaje)
+
+    def test_una_sola_observacion_conserva_su_mensaje(self):
+        sql = ("CREATE TABLE dbo.Cliente (\n nClienteId INT IDENTITY(1,1) NOT NULL PRIMARY KEY,\n"
+               " cNombre VARCHAR(5) COLLATE SQL_Latin1_General_CP1_CI_AS\n);")
+        nulos = [h for h in verificar_tabla(sql) if h.regla == "COLUMNA_SIN_NOT_NULL_NI_DEFAULT"]
+        self.assertEqual(len(nulos), 1)
+        self.assertTrue(nulos[0].mensaje.startswith("La columna cNombre acepta valores nulos."))
+
+
 if __name__ == "__main__":
     unittest.main()

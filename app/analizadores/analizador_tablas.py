@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
+from app.analizadores.diccionario_agrupar import agrupar, con_elemento
 from app.reglas.reglas_tablas import REGLAS_TABLAS
 
 
@@ -399,10 +400,12 @@ def _validar_columna(
     hallazgos = []
     definicion = columna.definicion
     prefijo = _prefijo_esperado(definicion)
+    elementos = {}  # regla -> cómo se lista la columna si se agrupa
 
     sugerido = _sugerencia_columna(columna.nombre, prefijo)
     if prefijo and not columna.nombre.startswith(prefijo):
         accion = f"Renómbrela como {sugerido}." if sugerido else f"Agregue la '{prefijo}' al inicio del nombre."
+        elementos["COLUMNA_PREFIJO_TIPO_INVALIDO"] = f"{columna.nombre} → {sugerido}" if sugerido else columna.nombre
         hallazgos.append(_hallazgo(
             texto, columna.posicion, "COLUMNA_PREFIJO_TIPO_INVALIDO",
             f"La columna {columna.nombre} es de tipo {_tipo_de_dato(definicion)}, así que su nombre "
@@ -413,6 +416,7 @@ def _validar_columna(
             f"Renómbrela como {sugerido}." if sugerido
             else "Escriba cada palabra con mayúscula inicial (ej.: cPersonaNombre)."
         )
+        elementos["COLUMNA_NOMBRE_NO_PASCALCASE"] = f"{columna.nombre} → {sugerido}" if sugerido else columna.nombre
         hallazgos.append(_hallazgo(
             texto, columna.posicion, "COLUMNA_NOMBRE_NO_PASCALCASE",
             f"El nombre de la columna {columna.nombre} no cumple la nomenclatura: después del prefijo, "
@@ -425,6 +429,9 @@ def _validar_columna(
         accion = (
             f"Quite los números (ej.: {sin_numeros}) o use una palabra que describa el dato."
             if _NOMBRE_COLUMNA.match(sin_numeros) else "Use una palabra que describa el dato."
+        )
+        elementos["COLUMNA_NOMBRE_CON_NUMERO"] = (
+            f"{columna.nombre} → {sin_numeros}" if _NOMBRE_COLUMNA.match(sin_numeros) else columna.nombre
         )
         hallazgos.append(_hallazgo(
             texto, columna.posicion, "COLUMNA_NOMBRE_CON_NUMERO",
@@ -454,6 +461,8 @@ def _validar_columna(
             f"La columna {columna.nombre} es de tipo {_tipo_de_dato(definicion)} y tiene COLLATE, que "
             f"solo aplica a columnas de texto (CHAR o VARCHAR). Quite el COLLATE de esta columna.",
         ))
+    for hallazgo in hallazgos:
+        con_elemento(hallazgo, elementos.get(hallazgo.regla, columna.nombre))
     return hallazgos
 
 
@@ -464,6 +473,50 @@ def _tiene_not_null_o_default(definicion: str) -> bool:
 # ---------------------------------------------------------------------------
 # ORQUESTADOR
 # ---------------------------------------------------------------------------
+
+# Reglas de columna que, repetidas, se reportan una vez con la lista de columnas y su línea.
+_PLANTILLAS_AGRUPADAS = {
+    "COLUMNA_PREFIJO_TIPO_INVALIDO": (
+        "columnas con un prefijo que no corresponde a su tipo de dato",
+        "Renombrar cada columna con el prefijo de su tipo, como se sugiere en cada una, ya que el "
+        "prefijo indica qué dato guarda la columna.",
+    ),
+    "COLUMNA_NOMBRE_NO_PASCALCASE": (
+        "columnas con nombre fuera del estándar",
+        "Renombrar cada columna como se sugiere: después del prefijo, cada palabra con mayúscula "
+        "inicial y sin guiones bajos, ya que es la nomenclatura del manual.",
+    ),
+    "COLUMNA_NOMBRE_CON_NUMERO": (
+        "columnas con números en el nombre",
+        "Quitar los números o usar una palabra que describa el dato, ya que los nombres de columna "
+        "no pueden llevar números.",
+    ),
+    "COLUMNA_VARBINARY_PROHIBIDA": (
+        "columnas de tipo VARBINARY",
+        "Guardar los archivos en el servidor de archivos y registrar solo su ruta (ej.: cRutaArchivo "
+        "VARCHAR), ya que VARBINARY hace crecer la base y vuelve lentas las consultas y los respaldos.",
+    ),
+    "COLUMNA_SIN_COLLATE": (
+        "columnas de texto sin COLLATE",
+        "Añadir COLLATE SQL_Latin1_General_CP1_CI_AS después del tipo de cada una, ya que solo las "
+        "tablas de DBCMAICA pueden omitirlo.",
+    ),
+    "COLLATE_EN_TIPO_NO_TEXTO": (
+        "columnas que no son de texto con COLLATE",
+        "Retirar el COLLATE de esas columnas, ya que solo aplica a columnas de texto (CHAR o VARCHAR).",
+    ),
+    "COLUMNA_SIN_NOT_NULL_NI_DEFAULT": (
+        "columnas que aceptan valores nulos",
+        "Definir cada columna como NOT NULL o asignarle un valor por defecto (DEFAULT), ya que una "
+        "tabla nueva no debe guardar datos incompletos.",
+    ),
+    "COLUMNA_NULL_EN_ALTER": (
+        "columnas nuevas que aceptan valores nulos",
+        "Se recomienda evaluar un valor por defecto (DEFAULT) para cada una; no es obligatorio, ya que "
+        "la tabla ya tiene registros.",
+    ),
+}
+
 
 def verificar_tabla(texto_sql: str, es_dbcmaica: bool = False) -> List[Hallazgo]:
     """Valida un CREATE TABLE o ALTER TABLE según el manual de nomenclatura."""
@@ -494,21 +547,22 @@ def verificar_tabla(texto_sql: str, es_dbcmaica: bool = False) -> List[Hallazgo]
             # La PK y las columnas IDENTITY ya son NOT NULL implícitamente.
             implicita = re.search(r"\bPRIMARY\s+KEY\b|\bIDENTITY\b", columna.definicion, re.IGNORECASE)
             if not implicita and not _tiene_not_null_o_default(columna.definicion):
-                hallazgos.append(_hallazgo(
+                hallazgos.append(con_elemento(_hallazgo(
                     texto, columna.posicion, "COLUMNA_SIN_NOT_NULL_NI_DEFAULT",
                     f"La columna {columna.nombre} acepta valores nulos. Defínala como NOT NULL o "
                     f"asígnele un valor por defecto (DEFAULT).",
-                ))
+                ), columna.nombre))
     else:
         for columna in _columnas_alter(texto):
             hallazgos += _validar_columna(texto, columna, referencia, pertenece_a_dbcmaica)
             if not _tiene_not_null_o_default(columna.definicion):
-                hallazgos.append(_hallazgo(
+                hallazgos.append(con_elemento(_hallazgo(
                     texto, columna.posicion, "COLUMNA_NULL_EN_ALTER",
                     f"La columna nueva {columna.nombre} acepta valores nulos. ¿Evaluó definir un valor por "
                     f"defecto (DEFAULT)? No es obligatorio: como la tabla ya tiene registros, no se exige "
                     f"NOT NULL.",
-                ))
+                ), columna.nombre))
 
-    # Las reglas desactivadas en el catálogo no se reportan.
-    return [h for h in hallazgos if REGLAS_TABLAS[h.regla].activo]
+    # Las reglas desactivadas en el catálogo no se reportan; las repetidas se reportan una vez.
+    activos = [h for h in hallazgos if REGLAS_TABLAS[h.regla].activo]
+    return agrupar(activos, _PLANTILLAS_AGRUPADAS)
