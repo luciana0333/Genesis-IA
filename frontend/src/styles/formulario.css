@@ -113,15 +113,80 @@ h3.section-title {
   font-size: 0.74rem;
 }
 
-.checkbox-field {
-  grid-column: 1 / -1;
-  display: inline-flex;
+/* Tablas: nombre de la tabla y base de datos lado a lado. */
+.control-row--base {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Selector segmentado de la base de datos: la opción activa en blanco elevado. */
+.selector-base {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--bg-subtle);
+}
+
+.selector-base label {
+  display: flex;
+  flex: 1;
   align-items: center;
-  gap: 10px;
-  width: fit-content;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  border-radius: 7px;
   color: var(--text-secondary);
-  font-size: 0.84rem;
+  font-size: 0.82rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
+}
+
+.selector-base label svg {
+  width: 16px;
+  height: 16px;
+}
+
+.selector-base label:hover {
+  color: var(--text-primary);
+}
+
+.selector-base label.activa {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(17, 17, 26, 0.08), 0 6px 14px -8px rgba(17, 17, 26, 0.3);
+}
+
+.selector-base label.activa svg {
+  color: var(--red-main);
+}
+
+/* El radio queda oculto: la opción entera es el control. */
+.selector-base input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.selector-base label:has(input:focus-visible) {
+  outline: 2px solid var(--red-main);
+  outline-offset: 2px;
+}
+
+.nota-base {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: -6px;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.nota-base svg {
+  width: 14px;
+  height: 14px;
+  color: var(--red-main);
 }
 
 .editor-grid {

@@ -16,6 +16,7 @@ import {
   Database,
   Eraser,
   FileCode2,
+  Globe,
   Gauge,
   BookOpen,
   Inbox,
@@ -81,4 +82,5 @@ export const IconoHallazgo = crearIcono(ListChecks);
 export const IconoPunto = crearIcono(CircleCheck);
 export const IconoLibro = crearIcono(BookOpen);
 export const IconoCandado = crearIcono(Lock);
+export const IconoGlobo = crearIcono(Globe);
 export const IconoBajar = crearIcono(ArrowDown);

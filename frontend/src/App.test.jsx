@@ -45,6 +45,20 @@ describe('App', () => {
     expect(screen.getByLabelText('Nombre de la tabla')).toBeInTheDocument();
   });
 
+  it('en Tablas elegir la base DBCMAICA se envía en la revisión', async () => {
+    const usuario = userEvent.setup();
+    const fetchMock = mockRespuesta({ hallazgos: [] });
+    render(<App />);
+    await irA('tablas');
+
+    expect(screen.getByRole('radio', { name: 'Otra base de datos' })).toBeChecked();
+    await usuario.click(screen.getByRole('radio', { name: 'DBCMAICA' }));
+    await usuario.click(screen.getByRole('button', { name: 'Ejecutar revisión' }));
+
+    const cuerpo = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(cuerpo).toMatchObject({ esDbcmaica: true });
+  });
+
   it('en Diccionarios solo ofrece diccionario de procedimiento y de tabla', async () => {
     const usuario = userEvent.setup();
     render(<App />);

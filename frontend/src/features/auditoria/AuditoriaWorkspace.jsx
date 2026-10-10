@@ -2,7 +2,7 @@ import { useId } from 'react';
 import { Boton } from '../../components/Boton';
 import { EditorCodigo } from '../../components/EditorCodigo';
 import { EncabezadoSeccion } from '../../components/EncabezadoSeccion';
-import { IconoEjecutar, IconoLimpiar, IconoRestaurar } from '../../components/Iconos';
+import { IconoBaseDatos, IconoEjecutar, IconoGlobo, IconoLimpiar, IconoRestaurar, IconoSeveridadMedia } from '../../components/Iconos';
 import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { OPCIONES_SELECTOR } from '../../config/revisiones';
@@ -81,7 +81,7 @@ export function AuditoriaWorkspace({ vista }) {
         </div>
 
         <form className="panel-body" onSubmit={alEnviar} onKeyDown={alPresionarTecla} noValidate>
-          <div className="control-row">
+          <div className={revision.permiteDbcmaica ? 'control-row control-row--base' : 'control-row'}>
             {esSelectorVisible && (
               <div className="field-group">
                 <label className="field-label" htmlFor={`${ids}-tipo`}>Tipo de revisión</label>
@@ -107,15 +107,33 @@ export function AuditoriaWorkspace({ vista }) {
             </div>
 
             {revision.permiteDbcmaica && (
-              <label className="checkbox-field" htmlFor={`${ids}-dbcmaica`}>
-                <input
-                  id={`${ids}-dbcmaica`}
-                  type="checkbox"
-                  checked={campos.esDbcmaica}
-                  onChange={(evento) => actualizarCampo('esDbcmaica', evento.target.checked)}
-                />
-                <span>La tabla pertenece a DBCMAICA y puede omitir COLLATE</span>
-              </label>
+              <div className="field-group">
+                <span className="field-label" id={`${ids}-base`}>Base de datos</span>
+                <div className="selector-base" role="radiogroup" aria-labelledby={`${ids}-base`}>
+                  {[
+                    { valor: false, etiqueta: 'Otra base de datos', icono: <IconoGlobo /> },
+                    { valor: true, etiqueta: 'DBCMAICA', icono: <IconoBaseDatos /> },
+                  ].map((opcion) => (
+                    <label key={opcion.etiqueta} className={campos.esDbcmaica === opcion.valor ? 'activa' : undefined}>
+                      <input
+                        type="radio"
+                        name={`${ids}-base`}
+                        checked={campos.esDbcmaica === opcion.valor}
+                        onChange={() => actualizarCampo('esDbcmaica', opcion.valor)}
+                      />
+                      {opcion.icono}
+                      {opcion.etiqueta}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {revision.permiteDbcmaica && (
+              <p className="nota-base">
+                <IconoSeveridadMedia />
+                En DBCMAICA las columnas de texto pueden omitir COLLATE.
+              </p>
             )}
           </div>
 
