@@ -1,18 +1,20 @@
 /* ───────── RESUMEN DE MÉTRICAS ─────────
- * Banda roja de marca pegada al encabezado y a todo el ancho de la ventana;
- * las cuatro celdas siguen alineadas con el contenido. Texto e íconos en
- * blanco, separados por líneas tenues.
+ * Banda blanca pegada al encabezado y a todo el ancho de la ventana; las
+ * cuatro celdas siguen alineadas con el contenido. Íconos de línea en rojo
+ * de marca, cifras en tinta y líneas tenues entre celdas.
  */
 .metrics-grid {
-  --banda-rojo: #b8111d;
+  --banda-fondo: var(--bg-card);
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: 36px;
-  background: var(--banda-rojo);
-  /* El color se extiende a los lados sin mover las celdas. */
-  box-shadow: 0 0 0 100vmax var(--banda-rojo);
-  clip-path: inset(0 -100vmax);
-  color: #ffffff;
+  background: var(--banda-fondo);
+  /* El color se extiende a los lados sin mover las celdas; la sombra inferior
+     la separa del contenido. */
+  box-shadow: 0 0 0 100vmax var(--banda-fondo);
+  clip-path: inset(0 -100vmax -24px);
+  filter: drop-shadow(0 10px 14px rgba(17, 17, 26, 0.06));
+  color: var(--text-primary);
 }
 
 .metric-card {
@@ -25,10 +27,10 @@
 }
 
 .metric-card + .metric-card {
-  border-left: 1px solid rgba(255, 255, 255, 0.16);
+  border-left: 1px solid var(--border);
 }
 
-/* Acento blanco inferior al pasar el mouse. */
+/* Acento rojo inferior al pasar el mouse. */
 .metric-card::after {
   content: '';
   position: absolute;
@@ -36,14 +38,14 @@
   bottom: 0;
   left: 0;
   height: 3px;
-  background: #ffffff;
+  background: var(--red-main);
   transform: scaleX(0);
   transform-origin: left;
   transition: transform var(--dur) var(--ease);
 }
 
 .metric-card:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-input);
 }
 
 .metric-card:hover::after {
@@ -52,7 +54,7 @@
 
 .metric-icon {
   flex-shrink: 0;
-  color: #ffffff;
+  color: var(--metric-icon);
 }
 
 .metric-icon svg {
@@ -68,14 +70,14 @@
 }
 
 .metric-title {
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--text-muted);
   font-size: 0.8rem;
   font-weight: 600;
 }
 
 .metric-value {
   margin: 6px 0 2px;
-  color: #ffffff;
+  color: var(--metric-value);
   font-size: 1.9rem;
   font-weight: 700;
   line-height: 1.15;
@@ -83,7 +85,7 @@
 }
 
 .metric-sub {
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--text-muted);
   font-size: 0.78rem;
   line-height: 1.45;
 }
@@ -98,7 +100,7 @@
   }
 
   .metric-card:nth-child(n + 3) {
-    border-top: 1px solid rgba(255, 255, 255, 0.16);
+    border-top: 1px solid var(--border);
   }
 }
 

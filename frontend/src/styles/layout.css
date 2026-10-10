@@ -160,7 +160,7 @@
   padding: 64px 0;
   overflow: hidden;
   color: #ffffff;
-  background: #111116;
+  background: linear-gradient(115deg, #a50e18 0%, #b8111d 50%, #c40f1c 100%);
   isolation: isolate;
 }
 
@@ -170,11 +170,11 @@
   position: absolute;
   inset: 0;
   z-index: -2;
-  background:
-    linear-gradient(90deg, rgba(14, 14, 18, 0.7) 0%, rgba(14, 14, 18, 0.4) 60%, rgba(14, 14, 18, 0.3) 100%),
-    linear-gradient(180deg, rgba(14, 14, 18, 0.7) 0%, rgba(14, 14, 18, 0.85) 55%, rgba(14, 14, 18, 0.97) 100%),
-    url('../assets/fondo.jpg') center / cover no-repeat;
-  filter: grayscale(1) contrast(1.05);
+  /* Foto en blanco y negro fundida con el rojo (sin capas blancas). */
+  background: url('../assets/fondo.jpg') center / cover no-repeat;
+  filter: grayscale(1);
+  mix-blend-mode: soft-light;
+  opacity: 0.6;
   pointer-events: none;
 }
 
@@ -197,7 +197,7 @@
   width: 40px;
   height: 3px;
   margin-bottom: 22px;
-  background: var(--red-main);
+  background: #ffffff;
 }
 
 .hero h1 {
@@ -212,7 +212,7 @@
 
 .hero-descripcion {
   max-width: 560px;
-  color: #c4c4ce;
+  color: rgba(255, 255, 255, 0.88);
   font-size: 1.02rem;
   line-height: 1.7;
 }
@@ -239,7 +239,7 @@
   flex: none;
   width: 18px;
   height: 18px;
-  color: #ff4d57;
+  color: #ffffff;
 }
 
 .hero-acciones {
@@ -256,13 +256,13 @@
   padding: 0 26px;
   border: none;
   border-radius: var(--radius-btn);
-  background: var(--red-main);
-  color: #ffffff;
+  background: #ffffff;
+  color: var(--red-main);
   font-family: inherit;
   font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 12px 24px -14px rgba(227, 6, 19, 0.7);
+  box-shadow: 0 14px 28px -12px rgba(60, 0, 6, 0.55);
   transition: transform var(--dur-fast) ease, background-color var(--dur-fast) ease;
 }
 
@@ -274,7 +274,7 @@
 
 .hero-accion:hover {
   transform: translateY(-1px);
-  background: var(--red-dark);
+  box-shadow: 0 18px 30px -12px rgba(60, 0, 6, 0.6);
 }
 
 .hero-accion:hover svg {
@@ -321,7 +321,7 @@
   display: block;
   width: 100%;
   height: auto;
-  filter: drop-shadow(0 20px 30px rgba(0, 0, 0, 0.45));
+  filter: drop-shadow(0 20px 30px rgba(60, 0, 6, 0.4));
 }
 
 @media (max-width: 960px) {
