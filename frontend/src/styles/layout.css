@@ -177,6 +177,19 @@
   pointer-events: none;
 }
 
+/* Viñeta: oscurece suavemente los bordes y la base del rojo para dar
+   profundidad y que el título y las métricas destaquen. */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 70% 80% at 50% 30%, rgba(90, 0, 8, 0) 40%, rgba(90, 0, 8, 0.4) 100%),
+    linear-gradient(180deg, rgba(90, 0, 8, 0) 55%, rgba(90, 0, 8, 0.35) 100%);
+  pointer-events: none;
+}
+
 /* Destello de luz diagonal que cruza el encabezado una sola vez. */
 .hero::after {
   content: '';
@@ -213,6 +226,9 @@
   font-weight: 800;
   line-height: 1.04;
   letter-spacing: -0.035em;
+  text-shadow: 0 2px 24px rgba(60, 0, 6, 0.25);
+  /* Reparte las palabras entre líneas para no dejar una sola abajo. */
+  text-wrap: balance;
 }
 
 .hero-descripcion {
@@ -223,23 +239,32 @@
   line-height: 1.7;
 }
 
-/* Puntos clave en una sola fila, separados por aire. */
+/* Puntos clave: un bloque centrado con la lista alineada a la izquierda,
+   para leerla de corrido sin filas desbalanceadas. */
 .hero-puntos {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px 28px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
   margin: 26px 0 34px;
   padding: 0;
   list-style: none;
+  text-align: left;
 }
 
 .hero-puntos li {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.9rem;
+  gap: 10px;
+  font-size: 0.92rem;
   font-weight: 500;
+}
+
+/* El botón va en su propia línea, debajo de la lista. */
+.hero-texto > .hero-accion {
+  display: flex;
+  margin: 0 auto;
+  width: max-content;
 }
 
 .hero-puntos svg {
@@ -290,10 +315,11 @@
 /* La persona, a la derecha y apoyada en el borde inferior del rojo. */
 .hero-figura {
   position: absolute;
-  right: max(24px, calc((100% - 1240px) / 2 + 24px));
+  /* A la derecha del texto centrado; en pantallas medianas, pegada al borde. */
+  left: min(calc(50% + 400px), calc(100% - 414px));
   bottom: 0;
   z-index: 1;
-  width: 330px;
+  width: 390px;
   margin: 0;
   pointer-events: none;
 }
