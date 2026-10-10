@@ -155,7 +155,8 @@ class TestAlterTable(unittest.TestCase):
     """ALTER TABLE: solo se revisan las columnas nuevas."""
 
     def test_no_aplica_reglas_de_tabla_ni_de_pk(self):
-        sql = f"ALTER TABLE TB_Persona ADD cPersonaApodo VARCHAR(30) {COLLATE} NOT NULL DEFAULT '';"
+        # Con esquema: en un ALTER no se revisa el nombre (TB_) ni la PK.
+        sql = f"ALTER TABLE dbo.TB_Persona ADD cPersonaApodo VARCHAR(30) {COLLATE} NOT NULL DEFAULT '';"
         self.assertEqual(verificar_tabla(sql), [])
 
     def test_columna_que_acepta_null_solo_pide_evaluar_un_default(self):

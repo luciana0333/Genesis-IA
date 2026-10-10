@@ -27,7 +27,7 @@ _IDENTIFICADOR = r"(?:\[[^\]]+\]|[A-Za-z_][\w$#@]*)"
 _COMENTARIOS = re.compile(r"--[^\r\n]*|/\*.*?\*/", re.DOTALL)
 _PALABRAS_NO_COLUMNA = {"CONSTRAINT", "PRIMARY", "FOREIGN", "UNIQUE", "CHECK", "INDEX", "KEY", "PERIOD"}
 _PREFIJOS_TIPO = (
-    ("c", r"(?:N?VARCHAR|N?CHAR)\b"),
+    ("c", r"(?:N?VARCHAR|N?CHAR|N?TEXT)\b"),
     ("n", r"(?:BIGINT|SMALLINT|TINYINT|INT|MONEY|SMALLMONEY|DECIMAL|NUMERIC)\b"),
     ("b", r"BIT\b"),
     ("d", r"(?:DATETIME2|DATETIME|SMALLDATETIME|DATE)\b"),
@@ -135,7 +135,7 @@ def _tipo_completo(definicion: str) -> str:
 
 
 def _es_tipo_texto(definicion: str) -> bool:
-    return bool(re.search(r"^\s*(?:N?VARCHAR|N?CHAR)\b", definicion, re.IGNORECASE))
+    return bool(re.search(r"^\s*(?:N?VARCHAR|N?CHAR|N?TEXT)\b", definicion, re.IGNORECASE))
 
 
 def _separar_por_comas(contenido: str) -> List[Tuple[str, int]]:
@@ -518,7 +518,43 @@ _PLANTILLAS_AGRUPADAS = {
 }
 
 
+def _sentencias_de_tabla(texto: str) -> List[str]:
+    """
+    Cada CREATE/ALTER TABLE del script por separado. Lo demás se reemplaza por
+    espacios para conservar las posiciones (y así las líneas de los hallazgos).
+    Un ALTER TABLE de la misma tabla que se acaba de crear va junto a su CREATE.
+    """
+    inicios = list(re.finditer(rf"\b(CREATE|ALTER)\s+TABLE\s+((?:{_IDENTIFICADOR}\s*\.\s*){{0,2}}{_IDENTIFICADOR})", texto, re.IGNORECASE))
+    if len(inicios) <= 1:
+        return [texto]
+    grupos: List[List[Tuple[int, int]]] = []
+    nombre_anterior = None
+    for indice, inicio in enumerate(inicios):
+        fin = inicios[indice + 1].start() if indice + 1 < len(inicios) else len(texto)
+        nombre = inicio.group(2).split(".")[-1].strip("[] ").upper()
+        if inicio.group(1).upper() == "ALTER" and grupos and nombre == nombre_anterior:
+            grupos[-1].append((inicio.start(), fin))
+            continue
+        grupos.append([(inicio.start(), fin)])
+        nombre_anterior = nombre
+    sentencias = []
+    for tramos in grupos:
+        visible = [False] * len(texto)
+        for ini, fin in tramos:
+            visible[ini:fin] = [True] * (fin - ini)
+        sentencias.append("".join(c if visible[i] or c == "\n" else " " for i, c in enumerate(texto)))
+    return sentencias
+
+
 def verificar_tabla(texto_sql: str, es_dbcmaica: bool = False) -> List[Hallazgo]:
+    """Valida cada CREATE TABLE o ALTER TABLE del script según el manual de nomenclatura."""
+    hallazgos: List[Hallazgo] = []
+    for sentencia in _sentencias_de_tabla(_sin_comentarios(texto_sql)):
+        hallazgos += _verificar_una_tabla(sentencia, es_dbcmaica)
+    return hallazgos
+
+
+def _verificar_una_tabla(texto_sql: str, es_dbcmaica: bool) -> List[Hallazgo]:
     """Valida un CREATE TABLE o ALTER TABLE según el manual de nomenclatura."""
     texto = _sin_comentarios(texto_sql)
     base, esquema, tabla = extraer_objeto_tabla(texto)
@@ -545,7 +581,7 @@ def verificar_tabla(texto_sql: str, es_dbcmaica: bool = False) -> List[Hallazgo]
         for columna in columnas:
             hallazgos += _validar_columna(texto, columna, referencia, pertenece_a_dbcmaica)
             # La PK y las columnas IDENTITY ya son NOT NULL implícitamente.
-            implicita = re.search(r"\bPRIMARY\s+KEY\b|\bIDENTITY\b", columna.definicion, re.IGNORECASE)
+            implicita = re.search(r"\bPRIMARY\s+KEY\b|\bIDENTITY\b|^\s*AS\b", columna.definicion, re.IGNORECASE)
             if not implicita and not _tiene_not_null_o_default(columna.definicion):
                 hallazgos.append(con_elemento(_hallazgo(
                     texto, columna.posicion, "COLUMNA_SIN_NOT_NULL_NI_DEFAULT",
@@ -553,6 +589,12 @@ def verificar_tabla(texto_sql: str, es_dbcmaica: bool = False) -> List[Hallazgo]
                     f"asígnele un valor por defecto (DEFAULT).",
                 ), columna.nombre))
     else:
+        if not esquema:
+            hallazgos.append(_hallazgo(
+                texto, -1, "TABLA_SIN_ESQUEMA",
+                f"Se identificó que la tabla {tabla} no tiene declarado un esquema. Se recomienda añadir el "
+                f"esquema; si es dbo, definirlo explícitamente.",
+            ))
         for columna in _columnas_alter(texto):
             hallazgos += _validar_columna(texto, columna, referencia, pertenece_a_dbcmaica)
             if not _tiene_not_null_o_default(columna.definicion):
