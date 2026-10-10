@@ -35,7 +35,7 @@ export const REVISIONES = {
       etiqueta: 'Código del diccionario de tabla',
       objetivo: 'la tabla y sus columnas',
     },
-    ejemplo: { sql: SQL_TABLA, diccionario: DICCIONARIO_TABLA },
+    ejemplo: { sql: SQL_TABLA, diccionario: DICCIONARIO_TABLA, nombre: 'CLICKTOPAY.Cliente' },
   },
   procedimiento: {
     id: 'procedimiento',
@@ -49,7 +49,7 @@ export const REVISIONES = {
       etiqueta: 'Código del diccionario de procedimiento',
       objetivo: 'el procedimiento y sus parámetros',
     },
-    ejemplo: { sql: SQL_PROCEDIMIENTO, diccionario: DICCIONARIO_PROCEDIMIENTO },
+    ejemplo: { sql: SQL_PROCEDIMIENTO, diccionario: DICCIONARIO_PROCEDIMIENTO, nombre: 'CLICKTOPAY.PA_Cliente_Consultar' },
   },
   reporte: {
     id: 'reporte',
@@ -59,8 +59,8 @@ export const REVISIONES = {
       ayuda: 'Pega aquí el CREATE o ALTER PROCEDURE completo para aplicar las reglas de reportes.',
     },
     diccionario: null,
-    ejemplo: { sql: SQL_REPORTE, diccionario: '' },
-    demo: { sql: DEMO_REPORTE, diccionario: '' },
+    ejemplo: { sql: SQL_REPORTE, diccionario: '', nombre: 'dbo.PA_BI_Reporte' },
+    demo: { sql: DEMO_REPORTE, diccionario: '', nombre: 'dbo.PA_Cliente_Sel_Resumen' },
   },
   procedimiento_normal: {
     id: 'procedimiento_normal',
@@ -70,8 +70,8 @@ export const REVISIONES = {
       ayuda: 'Pega aquí el CREATE o ALTER PROCEDURE para aplicar las reglas generales.',
     },
     diccionario: null,
-    ejemplo: { sql: SQL_NORMAL, diccionario: '' },
-    demo: { sql: DEMO_NORMAL, diccionario: '' },
+    ejemplo: { sql: SQL_NORMAL, diccionario: '', nombre: 'dbo.PA_Cliente_Actualizar' },
+    demo: { sql: DEMO_NORMAL, diccionario: '', nombre: 'dbo.PA_Cliente_Upd_Estado' },
   },
   tabla_estructura: {
     id: 'tabla_estructura',
@@ -82,8 +82,8 @@ export const REVISIONES = {
       ayuda: 'Pega aquí el script completo de CREATE TABLE o ALTER TABLE.',
     },
     diccionario: null,
-    ejemplo: { sql: SQL_TABLA, diccionario: '' },
-    demo: { sql: DEMO_TABLA, diccionario: '' },
+    ejemplo: { sql: SQL_TABLA, diccionario: '', nombre: 'CLICKTOPAY.Cliente' },
+    demo: { sql: DEMO_TABLA, diccionario: '', nombre: 'TB_cliente_datos' },
   },
 };
 

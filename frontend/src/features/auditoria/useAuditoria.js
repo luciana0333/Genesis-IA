@@ -9,14 +9,14 @@ const RESULTADO_INICIAL = { estado: 'inicial', hallazgos: [], mensaje: '' };
 
 function camposDeEjemplo(tipoRevision, base) {
   const { ejemplo } = REVISIONES[tipoRevision];
-  return { ...base, sqlObject: ejemplo.sql, dictScript: ejemplo.diccionario };
+  return { ...base, objetoNombre: ejemplo.nombre ?? base.objetoNombre, sqlObject: ejemplo.sql, dictScript: ejemplo.diccionario };
 }
 
 /** Campos con la demo de "Ver ejemplo" (o el ejemplo, si la revisión no tiene demo). */
 function camposDeDemo(tipoRevision, base) {
   const { demo, ejemplo } = REVISIONES[tipoRevision];
   const script = demo ?? ejemplo;
-  return { ...base, sqlObject: script.sql, dictScript: script.diccionario };
+  return { ...base, objetoNombre: script.nombre ?? base.objetoNombre, sqlObject: script.sql, dictScript: script.diccionario };
 }
 
 /**

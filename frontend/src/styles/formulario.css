@@ -23,18 +23,18 @@
 }
 
 .panel-header {
-  padding: 32px 36px 0;
+  padding: 36px 40px 0;
 }
 
 .panel-body {
-  padding: 28px 36px 4px;
+  padding: 28px 40px 8px;
 }
 
 .panel-footer {
   display: flex;
   flex-direction: column;
   gap: 28px;
-  padding: 32px 36px 36px;
+  padding: 36px 40px 40px;
   border-top: 1px solid var(--border);
   background: var(--bg-input);
 }
@@ -175,9 +175,10 @@ h3.section-title {
 
 .field-kicker {
   display: block;
-  color: var(--red-main);
-  font-size: 0.74rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
   font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .field-card-secondary .field-kicker {
