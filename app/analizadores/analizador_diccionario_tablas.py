@@ -16,7 +16,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.diccionario_agrupar import agrupar, con_elemento, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_tabla
-from app.analizadores.ortografia import palabras_mal_escritas
+from app.analizadores.ortografia import elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico
 from app.analizadores.propiedades_extendidas import (
     LlamadaPropiedad,
     como_llamadas_crudas,
@@ -535,16 +535,9 @@ def _validar_ortografia(
         errores = palabras_mal_escritas(ll.texto("value"), nombres_objeto | {ll.texto("level2name")})
         if not errores:
             continue
-        detalle = ", ".join(
-            f"'{palabra}' (¿quiso decir '{opciones[0]}'?)" if opciones else f"'{palabra}'"
-            for palabra, opciones in errores
-        )
-        texto = "una palabra mal escrita" if len(errores) == 1 else "palabras mal escritas"
-        hallazgos.append(_hallazgo(
-            ll.linea, "ERROR_ORTOGRAFICO",
-            f"La descripción {objeto} tiene {texto}: {detalle}. Se recomienda corregirla, ya que "
-            f"el diccionario es la documentación oficial de la tabla.",
-        ))
+        hallazgos.append(con_elemento(_hallazgo(
+            ll.linea, "ERROR_ORTOGRAFICO", redactar_error_ortografico(objeto, errores, "de la tabla"),
+        ), elemento_ortografico(objeto, errores)))
     return hallazgos
 
 
@@ -609,6 +602,10 @@ _PLANTILLAS_AGRUPADAS = {
     "COLUMNA_NO_EXISTE": (
         "columnas documentadas que no existen en la tabla",
         "Corregir el nombre en @level2name o retirar esas sentencias, ya que SQL Server las rechaza.",
+    ),
+    "ERROR_ORTOGRAFICO": (
+        "descripciones con errores de escritura",
+        "Se recomienda corregir cada palabra por la sugerida (o revisar su escritura si no hay sugerencia), ya que el diccionario es la documentación oficial de la tabla.",
     ),
     "DOCUMENTACION_DUPLICADA": (
         "documentaciones repetidas",

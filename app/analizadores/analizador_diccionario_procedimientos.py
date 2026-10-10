@@ -18,7 +18,7 @@ from typing import List, Set, Tuple, Dict, Optional
 
 from app.analizadores.diccionario_agrupar import agrupar, con_elemento, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_procedimiento
-from app.analizadores.ortografia import palabras_mal_escritas
+from app.analizadores.ortografia import elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico
 from app.analizadores.propiedades_extendidas import como_llamadas_crudas, leer_propiedades_extendidas
 from app.modelos.hallazgo import Hallazgo, Severidad, OrigenAnalisis
 from app.reglas.reglas_diccionario_procedimientos import REGLAS_DICCIONARIO_PROCEDIMIENTOS
@@ -442,19 +442,13 @@ def _validar_ortografia(
         errores = palabras_mal_escritas(descripcion, nombres_objeto)
         if not errores:
             continue
-        detalle = ", ".join(
-            f"'{palabra}' (¿quiso decir '{opciones[0]}'?)" if opciones else f"'{palabra}'"
-            for palabra, opciones in errores
-        )
-        texto = "una palabra mal escrita" if len(errores) == 1 else "palabras mal escritas"
-        hallazgos.append(Hallazgo(
+        hallazgos.append(con_elemento(Hallazgo(
             linea=_numero_linea(texto_diccionario, pos),
             origen=OrigenAnalisis.DICCIONARIO,
             severidad=Severidad.MEDIO,
             regla="ERROR_ORTOGRAFICO",
-            mensaje=f"La descripción {objeto} tiene {texto}: {detalle}. Se recomienda corregirla, "
-                    f"ya que el diccionario es la documentación oficial del objeto.",
-        ))
+            mensaje=redactar_error_ortografico(objeto, errores, "del procedimiento"),
+        ), elemento_ortografico(objeto, errores)))
     return hallazgos
 
 
@@ -476,6 +470,10 @@ _PLANTILLAS_AGRUPADAS = {
     "DESCRIPCION_VACIA": (
         "parámetros con la descripción vacía",
         "Se recomienda indicar en @value para qué se usa cada parámetro.",
+    ),
+    "ERROR_ORTOGRAFICO": (
+        "descripciones con errores de escritura",
+        "Se recomienda corregir cada palabra por la sugerida (o revisar su escritura si no hay sugerencia), ya que el diccionario es la documentación oficial del procedimiento.",
     ),
     "DOCUMENTACION_DUPLICADA": (
         "documentaciones repetidas",

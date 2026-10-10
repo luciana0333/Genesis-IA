@@ -190,7 +190,7 @@ class TestOrtografiaProcedimientos(unittest.TestCase):
         mensaje = hallazgos[0].mensaje
         self.assertIn("en las líneas 1, 2", mensaje)
         self.assertIn("del procedimiento dbo.PA_Cliente_Consultar", mensaje)
-        self.assertIn("'clienet' (¿quiso decir 'cliente'?)", mensaje)
+        self.assertIn("'clienet' → 'cliente'", mensaje)
         self.assertIn("del parámetro @nClienteId", mensaje)
         self.assertIn("'Identificadodr'", mensaje)
 

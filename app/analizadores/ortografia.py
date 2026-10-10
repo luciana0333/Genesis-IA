@@ -211,3 +211,38 @@ def palabras_mal_escritas(
         if not es_palabra_valida(palabra):
             resultado.append((palabra, sugerencias(palabra)))
     return resultado
+
+
+def redactar_error_ortografico(objeto: str, errores: List[Tuple[str, Optional[List[str]]]], documento: str) -> str:
+    """
+    Mensaje del hallazgo de ortografía: qué palabras están mal y por cuál
+    corregir cada una (o que se revise, si no hay sugerencia).
+    objeto: "del procedimiento dbo.PA_X", "de la columna cNombre"...
+    documento: a qué documenta el diccionario ("del procedimiento", "de la tabla").
+    """
+    palabras = ", ".join(f"'{palabra}'" for palabra, _ in errores)
+    error = "un error de escritura" if len(errores) == 1 else f"{len(errores)} errores de escritura"
+    con_sugerencia = [f"'{palabra}' por '{opciones[0]}'" for palabra, opciones in errores if opciones]
+    sin_sugerencia = [f"'{palabra}'" for palabra, opciones in errores if not opciones]
+    acciones = []
+    if con_sugerencia:
+        acciones.append("corregir " + _enumerar(con_sugerencia))
+    if sin_sugerencia:
+        acciones.append("revisar la escritura de " + _enumerar(sin_sugerencia))
+    return (
+        f"Se identificó {error} en la descripción {objeto}: {palabras}. "
+        f"Se recomienda {' y '.join(acciones)}, ya que el diccionario es la documentación oficial "
+        f"{documento}."
+    )
+
+
+def _enumerar(elementos: List[str]) -> str:
+    return elementos[0] if len(elementos) == 1 else ", ".join(elementos[:-1]) + " y " + elementos[-1]
+
+
+def elemento_ortografico(objeto: str, errores: List[Tuple[str, Optional[List[str]]]]) -> str:
+    """Línea de la lista cuando se agrupan varios errores: "del parámetro @x: 'a' → 'b'"."""
+    cambios = ", ".join(
+        f"'{palabra}' → '{opciones[0]}'" if opciones else f"'{palabra}'" for palabra, opciones in errores
+    )
+    return f"Descripción {objeto}: {cambios}"

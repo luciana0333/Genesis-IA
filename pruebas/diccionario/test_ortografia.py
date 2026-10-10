@@ -85,7 +85,7 @@ class TestOrtografia(unittest.TestCase):
         )
         hallazgos = verificar_diccionario_tablas(tabla, diccionario_tabla)
         self.assertEqual([h.regla for h in hallazgos], ["ERROR_ORTOGRAFICO"])
-        self.assertIn("'clienteYY' (¿quiso decir 'cliente'?)", hallazgos[0].mensaje)
+        self.assertIn("corregir 'clienteYY' por 'cliente'", hallazgos[0].mensaje)
 
     def test_no_exige_tildes(self):
         self.assertEqual(ortografia.palabras_mal_escritas("Descripcion del codigo unico"), [])

@@ -335,16 +335,8 @@
     0 10px 28px -12px rgba(0, 0, 0, 0.7);
 }
 
-/* Filo de severidad arriba. */
-.finding::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 3px;
-  background: var(--sev);
-}
+/* Sin filo de color: la ficha se distingue solo por su sombra; la severidad
+   la indica la etiqueta. */
 
 .finding:hover {
   box-shadow:
