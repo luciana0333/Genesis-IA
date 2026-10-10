@@ -425,7 +425,7 @@ select.campo-icono-tipo {
   line-height: 1.65;
   white-space: pre;
   overflow: auto;
-  resize: vertical;
+  resize: none;
   tab-size: 4;
 }
 
