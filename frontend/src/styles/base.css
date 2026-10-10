@@ -22,6 +22,21 @@ body {
   transition: background-color var(--dur) ease, color var(--dur) ease;
 }
 
+/* Los párrafos usan la tipografía de texto; los títulos (h1–h3), etiquetas y
+   botones conservan la principal aunque estén en un <p>. */
+p,
+.finding-message,
+.hero-puntos li {
+  font-family: var(--font-texto);
+}
+
+.finding-label,
+.verdict-kicker,
+.verdict-title,
+.empty-title {
+  font-family: var(--font-sans);
+}
+
 #root {
   display: flex;
   flex-direction: column;

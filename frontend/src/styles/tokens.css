@@ -50,7 +50,10 @@
   --sev-bajo-text: #5c5c68;
 
   /* Tipografía */
-  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Títulos, menú, botones y etiquetas. */
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Texto de párrafos. */
+  --font-texto: 'Poppins', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
   --tracking-label: 0.12em;
 
