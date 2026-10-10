@@ -61,7 +61,8 @@
   z-index: 100;
   border-bottom: 1px solid var(--border);
   background: var(--bg-card);
-  box-shadow: var(--shadow-sm);
+  /* Sombra suave para que el menú se diferencie del encabezado. */
+  box-shadow: 0 4px 12px -4px rgba(17, 17, 26, 0.18);
 }
 
 .navbar-container {
