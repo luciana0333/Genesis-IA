@@ -12,6 +12,13 @@ function camposDeEjemplo(tipoRevision, base) {
   return { ...base, sqlObject: ejemplo.sql, dictScript: ejemplo.diccionario };
 }
 
+/** Campos con la demo de "Ver ejemplo" (o el ejemplo, si la revisión no tiene demo). */
+function camposDeDemo(tipoRevision, base) {
+  const { demo, ejemplo } = REVISIONES[tipoRevision];
+  const script = demo ?? ejemplo;
+  return { ...base, sqlObject: script.sql, dictScript: script.diccionario };
+}
+
 /**
  * Estado y acciones del formulario de auditoría de una vista.
  *
@@ -49,13 +56,14 @@ export function useAuditoria(tipoInicial) {
     setResultado(RESULTADO_INICIAL);
   }, [cancelar]);
 
-  const revisar = useCallback(async () => {
-    if (!campos.sqlObject.trim()) {
+  /** Revisa los campos actuales, o los indicados (p. ej. el ejemplo recién cargado). */
+  const revisar = useCallback(async (camposARevisar = campos) => {
+    if (!camposARevisar.sqlObject.trim()) {
       setResultado({ estado: 'error', hallazgos: [], mensaje: 'Completa el SQL del objeto para iniciar la revisión.' });
       return;
     }
     // En una revisión de diccionario, el diccionario es obligatorio.
-    if (REVISIONES[tipoRevision].diccionario && !campos.dictScript.trim()) {
+    if (REVISIONES[tipoRevision].diccionario && !camposARevisar.dictScript.trim()) {
       setResultado({ estado: 'error', hallazgos: [], mensaje: 'Pega el código del diccionario para iniciar la revisión.' });
       return;
     }
@@ -63,7 +71,7 @@ export function useAuditoria(tipoInicial) {
     setResultado({ estado: 'cargando', hallazgos: [], mensaje: '' });
     try {
       const datos = await ejecutar((signal) =>
-        analizarObjeto(construirSolicitud(tipoRevision, campos), { signal }),
+        analizarObjeto(construirSolicitud(tipoRevision, camposARevisar), { signal }),
       );
       setResultado({ estado: 'listo', hallazgos: datos.hallazgos ?? [], mensaje: '' });
     } catch (error) {
@@ -71,6 +79,13 @@ export function useAuditoria(tipoInicial) {
       setResultado({ estado: 'error', hallazgos: [], mensaje: error.message });
     }
   }, [campos, tipoRevision, ejecutar]);
+
+  /** Carga la demo de la revisión y la revisa enseguida ("Ver ejemplo"). */
+  const revisarEjemplo = useCallback(() => {
+    const ejemplo = camposDeDemo(tipoRevision, campos);
+    setCampos(ejemplo);
+    revisar(ejemplo);
+  }, [tipoRevision, campos, revisar]);
 
   const conteo = useMemo(() => contarPorSeveridad(resultado.hallazgos), [resultado.hallazgos]);
 
@@ -86,5 +101,6 @@ export function useAuditoria(tipoInicial) {
     restaurarEjemplo,
     limpiar,
     revisar,
+    revisarEjemplo,
   };
 }

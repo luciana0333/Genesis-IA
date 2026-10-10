@@ -2,11 +2,15 @@
  * Tipos de revisión que entiende el endpoint POST /api/analizar.
  *
  * Cada tipo define cómo se presenta el formulario (qué campos se muestran,
- * etiquetas y ayudas) y con qué scripts de ejemplo se precarga. El valor de
+ * etiquetas y ayudas), con qué scripts de ejemplo se precarga y, si la tiene,
+ * qué demo con errores se analiza con "Ver ejemplo". El valor de
  * `id` es exactamente el `tipoRevision` que espera el backend.
  */
 
 import {
+  DEMO_NORMAL,
+  DEMO_REPORTE,
+  DEMO_TABLA,
   DICCIONARIO_PROCEDIMIENTO,
   DICCIONARIO_TABLA,
   SQL_NORMAL,
@@ -56,6 +60,7 @@ export const REVISIONES = {
     },
     diccionario: null,
     ejemplo: { sql: SQL_REPORTE, diccionario: '' },
+    demo: { sql: DEMO_REPORTE, diccionario: '' },
   },
   procedimiento_normal: {
     id: 'procedimiento_normal',
@@ -66,6 +71,7 @@ export const REVISIONES = {
     },
     diccionario: null,
     ejemplo: { sql: SQL_NORMAL, diccionario: '' },
+    demo: { sql: DEMO_NORMAL, diccionario: '' },
   },
   tabla_estructura: {
     id: 'tabla_estructura',
@@ -77,6 +83,7 @@ export const REVISIONES = {
     },
     diccionario: null,
     ejemplo: { sql: SQL_TABLA, diccionario: '' },
+    demo: { sql: DEMO_TABLA, diccionario: '' },
   },
 };
 

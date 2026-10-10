@@ -31,12 +31,14 @@ export function usePlanEjecucion() {
     setAviso(SIN_AVISO);
   }, [cancelar]);
 
-  const analizar = useCallback(async () => {
-    if (!archivo) {
+  /** Analiza el archivo elegido, o el indicado (p. ej. el plan de ejemplo). */
+  const analizar = useCallback(async (archivoIndicado) => {
+    const plan = archivoIndicado instanceof File ? archivoIndicado : archivo;
+    if (!plan) {
       setAviso({ texto: 'Selecciona un archivo .sqlplan.', tono: 'error' });
       return;
     }
-    if (!archivo.name.toLowerCase().endsWith(EXTENSION_PLAN)) {
+    if (!plan.name.toLowerCase().endsWith(EXTENSION_PLAN)) {
       setAviso({ texto: 'El archivo debe tener extensión .sqlplan.', tono: 'error' });
       return;
     }
@@ -44,7 +46,7 @@ export function usePlanEjecucion() {
     setCargando(true);
     setAviso({ texto: 'Analizando el plan real...', tono: 'info' });
     try {
-      const datos = await ejecutar((signal) => analizarPlan(archivo, { signal }));
+      const datos = await ejecutar((signal) => analizarPlan(plan, { signal }));
       setAnalisis(datos);
       setAviso({ texto: 'Análisis completado.', tono: 'exito' });
     } catch (error) {
@@ -55,5 +57,11 @@ export function usePlanEjecucion() {
     setCargando(false);
   }, [archivo, ejecutar]);
 
-  return { archivo, analisis, aviso, cargando, seleccionarArchivo, limpiar, analizar };
+  /** Elige el plan de ejemplo y lo analiza ("Ver ejemplo"). */
+  const analizarEjemplo = useCallback((plan) => {
+    setArchivo(plan);
+    analizar(plan);
+  }, [analizar]);
+
+  return { archivo, analisis, aviso, cargando, seleccionarArchivo, limpiar, analizar, analizarEjemplo };
 }

@@ -1,4 +1,5 @@
 import fotoEncabezado from '../assets/profesional-laptop.webp';
+import { pedirEjemplo } from '../hooks/useVerEjemplo';
 import { IconoBajar, IconoPunto } from './Iconos';
 
 const PUNTOS_POR_DEFECTO = [
@@ -13,6 +14,12 @@ function irAlFormulario() {
   if (!panel) return;
   panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   panel.querySelector('textarea, input[type="file"]')?.focus({ preventScroll: true });
+}
+
+/** Lleva al formulario y carga ahí el ejemplo ya analizado. */
+function verEjemplo() {
+  irAlFormulario();
+  pedirEjemplo();
 }
 
 /**
@@ -33,10 +40,15 @@ export function Hero({ titulo, descripcion, puntos = PUNTOS_POR_DEFECTO, accion 
               <li key={punto}><IconoPunto />{punto}</li>
             ))}
           </ul>
-          <button type="button" className="hero-accion" onClick={irAlFormulario}>
-            {accion}
-            <IconoBajar />
-          </button>
+          <div className="hero-acciones">
+            <button type="button" className="hero-accion" onClick={irAlFormulario}>
+              {accion}
+              <IconoBajar />
+            </button>
+            <button type="button" className="hero-accion-secundaria" onClick={verEjemplo}>
+              Ver ejemplo
+            </button>
+          </div>
         </div>
 
         <figure className="hero-figura" aria-hidden="true">

@@ -70,4 +70,50 @@ EXEC sys.sp_addextendedproperty
 @level2type=N'COLUMN', @level2name=N'cCorreoElectronico'
 GO`;
 
+/*
+ * Demos para "Ver ejemplo": scripts con errores típicos para mostrar los
+ * hallazgos de cada revisión. Los ejemplos de arriba son los correctos con
+ * que se precarga el editor.
+ */
+export const DEMO_REPORTE = `ALTER PROCEDURE dbo.PA_Cliente_Sel_Resumen
+AS
+BEGIN
+    SELECT *
+    INTO #Clientes
+    FROM dbo.Cliente c
+    INNER JOIN dbo.Agencia a ON a.nAgenciaId = c.nAgenciaId
+    WHERE c.cEstado IN ('A');
+
+    SELECT c.cNombre, LTRIM(RTRIM(c.cDocumento)) AS cDocumento
+    FROM #Clientes c WITH(NOLOCK)
+    ORDER BY 1;
+
+    RAISERROR('Proceso terminado', 10, 1);
+END;`;
+
+export const DEMO_NORMAL = `ALTER PROCEDURE dbo.PA_Cliente_Upd_Estado
+    @nClienteId INT
+AS
+BEGIN
+    DECLARE @cLista VARCHAR(MAX);
+
+    BEGIN TRAN;
+
+    UPDATE c
+    SET c.cEstado = 'I'
+    FROM dbo.Cliente c WITH(NOLOCK)
+    WHERE c.nClienteId IN (@nClienteId);
+
+    SELECT * FROM #Pendientes WITH(NOLOCK);
+
+    WAITFOR DELAY '00:00:05';
+END;`;
+
+export const DEMO_TABLA = `CREATE TABLE TB_cliente_datos (
+    id INT,
+    nombre89 VARCHAR(50),
+    cDescripcion VARCHAR(MAX),
+    nMonto DECIMAL(18,2) COLLATE SQL_Latin1_General_CP1_CI_AS
+);`;
+
 export const NOMBRE_OBJETO_INICIAL = 'CLICKTOPAY.Cliente';

@@ -8,6 +8,10 @@ import { TarjetaMetrica } from '../../components/TarjetaMetrica';
 import { formatearKb } from '../../utils/hallazgos';
 import { TablaOperadores } from './TablaOperadores';
 import { usePlanEjecucion } from './usePlanEjecucion';
+import { useAlPedirEjemplo } from '../../hooks/useVerEjemplo';
+
+// Plan real de prueba que se analiza con "Ver ejemplo".
+const PLAN_EJEMPLO = `${import.meta.env.BASE_URL}ejemplos/plan-ejemplo.sqlplan`;
 import { ZonaArchivo } from './ZonaArchivo';
 
 const REVISIONES_PLAN = ['Conversiones implícitas', 'Spills a TempDB', 'Table Scan', 'Lecturas lógicas', 'Cardinalidad', 'Memoria concedida'];
@@ -50,7 +54,7 @@ function MetricasPlan({ analisis }) {
 export function PlanesWorkspace() {
   const idArchivo = useId();
   const inputArchivoRef = useRef(null);
-  const { archivo, analisis, aviso, cargando, seleccionarArchivo, limpiar, analizar } = usePlanEjecucion();
+  const { archivo, analisis, aviso, cargando, seleccionarArchivo, limpiar, analizar, analizarEjemplo } = usePlanEjecucion();
 
   const reiniciarInput = () => {
     // El valor de un <input type="file"> solo puede reiniciarse desde el DOM.
@@ -67,10 +71,25 @@ export function PlanesWorkspace() {
     seleccionarArchivo(null);
   };
 
+  // "Ver ejemplo" del encabezado: solo responde cuando Planes está visible.
+  const workspaceRef = useRef(null);
+  useAlPedirEjemplo(async () => {
+    if (!workspaceRef.current?.offsetParent) return;
+    try {
+      const respuesta = await fetch(PLAN_EJEMPLO);
+      if (!respuesta.ok) throw new Error();
+      const contenido = await respuesta.blob();
+      reiniciarInput();
+      analizarEjemplo(new File([contenido], 'plan-ejemplo.sqlplan'));
+    } catch {
+      // Sin ejemplo disponible: el usuario puede cargar su propio plan.
+    }
+  });
+
   const estadoPanel = cargando ? 'cargando' : analisis ? 'listo' : 'inicial';
 
   return (
-    <section className="workspace">
+    <section className="workspace" ref={workspaceRef}>
       <MetricasPlan analisis={analisis} />
 
       <section className="panel">

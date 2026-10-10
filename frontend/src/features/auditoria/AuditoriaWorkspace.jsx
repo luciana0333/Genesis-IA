@@ -9,6 +9,7 @@ import { OPCIONES_SELECTOR } from '../../config/revisiones';
 import { MetricasSeveridad } from './MetricasSeveridad';
 import { detectarTipoDiccionario } from '../../utils/deteccionObjeto';
 import { useAuditoria } from './useAuditoria';
+import { useAlPedirEjemplo } from '../../hooks/useVerEjemplo';
 
 function esAtajoEjecutar(evento) {
   return evento.key === 'Enter' && (evento.ctrlKey || evento.metaKey);
@@ -33,7 +34,11 @@ export function AuditoriaWorkspace({ vista }) {
     restaurarEjemplo,
     limpiar,
     revisar,
+    revisarEjemplo,
   } = useAuditoria(vista.tipoRevision);
+
+  // "Ver ejemplo" del encabezado: carga el ejemplo y lo revisa.
+  useAlPedirEjemplo(revisarEjemplo);
 
   const esSelectorVisible = vista.id === 'diccionario';
 

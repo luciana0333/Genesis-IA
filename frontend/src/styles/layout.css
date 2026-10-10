@@ -260,11 +260,39 @@
   font-weight: 500;
 }
 
-/* El botón va en su propia línea, debajo de la lista. */
-.hero-texto > .hero-accion {
+/* Acciones en su propia línea, debajo de la lista. */
+.hero-acciones {
   display: flex;
-  margin: 0 auto;
-  width: max-content;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* Acción secundaria: contorno blanco sobre el rojo. */
+.hero-accion-secundaria {
+  display: inline-flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 26px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius-btn);
+  background: transparent;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+
+.hero-accion-secundaria:hover {
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.hero-accion-secundaria:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 3px;
 }
 
 .hero-puntos svg {
