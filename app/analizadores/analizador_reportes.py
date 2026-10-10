@@ -368,11 +368,14 @@ def _validar_esquema_entre_bases(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     patron = re.compile(r"(\[[^\]]+\]|[A-Za-z_][\w$#]*)\s*\.\s*\.\s*(\[[^\]]+\]|[A-Za-z_][\w$#]*)")
     for match in patron.finditer(limpio):
-        base, tabla = match.group(1), match.group(2)
+        base, tabla = match.group(1).strip("[]"), match.group(2).strip("[]")
+        anterior = re.search(r"(\w+)\s*$", limpio[:match.start()])
+        uso = "una unión con" if anterior and anterior.group(1).upper() == "JOIN" else "el uso de"
         hallazgos.append(_hallazgo(
             texto, match.start(), "ESQUEMA_OMITIDO_ENTRE_BASES",
-            f"La tabla {base}..{tabla} no indica el esquema. Escribir base, esquema y tabla, "
-            f"ya que así se evita apuntar a una tabla equivocada (ej.: {base}.dbo.{tabla}).",
+            f"Se identificó {uso} la tabla {tabla} de la base {base}, pero el esquema se omitió "
+            f"({base}..{tabla}). Se recomienda definir el esquema, ya que así se evita apuntar a una "
+            f"tabla equivocada (ej.: {base}.dbo.{tabla}).",
         ))
     return hallazgos
 

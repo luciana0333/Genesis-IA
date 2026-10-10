@@ -202,6 +202,15 @@ class TestAnalizadorReportes(unittest.TestCase):
         self.assertEqual(len(omitidos), 1)
         self.assertIn("DBCMACICA.dbo.Agencias", omitidos[0].mensaje)
         self.assertIn("2 observaciones", omitidos[0].mensaje)
+        self.assertEqual(omitidos[0].severidad.value, "medio")
+        self.assertIn("una unión con la tabla Agencias de la base DBCMACICA", omitidos[0].mensaje)
+        self.assertIn("una unión con la tabla Zonas de la base DBCMACICA", omitidos[0].mensaje)
+        self.assertIn("Se recomienda definir el esquema", omitidos[0].mensaje)
+
+    def test_esquema_omitido_en_from_no_dice_union(self):
+        hallazgo = next(h for h in verificar_reporte("SELECT a.cNombre FROM DBCMACICA..Agencias a WITH(NOLOCK)")
+                        if h.regla == "ESQUEMA_OMITIDO_ENTRE_BASES")
+        self.assertIn("el uso de la tabla Agencias", hallazgo.mensaje)
 
     def test_referencia_completa_entre_bases_es_valida(self):
         sql = "SELECT a.cNombre FROM DBCMACICA.dbo.Agencias a WITH(NOLOCK)"
