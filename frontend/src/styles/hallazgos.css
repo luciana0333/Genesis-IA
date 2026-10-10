@@ -404,24 +404,14 @@
 }
 
 .finding-fix {
-  position: relative;
   margin-top: 12px;
-  padding-top: 14px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  /* "Qué hacer" en una cajita gris muy clara: separa sin líneas. */
+  background: #f5f5f8;
   color: var(--text-primary);
   font-size: 0.86rem;
   line-height: 1.6;
-}
-
-/* Separación con una sombra suave en lugar de línea punteada. */
-.finding-fix::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 1px;
-  background: rgba(17, 17, 26, 0.06);
-  box-shadow: 0 1px 7px rgba(17, 17, 26, 0.24);
 }
 
 .finding-label {
@@ -809,4 +799,8 @@
 
 .finding-message + .finding-list {
   margin-top: 6px;
+}
+
+:root[data-theme="dark"] .finding-fix {
+  background: var(--bg-subtle);
 }
