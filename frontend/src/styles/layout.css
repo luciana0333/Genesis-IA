@@ -173,18 +173,18 @@
   top: 0;
   right: 0;
   bottom: 0;
-  left: 50%;
+  left: 40%;
   z-index: -2;
-  background: url('../assets/fondo.jpg') center / cover no-repeat;
-  filter: grayscale(1) contrast(0.92) brightness(1.12);
-  opacity: 0.6;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 35%);
-  mask-image: linear-gradient(90deg, transparent 0%, #000 35%);
+  /* Foto financiera oscura y cinematográfica, en blanco y negro. */
+  background:
+    linear-gradient(180deg, rgba(14, 14, 18, 0.5) 0%, rgba(14, 14, 18, 0.72) 100%),
+    url('../assets/fondo.jpg') center / cover no-repeat;
+  filter: grayscale(1) contrast(1.05);
+  /* Transición larga y gradual (curva suave) para que el paso del claro al
+     rojo no se note. */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.08) 14%, rgba(0, 0, 0, 0.25) 26%, rgba(0, 0, 0, 0.5) 38%, rgba(0, 0, 0, 0.78) 50%, #000 64%);
+  mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.08) 14%, rgba(0, 0, 0, 0.25) 26%, rgba(0, 0, 0, 0.5) 38%, rgba(0, 0, 0, 0.78) 50%, #000 64%);
   pointer-events: none;
-}
-
-:root[data-theme="dark"] .hero-foto-fondo {
-  filter: grayscale(1) brightness(0.55);
 }
 
 .hero-container {
