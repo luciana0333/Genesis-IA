@@ -59,9 +59,9 @@
   position: sticky;
   top: 0;
   z-index: 100;
-  border-bottom: 1px solid var(--border);
+  /* Sin línea divisoria: la separa del encabezado una sombra ligera. */
   background: var(--bg-card);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 8px 24px -14px rgba(17, 17, 26, 0.22);
 }
 
 .navbar-container {
@@ -160,7 +160,9 @@
   padding: 64px 0;
   overflow: hidden;
   color: var(--text-primary);
-  background: var(--bg-card);
+  /* Un gris apenas perceptible arriba que se aclara: recibe la sombra del menú
+     y da profundidad sin cortes. */
+  background: linear-gradient(180deg, var(--bg-page) 0%, var(--bg-card) 38%);
   isolation: isolate;
 }
 
