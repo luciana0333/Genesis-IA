@@ -197,8 +197,7 @@ class TestCatalogo(unittest.TestCase):
 
 class TestCreateSinParentesis(unittest.TestCase):
     def test_detecta_la_falta_de_parentesis_y_revisa_las_columnas(self):
-        sql = "CREATE TABLE CLICKTOPAY.Cliente 
-Persona VARCHAR(20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL;"
+        sql = "CREATE TABLE CLICKTOPAY.Cliente \nPersona VARCHAR(20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL;"
         reglas = {h.regla: h for h in verificar_tabla(sql)}
         self.assertEqual(reglas["CREATE_SIN_PARENTESIS"].severidad, Severidad.CRITICO)
         self.assertIn("COLUMNA_PREFIJO_TIPO_INVALIDO", reglas)
@@ -206,9 +205,7 @@ Persona VARCHAR(20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL;"
         self.assertEqual(reglas["COLUMNA_PREFIJO_TIPO_INVALIDO"].linea, 2)
 
     def test_con_parentesis_no_se_reporta(self):
-        sql = "CREATE TABLE CLICKTOPAY.Cliente (
- cPersona VARCHAR(20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL
-);"
+        sql = "CREATE TABLE CLICKTOPAY.Cliente (\n cPersona VARCHAR(20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL\n);"
         self.assertNotIn("CREATE_SIN_PARENTESIS", {h.regla for h in verificar_tabla(sql)})
 
 if __name__ == "__main__":
