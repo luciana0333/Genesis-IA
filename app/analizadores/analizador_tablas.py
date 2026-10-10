@@ -508,7 +508,7 @@ _PLANTILLAS_AGRUPADAS = {
     "COLUMNA_SIN_NOT_NULL_NI_DEFAULT": (
         "columnas que aceptan valores nulos",
         "Definir cada columna como NOT NULL o asignarle un valor por defecto (DEFAULT), ya que una "
-        "tabla nueva no debe guardar datos incompletos.",
+        "tabla nueva no debe almacenar valores nulos.",
     ),
     "COLUMNA_NULL_EN_ALTER": (
         "columnas nuevas que aceptan valores nulos",
