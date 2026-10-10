@@ -23,9 +23,9 @@ function verEjemplo() {
 }
 
 /**
- * Encabezado de cada pestaña: a la izquierda el título, los puntos clave y la
- * acción principal; a la derecha el profesional con su laptop sobre la foto
- * financiera fundida en rojo.
+ * Encabezado de cada pestaña: a la izquierda el título, los puntos clave y las
+ * acciones; a la derecha el profesional con su laptop sobre la foto
+ * financiera. Debajo va la banda roja de métricas.
  */
 export function Hero({ titulo, descripcion, puntos = PUNTOS_POR_DEFECTO, accion = 'Comenzar revisión' }) {
   return (

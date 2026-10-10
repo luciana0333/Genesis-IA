@@ -1,29 +1,18 @@
 /* ───────── RESUMEN DE MÉTRICAS ─────────
- * Un solo panel blanco sin borde exterior, destacado con luz suave arriba y
- * sombra amplia; cuatro celdas separadas por líneas tenues. Íconos de línea
- * en rojo de marca, sin cajas.
+ * Banda roja de marca pegada al encabezado y a todo el ancho de la ventana;
+ * las cuatro celdas siguen alineadas con el contenido. Texto e íconos en
+ * blanco, separados por líneas tenues.
  */
 .metrics-grid {
+  --banda-rojo: #b8111d;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-bottom: 28px;
-  overflow: hidden;
-  border-radius: 10px;
-  /* Sin borde: lo separan una luz suave en la parte superior y una sombra amplia. */
-  background: linear-gradient(180deg, #ffffff 0%, #fbfbfd 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    0 1px 2px rgba(17, 17, 26, 0.04),
-    0 12px 32px -8px rgba(17, 17, 26, 0.12),
-    0 32px 64px -32px rgba(17, 17, 26, 0.18);
-}
-
-:root[data-theme="dark"] .metrics-grid {
-  background: linear-gradient(180deg, #1c1c23 0%, #17171d 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 12px 32px -8px rgba(0, 0, 0, 0.5),
-    0 32px 64px -32px rgba(0, 0, 0, 0.7);
+  margin-bottom: 36px;
+  background: var(--banda-rojo);
+  /* El color se extiende a los lados sin mover las celdas. */
+  box-shadow: 0 0 0 100vmax var(--banda-rojo);
+  clip-path: inset(0 -100vmax);
+  color: #ffffff;
 }
 
 .metric-card {
@@ -31,19 +20,15 @@
   display: flex;
   align-items: flex-start;
   gap: 16px;
-  padding: 26px 26px 24px;
+  padding: 28px 26px 26px;
   transition: background-color var(--dur) var(--ease);
 }
 
 .metric-card + .metric-card {
-  border-left: 1px solid rgba(17, 17, 26, 0.06);
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
 }
 
-:root[data-theme="dark"] .metric-card + .metric-card {
-  border-left-color: rgba(255, 255, 255, 0.06);
-}
-
-/* Acento rojo inferior al pasar el mouse. */
+/* Acento blanco inferior al pasar el mouse. */
 .metric-card::after {
   content: '';
   position: absolute;
@@ -51,14 +36,14 @@
   bottom: 0;
   left: 0;
   height: 3px;
-  background: var(--red-main);
+  background: #ffffff;
   transform: scaleX(0);
   transform-origin: left;
   transition: transform var(--dur) var(--ease);
 }
 
 .metric-card:hover {
-  background: var(--bg-input);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .metric-card:hover::after {
@@ -67,7 +52,7 @@
 
 .metric-icon {
   flex-shrink: 0;
-  color: var(--metric-icon);
+  color: #ffffff;
 }
 
 .metric-icon svg {
@@ -83,22 +68,22 @@
 }
 
 .metric-title {
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.82);
   font-size: 0.8rem;
   font-weight: 600;
 }
 
 .metric-value {
   margin: 6px 0 2px;
-  color: var(--metric-value);
-  font-size: 1.7rem;
-  font-weight: 600;
+  color: #ffffff;
+  font-size: 1.9rem;
+  font-weight: 700;
   line-height: 1.15;
   font-variant-numeric: tabular-nums;
 }
 
 .metric-sub {
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.75);
   font-size: 0.78rem;
   line-height: 1.45;
 }
@@ -113,7 +98,7 @@
   }
 
   .metric-card:nth-child(n + 3) {
-    border-top: 1px solid var(--border);
+    border-top: 1px solid rgba(255, 255, 255, 0.16);
   }
 }
 

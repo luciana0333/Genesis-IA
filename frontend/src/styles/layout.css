@@ -151,155 +151,108 @@
 }
 
 /* ───────── ENCABEZADO ─────────
- * Estilo centrado en rojo de marca: la foto financiera fundida en el rojo a
- * todo el ancho, el contenido al centro y la persona a la derecha.
+ * Estilo "banda roja": encabezado claro y luminoso con el texto a la
+ * izquierda y la persona a la derecha sobre la foto financiera, que nace
+ * del fondo claro. El rojo de marca baja a la banda de métricas.
  */
 .hero {
   position: relative;
-  padding: 72px 24px 112px;
+  padding: 64px 0;
   overflow: hidden;
-  color: #ffffff;
-  text-align: center;
-  background: linear-gradient(115deg, #a50e18 0%, #b8111d 50%, #cc0a17 100%);
+  color: var(--text-primary);
+  background: var(--bg-card);
   isolation: isolate;
 }
 
-/* Foto financiera en blanco y negro fundida con el rojo (sin capas blancas,
-   que lo volverían rosado). */
+/* Foto financiera en gris claro en la mitad derecha; se funde con el fondo
+   hacia el texto. */
 .hero-foto-fondo {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 50%;
   z-index: -2;
   background: url('../assets/fondo.jpg') center / cover no-repeat;
-  filter: grayscale(1);
-  mix-blend-mode: soft-light;
+  filter: grayscale(1) contrast(0.92) brightness(1.12);
   opacity: 0.6;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 35%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 35%);
   pointer-events: none;
 }
 
-/* Viñeta: oscurece suavemente los bordes y la base del rojo para dar
-   profundidad y que el título y las métricas destaquen. */
-.hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background:
-    radial-gradient(ellipse 70% 80% at 50% 30%, rgba(90, 0, 8, 0) 40%, rgba(90, 0, 8, 0.4) 100%),
-    linear-gradient(180deg, rgba(90, 0, 8, 0) 55%, rgba(90, 0, 8, 0.35) 100%);
-  pointer-events: none;
-}
-
-/* Destello de luz diagonal que cruza el encabezado una sola vez. */
-.hero::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  background: linear-gradient(
-    105deg,
-    transparent 38%,
-    rgba(255, 255, 255, 0.05) 44%,
-    rgba(255, 255, 255, 0.12) 50%,
-    rgba(255, 255, 255, 0.05) 56%,
-    transparent 62%
-  );
-  transform: translateX(-100%);
-  animation: hero-destello 1.6s cubic-bezier(0.4, 0, 0.2, 1) 0.2s 1 forwards;
-  pointer-events: none;
-}
-
-@keyframes hero-destello {
-  to { transform: translateX(100%); }
+:root[data-theme="dark"] .hero-foto-fondo {
+  filter: grayscale(1) brightness(0.55);
 }
 
 .hero-container {
-  /* Sin posición propia: así la persona se ubica respecto a todo el encabezado. */
-  position: static;
-  max-width: 860px;
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 48px;
+  align-items: center;
+  max-width: 1240px;
   margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Línea roja corta sobre el título: el acento de marca. */
+.hero-texto::before {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 3px;
+  margin-bottom: 22px;
+  background: var(--red-main);
 }
 
 .hero h1 {
   margin-bottom: 18px;
-  font-size: clamp(2.3rem, 4.4vw, 3.6rem);
+  color: var(--text-primary);
+  font-size: clamp(2.2rem, 3.9vw, 3.2rem);
   font-weight: 800;
-  line-height: 1.04;
+  line-height: 1.05;
   letter-spacing: -0.035em;
-  text-shadow: 0 2px 24px rgba(60, 0, 6, 0.25);
-  /* Reparte las palabras entre líneas para no dejar una sola abajo. */
   text-wrap: balance;
 }
 
 .hero-descripcion {
-  max-width: 640px;
-  margin: 0 auto;
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 1.05rem;
+  max-width: 560px;
+  color: var(--text-secondary);
+  font-size: 1.02rem;
   line-height: 1.7;
 }
 
-/* Puntos clave: un bloque centrado con la lista alineada a la izquierda,
-   para leerla de corrido sin filas desbalanceadas. */
 .hero-puntos {
-  display: inline-flex;
+  display: flex;
   flex-direction: column;
-  align-items: flex-start;
   gap: 10px;
-  margin: 26px 0 34px;
+  margin: 24px 0 32px;
   padding: 0;
   list-style: none;
-  text-align: left;
 }
 
 .hero-puntos li {
   display: flex;
   align-items: center;
   gap: 10px;
+  color: var(--text-primary);
   font-size: 0.92rem;
   font-weight: 500;
-}
-
-/* Acciones en su propia línea, debajo de la lista. */
-.hero-acciones {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
-}
-
-/* Acción secundaria: contorno blanco sobre el rojo. */
-.hero-accion-secundaria {
-  display: inline-flex;
-  align-items: center;
-  height: 48px;
-  padding: 0 26px;
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  border-radius: var(--radius-btn);
-  background: transparent;
-  color: #ffffff;
-  font-family: inherit;
-  font-size: 0.92rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
-}
-
-.hero-accion-secundaria:hover {
-  border-color: #ffffff;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.hero-accion-secundaria:focus-visible {
-  outline: 2px solid #ffffff;
-  outline-offset: 3px;
 }
 
 .hero-puntos svg {
   flex: none;
   width: 18px;
   height: 18px;
-  color: #ffffff;
+  color: var(--red-main);
+}
+
+.hero-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .hero-accion {
@@ -307,16 +260,16 @@
   align-items: center;
   gap: 10px;
   height: 48px;
-  padding: 0 28px;
+  padding: 0 26px;
   border: none;
   border-radius: var(--radius-btn);
-  background: #ffffff;
-  color: var(--red-main);
+  background: var(--red-main);
+  color: #ffffff;
   font-family: inherit;
   font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 14px 28px -12px rgba(60, 0, 6, 0.55);
+  box-shadow: 0 12px 24px -14px rgba(227, 6, 19, 0.7);
   transition: transform var(--dur-fast) ease, background-color var(--dur-fast) ease;
 }
 
@@ -328,39 +281,63 @@
 
 .hero-accion:hover {
   transform: translateY(-1px);
-  box-shadow: 0 18px 30px -12px rgba(60, 0, 6, 0.6);
+  background: var(--red-dark);
 }
 
 .hero-accion:hover svg {
   transform: translateY(2px);
 }
 
-.hero-accion:focus-visible {
-  outline: 2px solid #ffffff;
+/* Acción secundaria: contorno fino sobre el fondo claro. */
+.hero-accion-secundaria {
+  display: inline-flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 26px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-btn);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.hero-accion-secundaria:hover {
+  border-color: var(--red-main);
+  color: var(--red-main);
+}
+
+.hero-accion:focus-visible,
+.hero-accion-secundaria:focus-visible {
+  outline: 2px solid var(--red-main);
   outline-offset: 3px;
 }
 
-/* La persona, a la derecha y apoyada en el borde inferior del rojo. */
+/* La persona, a la derecha y apoyada sobre la banda roja. */
 .hero-figura {
-  position: absolute;
-  /* A la derecha del texto centrado; en pantallas medianas, pegada al borde. */
-  left: min(calc(50% + 400px), calc(100% - 414px));
-  bottom: 0;
-  z-index: 1;
-  width: 390px;
-  margin: 0;
-  pointer-events: none;
+  align-self: end;
+  justify-self: center;
+  width: min(450px, 100%);
+  margin: 0 0 -64px;
 }
 
 .hero-foto {
   display: block;
   width: 100%;
   height: auto;
-  filter: drop-shadow(0 20px 30px rgba(60, 0, 6, 0.4));
+  filter: drop-shadow(0 20px 30px rgba(17, 17, 26, 0.22));
 }
 
-@media (max-width: 1180px) {
-  .hero-figura {
+@media (max-width: 960px) {
+  .hero-container {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-figura,
+  .hero-foto-fondo {
     display: none;
   }
 }
@@ -371,7 +348,8 @@
   flex: 1;
   width: 100%;
   max-width: 1240px;
-  margin: -40px auto 72px;
+  /* Arranca pegado al encabezado: la banda roja de métricas va primero. */
+  margin: 0 auto 72px;
   padding: 0 24px;
 }
 
