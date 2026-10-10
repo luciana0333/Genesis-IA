@@ -63,6 +63,14 @@ REGLAS_DICCIONARIO_TABLAS = {
     ),
 
     # --- Que todo coincida con la tabla ---------------------------------
+    "OBJETO_SIN_ESQUEMA": ReglaDiccionario(
+        codigo="OBJETO_SIN_ESQUEMA",
+        nombre="Tabla sin esquema",
+        severidad="alto",
+        descripcion="La tabla indica su esquema en el CREATE o ALTER (ej.: dbo.Cliente).",
+        alcance="tabla",
+        activo=True,
+    ),
     "ESQUEMA_NO_COINCIDE": ReglaDiccionario(
         codigo="ESQUEMA_NO_COINCIDE",
         nombre="Esquema no coincide",

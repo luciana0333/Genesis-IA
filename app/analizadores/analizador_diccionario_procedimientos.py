@@ -57,12 +57,28 @@ def extraer_tipo_sentencia(texto_procedimiento: str) -> str:
 def extraer_esquema_y_nombre(texto_procedimiento: str) -> Tuple[Optional[str], Optional[str]]:
     """Devuelve (esquema, nombre) del procedimiento, o (None, None)."""
     m = re.search(
-        r"(?:CREATE|ALTER)\s+PROCEDURE\s+([\w]+)\.([\w]+)",
+        r"(?:CREATE|ALTER)\s+PROC(?:EDURE)?\s+(?:\[?(\w+)\]?\s*\.\s*)?\[?(\w+)\]?",
         texto_procedimiento, re.IGNORECASE
     )
     if m:
         return m.group(1), m.group(2)
     return None, None
+
+
+def _validar_esquema_declarado(texto_procedimiento: str, esquema: Optional[str], nombre_proc: str) -> List[Hallazgo]:
+    """El procedimiento indica su esquema en el CREATE o ALTER."""
+    if esquema:
+        return []
+    m = re.search(r"(?:CREATE|ALTER)\s+PROC", texto_procedimiento, re.IGNORECASE)
+    return [Hallazgo(
+        linea=_numero_linea(texto_procedimiento, m.start() if m else 0),
+        origen=OrigenAnalisis.DICCIONARIO,
+        severidad=Severidad(REGLAS_DICCIONARIO_PROCEDIMIENTOS["OBJETO_SIN_ESQUEMA"].severidad),
+        regla="OBJETO_SIN_ESQUEMA",
+        mensaje=f"El procedimiento {nombre_proc} no indica su esquema. Anteponer el esquema al nombre, "
+                f"ya que así se evita crear o modificar el objeto en un esquema equivocado y el "
+                f"diccionario puede documentarlo correctamente (ej.: dbo.{nombre_proc}).",
+    )]
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +121,11 @@ def _es_descripcion_procedimiento_valida(args: Dict[str, str]) -> bool:
     return _limpiar_valor(args.get("value", "")) != ""
 
 
+def _nombre_completo(esquema: Optional[str], nombre: str) -> str:
+    """'esquema.nombre' si el objeto declara esquema; si no, solo 'nombre'."""
+    return f"{esquema}.{nombre}" if esquema else nombre
+
+
 def _numero_linea(texto: str, posicion: int) -> int:
     return texto.count("\n", 0, posicion) + 1
 
@@ -115,12 +136,14 @@ def _numero_linea(texto: str, posicion: int) -> int:
 
 def _validar_esquema(
     llamadas: List[Tuple[int, Dict[str, str]]],
-    esquema_real: str,
+    esquema_real: Optional[str],
     texto_diccionario: str
 ) -> List[Hallazgo]:
     """El @level0name del diccionario debe coincidir con el esquema real
     del procedimiento (ej. Dbo, CCE, RRHH)."""
     hallazgos = []
+    if not esquema_real:
+        return hallazgos
     for pos, args in llamadas:
         if "level0name" in args:
             valor = _limpiar_valor(args["level0name"])
@@ -230,7 +253,7 @@ def _validar_alter_sin_diccionario(
             severidad=Severidad.BAJO,
             regla="ALTER_SIN_DICCIONARIO",
             mensaje=(
-                f"Se modifica el procedimiento {esquema}.{nombre_proc} (ALTER), pero no "
+                f"Se modifica el procedimiento {_nombre_completo(esquema, nombre_proc)} (ALTER), pero no "
                 f"se pegó ningún diccionario. Si agrega o cambia parámetros, "
                 f"documéntelos."
             )
@@ -302,7 +325,7 @@ def _validar_procedimiento_documentado(
             origen=OrigenAnalisis.DICCIONARIO,
             severidad=Severidad.MEDIO,
             regla="DESCRIPCION_PROCEDIMIENTO_VACIA",
-            mensaje=f"El procedimiento {esquema}.{nombre_proc} está documentado, pero no "
+            mensaje=f"El procedimiento {_nombre_completo(esquema, nombre_proc)} está documentado, pero no "
                     f"tiene una descripción (@value está vacío). Escriba para qué sirve "
                     f"el procedimiento."
         )]
@@ -314,7 +337,7 @@ def _validar_procedimiento_documentado(
             severidad=Severidad.BAJO,
             regla="VALIDAR_DOCUMENTACION_ALTER",
             mensaje=f"Es un ALTER PROCEDURE y el diccionario no incluye la descripción del "
-                    f"procedimiento {esquema}.{nombre_proc}. Valide que ya esté documentado; "
+                    f"procedimiento {_nombre_completo(esquema, nombre_proc)}. Valide que ya esté documentado; "
                     f"si no lo está, agréguelo."
         )]
 
@@ -323,7 +346,7 @@ def _validar_procedimiento_documentado(
         origen=OrigenAnalisis.DICCIONARIO,
         severidad=Severidad.ALTO,
         regla="PROCEDIMIENTO_SIN_DESCRIPCION",
-        mensaje=f"El procedimiento {esquema}.{nombre_proc} no se encuentra "
+        mensaje=f"El procedimiento {_nombre_completo(esquema, nombre_proc)} no se encuentra "
                 f"documentado. Agréguelo al diccionario con su descripción."
     )]
 
@@ -357,7 +380,7 @@ def _validar_ortografia(
         if "PARAMETER" in args.get("level2type", "").upper():
             objeto = f"del parámetro {_limpiar_valor(args.get('level2name', '?'))}"
         else:
-            objeto = f"del procedimiento {esquema}.{nombre_proc}"
+            objeto = f"del procedimiento {_nombre_completo(esquema, nombre_proc)}"
         errores = palabras_mal_escritas(descripcion, nombres_objeto)
         if not errores:
             continue
@@ -401,6 +424,7 @@ def verificar_diccionario(
     # Caso especial ALTER sin ningun rastro de diccionario: se corta aqui,
     # no tiene sentido seguir comparando parametro por parametro si no
     # hay nada con que comparar.
+    hallazgos += _validar_esquema_declarado(texto_procedimiento, esquema, nombre_proc)
     hallazgos += _validar_alter_sin_diccionario(
         tipo_sentencia, llamadas, esquema, nombre_proc
     )

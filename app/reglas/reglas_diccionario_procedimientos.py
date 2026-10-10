@@ -4,6 +4,14 @@
 from app.reglas.reglas_base import ReglaDiccionario
 
 REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
+    "OBJETO_SIN_ESQUEMA": ReglaDiccionario(
+        codigo="OBJETO_SIN_ESQUEMA",
+        nombre="Procedimiento sin esquema",
+        severidad="alto",
+        descripcion="El procedimiento indica su esquema en el CREATE o ALTER (ej.: dbo.PA_Cliente_Consultar).",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "ESQUEMA_NO_COINCIDE": ReglaDiccionario(
         codigo="ESQUEMA_NO_COINCIDE",
         nombre="Esquema no coincide",

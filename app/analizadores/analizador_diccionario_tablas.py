@@ -284,6 +284,20 @@ def _validar_tabla_documentada(
     )]
 
 
+def _validar_esquema_declarado(texto_tabla: str, esquema: Optional[str], nombre_tabla: str) -> List[Hallazgo]:
+    """La tabla indica su esquema en el CREATE o ALTER."""
+    if esquema:
+        return []
+    m = re.search(r"\b(?:CREATE|ALTER)\s+TABLE\b", _sin_comentarios(texto_tabla), re.IGNORECASE)
+    linea = texto_tabla.count("\n", 0, m.start()) + 1 if m else 1
+    return [_hallazgo(
+        linea, "OBJETO_SIN_ESQUEMA",
+        f"La tabla {nombre_tabla} no indica su esquema. Anteponer el esquema al nombre, ya que así se "
+        f"evita crear o modificar la tabla en un esquema equivocado y el diccionario puede "
+        f"documentarla correctamente (ej.: dbo.{nombre_tabla}).",
+    )]
+
+
 def _validar_esquema(llamadas: List[LlamadaPropiedad], esquema_real: Optional[str]) -> List[Hallazgo]:
     # Si la tabla no declara esquema en el SQL, no hay contra qué comparar.
     if not esquema_real:
@@ -585,6 +599,7 @@ def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> Li
         llamadas, tipo_sentencia, esquema, nombre_tabla, columnas_agregadas
     )
     hallazgos += _validar_duplicados(llamadas)
+    hallazgos += _validar_esquema_declarado(texto_tabla, esquema, nombre_tabla)
     hallazgos += _validar_esquema(llamadas, esquema)
     hallazgos += _validar_nombre_tabla(llamadas, nombre_tabla)
     hallazgos += _validar_descripciones_vacias(llamadas)

@@ -14,6 +14,7 @@ export const ETIQUETAS_SEVERIDAD = {
 };
 
 export const NOMBRES_REGLAS = {
+  OBJETO_SIN_ESQUEMA: 'Objeto sin esquema',
   ESQUEMA_NO_COINCIDE: 'Esquema no coincide',
   NOMBRE_NO_COINCIDE: 'Nombre del procedimiento no coincide',
   NOMBRE_TABLA_NO_COINCIDE: 'Nombre de tabla no coincide',
