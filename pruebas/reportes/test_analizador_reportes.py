@@ -186,7 +186,8 @@ class TestAnalizadorReportes(unittest.TestCase):
     def test_severidad_sale_del_catalogo(self):
         hallazgos = {h.regla: h for h in verificar_reporte("UPDATE dbo.Cliente SET a = 1; DECLARE @doc VARBINARY(MAX);")}
         self.assertEqual(hallazgos["MODIFICACION_TABLA_FISICA"].severidad.value, "critico")
-        self.assertEqual(hallazgos["VARBINARY_DOCUMENTO_IDENTIFICADO"].severidad.value, "bajo")
+        self.assertEqual(hallazgos["VARBINARY_DOCUMENTO_IDENTIFICADO"].severidad.value, "medio")
+        self.assertEqual(verificar_reporte("SELECT * FROM #T")[0].severidad.value, "alto")
 
 
     def test_exige_esquema_al_consultar_otra_base(self):

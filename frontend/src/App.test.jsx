@@ -134,7 +134,7 @@ describe('App', () => {
     await screen.findByRole('heading', { name: 'Table Scan' });
 
     const titulos = () => screen.getAllByRole('heading', { level: 4 }).map((h) => h.textContent);
-    expect(titulos()).toEqual(['Table Scan', 'SELECT estrella prohibido', 'VARBINARY para documento identificado']);
+    expect(titulos()).toEqual(['Table Scan', 'SELECT estrella prohibido', 'VARBINARY identificado']);
 
     await usuario.click(screen.getByRole('button', { name: /^Alto/ }));
     expect(titulos()).toEqual(['SELECT estrella prohibido']);

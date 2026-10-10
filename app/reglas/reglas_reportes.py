@@ -55,7 +55,7 @@ REGLAS_REPORTES = {
     "SELECT_ESTRELLA_PROHIBIDO": ReglaDiccionario(
         codigo="SELECT_ESTRELLA_PROHIBIDO",
         nombre="SELECT estrella prohibido",
-        severidad="medio",
+        severidad="alto",
         descripcion="Las consultas deben indicar sus columnas explícitamente.",
         alcance="reporte",
         activo=True,
@@ -198,9 +198,9 @@ REGLAS_REPORTES = {
     ),
     "VARBINARY_DOCUMENTO_IDENTIFICADO": ReglaDiccionario(
         codigo="VARBINARY_DOCUMENTO_IDENTIFICADO",
-        nombre="VARBINARY para documento identificado",
-        severidad="bajo",
-        descripcion="Se identificó VARBINARY, tipo adecuado para almacenar contenido binario de archivos o documentos.",
+        nombre="VARBINARY identificado",
+        severidad="medio",
+        descripcion="No se usa VARBINARY: la base de datos es solo para datos transaccionales y los documentos se gestionan en una solución externa.",
         alcance="reporte",
         activo=True,
     ),

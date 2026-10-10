@@ -201,7 +201,7 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             "Se crea una tabla temporal con SELECT INTO. Crear primero la tabla con CREATE TABLE y luego "
             "llenarla con INSERT INTO seguido del SELECT, ya que así se controlan sus tipos de datos.",
         ),
-        (r"\bSELECT\s+(?:DISTINCT\s+)?\*", "SELECT_ESTRELLA_PROHIBIDO", "Se usa SELECT *. Se recomienda escribir solo las columnas necesarias, ya que traer todas vuelve más lento el reporte (ej.: SELECT cNombre, dFecha)."),
+        (r"\bSELECT\s+(?:DISTINCT\s+)?\*", "SELECT_ESTRELLA_PROHIBIDO", "Se usa SELECT *. Escribir solo las columnas necesarias, ya que traer todas vuelve más lento el reporte (ej.: SELECT cNombre, dFecha)."),
         (r"\bIN\s*\(\s*[^,()]+\s*\)", "IN_CON_UN_SOLO_VALOR", "Se usa IN con un solo valor. Se recomienda usar el signo igual, ya que es más claro y directo (ej.: WHERE nEstado = 1)."),
         (_CATALOGOS_PROHIBIDOS, "CATALOGO_SISTEMA_PROHIBIDO", "Se consultan tablas internas de SQL Server (sys o information_schema). Consultar solo tablas del negocio, ya que en los reportes no está permitido acceder a tablas internas."),
     ]
@@ -232,7 +232,7 @@ def _validar_modificaciones_fisicas(texto: str, limpio: str) -> List[Hallazgo]:
 def _validar_sintaxis_prohibida(texto: str, limpio: str) -> List[Hallazgo]:
     reglas = (
         (_SQL_DINAMICO, "SQL_DINAMICO_PROHIBIDO", "Se ejecuta una consulta armada como texto (EXEC o sp_executesql). Escribir la consulta directamente y usar parámetros, ya que el SQL dinámico no está permitido por seguridad."),
-        (r"\bVARBINARY(?:\s*\(\s*(?:MAX|\d+)\s*\))?", "VARBINARY_DOCUMENTO_IDENTIFICADO", "Se usa VARBINARY. Se recomienda evaluar si es necesario, ya que guarda archivos dentro de la base de datos; lo ideal es guardar solo la ruta del archivo."),
+        (r"\bVARBINARY(?:\s*\(\s*(?:MAX|\d+)\s*\))?", "VARBINARY_DOCUMENTO_IDENTIFICADO", "Se usa VARBINARY. Se recomienda no usarlo, ya que la base de datos es solo para datos transaccionales y los documentos se gestionan en una solución externa (se guarda solo su ruta)."),
     )
     hallazgos = []
     for patron, regla, mensaje in reglas:

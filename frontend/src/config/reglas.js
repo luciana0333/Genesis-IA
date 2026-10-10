@@ -103,7 +103,7 @@ export const NOMBRES_REGLAS = {
   LECTURAS_LOGICAS_ELEVADAS: 'Lecturas lógicas elevadas',
   SOBREESTIMACION_FILAS: 'Desviación de cardinalidad',
   MEMORIA_CONCEDIDA_SOBREDIMENSIONADA: 'Memoria concedida sobredimensionada',
-  VARBINARY_DOCUMENTO_IDENTIFICADO: 'VARBINARY para documento identificado',
+  VARBINARY_DOCUMENTO_IDENTIFICADO: 'VARBINARY identificado',
 };
 
 export function nombreRegla(codigo) {
