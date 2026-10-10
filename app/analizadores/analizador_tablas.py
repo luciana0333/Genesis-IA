@@ -127,6 +127,9 @@ def _tipo_de_dato(definicion: str) -> str:
 
 _DESCRIPCION_PREFIJO = {"c": "texto", "n": "número", "b": "bit", "d": "fecha"}
 
+# Tipos legacy (obsoletos) y su reemplazo actual.
+_REEMPLAZO_LEGACY = {"TEXT": "VARCHAR(MAX)", "NTEXT": "NVARCHAR(MAX)", "REAL": "DECIMAL(p, s)"}
+
 
 def _tipo_completo(definicion: str) -> str:
     """Tipo con su longitud, tal como se escribió (ej.: VARCHAR(100))."""
@@ -439,12 +442,26 @@ def _validar_columna(
             f"nombres de columna no pueden llevar números. {accion}",
         ))
 
-    if re.search(r"^\s*VARBINARY\b", definicion, re.IGNORECASE):
+    binario = re.match(r"\s*(VARBINARY|IMAGE)\b", definicion, re.IGNORECASE)
+    if binario:
+        elementos["COLUMNA_VARBINARY_PROHIBIDA"] = f"{columna.nombre} ({binario.group(1).upper()})"
         hallazgos.append(_hallazgo(
             texto, columna.posicion, "COLUMNA_VARBINARY_PROHIBIDA",
-            f"La columna {columna.nombre} es de tipo VARBINARY, que está prohibido: guardar archivos "
-            f"en la base de datos la hace crecer y vuelve lentas las consultas y los respaldos. Guarde "
-            f"el archivo en el servidor de archivos y registre solo su ruta (ej.: cRutaArchivo VARCHAR).",
+            f"La columna {columna.nombre} es de tipo {binario.group(1).upper()}, que no está permitido: "
+            f"almacenaría documentos en la base de datos. Guardar el documento en una solución externa "
+            f"(servidor de archivos o repositorio documental) y registrar solo su ruta (ej.: cRutaArchivo "
+            f"VARCHAR), ya que la base de datos es solo para datos transaccionales.",
+        ))
+
+    legacy = re.match(r"\s*(NTEXT|TEXT|REAL)\b", definicion, re.IGNORECASE)
+    if legacy:
+        tipo = legacy.group(1).upper()
+        elementos["COLUMNA_TIPO_LEGACY"] = f"{columna.nombre} ({tipo} → {_REEMPLAZO_LEGACY[tipo]})"
+        hallazgos.append(_hallazgo(
+            texto, columna.posicion, "COLUMNA_TIPO_LEGACY",
+            f"La columna {columna.nombre} es de tipo {tipo}, una sintaxis legacy (obsoleta) que no está "
+            f"permitida. Usar {_REEMPLAZO_LEGACY[tipo]} en su lugar, ya que los tipos legacy dejarán de "
+            f"estar soportados en SQL Server.",
         ))
 
     tiene_collate = re.search(r"\bCOLLATE\s+\w+", definicion, re.IGNORECASE)
@@ -492,9 +509,15 @@ _PLANTILLAS_AGRUPADAS = {
         "no pueden llevar números.",
     ),
     "COLUMNA_VARBINARY_PROHIBIDA": (
-        "columnas de tipo VARBINARY",
-        "Guardar los archivos en el servidor de archivos y registrar solo su ruta (ej.: cRutaArchivo "
-        "VARCHAR), ya que VARBINARY hace crecer la base y vuelve lentas las consultas y los respaldos.",
+        "columnas que almacenarían documentos (VARBINARY o IMAGE)",
+        "Guardar los documentos en una solución externa (servidor de archivos o repositorio documental) "
+        "y registrar solo su ruta (ej.: cRutaArchivo VARCHAR), ya que la base de datos es solo para "
+        "datos transaccionales.",
+    ),
+    "COLUMNA_TIPO_LEGACY": (
+        "columnas con tipos de dato legacy",
+        "Reemplazar cada tipo por su equivalente actual (TEXT → VARCHAR(MAX), NTEXT → NVARCHAR(MAX), "
+        "REAL → DECIMAL), ya que los tipos legacy dejarán de estar soportados en SQL Server.",
     ),
     "COLUMNA_SIN_COLLATE": (
         "columnas de texto sin COLLATE",

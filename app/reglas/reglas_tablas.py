@@ -86,9 +86,13 @@ REGLAS_TABLAS = {
         "El nombre de una columna nueva no puede contener números (ej.: cNombre89).",
     ),
     "COLUMNA_VARBINARY_PROHIBIDA": _regla(
-        "COLUMNA_VARBINARY_PROHIBIDA", "Columna VARBINARY prohibida", "alto",
-        "No se permiten columnas VARBINARY: guardar archivos en la base de datos la infla, "
-        "degrada el rendimiento y los respaldos. Guarde el archivo fuera y registre su ruta.",
+        "COLUMNA_VARBINARY_PROHIBIDA", "Columna para documentos prohibida", "alto",
+        "No se permiten columnas VARBINARY ni IMAGE: la base de datos es solo para datos "
+        "transaccionales; los documentos van en una solución externa y se registra su ruta.",
+    ),
+    "COLUMNA_TIPO_LEGACY": _regla(
+        "COLUMNA_TIPO_LEGACY", "Tipo de dato legacy", "alto",
+        "No se permiten tipos legacy (TEXT, NTEXT, REAL): usar VARCHAR(MAX), NVARCHAR(MAX) o DECIMAL.",
     ),
     "COLUMNA_SIN_COLLATE": _regla(
         "COLUMNA_SIN_COLLATE", "Columna sin COLLATE", "alto",
