@@ -51,6 +51,11 @@ export function AuditoriaWorkspace({ vista }) {
     if (detectado && detectado !== tipoRevision) ajustarTipo(detectado);
   };
   const tieneDiccionario = Boolean(revision.diccionario);
+  const contarLineas = (texto) => (texto.trim() ? texto.split('\n').length : 0);
+  const lineasSql = contarLineas(campos.sqlObject);
+  const lineasDiccionario = tieneDiccionario ? contarLineas(campos.dictScript) : 0;
+  const hayCodigo = lineasSql > 0;
+  const resumenLineas = tieneDiccionario ? `${lineasSql} + ${lineasDiccionario} líneas` : `${lineasSql} líneas`;
   const cargando = resultado.estado === 'cargando';
 
   const alEnviar = (evento) => {
@@ -160,10 +165,15 @@ export function AuditoriaWorkspace({ vista }) {
 
           <div className="action-bar">
             <div className="btn-group">
-              <Boton type="submit" icono={<IconoEjecutar />} cargando={cargando}>Ejecutar revisión</Boton>
+              <Boton type="submit" icono={<IconoEjecutar />} cargando={cargando} atajo={['Ctrl', 'Enter']}>
+                Ejecutar revisión
+              </Boton>
               <Boton variante="secundario" icono={<IconoLimpiar />} onClick={limpiar}>Limpiar</Boton>
             </div>
-            <p className="shortcut-hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> para ejecutar</p>
+            <p className={`estado-revision${hayCodigo ? ' listo' : ''}`} role="status">
+              <i aria-hidden="true" />
+              {hayCodigo ? `Listo para revisar · ${resumenLineas}` : 'Pega el código para iniciar la revisión'}
+            </p>
           </div>
         </form>
 
