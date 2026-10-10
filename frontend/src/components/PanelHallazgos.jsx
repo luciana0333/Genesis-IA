@@ -4,13 +4,7 @@ import { contarPorSeveridad, desglosarGrupo, normalizarSeveridad, ordenarHallazg
 import { EncabezadoSeccion } from './EncabezadoSeccion';
 import { EstadoInicial } from './EstadoInicial';
 import { EstadoVacio } from './EstadoVacio';
-import {
-  IconoCopiar,
-  IconoCopiado,
-  IconoErrorCirculo,
-  IconoEscudoAlerta,
-  IconoEscudoCheck,
-} from './Iconos';
+import { IconoCopiar, IconoCopiado, IconoErrorCirculo } from './Iconos';
 
 /** Resalta lo que el mensaje cita entre comillas simples: 'Indicatg', 'dbo2'. */
 function MensajeResaltado({ texto }) {
@@ -29,27 +23,46 @@ const VEREDICTOS = {
   bajo: { titulo: 'Observaciones menores', texto: 'Solo hay recomendaciones o puntos por validar.' },
 };
 
-function ResumenVeredicto({ conteo, total }) {
+/**
+ * Columna lateral oscura del tablero: total, veredicto y filtros por severidad
+ * (todas las severidades, con su cantidad aunque sea cero).
+ */
+function ResumenLateral({ conteo, total, filtro, onFiltrar }) {
   const mayor = SEVERIDADES.find((severidad) => conteo[severidad] > 0) ?? 'bajo';
   const veredicto = VEREDICTOS[mayor];
-  const Icono = mayor === 'bajo' ? IconoEscudoCheck : IconoEscudoAlerta;
-  const desglose = SEVERIDADES
-    .filter((severidad) => conteo[severidad] > 0)
-    .map((severidad) => `${conteo[severidad]} ${etiquetaSeveridad(severidad).toLowerCase()}`)
-    .join(' · ');
+  const opciones = [
+    { id: 'todos', etiqueta: 'Todos', cantidad: total },
+    ...SEVERIDADES.map((severidad) => ({
+      id: severidad,
+      etiqueta: etiquetaSeveridad(severidad),
+      cantidad: conteo[severidad],
+    })),
+  ];
   return (
-    <div className={`verdict sev-${mayor}`} role="status">
-      <span className="verdict-icon"><Icono /></span>
-      <div className="verdict-body">
-        <p className="verdict-kicker">Resultado de la revisión</p>
-        <p className="verdict-title">{veredicto.titulo}</p>
-        <p className="verdict-text">{veredicto.texto}</p>
+    <aside className={`tablero-lateral sev-${mayor}`}>
+      <p className="tablero-kicker">{total === 1 ? 'Hallazgo' : 'Hallazgos'}</p>
+      <strong className="tablero-total">{total}</strong>
+      <p className="tablero-estado" role="status">{veredicto.titulo}</p>
+      <p className="tablero-texto">{veredicto.texto}</p>
+      <div className="tablero-filtros" role="group" aria-label="Filtrar por severidad">
+        {opciones.map((opcion) => (
+          <button
+            key={opcion.id}
+            type="button"
+            className={`tablero-filtro filtro-${opcion.id}${filtro === opcion.id ? ' active' : ''}`}
+            aria-pressed={filtro === opcion.id}
+            disabled={opcion.id !== 'todos' && !opcion.cantidad}
+            onClick={() => onFiltrar(opcion.id)}
+          >
+            <span>
+              {opcion.id !== 'todos' && <i aria-hidden="true" />}
+              {opcion.etiqueta}
+            </span>
+            <span className="tablero-cantidad">{opcion.cantidad}</span>
+          </button>
+        ))}
       </div>
-      <div className="verdict-count">
-        <strong>{total}</strong>
-        <span>{total === 1 ? 'hallazgo' : 'hallazgos'} · {desglose}</span>
-      </div>
-    </div>
+    </aside>
   );
 }
 
@@ -92,9 +105,9 @@ function BotonCopiar({ texto, etiqueta, conTexto = false }) {
 }
 
 /**
- * Ficha de un hallazgo: encabezado (regla, severidad y líneas) y dos columnas,
- * "Qué se encontró" y "Qué hacer". Si el hallazgo agrupa varias ocurrencias,
- * cada una se lista por separado.
+ * Ficha de un hallazgo: título y, a la derecha, línea y severidad; debajo lo
+ * que se encontró y, tras una línea punteada, qué hacer. Si el hallazgo agrupa
+ * varias ocurrencias, cada una se lista por separado.
  */
 function FilaHallazgo({ hallazgo, mostrarLinea }) {
   const severidad = normalizarSeveridad(hallazgo.severidad);
@@ -110,29 +123,25 @@ function FilaHallazgo({ hallazgo, mostrarLinea }) {
     <article className={`finding sev-${severidad}`}>
       <header className="finding-head">
         <h4 className="finding-title">{titulo}</h4>
-        <span className={`sev-pill sev-${severidad}`}>{etiquetaSeveridad(severidad)}</span>
         <span className="finding-head-side">
           {mostrarLinea && <span className="finding-line">{etiquetaLinea}</span>}
+          <span className={`sev-pill sev-${severidad}`}>{etiquetaSeveridad(severidad)}</span>
           <BotonCopiar texto={textoParaCopiar(hallazgo, mostrarLinea)} etiqueta="Copiar observación" />
         </span>
       </header>
 
-      <div className={solucion ? 'finding-body' : 'finding-body finding-body--simple'}>
-        <section className="finding-col">
-          <p className="finding-label">Qué se encontró</p>
-          {ocurrencias.length > 1 ? (
-            <ul className="finding-list">
-              {ocurrencias.map((texto) => <li key={texto}><MensajeResaltado texto={texto} /></li>)}
-            </ul>
-          ) : (
-            <p className="finding-message"><MensajeResaltado texto={ocurrencias[0]} /></p>
-          )}
-        </section>
+      <div className="finding-body">
+        {ocurrencias.length > 1 ? (
+          <ul className="finding-list">
+            {ocurrencias.map((texto) => <li key={texto}><MensajeResaltado texto={texto} /></li>)}
+          </ul>
+        ) : (
+          <p className="finding-message"><MensajeResaltado texto={ocurrencias[0]} /></p>
+        )}
         {solucion && (
-          <section className="finding-col finding-col--fix">
-            <p className="finding-label">Qué hacer</p>
-            <p className="finding-message"><MensajeResaltado texto={solucion} /></p>
-          </section>
+          <p className="finding-fix">
+            <span className="finding-label">Qué hacer:</span> <MensajeResaltado texto={solucion} />
+          </p>
         )}
       </div>
 
@@ -144,34 +153,6 @@ function EsqueletoCarga() {
   return (
     <div className="findings-skeleton" aria-hidden="true">
       {[0, 1, 2].map((indice) => <div key={indice} className="skeleton-card" />)}
-    </div>
-  );
-}
-
-function FiltrosSeveridad({ conteo, total, filtro, onFiltrar }) {
-  const opciones = [
-    { id: 'todos', etiqueta: 'Todos', cantidad: total },
-    ...SEVERIDADES.filter((severidad) => conteo[severidad] > 0).map((severidad) => ({
-      id: severidad,
-      etiqueta: etiquetaSeveridad(severidad),
-      cantidad: conteo[severidad],
-    })),
-  ];
-  return (
-    <div className="filter-chips" role="group" aria-label="Filtrar por severidad">
-      {opciones.map((opcion) => (
-        <button
-          key={opcion.id}
-          type="button"
-          className={`chip chip-${opcion.id}${filtro === opcion.id ? ' active' : ''}`}
-          aria-pressed={filtro === opcion.id}
-          onClick={() => onFiltrar(opcion.id)}
-        >
-          {opcion.id !== 'todos' && <span className="chip-dot" aria-hidden="true" />}
-          {opcion.etiqueta}
-          <span className="chip-count">{opcion.cantidad}</span>
-        </button>
-      ))}
     </div>
   );
 }
@@ -267,11 +248,12 @@ export function PanelHallazgos({
           </>
         }
       />
-      {hayHallazgos && <ResumenVeredicto conteo={conteo} total={hallazgos.length} />}
-      {hayHallazgos && (
-        <FiltrosSeveridad conteo={conteo} total={hallazgos.length} filtro={filtro} onFiltrar={setFiltro} />
-      )}
-      {contenido}
+      {hayHallazgos ? (
+        <div className="resultados-tablero">
+          <ResumenLateral conteo={conteo} total={hallazgos.length} filtro={filtro} onFiltrar={setFiltro} />
+          {contenido}
+        </div>
+      ) : contenido}
     </section>
   );
 }
