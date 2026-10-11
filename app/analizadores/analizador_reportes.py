@@ -108,7 +108,8 @@ def _validar_nolock(texto: str, limpio: str) -> List[Hallazgo]:
                     texto,
                     match.start(2),
                     "NOLOCK_EN_TABLA_TEMPORAL",
-                    f"La tabla temporal {tabla} tiene WITH(NOLOCK). Retirar el WITH(NOLOCK) de la tabla temporal, ya que en las tablas temporales no es necesario.",
+                    f"Se identificó que la tabla temporal {tabla} tiene WITH(NOLOCK). Se recomienda retirarlo, "
+                    f"ya que la tabla temporal solo existe en la sesión del reporte y no genera bloqueos con otros procesos.",
                 ))
             continue
         if (tabla.strip("[]").lower() in ctes or re.match(_CATALOGOS_PROHIBIDOS, tabla, re.IGNORECASE)
@@ -119,8 +120,8 @@ def _validar_nolock(texto: str, limpio: str) -> List[Hallazgo]:
                 texto,
                 match.start(2),
                 "TABLA_FISICA_SIN_NOLOCK",
-                f"La tabla {tabla} no tiene WITH(NOLOCK). Añadir WITH(NOLOCK) a la tabla, ya que en los reportes "
-                f"se usa para evitar bloqueos (ej.: dbo.Cliente c WITH(NOLOCK)).",
+                f"Se identificó que la tabla {tabla} no tiene WITH(NOLOCK). Se recomienda añadirlo, ya que en los "
+                f"reportes evita bloquear a los procesos que están registrando operaciones (ej.: {tabla} WITH(NOLOCK)).",
             ))
     return hallazgos
 
@@ -132,9 +133,9 @@ def _validar_hints(texto: str, limpio: str) -> List[Hallazgo]:
             texto,
             match.start(),
             "HINT_PLAN_PROHIBIDO",
-            f"Se usa '{match.group(0)}', que le indica al motor de base de datos cómo ejecutar la consulta. "
-            f"No está permitido emplear sintaxis que fuerce al motor; se debe dejar que el optimizador "
-            f"decida el mejor plan.",
+            f"Se identificó el uso de '{match.group(0)}', que le indica al motor de base de datos cómo ejecutar "
+            f"la consulta. Se recomienda retirarlo, ya que no está permitido forzar al motor y es el optimizador "
+            f"quien decide el mejor plan de ejecución.",
         ))
     return hallazgos
 
@@ -155,7 +156,8 @@ def _validar_comentarios_codigo(texto: str) -> List[Hallazgo]:
                 texto,
                 match.start(),
                 "CODIGO_SQL_COMENTADO",
-                "Hay código SQL comentado. Se recomienda eliminarlo si ya no se usa, ya que dificulta la lectura del procedimiento.",
+                "Se identificó código SQL comentado dentro del procedimiento. Se recomienda eliminarlo si ya no se "
+                "usa, ya que dificulta la lectura y el mantenimiento del reporte.",
             ))
     return hallazgos
 
@@ -185,8 +187,9 @@ def _validar_tablas_temporales(texto: str, limpio: str) -> List[Hallazgo]:
                     texto,
                     inicio + columna.start(),
                     "TEMPORAL_TEXTO_SIN_COLLATE",
-                    f"La columna {columna.group(1)} de la temporal {tabla} no tiene COLLATE. Añadir COLLATE a la columna, "
-                    f"ya que sin él puede fallar al compararla con otras tablas "
+                    f"Se identificó que la columna {columna.group(1)} de la tabla temporal {tabla} no tiene COLLATE. "
+                    f"Se recomienda añadir el COLLATE de la empresa, ya que sin él puede fallar al compararla con "
+                    f"columnas de otras tablas "
                     f"(ej.: {columna.group(1)} VARCHAR(50) COLLATE SQL_Latin1_General_CP1_CI_AS).",
                 ))
     return hallazgos
@@ -196,20 +199,48 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     reglas = [
         (
-            r"(?is)(?:^|;|\bGO\b)\s*(?P<pos>SELECT)\b(?:(?!;|\bGO\b).)*?\bINTO\b",
+            r"(?is)(?:^|;|\bGO\b)\s*(?P<pos>SELECT)\b(?:(?!;|\bGO\b).)*?\bINTO\s+(?P<tabla>[#@\w\[\].]+)",
             "SELECT_INTO_PROHIBIDO",
-            "Se crea una tabla temporal con SELECT INTO. Crear primero la tabla con CREATE TABLE y luego "
-            "llenarla con INSERT INTO seguido del SELECT, ya que así se controlan sus tipos de datos.",
+            lambda m: (
+                f"Se identificó que la tabla {m.group('tabla')} se crea con SELECT INTO. Se recomienda crearla "
+                f"primero con CREATE TABLE y luego llenarla con INSERT INTO seguido del SELECT, ya que así se "
+                f"controlan sus tipos de datos y el COLLATE de sus columnas."
+            ),
         ),
-        (r"\bSELECT\s+(?:DISTINCT\s+)?\*", "SELECT_ESTRELLA_PROHIBIDO", "Se usa SELECT *. Escribir solo las columnas necesarias, ya que traer todas vuelve más lento el reporte (ej.: SELECT cNombre, dFecha)."),
-        (r"\bIN\s*\(\s*[^,()]+\s*\)", "IN_CON_UN_SOLO_VALOR", "Se usa IN con un solo valor. Se recomienda usar el signo igual, ya que es más claro y directo (ej.: WHERE nEstado = 1)."),
-        (_CATALOGOS_PROHIBIDOS, "CATALOGO_SISTEMA_PROHIBIDO", "Se consultan tablas internas de SQL Server (sys o information_schema). Consultar solo tablas del negocio, ya que en los reportes no está permitido acceder a tablas internas."),
+        (
+            rf"\bSELECT\s+(?:DISTINCT\s+)?\*(?:\s+FROM\s+(?P<tabla>{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}))?",
+            "SELECT_ESTRELLA_PROHIBIDO",
+            lambda m: (
+                (f"Se identificó un SELECT * sobre la tabla {m.group('tabla')}, que trae todas sus columnas. "
+                 if m.group("tabla") else "Se identificó un SELECT *, que trae todas las columnas de la consulta. ")
+                + "Se recomienda escribir solo las columnas que el reporte necesita, ya que traer todas aumenta "
+                "la lectura de datos, vuelve más lento el reporte y puede fallar si la tabla cambia "
+                "(ej.: SELECT cNombre, dFecha)."
+            ),
+        ),
+        (
+            r"\bIN\s*\(\s*(?P<valor>[^,()]+?)\s*\)",
+            "IN_CON_UN_SOLO_VALOR",
+            lambda m: (
+                f"Se identificó un IN con un solo valor: IN ({m.group('valor')}). Se recomienda usar el signo "
+                f"igual, ya que es más claro y directo (ej.: WHERE nEstado = {m.group('valor')})."
+            ),
+        ),
+        (
+            _CATALOGOS_PROHIBIDOS,
+            "CATALOGO_SISTEMA_PROHIBIDO",
+            lambda m: (
+                f"Se identificó una consulta a tablas internas de SQL Server ({m.group(0)}). Se recomienda "
+                f"consultar solo tablas del negocio, ya que en los reportes no está permitido acceder a las "
+                f"tablas internas del motor."
+            ),
+        ),
     ]
     for patron, regla, mensaje in reglas:
         for match in re.finditer(patron, limpio, re.IGNORECASE):
             # Si el patrón marca con "pos" el elemento que causa el hallazgo, la línea es la suya.
             posicion = match.start("pos") if "pos" in match.re.groupindex else match.start()
-            hallazgos.append(_hallazgo(texto, posicion, regla, mensaje))
+            hallazgos.append(_hallazgo(texto, posicion, regla, mensaje(match)))
     return hallazgos
 
 
@@ -223,16 +254,23 @@ def _validar_modificaciones_fisicas(texto: str, limpio: str) -> List[Hallazgo]:
                 texto,
                 match.start(2),
                 "MODIFICACION_TABLA_FISICA",
-                f"El reporte modifica la tabla {tabla}. Mover ese cambio a un procedimiento transaccional, "
-                f"ya que un reporte solo debe consultar datos.",
+                f"Se identificó que el reporte modifica la tabla {tabla} con {' '.join(match.group(1).upper().split())}. "
+                f"Se recomienda mover ese cambio a un procedimiento de negocio, ya que un reporte solo debe "
+                f"consultar datos y no alterar la información.",
             ))
     return hallazgos
 
 
 def _validar_sintaxis_prohibida(texto: str, limpio: str) -> List[Hallazgo]:
     reglas = (
-        (_SQL_DINAMICO, "SQL_DINAMICO_PROHIBIDO", "Se ejecuta una consulta armada como texto (EXEC o sp_executesql). Escribir la consulta directamente y usar parámetros, ya que el SQL dinámico no está permitido por seguridad."),
-        (r"\bVARBINARY(?:\s*\(\s*(?:MAX|\d+)\s*\))?", "VARBINARY_DOCUMENTO_IDENTIFICADO", "Se usa VARBINARY. Se recomienda no usarlo, ya que la base de datos es solo para datos transaccionales y los documentos se gestionan en una solución externa (se guarda solo su ruta)."),
+        (_SQL_DINAMICO, "SQL_DINAMICO_PROHIBIDO",
+         "Se identificó una consulta armada como texto y ejecutada con EXEC o sp_executesql. Se recomienda "
+         "escribir la consulta directamente y usar parámetros, ya que el SQL dinámico no está permitido por "
+         "seguridad y expone el reporte a inyección SQL."),
+        (r"\bVARBINARY(?:\s*\(\s*(?:MAX|\d+)\s*\))?", "VARBINARY_DOCUMENTO_IDENTIFICADO",
+         "Se identificó el uso de VARBINARY, un tipo de dato para guardar archivos o documentos. Se recomienda "
+         "no usarlo, ya que la base de datos es solo para datos transaccionales y los documentos se gestionan "
+         "en una solución externa (se guarda solo su ruta)."),
     )
     hallazgos = []
     for patron, regla, mensaje in reglas:
@@ -263,11 +301,11 @@ def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
             es_json_xml = _USO_JSON_XML.search(_sentencia(limpio, match.start()))
         if es_json_xml:
             continue
-        sujeto = f"{nombre} es VARCHAR(MAX)" if nombre else "Se usa VARCHAR(MAX)"
+        sujeto = f"que {nombre} se declara como VARCHAR(MAX)" if nombre else "el uso de VARCHAR(MAX)"
         hallazgos.append(_hallazgo(
             texto, match.start(), "VARCHAR_MAX_PROHIBIDO",
-            f"{sujeto} y no guarda JSON ni XML. Definir un tamaño fijo (ej.: VARCHAR(500)), "
-            f"ya que VARCHAR(MAX) solo se permite para JSON o XML.",
+            f"Se identificó {sujeto} y no guarda JSON ni XML. Se recomienda definir un tamaño fijo, ya que "
+            f"VARCHAR(MAX) solo se permite para JSON o XML y consume más memoria (ej.: VARCHAR(500)).",
         ))
     return hallazgos
 
@@ -284,21 +322,22 @@ def _validar_control_de_flujo(texto: str, limpio: str) -> List[Hallazgo]:
         for match in re.finditer(r"\bWHILE\b", limpio, re.IGNORECASE):
             hallazgos.append(_hallazgo(
                 texto, match.start(), "WHILE_PROHIBIDO",
-                "El procedimiento nuevo usa WHILE. Evaluar otras formas de resolverlo sin WHILE "
-                "(por ejemplo, una sola consulta que trabaje con todos los registros), ya que procesa "
-                "uno por uno, vuelve lento el reporte y puede quedar en un bucle infinito.",
+                "Se identificó un WHILE en un procedimiento nuevo. Se recomienda resolverlo con una sola "
+                "consulta que trabaje con todos los registros a la vez, ya que el WHILE procesa uno por uno, "
+                "vuelve lento el reporte y puede quedar en un bucle infinito.",
             ))
     for match in re.finditer(r"\bRAISERROR\b", limpio, re.IGNORECASE):
         hallazgos.append(_hallazgo(
             texto, match.start(), "RAISERROR_USAR_THROW",
-            "Se usa RAISERROR para mostrar errores. Se recomienda usar THROW, ya que es la forma "
-            "actual de manejar errores (ej.: THROW 50001, 'No existe el cliente', 1;).",
+            "Se identificó el uso de RAISERROR para mostrar errores. Se recomienda usar THROW, ya que es la "
+            "forma actual de manejar errores y detiene la ejecución de forma segura "
+            "(ej.: THROW 50001, 'No existe el cliente', 1;).",
         ))
     for match in re.finditer(r"\bWAITFOR\s+(?:DELAY|TIME)\b", limpio, re.IGNORECASE):
         hallazgos.append(_hallazgo(
             texto, match.start(), "WAITFOR_DELAY_PROHIBIDO",
-            "Se usa WAITFOR, que fuerza al motor de base de datos a pausar la ejecución. No está permitido "
-            "emplear sintaxis que fuerce al motor; se debe retirar la pausa.",
+            "Se identificó un WAITFOR, que obliga al motor de base de datos a pausar la ejecución. Se recomienda "
+            "retirarlo, ya que no está permitido forzar al motor y la pausa retrasa el reporte sin necesidad.",
         ))
     return hallazgos
 
@@ -325,8 +364,8 @@ def _hallazgo_accion_pegada(texto: str, posicion: int, nombre: str, segmentos: L
     sugerido = "_".join(["PA", segmentos[1], accion, pegada.group(2)] + [x for x in segmentos[3:] if x])
     return _hallazgo(
         texto, posicion, "PROCEDIMIENTO_ACCION_SIN_SEPARAR",
-        f"En el nombre {nombre}, la acción {pegada.group(1)} está pegada a la finalidad "
-        f"({segmentos[2]}). Separar la acción con un guion bajo, ya que el formato es "
+        f"Se identificó que en el nombre {nombre} la acción {pegada.group(1)} está pegada a la finalidad "
+        f"({segmentos[2]}). Se recomienda separarla con un guion bajo, ya que el formato es "
         f"PA_Tabla_Acción_Finalidad (ej.: {sugerido}).",
     )
 
@@ -358,8 +397,9 @@ def _validar_esquema_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
     nombre = match.group(2).strip("[]")
     return [_hallazgo(
         texto, match.start(2), "PROCEDIMIENTO_SIN_ESQUEMA",
-        f"El procedimiento {nombre} no indica su esquema. Anteponer el esquema al nombre, ya que así se "
-        f"evita crear o modificar un objeto equivocado (ej.: dbo.{nombre}).",
+        f"Se identificó que el procedimiento {nombre} no tiene declarado un esquema. Se recomienda añadir el "
+        f"esquema; si es dbo, definirlo explícitamente, ya que así se evita crear o modificar un objeto "
+        f"equivocado (ej.: dbo.{nombre}).",
     )]
 
 
@@ -401,9 +441,9 @@ def _validar_order_by_numerico(texto: str, limpio: str) -> List[Hallazgo]:
         if posiciones:
             hallazgos.append(_hallazgo(
                 texto, match.start(), "ORDER_BY_NUMERICO_PROHIBIDO",
-                f"Se ordena por posición de columna (ORDER BY {', '.join(posiciones)}). Se recomienda "
-                f"escribir el nombre de la columna, ya que si cambia el SELECT el orden cambiaría sin "
-                f"notarlo (ej.: ORDER BY cNombre).",
+                f"Se identificó un ordenamiento por posición de columna (ORDER BY {', '.join(posiciones)}). "
+                f"Se recomienda escribir el nombre de las columnas, ya que si cambia el SELECT el orden "
+                f"cambiaría sin notarlo (ej.: ORDER BY cNombre).",
             ))
     return hallazgos
 
@@ -428,8 +468,9 @@ def _validar_collate_en_condiciones(texto: str, limpio: str) -> List[Hallazgo]:
         donde = "del JOIN" if ultima == "ON" else f"del {ultima}"
         hallazgos.append(_hallazgo(
             texto, match.start(), "COLLATE_EN_PREDICADO",
-            f"Se usa COLLATE en la condición {donde}. Definir el COLLATE al crear la tabla y no en la "
-            f"condición, ya que en el WHERE o en el JOIN impide usar los índices y vuelve lenta la consulta.",
+            f"Se identificó un COLLATE en la condición {donde}. Se recomienda definir el COLLATE al crear la "
+            f"tabla y no en la condición, ya que en el WHERE o en el JOIN impide usar los índices y vuelve "
+            f"lenta la consulta.",
         ))
     return hallazgos
 
@@ -440,8 +481,8 @@ def _validar_funciones_reemplazables(texto: str, limpio: str) -> List[Hallazgo]:
     for match in re.finditer(r"\b(?:LTRIM\s*\(\s*RTRIM|RTRIM\s*\(\s*LTRIM)\s*\(", limpio, re.IGNORECASE):
         hallazgos.append(_hallazgo(
             texto, match.start(), "LTRIM_RTRIM_PROHIBIDO",
-            "Se combinan LTRIM y RTRIM para quitar espacios. Se recomienda usar TRIM, ya que hace lo "
-            "mismo en una sola función (ej.: TRIM(Calif0)).",
+            "Se identificó la combinación de LTRIM y RTRIM para quitar espacios. Se recomienda usar TRIM, "
+            "ya que hace lo mismo en una sola función y es más fácil de leer (ej.: TRIM(cNombre)).",
         ))
     for match in re.finditer(r"\bFOR\s+XML\s+PATH\s*\(\s*(?:''|\"\")\s*\)", limpio, re.IGNORECASE):
         con_stuff = re.search(r"\bSTUFF\s*\(", _sentencia(limpio, match.start()), re.IGNORECASE)
@@ -451,14 +492,15 @@ def _validar_funciones_reemplazables(texto: str, limpio: str) -> List[Hallazgo]:
         posicion = inicio + stuff_previos[-1].start() if stuff_previos else match.start()
         hallazgos.append(_hallazgo(
             texto, posicion, "STUFF_FOR_XML_PATH_PROHIBIDO",
-            f"Se concatenan valores con {forma}. Se recomienda usar STRING_AGG, ya que concatena los "
-            f"valores con su separador de forma más simple (ej.: STRING_AGG(Nombre, ',')).",
+            f"Se identificó una concatenación de valores con {forma}. Se recomienda usar STRING_AGG, ya que "
+            f"une los valores con su separador de forma más simple y legible (ej.: STRING_AGG(cNombre, ',')).",
         ))
     for match in re.finditer(r"(?:\b\w+\s*\.\s*)?\bfn_split\s*\(", limpio, re.IGNORECASE):
         hallazgos.append(_hallazgo(
             texto, match.start(), "FN_SPLIT_PROHIBIDO",
-            "Se usa la función fn_Split para dividir un texto. Se recomienda usar STRING_SPLIT, ya que es "
-            "nativa y mejora el rendimiento (ej.: SELECT value FROM STRING_SPLIT('Juan,Pedro', ',')).",
+            "Se identificó el uso de la función fn_Split para dividir un texto. Se recomienda usar "
+            "STRING_SPLIT, ya que es nativa de SQL Server y mejora el rendimiento "
+            "(ej.: SELECT value FROM STRING_SPLIT('Juan,Pedro', ',')).",
         ))
     return hallazgos
 
@@ -476,7 +518,8 @@ def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
                 texto,
                 posicion,
                 "VARIABLE_DECLARADA_SIN_USO",
-                f"La variable {variable} se declara pero no se usa. Se recomienda eliminarla, ya que solo ocupa espacio en el código.",
+                f"Se identificó que la variable {variable} se declara pero no se usa en el procedimiento. "
+                f"Se recomienda eliminarla, ya que solo ocupa espacio y dificulta la lectura del código.",
             ))
     return hallazgos
 

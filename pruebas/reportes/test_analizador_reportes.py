@@ -262,7 +262,7 @@ class TestAnalizadorReportes(unittest.TestCase):
             with self.subTest(sql=sql):
                 hallazgos = [h for h in verificar_reporte(sql) if h.regla == "HINT_PLAN_PROHIBIDO"]
                 self.assertEqual(len(hallazgos), 1)
-                self.assertIn("No está permitido emplear sintaxis que fuerce al motor", hallazgos[0].mensaje)
+                self.assertIn("no está permitido forzar al motor", hallazgos[0].mensaje)
 
     def test_collate_en_where_y_join(self):
         where = "SELECT Nombre FROM #T WHERE Nombre COLLATE SQL_Latin1_General_CP1_CI_AS = 'Juan';"
