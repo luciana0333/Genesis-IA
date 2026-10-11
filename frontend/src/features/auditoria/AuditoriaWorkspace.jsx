@@ -1,8 +1,11 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { Boton } from '../../components/Boton';
 import { EditorCodigo } from '../../components/EditorCodigo';
 import { EncabezadoSeccion } from '../../components/EncabezadoSeccion';
-import { IconoBaseDatos, IconoEjecutar, IconoGlobo, IconoLimpiar, IconoRestaurar, IconoSeveridadMedia } from '../../components/Iconos';
+import {
+  IconoAgregar, IconoBaseDatos, IconoCerrar, IconoEjecutar, IconoGlobo, IconoLimpiar, IconoRestaurar,
+  IconoSeveridadMedia,
+} from '../../components/Iconos';
 import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { OPCIONES_SELECTOR } from '../../config/revisiones';
@@ -58,6 +61,13 @@ export function AuditoriaWorkspace({ vista }) {
   };
   const tieneDiccionario = Boolean(revision.diccionario);
   const tieneIndices = Boolean(revision.indices);
+  // La cajita de índices está plegada: se abre con «Agregar índices» o si ya trae código.
+  const [indicesAbiertos, setIndicesAbiertos] = useState(false);
+  const mostrarIndices = tieneIndices && (indicesAbiertos || Boolean((campos.indicesScript ?? '').trim()));
+  const quitarIndices = () => {
+    actualizarCampo('indicesScript', '');
+    setIndicesAbiertos(false);
+  };
   const contarLineas = (texto = '') => (texto.trim() ? texto.split('\n').length : 0);
   const lineasSql = contarLineas(campos.sqlObject);
   const lineasDiccionario = tieneDiccionario ? contarLineas(campos.dictScript) : 0;
@@ -146,9 +156,9 @@ export function AuditoriaWorkspace({ vista }) {
             )}
           </div>
 
-          <div className={tieneIndices ? 'editor-grid editor-grid--indices' : 'editor-grid'}>
+          <div className="editor-grid">
             <TarjetaEditor
-              className={tieneDiccionario || tieneIndices ? 'field-card-primary' : 'field-card-primary field-card-full'}
+              className={tieneDiccionario ? 'field-card-primary' : 'field-card-primary field-card-full'}
               numero={1}
               etiqueta={revision.sql.etiqueta}
               htmlFor={`${ids}-sql`}
@@ -189,20 +199,34 @@ export function AuditoriaWorkspace({ vista }) {
               </TarjetaEditor>
             )}
 
-            {tieneIndices && (
+            {tieneIndices && !mostrarIndices && (
+              <button type="button" className="agregar-indices" onClick={() => setIndicesAbiertos(true)}>
+                <IconoAgregar />
+                Agregar índices de la tabla
+              </button>
+            )}
+
+            {mostrarIndices && (
               <TarjetaEditor
-                className="field-card-secondary"
+                className="field-card-full field-card-indices"
                 numero={2}
                 etiqueta={revision.indices.etiqueta}
                 htmlFor={`${ids}-indices`}
                 estado="Opcional"
                 requerido={false}
                 ayuda={revision.indices.ayuda}
+                acciones={
+                  <button type="button" className="link-btn" onClick={quitarIndices} title="Quitar los índices de la revisión">
+                    <IconoCerrar />
+                    Quitar
+                  </button>
+                }
               >
                 <EditorCodigo
                   id={`${ids}-indices`}
                   valor={campos.indicesScript ?? ''}
                   onCambiar={(valor) => actualizarCampo('indicesScript', valor)}
+                  filas={5}
                   placeholder="CREATE NONCLUSTERED INDEX ..."
                 />
               </TarjetaEditor>

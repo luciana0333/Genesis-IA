@@ -216,9 +216,43 @@ h3.section-title {
   grid-column: 1 / -1;
 }
 
-/* Tablas: el script de la tabla, ancho; los índices (pocas líneas), en una columna angosta. */
-.editor-grid--indices {
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+/* Tablas: botón para abrir la cajita (plegada) de índices de la tabla. */
+.agregar-indices {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  border: 1px dashed rgba(17, 17, 26, 0.18);
+  border-radius: 12px;
+  background: var(--bg-card);
+  color: var(--red-main);
+  font-family: var(--font-sans);
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease;
+}
+
+/* La cajita de índices es más baja: suelen ser pocas líneas. */
+.field-card-indices .code-editor textarea {
+  min-height: 140px;
+}
+
+.agregar-indices svg {
+  width: 16px;
+  height: 16px;
+}
+
+.agregar-indices:hover {
+  border-color: var(--red-main);
+  background: rgba(227, 6, 19, 0.04);
+}
+
+.agregar-indices:focus-visible {
+  outline: 2px solid var(--red-main);
+  outline-offset: 2px;
 }
 
 .field-card-heading {
@@ -721,8 +755,7 @@ select.campo-icono-tipo {
 /* ───────── RESPONSIVE ───────── */
 @media (max-width: 900px) {
   .control-row,
-  .editor-grid,
-  .editor-grid--indices {
+  .editor-grid {
     grid-template-columns: 1fr;
   }
 

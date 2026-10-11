@@ -27,6 +27,7 @@ import {
   Moon,
   OctagonAlert,
   Play,
+  Plus,
   RotateCcw,
   ShieldAlert,
   ShieldCheck,
@@ -58,6 +59,7 @@ export const IconoCerrar = crearIcono(X);
 export const IconoBaseDatos = crearIcono(Database);
 export const IconoCopiar = crearIcono(Copy);
 export const IconoCopiado = crearIcono(Check);
+export const IconoAgregar = crearIcono(Plus);
 
 // Estados
 export const IconoEscudoCheck = crearIcono(ShieldCheck);
