@@ -123,7 +123,8 @@ REGLAS_TABLAS = {
     ),
     "INDICE_NOMBRE_NO_ESTANDAR": _regla(
         "INDICE_NOMBRE_NO_ESTANDAR", "Nombre de índice fuera del estándar", "alto",
-        "Formato: <Prefijo>_<Tabla>_<Campos indexados>_INC<n> (n = columnas incluidas, solo si hay INCLUDE).",
+        "Formato: <Prefijo>_<Tabla>_<Campos indexados>_INC<nn> (nn = columnas incluidas con dos dígitos, "
+        "ej.: INC02; solo si hay INCLUDE).",
     ),
     "INDICE_SIN_ESQUEMA": _regla(
         "INDICE_SIN_ESQUEMA", "Índice sin esquema", "alto",

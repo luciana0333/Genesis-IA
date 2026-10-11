@@ -10,8 +10,10 @@ Reglas para el bloque de índices que acompaña al script de una tabla
     IXU   Unique índice clúster
     IXUN  Unique índice nonclustered
 
-    Nombre: <Prefijo>_<Tabla>_<Campos indexados...>_INC<n>, donde n es el
-    número de columnas incluidas (solo si el índice tiene INCLUDE).
+    Nombre: <Prefijo>_<Tabla>_<Campos indexados...>_INC<nn>, donde nn es el
+    número de columnas incluidas con dos dígitos (INC02), solo si hay INCLUDE.
+    Ej.: IXN_PERSONA_CPERSCOD_NPERSCLASIFICACION_CPERSESTADO_INC02.
+    Los corchetes y ASC/DESC son opcionales; los paréntesis, obligatorios.
 
 Si los índices son de la tabla que se crea en el mismo script, se cruzan con
 ella: columnas que existen, tipos que se pueden indexar y clave primaria.
@@ -151,7 +153,7 @@ def _nombre_esperado(indice: _Indice) -> str:
     tabla = _limpiar(indice.tabla).split(".")[-1]
     partes = [_prefijo(indice.unico, indice.clustered), tabla] + indice.claves
     if indice.incluidas:
-        partes.append(f"INC{len(indice.incluidas)}")
+        partes.append(f"INC{len(indice.incluidas):02d}")
     return "_".join(partes)
 
 
@@ -238,7 +240,7 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
     esperado = _nombre_esperado(indice)
     tabla = _limpiar(indice.tabla)
 
-    # Nombre: prefijo según el tipo y formato <Prefijo>_<Tabla>_<Campos>_INC<n>.
+    # Nombre: prefijo según el tipo y formato <Prefijo>_<Tabla>_<Campos>_INC<nn>.
     if indice.nombre.split("_")[0].upper() != prefijo:
         hallazgos.append(_hallazgo(
             texto, indice.posicion, "INDICE_PREFIJO_INVALIDO",
@@ -250,7 +252,7 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
         hallazgos.append(_hallazgo(
             texto, indice.posicion, "INDICE_NOMBRE_NO_ESTANDAR",
             f"Se identificó que el nombre del índice {indice.nombre} no sigue el formato "
-            f"{prefijo}_Tabla_Campos{'_INC' + str(len(indice.incluidas)) if indice.incluidas else ''}. Se "
+            f"{prefijo}_Tabla_Campos{f'_INC{len(indice.incluidas):02d}' if indice.incluidas else ''}. Se "
             f"recomienda nombrarlo con la tabla y los campos indexados"
             f"{' y el número de columnas incluidas' if indice.incluidas else ''}, ya que así se sabe qué "
             f"cubre el índice sin abrirlo (ej.: {esperado}).",
