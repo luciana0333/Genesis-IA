@@ -96,6 +96,19 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             {"CATALOGO_SISTEMA_PROHIBIDO", "SQL_DINAMICO_PROHIBIDO", "VARCHAR_MAX_PROHIBIDO"},
         )
 
+    def test_indice_forzado(self):
+        sql = (
+            "SELECT V.nVentaId, C.cNombre\n    FROM dbo.Venta AS V\n"
+            "    INNER JOIN dbo.Cliente AS C WITH (INDEX(IX_Cliente_nClienteId))\n        ON V.nClienteId = C.nClienteId;"
+        )
+        hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "HINT_PLAN_PROHIBIDO")
+        self.assertEqual(hallazgo.linea, 3)
+        self.assertIn("usar el índice IX_Cliente_nClienteId en la tabla dbo.Cliente", hallazgo.mensaje)
+        igual = "SELECT c.n FROM dbo.Cliente c WITH (NOLOCK, INDEX = IX_Cliente);"
+        self.assertIn("HINT_PLAN_PROHIBIDO", {h.regla for h in verificar_procedimiento_normal(igual)})
+        crear = "CREATE INDEX IX_T ON #T (nId);"
+        self.assertNotIn("HINT_PLAN_PROHIBIDO", {h.regla for h in verificar_procedimiento_normal(crear)})
+
     def test_collate_distinto_al_de_la_empresa(self):
         sql = "CREATE TABLE #T (cNombre VARCHAR(50) COLLATE Modern_Spanish_CI_AS);\nSELECT t.cNombre FROM #T t;"
         hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "COLLATE_DISTINTO_AL_ESTANDAR")

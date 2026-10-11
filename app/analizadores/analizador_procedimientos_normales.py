@@ -10,7 +10,7 @@ from app.reglas.reglas_procedimientos_normales import REGLAS_PROCEDIMIENTOS_NORM
 
 _IDENTIFICADOR = r"(?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)"
 _HINTS_PROHIBIDOS = (
-    r"FORCESEEK|FORCESCAN|RECOMPILE|NOEXPAND|INDEX\s*\(|"
+    r"FORCESEEK|FORCESCAN|RECOMPILE|NOEXPAND|"
     r"LOOP\s+JOIN|HASH\s+JOIN|MERGE\s+JOIN|OPTIMIZE\s+FOR|MAXDOP\s*\(|FAST\s+\d+|"
     r"OPTION\s*\([^)]*\)"
 )
@@ -130,6 +130,31 @@ def _validar_hints(texto: str, limpio: str) -> List[Hallazgo]:
         )
         for match in re.finditer(_HINTS_PROHIBIDOS, limpio, re.IGNORECASE)
     ]
+
+
+def _validar_indice_forzado(texto: str, limpio: str) -> List[Hallazgo]:
+    """WITH (INDEX(IX_...)) o WITH (INDEX = IX_...): obliga al motor a usar un índice."""
+    hallazgos = []
+    referencia = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
+    for match in re.finditer(r"\bINDEX\s*(?:\(\s*([^)]*?)\s*\)|=\s*(\[[^\]]+\]|\w+))", limpio, re.IGNORECASE):
+        # Solo como hint de tabla: dentro del WITH (...) que sigue a la tabla.
+        abre = limpio.rfind("(", 0, match.start())
+        previo = limpio[max(0, abre - 40):abre] if abre >= 0 else ""
+        if not re.search(r"\bWITH\s*$", previo, re.IGNORECASE):
+            continue
+        indice = (match.group(1) or match.group(2) or "").strip()
+        antes = re.sub(r"\s*WITH\s*$", "", limpio[max(0, abre - 300):abre], flags=re.IGNORECASE)
+        tabla = re.search(
+            rf"\b(?:FROM|JOIN)\s+({referencia})(?:\s+(?:AS\s+)?[A-Za-z_][\w$#]*)?\s*$", antes, re.IGNORECASE,
+        )
+        en_tabla = f" en la tabla {_limpiar_nombre(tabla.group(1))}" if tabla else ""
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "HINT_PLAN_PROHIBIDO",
+            f"Se identificó que se obliga al motor a usar el índice {indice}{en_tabla} (WITH (INDEX)). Se "
+            f"recomienda retirarlo, ya que es el optimizador quien decide qué índice usar según los datos, y "
+            f"si el índice cambia o se elimina, el procedimiento dejará de funcionar.",
+        ))
+    return hallazgos
 
 
 def _validar_hints_bloqueo(texto: str, limpio: str) -> List[Hallazgo]:
@@ -997,6 +1022,7 @@ def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_control_flujo(texto_sql, limpio))
     hallazgos.extend(_validar_hints(texto_sql, limpio))
     hallazgos.extend(_validar_hints_bloqueo(texto_sql, limpio))
+    hallazgos.extend(_validar_indice_forzado(texto_sql, limpio))
     hallazgos.extend(_validar_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_update_from_nolock(texto_sql, limpio))
     hallazgos.extend(_validar_nolock_tablas_pesadas(texto_sql, limpio))
