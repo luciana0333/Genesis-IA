@@ -252,24 +252,83 @@ class GenesisHandler(SimpleHTTPRequestHandler):
         return
 
 
-if __name__ == '__main__':
+def _archivos_del_backend():
+    """Fecha de modificación de server.py y de cada .py de app/ (para recargar al cambiar)."""
+    raiz = Path(__file__).resolve().parent
+    archivos = [raiz / 'server.py', *(raiz / 'app').rglob('*.py')]
+    return {str(ruta): ruta.stat().st_mtime for ruta in archivos if ruta.exists()}
+
+
+def _vigilar_y_recargar():
+    """
+    Ejecuta el servidor en un proceso hijo y lo reinicia solo cada vez que cambia
+    un archivo .py del backend: así basta con recargar la página (Ctrl + F5).
+    Con --sin-recarga el servidor corre directo, sin vigilante.
+    """
+    import subprocess
+    import time
+
+    entorno = {**os.environ, 'GENESIS_SERVIDOR_HIJO': '1'}
+    comando = [sys.executable, str(Path(__file__).resolve())]
+    print('Recarga automática activa: el servidor se reinicia solo al cambiar el código.')
+    hijo = subprocess.Popen(comando, env=entorno)
+    vistos = _archivos_del_backend()
+    try:
+        while True:
+            time.sleep(1)
+            actuales = _archivos_del_backend()
+            if actuales != vistos:
+                vistos = actuales
+                print('Cambios en el código: reiniciando el servidor...')
+                hijo.terminate()
+                hijo.wait()
+                hijo = subprocess.Popen(comando, env=entorno)
+            elif hijo.poll() is not None and hijo.returncode != 0:
+                # El hijo terminó con error (p. ej. puerto ocupado): no se insiste.
+                sys.exit(hijo.returncode)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        if hijo.poll() is None:
+            hijo.terminate()
+            hijo.wait()
+
+
+def _iniciar_servidor():
     # En Windows, SO_REUSEADDR deja que dos servidores escuchen el mismo puerto y
     # el viejo sigue respondiendo en silencio. Sin él, un segundo arranque falla.
     if os.name == 'nt':
         ThreadingHTTPServer.allow_reuse_address = False
-    try:
-        server = ThreadingHTTPServer(('0.0.0.0', 8000), GenesisHandler)
-    except OSError:
-        print('El puerto 8000 ya está en uso: Genesis IA probablemente ya está corriendo.')
+    server = None
+    puerto = int(os.environ.get('GENESIS_PUERTO', '8000'))
+    # Tras una recarga, el puerto puede tardar un instante en liberarse.
+    intentos = 10 if os.environ.get('GENESIS_SERVIDOR_HIJO') else 1
+    for intento in range(intentos):
+        try:
+            server = ThreadingHTTPServer(('0.0.0.0', puerto), GenesisHandler)
+            break
+        except OSError:
+            if intento + 1 < intentos:
+                import time
+                time.sleep(0.3)
+    if server is None:
+        print(f'El puerto {puerto} ya está en uso: Genesis IA probablemente ya está corriendo.')
         print('Cierre el otro servidor (Ctrl + C en su terminal) y vuelva a iniciar este.')
         sys.exit(1)
     if not ortografia.disponible():
         print('AVISO: pyspellchecker no está instalado; no se revisará la ortografía de los diccionarios.')
         print('       Instálelo con: python -m pip install -r requirements.txt')
-    print('Servidor Genesis IA corriendo en http://localhost:8000')
+    print(f'Servidor Genesis IA corriendo en http://localhost:{puerto}')
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
         server.server_close()
+
+
+if __name__ == '__main__':
+    if os.environ.get('GENESIS_SERVIDOR_HIJO') or '--sin-recarga' in sys.argv:
+        _iniciar_servidor()
+    else:
+        _vigilar_y_recargar()

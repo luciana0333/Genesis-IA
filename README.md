@@ -25,6 +25,11 @@ npm --prefix frontend run build
 python server.py
 ```
 
+`python server.py` se reinicia solo cuando cambia un archivo `.py` del backend
+(`server.py` o `app/`), así que basta con recargar la página. Para correrlo sin
+recarga automática: `python server.py --sin-recarga`. El puerto se puede cambiar
+con la variable `GENESIS_PUERTO` (por defecto, 8000).
+
 `requirements.txt` instala `pyspellchecker`, que revisa la ortografía de las
 descripciones del diccionario. Si el corrector marca como error una palabra
 correcta del negocio, agréguela a `app/reglas/vocabulario_tecnico.txt`.
