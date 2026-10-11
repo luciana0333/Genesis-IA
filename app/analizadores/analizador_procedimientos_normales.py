@@ -290,8 +290,8 @@ def _validar_nolock_tablas_pesadas(texto: str, limpio: str) -> List[Hallazgo]:
         hallazgos.append(_hallazgo(
             texto, match.start(2), "TABLA_PESADA_SIN_NOLOCK",
             f"Se identificó que la tabla {tipo} {tabla}, {porque}, se lee sin WITH(NOLOCK). Se recomienda "
-            f"añadirlo, ya que leer estas tablas sin NOLOCK genera bloqueos y esperas para los procesos que "
-            f"registran operaciones (ej.: {tabla} WITH(NOLOCK)).",
+            f"evaluar agregar WITH(NOLOCK) en estas tablas, ya que puede ayudar a agilizar la consulta "
+            f"(ej.: {tabla} WITH(NOLOCK)).",
         ))
     return hallazgos
 
