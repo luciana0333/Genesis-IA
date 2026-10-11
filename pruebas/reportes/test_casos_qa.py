@@ -117,6 +117,22 @@ class TestReportesQA(unittest.TestCase):
         sql = procedimiento("    DECLARE @cNota VARCHAR(50) = 'Pendiente de revisión';\n    SELECT @cNota;")
         self.assertEqual(reglas(sql), [])
 
+    def test_transaccion_con_commit(self):
+        sql = procedimiento("    BEGIN TRANSACTION;\n    SELECT c.cNombre FROM dbo.Cliente c WITH(NOLOCK);\n    COMMIT TRANSACTION;")
+        self.assertEqual(reglas(sql), [("TRANSACCION_EN_REPORTE", 5)])
+
+    def test_transaccion_sin_commit(self):
+        sql = procedimiento("    BEGIN TRAN;\n    SELECT c.cNombre FROM dbo.Cliente c WITH(NOLOCK);")
+        self.assertEqual(reglas(sql), [("TRANSACCION_EN_REPORTE", 5), ("TRANSACCION_SIN_CIERRE", 5)])
+        self.assertEqual(verificar_reporte(sql)[1].severidad.value, "critico")
+
+    def test_rollback_tambien_cierra_y_begin_try_no_es_transaccion(self):
+        sql = procedimiento(
+            "    BEGIN TRY\n        BEGIN TRANSACTION;\n        SELECT 1;\n        COMMIT;\n    END TRY\n"
+            "    BEGIN CATCH\n        ROLLBACK TRANSACTION;\n    END CATCH"
+        )
+        self.assertEqual(reglas(sql), [("TRANSACCION_EN_REPORTE", 6)])
+
     def test_varchar_max_nombra_el_tipo_escrito(self):
         hallazgo = verificar_reporte(procedimiento("    DECLARE @cTexto NVARCHAR(MAX) = N'';\n    SELECT @cTexto;"))[0]
         self.assertIn("@cTexto se declara como NVARCHAR(MAX)", hallazgo.mensaje)

@@ -133,6 +133,24 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "TRANSACCION_EN_REPORTE": ReglaDiccionario(
+        codigo="TRANSACCION_EN_REPORTE",
+        nombre="Transacción en reporte",
+        severidad="alto",
+        descripcion="Un reporte solo consulta datos: no abre transacciones (BEGIN TRANSACTION), "
+                    "ya que mantienen bloqueos hasta el COMMIT.",
+        alcance="reporte",
+        activo=True,
+    ),
+    "TRANSACCION_SIN_CIERRE": ReglaDiccionario(
+        codigo="TRANSACCION_SIN_CIERRE",
+        nombre="Transacción sin COMMIT",
+        severidad="critico",
+        descripcion="Todo BEGIN TRANSACTION necesita su COMMIT (o ROLLBACK); si queda abierta, "
+                    "las tablas siguen bloqueadas.",
+        alcance="reporte",
+        activo=True,
+    ),
     "WAITFOR_DELAY_PROHIBIDO": ReglaDiccionario(
         codigo="WAITFOR_DELAY_PROHIBIDO",
         nombre="WAITFOR prohibido",

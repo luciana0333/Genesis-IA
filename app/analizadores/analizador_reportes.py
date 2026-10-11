@@ -463,6 +463,36 @@ def _validar_control_de_flujo(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+_BEGIN_TRAN = re.compile(r"\bBEGIN\s+TRAN(?:SACTION)?\b", re.IGNORECASE)
+_CIERRE_TRAN = re.compile(r"\b(?:COMMIT|ROLLBACK)(?:\s+(?:TRAN(?:SACTION)?|WORK))?\b", re.IGNORECASE)
+
+
+def _validar_transacciones(texto: str, limpio: str) -> List[Hallazgo]:
+    """
+    Un reporte solo consulta: no abre transacciones. Y toda transacción abierta
+    necesita su COMMIT (o ROLLBACK), si no, sus bloqueos no se liberan.
+    """
+    hallazgos = []
+    inicios = list(_BEGIN_TRAN.finditer(limpio))
+    for match in inicios:
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "TRANSACCION_EN_REPORTE",
+            "Se identificó un BEGIN TRANSACTION en el reporte. Se recomienda retirar la transacción, ya que "
+            "un reporte solo consulta datos y la transacción mantiene los bloqueos hasta el COMMIT, "
+            "deteniendo a los procesos que están registrando operaciones.",
+        ))
+    cierres = len(_CIERRE_TRAN.findall(limpio))
+    # Los BEGIN que sobran (los últimos) son los que quedan sin cerrar.
+    for match in inicios[cierres:] if cierres < len(inicios) else []:
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "TRANSACCION_SIN_CIERRE",
+            "Se identificó un BEGIN TRANSACTION sin su COMMIT o ROLLBACK. Se recomienda cerrar la "
+            "transacción con COMMIT (y ROLLBACK si ocurre un error), ya que una transacción abierta deja "
+            "las tablas bloqueadas para los demás procesos.",
+        ))
+    return hallazgos
+
+
 # Acción estándar pegada a la finalidad sin "_": SelEjecucionesDetalle, ConsultarDatos.
 _ACCION_PEGADA = re.compile(
     r"(Sel|Upd|Ins|Del|Consultar|Actualizar|Insertar|Eliminar|Select|Update|Insert|Delete)([A-Z]\w*)$"
@@ -700,6 +730,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_sintaxis_prohibida(texto_sql, limpio))
     hallazgos.extend(_validar_varchar_max(texto_sql, limpio))
     hallazgos.extend(_validar_control_de_flujo(texto_sql, limpio))
+    hallazgos.extend(_validar_transacciones(texto_sql, limpio))
     hallazgos.extend(_validar_esquema_procedimiento(texto_sql, limpio))
     hallazgos.extend(_validar_accion_del_nombre(texto_sql, limpio))
     hallazgos.extend(_validar_esquema_entre_bases(texto_sql, limpio))
