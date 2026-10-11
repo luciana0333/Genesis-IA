@@ -346,13 +346,13 @@ def _validar_temporales(texto: str, limpio: str) -> List[Hallazgo]:
     for match in patron.finditer(limpio):
         nombre = match.group(2)
         if _es_temporal(nombre) and _tiene_nolock_despues(limpio, match.end()):
+            tipo_temporal = "la variable de tabla" if nombre.startswith("@") else "la tabla temporal"
             hallazgos.append(_hallazgo(
                 texto,
                 match.start(2),
                 "NOLOCK_EN_TABLA_TEMPORAL",
-                f"Se identificó que {'la variable de tabla' if nombre.startswith('@') else 'la tabla temporal'} "
-                f"{nombre} usa WITH(NOLOCK). Se recomienda retirarlo, ya que la tabla temporal solo la usa este "
-                f"procedimiento y no genera bloqueos con otros procesos.",
+                f"Se ha identificado que {tipo_temporal} {nombre} usa WITH(NOLOCK). Retirar el WITH(NOLOCK) de "
+                f"{tipo_temporal}, ya que no se debe emplear en tablas temporales.",
             ))
     return hallazgos
 
