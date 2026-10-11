@@ -419,9 +419,8 @@ def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
             declaraciones[match.group(1)] = match.start(1)
     for variable, posicion in declaraciones.items():
         if not re.search(rf"(?<![\w]){re.escape(variable)}\b", limpio[posicion + len(variable):], re.IGNORECASE):
-            hallazgos.append(_hallazgo(texto, posicion, "VARIABLE_DECLARADA_SIN_USO", f"Se identificó que la variable {variable} se declara pero no se usa en ninguna parte del "
-                f"procedimiento. Se recomienda eliminar su declaración, ya que solo ocupa espacio y dificulta la "
-                f"lectura del código."))
+            hallazgos.append(_hallazgo(texto, posicion, "VARIABLE_DECLARADA_SIN_USO", f"Se identificó la declaración de la variable {variable}. Se recomienda su eliminación, ya que "
+                f"no es usada dentro del procedimiento."))
     return hallazgos
 
 
