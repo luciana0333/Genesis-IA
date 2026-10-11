@@ -282,6 +282,9 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
     # Columnas de texto descriptivo (descripción, dirección...): se busca indexar lo que sirve.
     for columna in indice.claves + indice.incluidas:
         que = _texto_descriptivo(columna)
+        tipo_columna = tabla_script.columnas.get(columna.lower(), "") if tabla_script else ""
+        if columna in indice.claves and _TIPOS_NO_INDEXABLES.match(tipo_columna or "-"):
+            continue  # ya se marca como columna no indexable (crítico)
         if que:
             donde = "como clave" if columna in indice.claves else "en el INCLUDE"
             hallazgos.append(_hallazgo(
