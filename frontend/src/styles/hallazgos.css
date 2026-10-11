@@ -207,8 +207,12 @@
   flex-direction: column;
   padding: 22px 18px 18px;
   border-radius: 10px;
-  /* Rojo de marca plano, el mismo del logo y del botón principal. */
-  background: var(--red-main);
+  /* Rojo de marca un poco más oscuro y translúcido sobre la foto financiera
+     del encabezado (gráficos y cifras), para un aire más ejecutivo. */
+  background:
+    linear-gradient(rgba(176, 6, 20, 0.88), rgba(176, 6, 20, 0.88)),
+    url('../assets/fondo.jpg') 72% center / cover no-repeat;
+  background-color: #b00614;
   color: #ffffff;
   box-shadow: 0 18px 36px -18px rgba(120, 8, 24, 0.55);
 }
@@ -302,11 +306,11 @@
 .tablero-filtro.active,
 .tablero-filtro.active:hover {
   background: #ffffff;
-  color: var(--red-main);
+  color: #b00614;
 }
 
 .tablero-filtro.active i {
-  background: var(--red-main);
+  background: #b00614;
 }
 
 .tablero-filtro.active {
