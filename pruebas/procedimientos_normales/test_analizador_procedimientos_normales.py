@@ -96,6 +96,32 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             {"CATALOGO_SISTEMA_PROHIBIDO", "SQL_DINAMICO_PROHIBIDO", "VARCHAR_MAX_PROHIBIDO"},
         )
 
+    def test_texto_entre_comillas_no_se_revisa_como_codigo(self):
+        sql = ("SELECT 'Revisar SELECT * FROM sys.objects' AS cNota, 'COLLATE Modern_Spanish_CI_AS' AS cOtra,\n"
+               "       c.cNombre FROM dbo.Cliente c WHERE c.nClienteId = 1;")
+        self.assertEqual([h.regla for h in verificar_procedimiento_normal(sql)], [])
+
+    def test_codigo_comentado_se_sigue_detectando(self):
+        sql = "-- SELECT * FROM dbo.Cliente\n/* UPDATE dbo.Cliente SET a = 1 */\nSELECT 'nota' AS cNota;"
+        hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "CODIGO_SQL_COMENTADO"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertIn("2 observaciones", hallazgos[0].mensaje)
+
+    def test_sql_dinamico_si_se_revisa(self):
+        sql = "DECLARE @s NVARCHAR(400) = N'SELECT * FROM dbo.Cliente WITH (UPDLOCK)';\nEXEC sp_executesql @s;"
+        reglas = {h.regla for h in verificar_procedimiento_normal(sql)}
+        self.assertTrue({"SELECT_ESTRELLA_PROHIBIDO", "HINT_BLOQUEO_PROHIBIDO", "SQL_DINAMICO_PROHIBIDO"} <= reglas)
+
+    def test_mensajes_que_muestran_textos(self):
+        casos = {
+            "SELECT 1 FROM dbo.Cliente c WHERE c.cEstado IN ('A');": "IN ('A')",
+            "WAITFOR DELAY '00:00:05';": "WAITFOR DELAY '00:00:05'",
+            "SELECT 1 FROM dbo.Cliente c WHERE LEFT(c.cCodigo, 3) = 'ABC';": "LIKE 'ABC%'",
+        }
+        for sql, esperado in casos.items():
+            with self.subTest(sql=sql):
+                self.assertIn(esperado, verificar_procedimiento_normal(sql)[0].mensaje)
+
     def test_indice_forzado(self):
         sql = (
             "SELECT V.nVentaId, C.cNombre\n    FROM dbo.Venta AS V\n"

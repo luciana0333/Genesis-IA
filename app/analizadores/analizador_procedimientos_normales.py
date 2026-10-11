@@ -55,8 +55,57 @@ def _hallazgo(texto: str, posicion: int, regla: str, mensaje: str) -> Hallazgo:
     )
 
 
+# Un texto es SQL dinámico si se asigna a una variable, se concatena o se pasa
+# a EXEC / sp_executesql, y además contiene una consulta: ese sí se revisa.
+_ANTES_DE_SQL_DINAMICO = re.compile(r"(?:=|\+|\bEXEC(?:UTE)?\s*\(?|\bsp_executesql)\s*N?$", re.IGNORECASE)
+_CONTENIDO_SQL = re.compile(r"\b(?:SELECT|FROM|JOIN|INSERT|UPDATE|DELETE|MERGE)\b", re.IGNORECASE)
+
+
 def _quitar_comentarios(texto: str) -> str:
-    texto = re.sub(r"/\*.*?\*/", lambda m: " " * len(m.group(0)), texto, flags=re.DOTALL)
+    """
+    Reemplaza por espacios los comentarios y el contenido de los textos ('...'),
+    conservando las comillas, los saltos de línea y las posiciones. Así un
+    mensaje como 'SELECT * FROM sys.objects' no se revisa como código. El SQL
+    dinámico (N'SELECT ...' asignado o ejecutado) sí se conserva: es código.
+    Se recorre una sola vez para que un '--' dentro de un texto no se tome
+    como comentario. (El código comentado se revisa aparte, sobre el original.)
+    """
+    salida = list(texto)
+    i, n = 0, len(texto)
+    while i < n:
+        if texto.startswith("--", i):
+            fin = texto.find("\n", i)
+            fin = n if fin < 0 else fin
+            salida[i:fin] = " " * (fin - i)
+            i = fin
+        elif texto.startswith("/*", i):
+            fin = texto.find("*/", i + 2)
+            fin = n if fin < 0 else fin + 2
+            salida[i:fin] = [c if c == "\n" else " " for c in texto[i:fin]]
+            i = fin
+        elif texto[i] == "'":
+            j = i + 1
+            while j < n:
+                if texto[j] == "'":
+                    if texto.startswith("''", j):
+                        j += 2
+                        continue
+                    break
+                j += 1
+            contenido = texto[i + 1:j]
+            es_sql = (_ANTES_DE_SQL_DINAMICO.search(texto[max(0, i - 40):i])
+                      and _CONTENIDO_SQL.search(contenido))
+            if not es_sql:
+                salida[i + 1:j] = [c if c == "\n" else " " for c in contenido]
+            i = j + 1
+        else:
+            i += 1
+    return "".join(salida)
+
+
+def _quitar_solo_comentarios(texto: str) -> str:
+    """Quita los comentarios pero conserva el contenido de los textos."""
+    texto = re.sub(r"/\*.*?\*/", lambda m: re.sub(r"[^\n]", " ", m.group(0)), texto, flags=re.DOTALL)
     return re.sub(r"--[^\r\n]*", lambda m: " " * len(m.group(0)), texto)
 
 
@@ -835,7 +884,9 @@ def _validar_in_un_valor(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     patron = re.compile(r"([\w.\[\]@#]+)\s+(NOT\s+)?IN\s*\(\s*([^,()]+?)\s*\)", re.IGNORECASE)
     for match in patron.finditer(limpio):
-        columna, negado, valor = match.group(1), bool(match.group(2)), match.group(3)
+        columna, negado = match.group(1), bool(match.group(2))
+        # El valor se toma del código original: en "limpio" el contenido de los textos va en blanco.
+        valor = texto[match.start(3):match.end(3)]
         if re.match(r"SELECT\b", valor, re.IGNORECASE):
             continue  # IN (SELECT ...) es una subconsulta, no una lista de valores
         operador_in = "NOT IN" if negado else "IN"
@@ -1017,6 +1068,8 @@ def _validar_tabla_repetida(texto: str, limpio: str) -> List[Hallazgo]:
 def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     """Aplica exclusivamente las reglas de procedimientos normales."""
     limpio = _quitar_comentarios(texto_sql)
+    # Igual que "limpio", pero con el contenido de los textos (para los mensajes que lo muestran).
+    con_textos = _quitar_solo_comentarios(texto_sql)
     hallazgos: List[Hallazgo] = []
     hallazgos.extend(_validar_nombre_procedimiento(texto_sql, limpio))
     hallazgos.extend(_validar_control_flujo(texto_sql, limpio))
@@ -1031,13 +1084,13 @@ def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_sentencias(texto_sql, limpio))
     hallazgos.extend(_validar_sintaxis_prohibida(texto_sql, limpio))
     hallazgos.extend(_validar_varchar_max(texto_sql, limpio))
-    hallazgos.extend(_validar_waitfor(texto_sql, limpio))
+    hallazgos.extend(_validar_waitfor(texto_sql, con_textos))
     hallazgos.extend(_validar_raiserror(texto_sql, limpio))
     hallazgos.extend(_validar_transacciones(texto_sql, limpio))
     hallazgos.extend(_validar_envio_correo(texto_sql, limpio))
     hallazgos.extend(_validar_in_un_valor(texto_sql, limpio))
-    hallazgos.extend(_validar_left_como_like(texto_sql, limpio))
-    hallazgos.extend(_validar_replace_anidado(texto_sql, limpio))
+    hallazgos.extend(_validar_left_como_like(texto_sql, con_textos))
+    hallazgos.extend(_validar_replace_anidado(texto_sql, con_textos))
     hallazgos.extend(_validar_esquema_entre_bases(texto_sql, limpio))
     hallazgos.extend(_validar_tabla_repetida(texto_sql, limpio))
     hallazgos.extend(_validar_collate_temporales(texto_sql, limpio))
