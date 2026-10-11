@@ -38,7 +38,8 @@
   gap: 28px;
   padding: 36px 40px 40px;
   border-top: 1px solid var(--border);
-  background: var(--bg-input);
+  /* Blanco como el resto del panel: las tarjetas de resultados se separan por su sombra. */
+  background: var(--bg-card);
 }
 
 /* ───────── ENCABEZADO DE SECCIÓN ─────────
