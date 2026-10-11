@@ -153,7 +153,8 @@ REGLAS_TABLAS = {
     ),
     "INDICE_COLUMNA_DESCRIPTIVA": _regla(
         "INDICE_COLUMNA_DESCRIPTIVA", "Columna descriptiva en el índice", "medio",
-        "Se evita indexar texto descriptivo (descripción, dirección, observación, detalle...): se indexan "
+        "Se evita indexar texto descriptivo (descripción, dirección, observación, opinión, comentario...), "
+        "con o sin prefijo: se indexan "
         "columnas que sirven para buscar o filtrar (códigos, fechas, estados).",
     ),
     "INDICE_DUPLICADO": _regla(

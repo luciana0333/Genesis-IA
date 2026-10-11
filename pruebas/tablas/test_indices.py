@@ -137,6 +137,18 @@ class TestIndices(unittest.TestCase):
         util = "CREATE INDEX IXN_PERSONA_nEstado_dRegistro ON DBO.PERSONA (nEstado, dRegistro);"
         self.assertEqual(reglas(util, persona), [])
 
+    def test_columnas_descriptivas_sin_prefijo_en_tablas_antiguas(self):
+        for columna, que in (("copinion", "opinión"), ("opinion", "opinión"), ("CPERSOPINION", "opinión"),
+                             ("cComentarios", "comentario"), ("cTextoLibre", "texto"), ("Address", "dirección")):
+            with self.subTest(columna=columna):
+                indices = f"CREATE NONCLUSTERED INDEX IXN_Movimiento_{columna}\nON dbo.Movimiento ({columna} DESC);"
+                hallazgo = next(h for h in verificar_indices(indices, "") if h.regla == "INDICE_COLUMNA_DESCRIPTIVA")
+                self.assertIn(f"texto descriptivo ({que})", hallazgo.mensaje)
+        for columna in ("nPersonaId", "cCodPersona", "dFecha", "nEstado", "cContexto"):
+            with self.subTest(columna=columna):
+                indices = f"CREATE NONCLUSTERED INDEX IXN_Movimiento_{columna} ON dbo.Movimiento ({columna});"
+                self.assertNotIn("INDICE_COLUMNA_DESCRIPTIVA", {h.regla for h in verificar_indices(indices, "")})
+
     def test_ningun_indice_puede_ser_clustered(self):
         # La PK siempre es CLUSTERED: aunque el script la declare NONCLUSTERED o no la tenga,
         # un índice CLUSTERED adicional se pide como NONCLUSTERED.

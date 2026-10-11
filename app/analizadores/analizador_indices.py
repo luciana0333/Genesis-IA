@@ -32,17 +32,28 @@ _REFERENCIA = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
 _TIPOS_NO_INDEXABLES = re.compile(r"^(?:N?VARCHAR|VARBINARY)\s*\(\s*MAX\s*\)$|^(?:N?TEXT|IMAGE|XML)$", re.IGNORECASE)
 # Columnas de texto descriptivo: no sirven para buscar ni filtrar y vuelven pesado el
 # índice. Se reconocen por una parte de su nombre (cDescripcion, CPERSDIRECCION...).
+# Se busca la palabra dentro del nombre, así se reconocen también columnas de tablas
+# antiguas sin el prefijo del estándar (opinion, copinion, CPERSOPINION...).
 _COLUMNAS_DESCRIPTIVAS = {
-    "descripcion": "descripción", "direccion": "dirección", "observacion": "observación",
-    "comentario": "comentario", "detalle": "detalle", "glosa": "glosa", "mensaje": "mensaje",
-    "referencia": "referencia", "motivo": "motivo",
+    "descripcion": "descripción", "direccion": "dirección", "domicilio": "domicilio",
+    "observacion": "observación", "comentario": "comentario", "opinion": "opinión",
+    "detalle": "detalle", "glosa": "glosa", "mensaje": "mensaje", "referencia": "referencia",
+    "motivo": "motivo", "sugerencia": "sugerencia", "justificacion": "justificación",
+    "explicacion": "explicación", "aclaracion": "aclaración", "anotacion": "anotación",
+    "resena": "reseña", "reseña": "reseña", "reclamo": "reclamo", "queja": "queja",
+    "narrativa": "narrativa", "resumen": "resumen", "contenido": "contenido", "respuesta": "respuesta",
+    "(?<!con)texto": "texto",  # no dentro de "contexto"
+    # Nombres en inglés de tablas heredadas.
+    "description": "descripción", "comment": "comentario", "address": "dirección",
+    "remark": "observación", "notes": "notas",
 }
 
 
 def _texto_descriptivo(columna: str) -> str:
     """Qué texto descriptivo guarda la columna según su nombre ('' si no lo es)."""
     nombre = columna.lower()
-    return next((descripcion for palabra, descripcion in _COLUMNAS_DESCRIPTIVAS.items() if palabra in nombre), "")
+    return next((descripcion for palabra, descripcion in _COLUMNAS_DESCRIPTIVAS.items()
+                 if re.search(palabra, nombre)), "")
 
 
 @dataclass
