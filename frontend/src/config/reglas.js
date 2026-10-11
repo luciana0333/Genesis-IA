@@ -118,6 +118,7 @@ export const NOMBRES_REGLAS = {
   INDICE_COLUMNA_NO_INDEXABLE: 'Columna no indexable',
   INDICE_CLUSTERED_CON_PK: 'Índice clúster con PK clúster',
   INDICE_DUPLICADO: 'Índice duplicado',
+  INDICE_COLUMNA_DESCRIPTIVA: 'Columna descriptiva en el índice',
   COLLATE_DATABASE_DEFAULT: 'COLLATE DATABASE_DEFAULT',
   COLLATE_DISTINTO_AL_ESTANDAR: 'COLLATE distinto al de la empresa',
 };

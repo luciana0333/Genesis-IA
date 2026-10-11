@@ -30,6 +30,19 @@ from app.reglas.reglas_tablas import REGLAS_TABLAS
 _IDENTIFICADOR = r"(?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)"
 _REFERENCIA = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
 _TIPOS_NO_INDEXABLES = re.compile(r"^(?:N?VARCHAR|VARBINARY)\s*\(\s*MAX\s*\)$|^(?:N?TEXT|IMAGE|XML)$", re.IGNORECASE)
+# Columnas de texto descriptivo: no sirven para buscar ni filtrar y vuelven pesado el
+# índice. Se reconocen por una parte de su nombre (cDescripcion, CPERSDIRECCION...).
+_COLUMNAS_DESCRIPTIVAS = {
+    "descripcion": "descripción", "direccion": "dirección", "observacion": "observación",
+    "comentario": "comentario", "detalle": "detalle", "glosa": "glosa", "mensaje": "mensaje",
+    "referencia": "referencia", "motivo": "motivo",
+}
+
+
+def _texto_descriptivo(columna: str) -> str:
+    """Qué texto descriptivo guarda la columna según su nombre ('' si no lo es)."""
+    nombre = columna.lower()
+    return next((descripcion for palabra, descripcion in _COLUMNAS_DESCRIPTIVAS.items() if palabra in nombre), "")
 
 
 @dataclass
@@ -265,6 +278,19 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
             f"esquema. Se recomienda añadir el esquema; si es dbo, definirlo explícitamente, ya que así se "
             f"evita crear el índice en una tabla equivocada (ej.: ON dbo.{tabla}).",
         ))
+
+    # Columnas de texto descriptivo (descripción, dirección...): se busca indexar lo que sirve.
+    for columna in indice.claves + indice.incluidas:
+        que = _texto_descriptivo(columna)
+        if que:
+            donde = "como clave" if columna in indice.claves else "en el INCLUDE"
+            hallazgos.append(_hallazgo(
+                texto, indice.posicion, "INDICE_COLUMNA_DESCRIPTIVA",
+                f"Se identificó que el índice {indice.nombre} usa {donde} la columna {columna}, que guarda "
+                f"texto descriptivo ({que}). Se recomienda no incluirla e indexar columnas que se usan para "
+                f"buscar o filtrar (códigos, fechas, estados), ya que el texto largo vuelve pesado el índice "
+                f"y no ayuda a las búsquedas.",
+            ))
 
     # La clave primaria siempre es el índice clúster (identidad): ningún otro índice
     # puede serlo. No se prohíbe tajantemente: se pide definirlo NONCLUSTERED.

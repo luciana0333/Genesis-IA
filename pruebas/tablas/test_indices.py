@@ -113,6 +113,17 @@ class TestIndices(unittest.TestCase):
         self.assertIn("definirlo como UNIQUE NONCLUSTERED", hallazgo.mensaje)
         self.assertIn("(ej.: IXUN_Cliente_cCodPersona)", hallazgo.mensaje)
 
+    def test_columnas_descriptivas_en_el_indice(self):
+        persona = ("CREATE TABLE DBO.PERSONA (CPERSCOD VARCHAR(20) NOT NULL, CPERSDIRECCION VARCHAR(200) NOT NULL, "
+                   "cDescripcion VARCHAR(300) NOT NULL, nEstado INT NOT NULL, dRegistro DATETIME NOT NULL);")
+        clave = "CREATE INDEX IXN_PERSONA_CPERSCOD_CPERSDIRECCION ON DBO.PERSONA (CPERSCOD, CPERSDIRECCION);"
+        self.assertEqual(reglas(clave, persona), [("INDICE_COLUMNA_DESCRIPTIVA", 1)])
+        self.assertIn("como clave la columna CPERSDIRECCION, que guarda texto descriptivo (dirección)", mensaje(clave, persona))
+        incluida = "CREATE INDEX IXN_PERSONA_nEstado_INC01 ON DBO.PERSONA (nEstado) INCLUDE (cDescripcion);"
+        self.assertIn("en el INCLUDE la columna cDescripcion", mensaje(incluida, persona))
+        util = "CREATE INDEX IXN_PERSONA_nEstado_dRegistro ON DBO.PERSONA (nEstado, dRegistro);"
+        self.assertEqual(reglas(util, persona), [])
+
     def test_ningun_indice_puede_ser_clustered(self):
         # La PK siempre es CLUSTERED: aunque el script la declare NONCLUSTERED o no la tenga,
         # un índice CLUSTERED adicional se pide como NONCLUSTERED.

@@ -146,6 +146,11 @@ REGLAS_TABLAS = {
         "INDICE_CLUSTERED_CON_PK", "Índice clúster con PK clúster", "medio",
         "La clave primaria identidad siempre es el índice clúster: los demás índices se definen NONCLUSTERED.",
     ),
+    "INDICE_COLUMNA_DESCRIPTIVA": _regla(
+        "INDICE_COLUMNA_DESCRIPTIVA", "Columna descriptiva en el índice", "medio",
+        "Se evita indexar texto descriptivo (descripción, dirección, observación, detalle...): se indexan "
+        "columnas que sirven para buscar o filtrar (códigos, fechas, estados).",
+    ),
     "INDICE_DUPLICADO": _regla(
         "INDICE_DUPLICADO", "Índice duplicado", "medio",
         "No debe haber dos índices con las mismas columnas clave (ni uno igual a la clave primaria).",
