@@ -61,6 +61,15 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "TABLA_PESADA_SIN_NOLOCK": ReglaDiccionario(
+        codigo="TABLA_PESADA_SIN_NOLOCK",
+        nombre="Tabla de movimientos o constantes sin NOLOCK",
+        severidad="medio",
+        descripcion="El WITH(NOLOCK) es opcional en las tablas físicas, pero se recomienda al leer tablas de "
+                    "movimientos (Mov) o de constantes (Constante).",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "TIPO_DISTINTO_ENTRE_TEMPORALES": ReglaDiccionario(
         codigo="TIPO_DISTINTO_ENTRE_TEMPORALES",
         nombre="Misma columna con distinto tipo",

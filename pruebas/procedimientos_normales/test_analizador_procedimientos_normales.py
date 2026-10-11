@@ -96,6 +96,28 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             {"CATALOGO_SISTEMA_PROHIBIDO", "SQL_DINAMICO_PROHIBIDO", "VARCHAR_MAX_PROHIBIDO"},
         )
 
+    def test_nolock_recomendado_en_tablas_de_movimientos_y_constantes(self):
+        sql = "SELECT m.nMonto FROM dbo.CuentaMov m\nJOIN dbo.Constante k ON k.nId = m.nTipo\nJOIN dbo.MovimientoCaja c ON c.nId = m.nId;"
+        hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "TABLA_PESADA_SIN_NOLOCK")
+        self.assertEqual(hallazgo.severidad.value, "medio")
+        for texto in ("tabla de movimientos dbo.CuentaMov, que es pesada",
+                      "tabla de constantes dbo.Constante, que se consulta en casi todos los procesos",
+                      "tabla de movimientos dbo.MovimientoCaja"):
+            self.assertIn(texto, hallazgo.mensaje)
+
+    def test_nolock_opcional_en_las_demas_tablas(self):
+        casos = (
+            "SELECT c.n FROM dbo.Cliente c;",  # tabla física común: NOLOCK opcional
+            "SELECT 1 FROM dbo.ClienteMovil a JOIN dbo.Removedor b ON 1 = 1;",  # Movil no es Mov
+            "SELECT m.n FROM dbo.CuentaMov m WITH(NOLOCK) JOIN dbo.Constante k (NOLOCK) ON k.n = m.n;",
+            "UPDATE m SET m.nEstado = 1 FROM dbo.CuentaMov m WHERE m.nId = 1;",  # la tabla que se actualiza
+            "DELETE FROM dbo.CuentaMov WHERE nId = 1;",
+            "SELECT 1 FROM #Mov m;",
+        )
+        for sql in casos:
+            with self.subTest(sql=sql):
+                self.assertNotIn("TABLA_PESADA_SIN_NOLOCK", {h.regla for h in verificar_procedimiento_normal(sql)})
+
     def test_misma_columna_con_distinto_tipo_en_temporales(self):
         collate = "COLLATE SQL_Latin1_General_CP1_CI_AS"
         sql = (

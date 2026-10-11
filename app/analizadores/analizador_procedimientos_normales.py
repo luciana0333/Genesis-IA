@@ -168,6 +168,57 @@ def _tiene_nolock_despues(texto: str, posicion: int) -> bool:
     ))
 
 
+# Palabras del nombre que indican una tabla de movimientos (pesada) o de constantes.
+_PALABRAS_MOVIMIENTOS = {"mov", "movs", "movimiento", "movimientos"}
+_PALABRAS_CONSTANTES = {"constante", "constantes"}
+
+
+def _palabras_del_nombre(nombre: str) -> List[str]:
+    """Palabras de un nombre de tabla: separa por _ y por mayúsculas (CuentaMov → cuenta, mov)."""
+    tabla = nombre.split(".")[-1].strip("[]")
+    return [p.lower() for parte in tabla.split("_") for p in re.findall(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+", parte)]
+
+
+def _validar_nolock_tablas_pesadas(texto: str, limpio: str) -> List[Hallazgo]:
+    """
+    En los procedimientos de negocio el WITH(NOLOCK) es opcional, salvo al leer
+    tablas de movimientos (pesadas) o de constantes: ahí se recomienda.
+    No aplica a la tabla que se modifica en un UPDATE o DELETE.
+    """
+    hallazgos = []
+    referencia = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
+    for match in re.finditer(rf"\b(FROM|JOIN)\s+({referencia})", limpio, re.IGNORECASE):
+        if re.match(r"\s*\(", limpio[match.end():]):  # función de tabla, no una tabla
+            continue
+        tabla = _limpiar_nombre(match.group(2))
+        if _es_temporal(tabla) or _tiene_nolock_despues(limpio, match.end()):
+            continue
+        palabras = set(_palabras_del_nombre(tabla))
+        if palabras & _PALABRAS_MOVIMIENTOS:
+            tipo = "de movimientos"
+            porque = "que es pesada"
+        elif palabras & _PALABRAS_CONSTANTES:
+            tipo = "de constantes"
+            porque = "que se consulta en casi todos los procesos"
+        else:
+            continue
+        # La tabla que se modifica (UPDATE/DELETE ... FROM) no lleva NOLOCK.
+        sentencia = _sentencia_de(limpio, match.start())
+        objetivo = re.search(rf"\b(?:UPDATE|DELETE(?:\s+FROM)?)\s+({referencia})", sentencia, re.IGNORECASE)
+        if objetivo:
+            alias = re.match(rf"\s+(?:AS\s+)?([A-Za-z_][\w$#]*)", limpio[match.end():])
+            nombre_objetivo = _limpiar_nombre(objetivo.group(1)).lower()
+            if nombre_objetivo in {tabla.lower(), (alias.group(1).lower() if alias else "")}:
+                continue
+        hallazgos.append(_hallazgo(
+            texto, match.start(2), "TABLA_PESADA_SIN_NOLOCK",
+            f"Se identificó que la tabla {tipo} {tabla}, {porque}, se lee sin WITH(NOLOCK). Se recomienda "
+            f"añadirlo, ya que leer estas tablas sin NOLOCK genera bloqueos y esperas para los procesos que "
+            f"registran operaciones (ej.: {tabla} WITH(NOLOCK)).",
+        ))
+    return hallazgos
+
+
 def _validar_update_from_nolock(texto: str, limpio: str) -> List[Hallazgo]:
     """En un UPDATE, la tabla física que se actualiza no debe llevar WITH(NOLOCK).
 
@@ -917,6 +968,7 @@ def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_hints_bloqueo(texto_sql, limpio))
     hallazgos.extend(_validar_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_update_from_nolock(texto_sql, limpio))
+    hallazgos.extend(_validar_nolock_tablas_pesadas(texto_sql, limpio))
     hallazgos.extend(_validar_order_by_numerico(texto_sql, limpio))
     hallazgos.extend(_validar_cast_en_join(texto_sql, limpio))
     hallazgos.extend(_validar_sentencias(texto_sql, limpio))

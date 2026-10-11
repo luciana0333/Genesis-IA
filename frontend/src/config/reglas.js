@@ -110,6 +110,7 @@ export const NOMBRES_REGLAS = {
   VARBINARY_DOCUMENTO_IDENTIFICADO: 'VARBINARY identificado',
   DOCUMENTO_GUARDADO_EN_BD: 'Documento guardado en la base de datos',
   TIPO_DISTINTO_ENTRE_TEMPORALES: 'Misma columna con distinto tipo',
+  TABLA_PESADA_SIN_NOLOCK: 'Tabla de movimientos o constantes sin NOLOCK',
 };
 
 export function nombreRegla(codigo) {
