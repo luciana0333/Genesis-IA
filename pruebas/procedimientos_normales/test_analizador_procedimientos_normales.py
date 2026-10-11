@@ -209,9 +209,9 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         sql = "SELECT m.nMonto FROM dbo.CuentaMov m\nJOIN dbo.Constante k ON k.nId = m.nTipo\nJOIN dbo.MovimientoCaja c ON c.nId = m.nId;"
         hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "TABLA_PESADA_SIN_NOLOCK")
         self.assertEqual(hallazgo.severidad.value, "medio")
-        for texto in ("tabla de movimientos dbo.CuentaMov, que es pesada",
-                      "tabla de constantes dbo.Constante, que se consulta en casi todos los procesos",
-                      "tabla de movimientos dbo.MovimientoCaja"):
+        for texto in ("tabla de movimientos (dbo.CuentaMov), de gran volumen, se consulta sin WITH(NOLOCK)",
+                      "tabla de constantes (dbo.Constante), de uso frecuente",
+                      "tabla de movimientos (dbo.MovimientoCaja)"):
             self.assertIn(texto, hallazgo.mensaje)
 
     def test_nolock_opcional_en_las_demas_tablas(self):

@@ -273,10 +273,10 @@ def _validar_nolock_tablas_pesadas(texto: str, limpio: str) -> List[Hallazgo]:
         palabras = set(_palabras_del_nombre(tabla))
         if palabras & _PALABRAS_MOVIMIENTOS:
             tipo = "de movimientos"
-            porque = "que es pesada"
+            porque = "de gran volumen"
         elif palabras & _PALABRAS_CONSTANTES:
             tipo = "de constantes"
-            porque = "que se consulta en casi todos los procesos"
+            porque = "de uso frecuente"
         else:
             continue
         # La tabla que se modifica (UPDATE/DELETE ... FROM) no lleva NOLOCK.
@@ -289,7 +289,7 @@ def _validar_nolock_tablas_pesadas(texto: str, limpio: str) -> List[Hallazgo]:
                 continue
         hallazgos.append(_hallazgo(
             texto, match.start(2), "TABLA_PESADA_SIN_NOLOCK",
-            f"Se identificó que la tabla {tipo} {tabla}, {porque}, se lee sin WITH(NOLOCK). Se recomienda "
+            f"Se identificó que la tabla {tipo} ({tabla}), {porque}, se consulta sin WITH(NOLOCK). Se recomienda "
             f"evaluar agregar WITH(NOLOCK) en estas tablas, ya que puede ayudar a agilizar la consulta "
             f"(ej.: {tabla} WITH(NOLOCK)).",
         ))
