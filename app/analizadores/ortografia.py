@@ -109,11 +109,18 @@ def _variantes_de_raiz(raiz: str) -> Set[str]:
     return variantes
 
 
+_PREFIJOS = ("des", "re", "in", "pre", "sub", "auto")
+
+
 def es_palabra_valida(palabra: str) -> bool:
     validas = _palabras_validas()
     n = normalizar(palabra)
     if n in validas:
         return True
+    # Prefijos comunes: si «activa» es válida, «desactiva» también.
+    for prefijo in _PREFIJOS:
+        if n.startswith(prefijo) and len(n) - len(prefijo) >= 4 and es_palabra_valida(n[len(prefijo):]):
+            return True
     for terminacion, reemplazos in _TERMINACIONES:
         if n.endswith(terminacion) and len(n) - len(terminacion) >= 2:
             for raiz in _variantes_de_raiz(n[: -len(terminacion)]):
@@ -132,10 +139,12 @@ def _parece_identificador(palabra: str) -> bool:
     return bool(_IDENTIFICADOR_CAMEL.match(palabra) or _IDENTIFICADOR_PASCAL.match(palabra))
 
 
-def _debe_ignorarse(palabra: str, nombres_objeto: Set[str]) -> bool:
+def _debe_ignorarse(palabra: str, nombres_objeto: Set[str], texto_en_mayusculas: bool = False) -> bool:
     if len(palabra) < _LONGITUD_MINIMA:
         return True
-    if palabra.isupper():  # siglas: RUC, DNI, SQL
+    # Siglas (RUC, DNI, SQL). Si la descripción está escrita en mayúsculas, solo se toman
+    # como siglas las palabras cortas: las demás se revisan (CONSULTA LA ROJSH DEL CLIENTE).
+    if palabra.isupper() and (not texto_en_mayusculas or len(palabra) <= 3):
         return True
     if _parece_identificador(palabra):
         return True
@@ -161,6 +170,31 @@ def _distancia(a: str, b: str) -> int:
     return d[len(a)][len(b)]
 
 
+_LETRAS = "abcdefghijklmnopqrstuvwxyzáéíóúñü"
+
+
+def _a_una_letra(palabra: str) -> Set[str]:
+    """Todas las variantes a un cambio de letra: quitar, cambiar, agregar o intercambiar vecinas."""
+    partes = [(palabra[:i], palabra[i:]) for i in range(len(palabra) + 1)]
+    quitar = {a + b[1:] for a, b in partes if b}
+    intercambiar = {a + b[1] + b[0] + b[2:] for a, b in partes if len(b) > 1}
+    cambiar = {a + letra + b[1:] for a, b in partes if b for letra in _LETRAS}
+    agregar = {a + letra + b for a, b in partes for letra in _LETRAS}
+    return quitar | intercambiar | cambiar | agregar
+
+
+# Letras que se confunden al escribir en español (desactiba → desactiva, actualisa → actualiza).
+_CONFUSIONES = {frozenset(par) for par in ("bv", "sz", "cs", "cz", "yi", "gj", "kc", "qc")}
+
+
+def _es_confusion_tipica(original: str, candidata: str) -> bool:
+    """True si la candidata cambia una sola letra por otra que se confunde al escribir."""
+    if len(original) != len(candidata):
+        return False
+    distintas = [(a, b) for a, b in zip(original, candidata) if a != b]
+    return len(distintas) == 1 and frozenset(distintas[0]) in _CONFUSIONES
+
+
 def sugerencias(palabra: str, maximo: int = 1) -> List[str]:
     """
     Palabras parecidas del diccionario, con la misma mayúscula inicial que la
@@ -176,11 +210,32 @@ def sugerencias(palabra: str, maximo: int = 1) -> List[str]:
         c for c in (corrector.candidates(original) or set())
         if c != original and normalizar(c)[:1] == normalizar(original)[:1]
     }
-    ordenadas = sorted(
-        candidatas,
-        key=lambda c: (_distancia(normalizar(c), normalizar(original)), -corrector.word_usage_frequency(c)),
-    )[:maximo]
-    if palabra[:1].isupper():
+    # Palabras válidas a un cambio de letra, incluidas formas verbales que el diccionario
+    # no trae (Actualisa → Actualiza): s/z, b/v, c/s, letras de más o de menos.
+    candidatas |= {
+        c for c in _a_una_letra(original)
+        if c != original and normalizar(c)[:1] == normalizar(original)[:1] and es_palabra_valida(c)
+    }
+    # Solo se sugiere si la corrección es casi segura: una letra de diferencia (o dos en
+    # palabras largas). Si no, se pide revisar la palabra en vez de adivinar (ROJSH ≠ ROJO).
+    tolerancia = 2 if len(original) >= 7 else 1
+    candidatas = {c for c in candidatas if _distancia(normalizar(c), normalizar(original)) <= tolerancia}
+    def prioridad(candidata: str):
+        # 1) más cercana; 2) sin tildes agregadas; 3) confusión típica del español (b/v, s/z...);
+        # 4) palabra que el diccionario conoce; 5) la más usada.
+        tilde_nueva = any(letra in "áéíóú" and letra not in original for letra in candidata)
+        return (
+            _distancia(normalizar(candidata), normalizar(original)),
+            tilde_nueva,
+            not _es_confusion_tipica(original, candidata),
+            normalizar(candidata) not in _palabras_validas(),
+            -corrector.word_usage_frequency(candidata),
+        )
+
+    ordenadas = sorted(candidatas, key=prioridad)[:maximo]
+    if palabra.isupper() and len(palabra) > 1:
+        ordenadas = [c.upper() for c in ordenadas]
+    elif palabra[:1].isupper():
         ordenadas = [c[:1].upper() + c[1:] for c in ordenadas]
     return ordenadas
 
@@ -203,9 +258,15 @@ def palabras_mal_escritas(
         if not _IDENTIFICADOR_TECNICO.search(fragmento.strip("."))
         for palabra in _PALABRA.findall(fragmento)
     ]
+    # Descripción escrita en mayúsculas: al menos dos palabras en mayúsculas que existen en
+    # español (CONSULTA, CLIENTE). Entonces las mayúsculas no indican siglas.
+    en_mayusculas = sum(
+        1 for palabra in palabras
+        if palabra.isupper() and len(palabra) >= _LONGITUD_MINIMA and es_palabra_valida(palabra)
+    ) >= 2
     for palabra in palabras:
         clave = normalizar(palabra)
-        if clave in vistas or _debe_ignorarse(palabra, ignorar):
+        if clave in vistas or _debe_ignorarse(palabra, ignorar, en_mayusculas):
             continue
         vistas.add(clave)
         if not es_palabra_valida(palabra):
@@ -228,9 +289,11 @@ def redactar_error_ortografico(objeto: str, errores: List[Tuple[str, Optional[Li
     if con_sugerencia:
         acciones.append("corregir " + _enumerar(con_sugerencia))
     if sin_sugerencia:
-        acciones.append("revisar la escritura de " + _enumerar(sin_sugerencia))
+        palabra_s = "la palabra " if len(sin_sugerencia) == 1 else "las palabras "
+        acciones.append(f"revisar {palabra_s}{_enumerar(sin_sugerencia)} y escribir correctamente la descripción")
     return (
-        f"Se identificó {error} en la descripción {objeto}: {palabras}. "
+        f"Se {'identificó' if len(errores) == 1 else 'identificaron'} {error} en la descripción {objeto}: "
+        f"{palabras}. "
         f"Se recomienda {' y '.join(acciones)}, ya que el diccionario es la documentación oficial "
         f"{documento}."
     )

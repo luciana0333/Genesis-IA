@@ -538,11 +538,18 @@ def _validar_descripcion_tabla(llamadas: List[LlamadaPropiedad]) -> List[Hallazg
     return hallazgos
 
 
+def _linea_valor(ll: LlamadaPropiedad, texto_diccionario: str) -> int:
+    """Línea del @value de la llamada (donde está el texto revisado), no la del EXEC."""
+    valor = re.compile(r"@value\s*=", re.IGNORECASE).search(texto_diccionario, ll.posicion)
+    return texto_diccionario.count("\n", 0, valor.start()) + 1 if valor else ll.linea
+
+
 def _validar_ortografia(
     llamadas: List[LlamadaPropiedad],
     esquema: Optional[str],
     nombre_tabla: str,
     columnas_reales: Set[str],
+    texto_diccionario: str = "",
 ) -> List[Hallazgo]:
     """Palabras mal escritas en las descripciones (sin exigir tildes)."""
     nombres_objeto = {esquema or "", nombre_tabla, *columnas_reales}
@@ -560,7 +567,8 @@ def _validar_ortografia(
         if not errores:
             continue
         hallazgos.append(con_elemento(_hallazgo(
-            ll.linea, "ERROR_ORTOGRAFICO", redactar_error_ortografico(objeto, errores, "de la tabla"),
+            _linea_valor(ll, texto_diccionario), "ERROR_ORTOGRAFICO",
+            redactar_error_ortografico(objeto, errores, "de la tabla"),
         ), elemento_ortografico(objeto, errores)))
     return hallazgos
 
@@ -683,7 +691,7 @@ def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> Li
         hallazgos = [h for h in hallazgos if h.regla != "TABLA_SIN_DESCRIPCION"]
     hallazgos += _validar_nombre_tabla(llamadas, nombre_tabla)
     hallazgos += _validar_descripciones_vacias(llamadas)
-    hallazgos += _validar_ortografia(llamadas, esquema, nombre_tabla, columnas_reales)
+    hallazgos += _validar_ortografia(llamadas, esquema, nombre_tabla, columnas_reales, texto_diccionario)
     hallazgos += _validar_valores_sin_comillas(llamadas)
 
     # Las reglas desactivadas en el catálogo no se reportan.

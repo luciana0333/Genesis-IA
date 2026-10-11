@@ -405,6 +405,12 @@ def _validar_nombre_procedimiento(
     return hallazgos
 
 
+def _posicion_valor(texto_diccionario: str, pos: int) -> int:
+    """Posición del @value de la llamada que empieza en `pos` (o `pos` si no se encuentra)."""
+    valor = re.compile(r"@value\s*=", re.IGNORECASE).search(texto_diccionario, pos)
+    return valor.start() if valor else pos
+
+
 def _validar_nombres_vacios(
     llamadas: List[Tuple[int, Dict[str, str]]],
     texto_diccionario: str,
@@ -536,7 +542,8 @@ def _validar_ortografia(
         if not errores:
             continue
         hallazgos.append(con_elemento(Hallazgo(
-            linea=_numero_linea(texto_diccionario, pos),
+            # La línea es la del @value (donde está el texto con el error), no la del EXEC.
+            linea=_numero_linea(texto_diccionario, _posicion_valor(texto_diccionario, pos)),
             origen=OrigenAnalisis.DICCIONARIO,
             severidad=Severidad.MEDIO,
             regla="ERROR_ORTOGRAFICO",

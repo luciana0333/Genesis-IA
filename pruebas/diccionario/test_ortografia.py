@@ -94,6 +94,33 @@ class TestOrtografia(unittest.TestCase):
         texto = "Valor de nEstadoId para el RUC del cliente enviado por email desde Estado"
         self.assertEqual(ortografia.palabras_mal_escritas(texto, ["Estado"]), [])
 
+    def test_descripcion_en_mayusculas_se_revisa(self):
+        # Escrita en mayúsculas, las palabras largas no son siglas y se revisan.
+        self.assertEqual(ortografia.palabras_mal_escritas("CONSULTA LA INFORMACION DEL CLEINTE"),
+                         [("CLEINTE", ["CLIENTE"])])
+        self.assertEqual(ortografia.palabras_mal_escritas("Consulta la ROJSH DEL CLIENTE"), [("ROJSH", [])])
+        # Las siglas cortas se siguen respetando.
+        self.assertEqual(ortografia.palabras_mal_escritas("CONSULTA EL RUC Y DNI DEL CLIENTE"), [])
+
+    def test_solo_sugiere_si_la_correccion_es_segura(self):
+        casos = {
+            "Actualisa el estado": ("Actualisa", ["Actualiza"]),
+            "Desactiba la cuenta": ("Desactiba", ["Desactiva"]),
+            "Elimna el registro": ("Elimna", ["Elimina"]),
+            "Devuelve el saldo disponivle": ("disponivle", ["disponible"]),
+            "Consulta datos del cliente thy": ("thy", []),  # sin una corrección segura: revisar
+        }
+        for texto, esperado in casos.items():
+            with self.subTest(texto=texto):
+                self.assertEqual(ortografia.palabras_mal_escritas(texto), [esperado])
+        self.assertEqual(ortografia.palabras_mal_escritas("Desactiva y reactiva la cuenta"), [])
+
+    def test_mensaje_sin_sugerencia_pide_revisar_la_descripcion(self):
+        mensaje = ortografia.redactar_error_ortografico("del procedimiento dbo.PA_X", [("ROJSH", [])], "del procedimiento")
+        self.assertIn("revisar la palabra 'ROJSH' y escribir correctamente la descripción", mensaje)
+        varios = ortografia.redactar_error_ortografico("de la tabla dbo.T", [("a", ["b"]), ("c", ["d"])], "de la tabla")
+        self.assertTrue(varios.startswith("Se identificaron 2 errores de escritura"))
+
     def test_ejemplo_del_equipo_en_el_diccionario_de_tablas(self):
         tabla = "CREATE TABLE dbo.Estado (nEstadoId INT NOT NULL);"
         diccionario = (
@@ -109,7 +136,7 @@ class TestOrtografia(unittest.TestCase):
         )
         hallazgos = verificar_diccionario_tablas(tabla, diccionario)
         self.assertEqual([h.regla for h in hallazgos], ["ERROR_ORTOGRAFICO"])
-        self.assertEqual(hallazgos[0].linea, 3)
+        self.assertEqual(hallazgos[0].linea, 5)  # la línea del @value con el error
         self.assertIn("columna nEstadoId", hallazgos[0].mensaje)
         self.assertIn("'Identificadodr'", hallazgos[0].mensaje)
 
