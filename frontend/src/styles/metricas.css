@@ -139,8 +139,8 @@
   /* Sale del contenedor central para ocupar todo el ancho y anula su solape con el encabezado. */
   margin: 40px calc(50% - 50vw) 40px;
   padding: 52px 24px 56px;
-  background-color: #f3f3f5;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='138' viewBox='0 0 120 138'%3E%3Cg fill='none' stroke='%23dcdde2' stroke-width='1'%3E%3Cpath d='M60 1 L119 35 L119 103 L60 137 L1 103 L1 35 Z'/%3E%3Cpath d='M60 69 L60 137 M60 69 L1 35 M60 69 L119 35'/%3E%3C/g%3E%3C/svg%3E");
+  background-color: #f8f8fa;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='138' viewBox='0 0 120 138'%3E%3Cg fill='none' stroke='%23e2e3e8' stroke-width='0.6'%3E%3Cpath d='M60 1 L119 35 L119 103 L60 137 L1 103 L1 35 Z'/%3E%3Cpath d='M60 69 L60 137 M60 69 L1 35 M60 69 L119 35'/%3E%3C/g%3E%3C/svg%3E");
   background-size: 120px 138px;
   background-position: center top;
 }
