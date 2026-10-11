@@ -203,7 +203,6 @@ export function AuditoriaWorkspace({ vista }) {
               <button type="button" className="agregar-indices" onClick={() => setIndicesAbiertos(true)}>
                 <span className="agregar-indices-icono" aria-hidden="true"><IconoAgregar /></span>
                 Agregar índices de la tabla
-                <span className="agregar-indices-nota">· opcional</span>
               </button>
             )}
 
