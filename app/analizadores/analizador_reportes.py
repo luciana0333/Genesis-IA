@@ -202,9 +202,9 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             r"(?is)(?:^|;|\bGO\b)\s*(?P<pos>SELECT)\b(?:(?!;|\bGO\b).)*?\bINTO\s+(?P<tabla>[#@\w\[\].]+)",
             "SELECT_INTO_PROHIBIDO",
             lambda m: (
-                f"Se identificó que la tabla {m.group('tabla')} se crea con SELECT INTO. Se recomienda crearla "
-                f"primero con CREATE TABLE y luego llenarla con INSERT INTO seguido del SELECT, ya que así se "
-                f"controlan sus tipos de datos y el COLLATE de sus columnas."
+                f"Se ha identificado que la tabla {'temporal ' if m.group('tabla').startswith('#') else ''}"
+                f"{m.group('tabla')} se crea mediante SELECT INTO, por lo que se recomienda realizar la "
+                f"creación de la tabla y su posterior inserción."
             ),
         ),
         (
@@ -545,7 +545,8 @@ def _agrupar_hallazgos_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
         lineas = ("la línea " if len(numeros) == 1 else "las líneas ") + ", ".join(map(str, numeros))
         # Cada mensaje es "qué pasa. Qué hacer.": se listan los hechos y la acción
         # se dice una sola vez (la del primero; solo cambia el ejemplo).
-        partes = [re.split(r"(?<=\.)\s+", h.mensaje, maxsplit=1) for h in grupo]
+        partes = [re.split(r"(?<=\.)\s+|, por lo que (?=se recomienda)", h.mensaje, maxsplit=1) for h in grupo]
+        partes = [[p[0], p[1][:1].upper() + p[1][1:]] if len(p) == 2 else p for p in partes]
         if all(len(p) == 2 for p in partes):
             hechos = list(dict.fromkeys(p[0][:1].lower() + p[0][1:].rstrip(".") for p in partes))
             detalles = ["; ".join(hechos) + ".", partes[0][1]]

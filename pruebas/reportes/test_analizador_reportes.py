@@ -212,6 +212,15 @@ class TestAnalizadorReportes(unittest.TestCase):
                         if h.regla == "ESQUEMA_OMITIDO_ENTRE_BASES")
         self.assertIn("el uso de la tabla Agencias", hallazgo.mensaje)
 
+    def test_mensaje_de_select_into(self):
+        hallazgo = next(h for h in verificar_reporte("SELECT a INTO #Temp FROM dbo.Zona z WITH(NOLOCK);")
+                        if h.regla == "SELECT_INTO_PROHIBIDO")
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se ha identificado que la tabla temporal #Temp se crea mediante SELECT INTO, por lo que se "
+            "recomienda realizar la creación de la tabla y su posterior inserción.",
+        )
+
     def test_referencia_completa_entre_bases_es_valida(self):
         sql = "SELECT a.cNombre FROM DBCMACICA.dbo.Agencias a WITH(NOLOCK)"
         self.assertNotIn("ESQUEMA_OMITIDO_ENTRE_BASES", {h.regla for h in verificar_reporte(sql)})

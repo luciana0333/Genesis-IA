@@ -47,6 +47,15 @@ describe('ordenarHallazgos', () => {
   });
 });
 
+describe('separarMensaje con "por lo que se recomienda"', () => {
+  it('muestra la recomendación aparte', () => {
+    expect(separarMensaje('Se ha identificado que la tabla temporal #Temp se crea mediante SELECT INTO, por lo que se recomienda realizar la creación de la tabla.')).toEqual({
+      problema: 'Se ha identificado que la tabla temporal #Temp se crea mediante SELECT INTO.',
+      solucion: 'Se recomienda realizar la creación de la tabla.',
+    });
+  });
+});
+
 describe('desglosarGrupo', () => {
   it('separa cada ocurrencia de un hallazgo agrupado y sus líneas', () => {
     const mensaje =
