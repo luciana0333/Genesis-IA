@@ -24,7 +24,16 @@ REGLAS_REPORTES = {
         codigo="HINT_PLAN_PROHIBIDO",
         nombre="Comando que le dice al motor qué hacer",
         severidad="alto",
-        descripcion="No se permiten comandos que le dicen al motor qué hacer (DBCC, FORCESEEK, RECOMPILE, OPTION...); el optimizador decide el mejor plan.",
+        descripcion="No se permiten comandos que le dicen al motor cómo ejecutar la consulta (DBCC, FORCESEEK, RECOMPILE, OPTION...); el optimizador decide el mejor plan.",
+        alcance="reporte",
+        activo=True,
+    ),
+    "HINT_BLOQUEO_PROHIBIDO": ReglaDiccionario(
+        codigo="HINT_BLOQUEO_PROHIBIDO",
+        nombre="Hint de bloqueo prohibido",
+        severidad="alto",
+        descripcion="No se permiten hints que bloquean filas o tablas (UPDLOCK, HOLDLOCK, XLOCK, TABLOCK, "
+                    "ROWLOCK, PAGLOCK, READPAST): un reporte solo consulta y usa WITH(NOLOCK).",
         alcance="reporte",
         activo=True,
     ),

@@ -12,10 +12,30 @@ _IDENTIFICADOR = r"(?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)"
 _TIPOS_TEXTO = r"(?:N?VARCHAR|N?CHAR|TEXT|NTEXT)\b"
 _HINTS_PROHIBIDOS = (
     r"\bOPTION\s*\([^)]*\)|\bDBCC\b|\bFORCESEEK\b|\bFORCESCAN\b|\bFORCE\s+ORDER\b|\bRECOMPILE\b|"
-    r"\bNOEXPAND\b|\bHOLDLOCK\b|\bTABLOCKX?\b|\bUPDLOCK\b|\bXLOCK\b|\bROWLOCK\b|\bPAGLOCK\b|"
-    r"\bREADPAST\b|\bINDEX\s*\(|\b(?:LOOP|HASH|MERGE)\s+JOIN\b|\bOPTIMIZE\s+FOR\b|\bMAXDOP\b|"
+    r"\bNOEXPAND\b|\bINDEX\s*\(|\b(?:LOOP|HASH|MERGE)\s+JOIN\b|\bOPTIMIZE\s+FOR\b|\bMAXDOP\b|"
     r"\bFAST\s+\d+|\bUSE\s+PLAN\b|\bKEEP(?:FIXED)?\s+PLAN\b|\bQUERYTRACEON\b"
 )
+# Hints de bloqueo: no cambian el plan, cambian cómo se bloquean las filas
+# leídas. Cada uno con lo que hace, para explicarlo en el mensaje.
+_HINTS_BLOQUEO = {
+    "UPDLOCK": "bloquea las filas leídas como si se fueran a actualizar y las mantiene bloqueadas hasta que "
+               "termina la transacción",
+    "HOLDLOCK": "mantiene bloqueadas las filas leídas hasta que termina la transacción, como el aislamiento "
+                "SERIALIZABLE",
+    "SERIALIZABLE": "mantiene bloqueadas las filas leídas hasta que termina la transacción",
+    "REPEATABLEREAD": "mantiene bloqueadas las filas leídas hasta que termina la transacción",
+    "XLOCK": "toma un bloqueo exclusivo sobre las filas leídas",
+    "TABLOCKX": "toma un bloqueo exclusivo sobre toda la tabla",
+    "TABLOCK": "bloquea toda la tabla en lugar de solo las filas leídas",
+    "PAGLOCK": "obliga al motor a bloquear páginas completas",
+    "ROWLOCK": "obliga al motor a bloquear fila por fila",
+    "READPAST": "salta las filas que otro proceso tiene bloqueadas",
+}
+_PATRON_BLOQUEO = re.compile(r"\b(" + "|".join(_HINTS_BLOQUEO) + r")\b", re.IGNORECASE)
+# Palabras que pueden ir antes de un hint de bloqueo dentro del mismo paréntesis.
+_HINTS_DE_TABLA = set(_HINTS_BLOQUEO) | {
+    "NOLOCK", "READUNCOMMITTED", "READCOMMITTED", "FORCESEEK", "FORCESCAN", "NOEXPAND", "NOWAIT",
+}
 _CATALOGOS_PROHIBIDOS = r"(?:sys|information_schema)\.(?!sp_|xp_)[A-Za-z_][\w$]*"
 _PALABRAS_SQL_COMENTADAS = r"SELECT|INSERT|UPDATE|DELETE|MERGE|EXEC(?:UTE)?|DECLARE|CREATE|ALTER|DROP"
 _SQL_DINAMICO = r"\b(?:sp_executesql\b|EXEC(?:UTE)?\s*(?:\(\s*)?(?:N?['\"]|@))"
@@ -177,6 +197,32 @@ def _validar_hints(texto: str, limpio: str) -> List[Hallazgo]:
             f"Se identificó el uso de '{match.group(0)}', que le indica al motor de base de datos cómo ejecutar "
             f"la consulta. Se recomienda retirarlo, ya que no está permitido forzar al motor y es el optimizador "
             f"quien decide el mejor plan de ejecución.",
+        ))
+    return hallazgos
+
+
+def _validar_hints_bloqueo(texto: str, sin_comentarios: str) -> List[Hallazgo]:
+    """UPDLOCK, HOLDLOCK, TABLOCK...: en un reporte bloquean a los procesos que registran operaciones."""
+    hallazgos = []
+    for match in _PATRON_BLOQUEO.finditer(sin_comentarios):
+        # Solo dentro del paréntesis de hints de una tabla: WITH (NOLOCK, UPDLOCK) o (UPDLOCK).
+        abre = sin_comentarios.rfind("(", 0, match.start())
+        previo = sin_comentarios[abre + 1:match.start()] if abre >= 0 else None
+        if previo is None or not re.fullmatch(r"[\sA-Za-z,]*", previo):
+            continue
+        if any(palabra.upper() not in _HINTS_DE_TABLA for palabra in re.findall(r"[A-Za-z]+", previo)):
+            continue
+        grupo = 1
+        hint = match.group(grupo).upper()
+        if hint == "READPAST":
+            accion = ("Se recomienda retirarlo y usar WITH(NOLOCK), ya que el reporte podría dejar fuera "
+                      "registros sin avisar.")
+        else:
+            accion = ("Se recomienda retirarlo y usar WITH(NOLOCK), ya que un reporte solo consulta datos y "
+                      "bloquear filas detiene a los procesos que están registrando operaciones.")
+        hallazgos.append(_hallazgo(
+            texto, match.start(grupo), "HINT_BLOQUEO_PROHIBIDO",
+            f"Se identificó el uso de '{hint}', que {_HINTS_BLOQUEO[hint]}. {accion}",
         ))
     return hallazgos
 
@@ -632,7 +678,9 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     limpio = _quitar_comentarios(texto_sql)
     hallazgos: List[Hallazgo] = []
     hallazgos.extend(_validar_nolock(texto_sql, limpio))
-    hallazgos.extend(_validar_hints(texto_sql, _quitar_comentarios(texto_sql, vaciar_textos=False)))
+    sin_comentarios = _quitar_comentarios(texto_sql, vaciar_textos=False)
+    hallazgos.extend(_validar_hints(texto_sql, sin_comentarios))
+    hallazgos.extend(_validar_hints_bloqueo(texto_sql, sin_comentarios))
     hallazgos.extend(_validar_comentarios_codigo(texto_sql))
     hallazgos.extend(_validar_tablas_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_sentencias(texto_sql, limpio))

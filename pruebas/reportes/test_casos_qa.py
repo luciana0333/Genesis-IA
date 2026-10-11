@@ -82,10 +82,26 @@ class TestReportesQA(unittest.TestCase):
             "    EXEC sys.sp_executesql @cSQL, N'@nClienteId INT', @nClienteId = @nAgenciaId;"
         )
         hallazgos = {(h.regla, h.linea) for h in verificar_reporte(sql)}
-        self.assertIn(("HINT_PLAN_PROHIBIDO", 7), hallazgos)
+        self.assertIn(("HINT_BLOQUEO_PROHIBIDO", 7), hallazgos)
         self.assertIn(("SQL_DINAMICO_PROHIBIDO", 9), hallazgos)
         # sys.sp_executesql es un procedimiento del sistema, no una tabla interna.
         self.assertNotIn("CATALOGO_SISTEMA_PROHIBIDO", {regla for regla, _ in hallazgos})
+
+    def test_hints_de_bloqueo_explican_lo_que_hacen(self):
+        sql = procedimiento(
+            "    SELECT c.cNombre FROM dbo.Cliente c WITH (UPDLOCK)\n"
+            "    JOIN dbo.Agencia a WITH (HOLDLOCK, ROWLOCK) ON a.nId = c.nId\n"
+            "    JOIN dbo.Zona z (TABLOCK) ON z.nId = a.nId;"
+        )
+        hallazgo = next(h for h in verificar_reporte(sql) if h.regla == "HINT_BLOQUEO_PROHIBIDO")
+        for texto in ("'UPDLOCK', que bloquea las filas leídas", "'HOLDLOCK', que mantiene bloqueadas",
+                      "'ROWLOCK', que obliga", "'TABLOCK', que bloquea toda la tabla", "usar WITH(NOLOCK)"):
+            self.assertIn(texto, hallazgo.mensaje)
+        self.assertNotIn("HINT_PLAN_PROHIBIDO", {h.regla for h in verificar_reporte(sql)})
+
+    def test_nolock_no_es_hint_de_bloqueo(self):
+        sql = procedimiento("    SELECT c.cNombre FROM dbo.Cliente c WITH (NOLOCK);")
+        self.assertEqual(reglas(sql), [])
 
     def test_varchar_max_nombra_el_tipo_escrito(self):
         hallazgo = verificar_reporte(procedimiento("    DECLARE @cTexto NVARCHAR(MAX) = N'';\n    SELECT @cTexto;"))[0]
