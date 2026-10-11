@@ -74,7 +74,9 @@ class GenesisHandler(SimpleHTTPRequestHandler):
         es_dbcmaica = bool(payload.get('esDbcmaica', False))
         modo_revision = (payload.get('modoRevision') or 'diccionario').strip()
 
-        if not sql_text.strip():
+        # En Tablas se puede revisar solo el índice de una tabla que ya existe (sin su script).
+        solo_indices = (tipo == 'tabla_estructura' or modo_revision == 'tabla_estructura') and indices_text.strip()
+        if not sql_text.strip() and not solo_indices:
             self._send_json({'error': 'Debes completar el SQL del objeto.'}, status=400)
             return
 
@@ -98,7 +100,7 @@ class GenesisHandler(SimpleHTTPRequestHandler):
             elif tipo == 'procedimiento':
                 hallazgos = verificar_diccionario(sql_text, dict_text)
             elif tipo == 'tabla_estructura' or modo_revision == 'tabla_estructura':
-                hallazgos = verificar_tabla(sql_text, es_dbcmaica)
+                hallazgos = verificar_tabla(sql_text, es_dbcmaica) if sql_text.strip() else []
                 if indices_text.strip():
                     hallazgos += verificar_indices(indices_text, sql_text)
             else:

@@ -64,7 +64,9 @@ export function useAuditoria(tipoInicial) {
 
   /** Revisa los campos actuales, o los indicados (p. ej. el ejemplo recién cargado). */
   const revisar = useCallback(async (camposARevisar = campos) => {
-    if (!camposARevisar.sqlObject.trim()) {
+    // En Tablas basta con los índices: pueden ser de una tabla que ya existe.
+    const soloIndices = REVISIONES[tipoRevision].indices && (camposARevisar.indicesScript ?? '').trim();
+    if (!camposARevisar.sqlObject.trim() && !soloIndices) {
       setResultado({ estado: 'error', hallazgos: [], mensaje: 'Completa el SQL del objeto para iniciar la revisión.' });
       return;
     }

@@ -62,9 +62,9 @@ export function AuditoriaWorkspace({ vista }) {
   const lineasSql = contarLineas(campos.sqlObject);
   const lineasDiccionario = tieneDiccionario ? contarLineas(campos.dictScript) : 0;
   const lineasIndices = tieneIndices ? contarLineas(campos.indicesScript) : 0;
-  const hayCodigo = lineasSql > 0;
+  const hayCodigo = lineasSql > 0 || lineasIndices > 0;
   const lineasSegunda = tieneDiccionario ? lineasDiccionario : lineasIndices;
-  const resumenLineas = lineasSegunda ? `${lineasSql} + ${lineasSegunda} líneas` : `${lineasSql} líneas`;
+  const resumenLineas = lineasSql && lineasSegunda ? `${lineasSql} + ${lineasSegunda} líneas` : `${lineasSql || lineasSegunda} líneas`;
   const cargando = resultado.estado === 'cargando';
 
   const alEnviar = (evento) => {
