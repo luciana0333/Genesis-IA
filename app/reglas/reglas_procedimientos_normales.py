@@ -61,6 +61,15 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "TIPO_DISTINTO_ENTRE_TEMPORALES": ReglaDiccionario(
+        codigo="TIPO_DISTINTO_ENTRE_TEMPORALES",
+        nombre="Misma columna con distinto tipo",
+        severidad="alto",
+        descripcion="Una columna que se repite en varias tablas temporales debe tener el mismo tipo y "
+                    "longitud (ej.: VARCHAR(40) en ambas), para no truncar los datos al pasarlos.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "TEMPORAL_TEXTO_SIN_COLLATE": ReglaDiccionario(
         codigo="TEMPORAL_TEXTO_SIN_COLLATE",
         nombre="Columna de texto sin COLLATE en tabla temporal",
@@ -297,7 +306,8 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         codigo="VARCHAR_MAX_PROHIBIDO",
         nombre="VARCHAR(MAX) prohibido",
         severidad="medio",
-        descripcion="No se permite usar VARCHAR(MAX); debe definirse una longitud explícita y justificada.",
+        descripcion="VARCHAR(MAX) solo se permite para JSON, XML o datos de tablas heredadas; en los demás "
+                    "casos se define una longitud acorde al dato.",
         alcance="procedimiento",
         activo=True,
     ),

@@ -2,7 +2,7 @@
 """Reglas para procedimientos almacenados normales, fuera de reportes."""
 
 import re
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_procedimientos_normales import REGLAS_PROCEDIMIENTOS_NORMALES
@@ -366,6 +366,48 @@ def _separar_por_comas(contenido: str) -> List[tuple]:
     return partes
 
 
+def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
+    """
+    Una misma columna declarada en varias tablas temporales (#T) o variables de
+    tabla (@T) debe tener el mismo tipo y longitud: si una es VARCHAR(40) y la
+    otra VARCHAR(30), al pasar los datos de una a otra se truncan o falla.
+    """
+    hallazgos = []
+    primeras: Dict[str, Tuple[str, str, int]] = {}
+    patron = re.compile(
+        r"\b(?:CREATE\s+TABLE\s+(#[A-Za-z_]\w*)|DECLARE\s+(@[A-Za-z_]\w*)\s+(?:AS\s+)?TABLE)\s*\(",
+        re.IGNORECASE,
+    )
+    for match in patron.finditer(limpio):
+        tabla = match.group(1) or match.group(2)
+        apertura = match.end() - 1
+        contenido = _contenido_entre_parentesis(limpio, apertura)
+        for definicion, desplazamiento in _separar_por_comas(contenido):
+            columna = re.match(
+                rf"\s*({_IDENTIFICADOR})\s+([A-Za-z]+\s*(?:\(\s*(?:MAX|\d+)\s*(?:,\s*\d+\s*)?\))?)",
+                definicion, re.IGNORECASE,
+            )
+            if not columna or columna.group(1).upper() in {"CONSTRAINT", "PRIMARY", "UNIQUE", "INDEX", "CHECK", "FOREIGN"}:
+                continue
+            nombre = columna.group(1).strip("[]")
+            tipo = re.sub(r"\s+", "", columna.group(2)).upper()
+            posicion = apertura + 1 + desplazamiento + columna.start(1)
+            anterior = primeras.get(nombre.lower())
+            if anterior is None:
+                primeras[nombre.lower()] = (tabla, tipo, posicion)
+                continue
+            tabla_anterior, tipo_anterior, posicion_anterior = anterior
+            if tipo != tipo_anterior and tabla.lower() != tabla_anterior.lower():
+                hallazgos.append(_hallazgo(
+                    texto, posicion, "TIPO_DISTINTO_ENTRE_TEMPORALES",
+                    f"Se identificó que la columna {nombre} es {tipo} en {tabla}, pero {tipo_anterior} en "
+                    f"{tabla_anterior} (línea {_linea(texto, posicion_anterior)}). Se recomienda usar el mismo tipo "
+                    f"y longitud en ambas, ya que al pasar los datos de una tabla a otra se pueden truncar o "
+                    f"generar un error.",
+                ))
+    return hallazgos
+
+
 def _validar_collate_temporales(texto: str, limpio: str) -> List[Hallazgo]:
     """Toda columna de texto de una tabla temporal (#T) o variable de tabla (@T) lleva COLLATE."""
     hallazgos = []
@@ -631,7 +673,7 @@ def _sentencia_de(limpio: str, posicion: int) -> str:
 
 
 def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
-    """VARCHAR(MAX) solo se permite para guardar JSON o XML."""
+    """VARCHAR(MAX) solo se permite para JSON, XML o datos que vienen de una tabla heredada."""
     hallazgos = []
     for match in re.finditer(r"\bN?VARCHAR\s*\(\s*MAX\s*\)", limpio, re.IGNORECASE):
         declarado = re.search(r"(@?[A-Za-z_]\w*)\s+(?:AS\s+)?$", limpio[:match.start()])
@@ -645,12 +687,13 @@ def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
             es_json_xml = _USO_JSON_XML.search(_sentencia_de(limpio, match.start()))
         if es_json_xml:
             continue
-        donde = f" en {nombre}" if nombre else ""
+        tipo = re.sub(r"\s+", "", match.group(0)).upper()
+        sujeto = f"que {nombre} se declara como {tipo}" if nombre else f"el uso de {tipo}"
         hallazgos.append(_hallazgo(
             texto, match.start(), "VARCHAR_MAX_PROHIBIDO",
-            f"Se identificó un tipo de dato VARCHAR(MAX){donde} que no guarda JSON ni XML. Se recomienda "
-            f"definir una longitud acorde al dato (ej.: VARCHAR(500)), ya que VARCHAR(MAX) reserva más "
-            f"memoria de la necesaria y vuelve lentas las consultas.",
+            f"Se identificó {sujeto} y no guarda JSON ni XML. Se recomienda definir una longitud acorde al "
+            f"dato, salvo que provenga de una tabla heredada con {tipo}, ya que solo se justifica para JSON, "
+            f"XML o tablas heredadas y reserva más memoria de la necesaria (ej.: {tipo.replace('MAX', '500')}).",
         ))
     return hallazgos
 
@@ -889,6 +932,7 @@ def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_esquema_entre_bases(texto_sql, limpio))
     hallazgos.extend(_validar_tabla_repetida(texto_sql, limpio))
     hallazgos.extend(_validar_collate_temporales(texto_sql, limpio))
+    hallazgos.extend(_validar_tipos_entre_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_comentarios(texto_sql))
     hallazgos.extend(_validar_variables(texto_sql, limpio))
     # Las reglas desactivadas en el catálogo no se reportan.

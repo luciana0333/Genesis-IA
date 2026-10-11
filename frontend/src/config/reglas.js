@@ -109,6 +109,7 @@ export const NOMBRES_REGLAS = {
   MEMORIA_CONCEDIDA_SOBREDIMENSIONADA: 'Memoria concedida sobredimensionada',
   VARBINARY_DOCUMENTO_IDENTIFICADO: 'VARBINARY identificado',
   DOCUMENTO_GUARDADO_EN_BD: 'Documento guardado en la base de datos',
+  TIPO_DISTINTO_ENTRE_TEMPORALES: 'Misma columna con distinto tipo',
 };
 
 export function nombreRegla(codigo) {

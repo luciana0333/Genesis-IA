@@ -96,6 +96,27 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             {"CATALOGO_SISTEMA_PROHIBIDO", "SQL_DINAMICO_PROHIBIDO", "VARCHAR_MAX_PROHIBIDO"},
         )
 
+    def test_misma_columna_con_distinto_tipo_en_temporales(self):
+        collate = "COLLATE SQL_Latin1_General_CP1_CI_AS"
+        sql = (
+            f"CREATE TABLE #Clientes (nId INT, cNombre VARCHAR(40) {collate});\n"
+            f"CREATE TABLE #Resumen (nId INT, cNombre VARCHAR(30) {collate});\n"
+            f"DECLARE @T TABLE (cNombre VARCHAR(40) {collate});\nSELECT t.cNombre FROM @T t;"
+        )
+        hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "TIPO_DISTINTO_ENTRE_TEMPORALES"]
+        self.assertEqual([(h.linea, h.severidad.value) for h in hallazgos], [(2, "alto")])
+        self.assertIn("cNombre es VARCHAR(30) en #Resumen, pero VARCHAR(40) en #Clientes (línea 1)", hallazgos[0].mensaje)
+
+    def test_misma_columna_con_el_mismo_tipo_es_valida(self):
+        sql = "CREATE TABLE #A (nId INT, nMonto DECIMAL(18, 2));\nCREATE TABLE #B (nId INT, nMonto DECIMAL(18,2));"
+        self.assertNotIn("TIPO_DISTINTO_ENTRE_TEMPORALES", {h.regla for h in verificar_procedimiento_normal(sql)})
+
+    def test_varchar_max_menciona_tablas_heredadas(self):
+        hallazgo = next(h for h in verificar_procedimiento_normal("DECLARE @cSQL NVARCHAR(MAX);\nSELECT @cSQL;")
+                        if h.regla == "VARCHAR_MAX_PROHIBIDO")
+        self.assertIn("@cSQL se declara como NVARCHAR(MAX)", hallazgo.mensaje)
+        self.assertIn("tabla heredada", hallazgo.mensaje)
+
     def test_hints_de_bloqueo(self):
         sql = "SELECT c.cNombre FROM dbo.Cliente c WITH (UPDLOCK, HOLDLOCK) WHERE c.nId = 1;"
         hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "HINT_BLOQUEO_PROHIBIDO"]
