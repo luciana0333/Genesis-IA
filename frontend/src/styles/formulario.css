@@ -185,6 +185,11 @@ h3.section-title {
   font-size: 0.76rem;
 }
 
+/* Nota dentro del mismo campo, justo debajo de su selector. */
+.nota-base--campo {
+  margin-top: 8px;
+}
+
 .nota-base svg {
   width: 14px;
   height: 14px;

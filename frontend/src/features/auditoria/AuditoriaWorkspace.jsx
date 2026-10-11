@@ -175,14 +175,11 @@ export function AuditoriaWorkspace({ vista }) {
                     </label>
                   ))}
                 </div>
+                <p className="nota-base nota-base--campo">
+                  <IconoSeveridadMedia />
+                  Los procedimientos del motor de base de datos pueden usar SELECT *.
+                </p>
               </div>
-            )}
-
-            {revision.permiteMotor && (
-              <p className="nota-base">
-                <IconoSeveridadMedia />
-                Los procedimientos del motor de base de datos pueden usar SELECT *.
-              </p>
             )}
           </div>
 
