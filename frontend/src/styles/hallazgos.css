@@ -579,8 +579,8 @@
   padding: 30px 34px;
   border-radius: 12px;
   background: var(--bg-card);
-  /* Elevada como las cajitas del formulario: sobre el fondo blanco la separa la sombra. */
-  box-shadow: 0 0 0 1px rgba(17, 17, 26, 0.05), 0 12px 28px -16px rgba(17, 17, 26, 0.3);
+  /* Solo sombra abajo (sin contorno arriba ni a los lados): sobre el blanco la separa esa sombra. */
+  box-shadow: 0 16px 22px -18px rgba(17, 17, 26, 0.35);
 }
 
 .estado-inicial-ilustracion {
