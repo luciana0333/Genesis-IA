@@ -55,6 +55,7 @@ class TestCreateTable(unittest.TestCase):
         hallazgos = verificar_tabla(sql)
         self.assertEqual([h.regla for h in hallazgos], ["PK_FALTANTE"])
         self.assertIn("nCuentasPorPagarId", hallazgos[0].mensaje)
+        self.assertEqual(hallazgos[0].severidad, Severidad.CRITICO)
 
     def test_pk_debe_llamarse_n_nombre_tabla_id(self):
         sql = TABLA_CORRECTA.replace("nPersonaId", "nId")

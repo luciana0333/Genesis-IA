@@ -47,7 +47,7 @@ REGLAS_TABLAS = {
 
     # --- Clave primaria (solo CREATE) -----------------------------------
     "PK_FALTANTE": _regla(
-        "PK_FALTANTE", "Tabla sin clave primaria", "alto",
+        "PK_FALTANTE", "Tabla sin clave primaria", "critico",
         "Toda tabla nueva debe tener un índice clúster identidad llamado nNombreTablaId.",
     ),
     "PK_COMPUESTA": _regla(
@@ -162,7 +162,7 @@ REGLAS_TABLAS = {
         "como clave; la tabla se identifica por su clave primaria identidad (nNombreTablaId).",
     ),
     "INDICE_COLUMNA_DESCRIPTIVA": _regla(
-        "INDICE_COLUMNA_DESCRIPTIVA", "Columna descriptiva en el índice", "medio",
+        "INDICE_COLUMNA_DESCRIPTIVA", "Columna descriptiva en el índice", "alto",
         "Se evita indexar texto descriptivo (descripción, dirección, observación, opinión, comentario...), "
         "con o sin prefijo: se indexan "
         "columnas que sirven para buscar o filtrar (códigos, fechas, estados).",
