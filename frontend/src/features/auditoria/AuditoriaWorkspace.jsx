@@ -7,7 +7,7 @@ import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { OPCIONES_SELECTOR } from '../../config/revisiones';
 import { MetricasSeveridad } from './MetricasSeveridad';
-import { detectarTipoDiccionario } from '../../utils/deteccionObjeto';
+import { detectarTipoDiccionario, extraerNombreObjeto } from '../../utils/deteccionObjeto';
 import { useAuditoria } from './useAuditoria';
 import { useAlPedirEjemplo } from '../../hooks/useVerEjemplo';
 
@@ -46,6 +46,12 @@ export function AuditoriaWorkspace({ vista }) {
   // procedimiento), para que nunca se apliquen las reglas equivocadas.
   const alCambiarSql = (valor) => {
     actualizarCampo('sqlObject', valor);
+    // El nombre se completa con el del CREATE/ALTER pegado, salvo que el
+    // usuario lo haya escrito a mano (distinto del que traía el SQL anterior).
+    const nombreSql = extraerNombreObjeto(valor);
+    const nombreAnterior = extraerNombreObjeto(campos.sqlObject);
+    const nombreEsAutomatico = !campos.objetoNombre.trim() || campos.objetoNombre === nombreAnterior;
+    if (nombreSql && nombreEsAutomatico && nombreSql !== campos.objetoNombre) actualizarCampo('objetoNombre', nombreSql);
     if (!esSelectorVisible) return;
     const detectado = detectarTipoDiccionario(valor);
     if (detectado && detectado !== tipoRevision) ajustarTipo(detectado);
