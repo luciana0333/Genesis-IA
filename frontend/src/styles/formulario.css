@@ -226,7 +226,8 @@ h3.section-title {
   justify-content: center;
   gap: 10px;
   padding: 13px 18px;
-  border: 1px solid var(--border-strong);
+  /* Borde apenas visible: la sombra es la que separa el botón del fondo. */
+  border: 1px solid rgba(17, 17, 26, 0.06);
   border-radius: 12px;
   background: var(--bg-card);
   box-shadow: 0 1px 2px rgba(17, 17, 26, 0.06), 0 8px 20px -14px rgba(17, 17, 26, 0.3);
@@ -247,8 +248,10 @@ h3.section-title {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: rgba(227, 6, 19, 0.08);
-  color: var(--red-main);
+  /* Ícono rojo sólido con un brillo sutil debajo. */
+  background: var(--red-main);
+  box-shadow: 0 3px 8px -2px rgba(227, 6, 19, 0.45);
+  color: #ffffff;
 }
 
 .agregar-indices-icono svg {
@@ -257,7 +260,7 @@ h3.section-title {
 }
 
 .agregar-indices:hover {
-  border-color: rgba(227, 6, 19, 0.35);
+  border-color: rgba(227, 6, 19, 0.18);
   box-shadow: 0 2px 4px rgba(17, 17, 26, 0.06), 0 14px 26px -14px rgba(17, 17, 26, 0.35);
   transform: translateY(-1px);
 }
