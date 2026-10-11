@@ -121,6 +121,7 @@ export const NOMBRES_REGLAS = {
   INDICE_COLUMNA_REPETIDA: 'Columna repetida en el índice',
   INDICE_CLUSTERED_CON_PK: 'Índice clúster con PK clúster',
   INDICE_DUPLICADO: 'Índice duplicado',
+  INDICE_INCLUDE_EXTENSO: 'INCLUDE con muchas columnas',
   INDICE_COLUMNA_DESCRIPTIVA: 'Columna descriptiva en el índice',
   INDICE_IDENTIFICA_POR_DESCRIPCION: 'Descripción usada como identificador',
   COLLATE_DATABASE_DEFAULT: 'COLLATE DATABASE_DEFAULT',

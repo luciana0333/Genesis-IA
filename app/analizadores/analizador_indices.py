@@ -27,6 +27,8 @@ from typing import Dict, List, Optional, Tuple
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_tablas import REGLAS_TABLAS
 
+# Más columnas que esta en el INCLUDE se piden validar (ocupan espacio en el índice).
+_MAXIMO_INCLUIDAS = 5
 _IDENTIFICADOR = r"(?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)"
 _REFERENCIA = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
 _TIPOS_NO_INDEXABLES = re.compile(r"^(?:N?VARCHAR|VARBINARY)\s*\(\s*MAX\s*\)$|^(?:N?TEXT|IMAGE|XML)$", re.IGNORECASE)
@@ -348,6 +350,17 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
             f"Se identificó que la columna {columna} está a la vez entre las columnas del índice {indice.nombre} "
             f"y en su INCLUDE. Se recomienda quitarla del INCLUDE, ya que una columna del índice no puede "
             f"repetirse en el INCLUDE.",
+        ))
+
+    # Muchas columnas en el INCLUDE: cada una se copia dentro del índice.
+    incluidas_unicas = _sin_repetir(indice.incluidas, excluir=indice.claves)
+    if len(incluidas_unicas) > _MAXIMO_INCLUIDAS:
+        hallazgos.append(_hallazgo(
+            texto, indice.posicion, "INDICE_INCLUDE_EXTENSO",
+            f"Se ha identificado que el índice {indice.nombre} lleva {len(incluidas_unicas)} columnas en su "
+            f"INCLUDE ({', '.join(incluidas_unicas)}). Se recomienda validar si realmente necesita todas esas "
+            f"columnas y dejar solo las que las consultas usan, ya que cada columna incluida se copia dentro "
+            f"del índice: ocupa más espacio y vuelve más lentas las inserciones y actualizaciones.",
         ))
 
     # Nombre: prefijo según el tipo y formato <Prefijo>_<Tabla>_<Campos>_INC<nn>.

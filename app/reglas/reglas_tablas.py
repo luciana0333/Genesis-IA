@@ -167,6 +167,10 @@ REGLAS_TABLAS = {
         "con o sin prefijo: se indexan "
         "columnas que sirven para buscar o filtrar (códigos, fechas, estados).",
     ),
+    "INDICE_INCLUDE_EXTENSO": _regla(
+        "INDICE_INCLUDE_EXTENSO", "INCLUDE con muchas columnas", "medio",
+        "Un índice con más de 5 columnas en el INCLUDE se valida: cada columna incluida se copia en el índice.",
+    ),
     "INDICE_DUPLICADO": _regla(
         "INDICE_DUPLICADO", "Índice duplicado", "medio",
         "No debe haber dos índices con las mismas columnas clave (ni uno igual a la clave primaria).",

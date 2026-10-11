@@ -53,6 +53,17 @@ class TestIndices(unittest.TestCase):
                 self.assertIn("no sigue la nomenclatura establecida", mensaje(indices))
                 self.assertIn(sugerido, mensaje(indices))
 
+    def test_include_con_mas_de_cinco_columnas(self):
+        tabla = ("CREATE TABLE dbo.Persona (nPersonaId INT IDENTITY(1,1) NOT NULL, nEstado INT NOT NULL, "
+                 "c1 INT NOT NULL, c2 INT NOT NULL, c3 INT NOT NULL, c4 INT NOT NULL, c5 INT NOT NULL, c6 INT NOT NULL, "
+                 "CONSTRAINT PK_Persona PRIMARY KEY CLUSTERED (nPersonaId));")
+        seis = "CREATE NONCLUSTERED INDEX IXN_Persona_nEstado_INC06 ON dbo.Persona (nEstado) INCLUDE (c1, c2, c3, c4, c5, c6);"
+        hallazgo = next(h for h in verificar_indices(seis, tabla) if h.regla == "INDICE_INCLUDE_EXTENSO")
+        self.assertEqual(hallazgo.severidad.value, "medio")
+        self.assertIn("lleva 6 columnas en su INCLUDE (c1, c2, c3, c4, c5, c6)", hallazgo.mensaje)
+        cinco = "CREATE NONCLUSTERED INDEX IXN_Persona_nEstado_INC05 ON dbo.Persona (nEstado) INCLUDE (c1, c2, c3, c4, c5);"
+        self.assertNotIn("INDICE_INCLUDE_EXTENSO", {h.regla for h in verificar_indices(cinco, tabla)})
+
     def test_indice_sin_tipo_pide_anadir_el_tipo(self):
         sin_tipo = "CREATE INDEX idx_persona\n    ON CLICKTOPAY.Cliente (cCodPersona);"
         texto = mensaje(sin_tipo)
