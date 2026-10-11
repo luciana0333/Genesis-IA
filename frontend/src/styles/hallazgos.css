@@ -207,13 +207,13 @@
   flex-direction: column;
   padding: 22px 18px 18px;
   border-radius: 10px;
-  /* Rojo de marca apenas más oscuro y translúcido sobre la foto de base de datos
-     (cilindros y tablas), para un aire más ejecutivo. */
+  /* Rojo de marca apenas más oscuro y translúcido sobre la foto de un centro
+     de datos (racks de servidores), para un aire más ejecutivo. */
   /* Arriba el rojo es casi sólido para leer el total; hacia abajo se aclara
-     y deja ver los cilindros de la base de datos. */
+     y deja ver los racks del centro de datos. */
   background:
-    linear-gradient(to bottom, #ce0816 0%, #ce0816 30%, rgba(206, 8, 22, 0.72) 55%, rgba(206, 8, 22, 0.25) 100%),
-    url('../assets/base-datos.webp') 70% 100% / auto 75% no-repeat;
+    linear-gradient(to bottom, #ce0816 0%, rgba(206, 8, 22, 0.94) 25%, rgba(206, 8, 22, 0.6) 55%, rgba(206, 8, 22, 0.3) 100%),
+    url('../assets/centro-datos.png') 36% center / cover no-repeat;
   background-color: #ce0816;
   color: #ffffff;
   box-shadow: 0 18px 36px -18px rgba(120, 8, 24, 0.55);
