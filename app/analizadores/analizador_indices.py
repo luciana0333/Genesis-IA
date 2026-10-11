@@ -308,14 +308,15 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
             f"clúster y ese lugar lo ocupa la clave primaria (ej.: {sugerido}).",
         ))
 
-    if not tabla_script:
-        return hallazgos
-    if tabla.split(".")[-1].lower() != tabla_script.nombre.lower():
+    # Tabla que ya existe (no se crea en el script de la tabla): además de la estructura,
+    # se pide validar si de verdad necesita el índice. Sus columnas no se pueden cruzar.
+    if not tabla_script or tabla.split(".")[-1].lower() != tabla_script.nombre.lower():
         hallazgos.append(_hallazgo(
-            texto, indice.posicion_tabla, "INDICE_OTRA_TABLA",
-            f"Se identificó que el índice {indice.nombre} es de la tabla {tabla}, pero el script crea la "
-            f"tabla {tabla_script.nombre}. Se recomienda validar que el índice corresponda a esta tabla, ya "
-            f"que se revisa junto con su script.",
+            texto, indice.posicion_tabla, "INDICE_TABLA_EXISTENTE",
+            f"Se identificó que el índice {indice.nombre} se crea sobre la tabla {tabla}, que ya existe (no "
+            f"se crea en este script). Se recomienda validar si la tabla realmente necesita este índice, "
+            f"revisando las consultas que lo usarán y los índices que ya tiene, ya que en una tabla existente "
+            f"un índice nuevo ocupa espacio, vuelve más lentas las inserciones y puede repetir uno que ya existe.",
         ))
         return hallazgos
 

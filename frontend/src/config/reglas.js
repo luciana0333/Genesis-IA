@@ -113,7 +113,7 @@ export const NOMBRES_REGLAS = {
   INDICE_PREFIJO_INVALIDO: 'Prefijo de índice inválido',
   INDICE_NOMBRE_NO_ESTANDAR: 'Nombre de índice fuera del estándar',
   INDICE_SIN_ESQUEMA: 'Índice sin esquema',
-  INDICE_OTRA_TABLA: 'Índice de otra tabla',
+  INDICE_TABLA_EXISTENTE: 'Índice sobre tabla existente',
   INDICE_COLUMNA_NO_EXISTE: 'Columna del índice inexistente',
   INDICE_COLUMNA_NO_INDEXABLE: 'Columna no indexable',
   INDICE_CLUSTERED_CON_PK: 'Índice clúster con PK clúster',

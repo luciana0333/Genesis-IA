@@ -130,9 +130,10 @@ REGLAS_TABLAS = {
         "INDICE_SIN_ESQUEMA", "Índice sin esquema", "alto",
         "El índice se crea sobre Esquema.Tabla (ej.: ON dbo.Cliente).",
     ),
-    "INDICE_OTRA_TABLA": _regla(
-        "INDICE_OTRA_TABLA", "Índice de otra tabla", "medio",
-        "Los índices de la cajita deben ser de la tabla del script.",
+    "INDICE_TABLA_EXISTENTE": _regla(
+        "INDICE_TABLA_EXISTENTE", "Índice sobre tabla existente", "medio",
+        "Si el índice es de una tabla que ya existe (no se crea en el script), se valida si de verdad lo "
+        "necesita: consultas que lo usarán e índices que ya tiene.",
     ),
     "INDICE_COLUMNA_NO_EXISTE": _regla(
         "INDICE_COLUMNA_NO_EXISTE", "Columna del índice inexistente", "critico",

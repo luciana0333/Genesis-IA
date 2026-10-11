@@ -99,7 +99,7 @@ class TestIndices(unittest.TestCase):
             "CREATE NONCLUSTERED INDEX IXN_Cliente_cCodPersona_INC01 ON CLICKTOPAY.Cliente (cCodPersona) INCLUDE (cTelefono);":
                 "INDICE_COLUMNA_NO_EXISTE",
             "CREATE NONCLUSTERED INDEX IXN_Cliente_cObservacion ON CLICKTOPAY.Cliente (cObservacion);": "INDICE_COLUMNA_NO_INDEXABLE",
-            "CREATE NONCLUSTERED INDEX IXN_Pais_cNombre ON CLICKTOPAY.Pais (cNombre);": "INDICE_OTRA_TABLA",
+            "CREATE NONCLUSTERED INDEX IXN_Pais_cNombre ON CLICKTOPAY.Pais (cNombre);": "INDICE_TABLA_EXISTENTE",
             "CREATE NONCLUSTERED INDEX IXN_Cliente_nClienteId ON CLICKTOPAY.Cliente (nClienteId);": "INDICE_DUPLICADO",
         }
         for indices, regla in casos.items():
@@ -131,7 +131,7 @@ class TestIndices(unittest.TestCase):
         for tabla in (TABLA.replace("PRIMARY KEY CLUSTERED", "PRIMARY KEY NONCLUSTERED"),
                       TABLA.replace(",\n    CONSTRAINT PK_Cliente PRIMARY KEY CLUSTERED (nClienteId)", ""), ""):
             with self.subTest(tabla=tabla[-60:]):
-                self.assertEqual(reglas(indices, tabla), [("INDICE_CLUSTERED_CON_PK", 1)])
+                self.assertIn(("INDICE_CLUSTERED_CON_PK", 1), reglas(indices, tabla))
                 self.assertIn("(ej.: IXN_Cliente_dRegistro)", mensaje(indices, tabla))
 
     def test_indice_duplicado_entre_indices(self):
@@ -139,9 +139,18 @@ class TestIndices(unittest.TestCase):
                    "CREATE UNIQUE NONCLUSTERED INDEX IXUN_Cliente_cCodPersona ON CLICKTOPAY.Cliente (cCodPersona);")
         self.assertEqual(reglas(indices), [("INDICE_DUPLICADO", 2)])
 
-    def test_sin_tabla_en_el_script_solo_revisa_sintaxis_y_nombre(self):
+    def test_indice_sobre_tabla_existente_pide_validar(self):
+        # La tabla no se crea en el script (ALTER, vacío u otra tabla): se valida la estructura
+        # y se pide validar si la tabla de verdad necesita el índice.
         indices = "CREATE NONCLUSTERED INDEX IXN_Cliente_cDocumento ON CLICKTOPAY.Cliente (cDocumento);"
-        self.assertEqual(reglas(indices, tabla="ALTER TABLE CLICKTOPAY.Cliente ADD cX VARCHAR(5) NULL;"), [])
+        for tabla in ("ALTER TABLE CLICKTOPAY.Cliente ADD cX VARCHAR(5) NULL;", ""):
+            with self.subTest(tabla=tabla):
+                self.assertEqual(reglas(indices, tabla), [("INDICE_TABLA_EXISTENTE", 1)])
+                self.assertIn("que ya existe (no se crea en este script)", mensaje(indices, tabla))
+                self.assertIn("validar si la tabla realmente necesita este índice", mensaje(indices, tabla))
+        con_errores = "CREATE INDEX idx ON Cliente (cX);"
+        self.assertEqual([r for r, _ in reglas(con_errores, "")],
+                         ["INDICE_PREFIJO_INVALIDO", "INDICE_SIN_ESQUEMA", "INDICE_TABLA_EXISTENTE"])
 
 
 if __name__ == "__main__":
