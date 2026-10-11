@@ -43,8 +43,39 @@ def _hallazgo(texto: str, posicion: int, regla: str, mensaje: str) -> Hallazgo:
 
 
 def _quitar_comentarios(texto: str) -> str:
-    texto = re.sub(r"/\*.*?\*/", lambda m: " " * len(m.group(0)), texto, flags=re.DOTALL)
-    return re.sub(r"--[^\r\n]*", lambda m: " " * len(m.group(0)), texto)
+    """
+    Reemplaza por espacios los comentarios y el contenido de los textos ('...'),
+    conservando las comillas, los saltos de línea y las posiciones. Se recorre
+    una sola vez para que un '--' dentro de un texto no se tome como comentario
+    y un 'SELECT * FROM sys.objects' escrito como texto no dispare reglas.
+    """
+    salida = list(texto)
+    i, n = 0, len(texto)
+    while i < n:
+        if texto.startswith("--", i):
+            fin = texto.find("\n", i)
+            fin = n if fin < 0 else fin
+            salida[i:fin] = " " * (fin - i)
+            i = fin
+        elif texto.startswith("/*", i):
+            fin = texto.find("*/", i + 2)
+            fin = n if fin < 0 else fin + 2
+            salida[i:fin] = [c if c == "\n" else " " for c in texto[i:fin]]
+            i = fin
+        elif texto[i] == "'":
+            j = i + 1
+            while j < n:
+                if texto[j] == "'":
+                    if texto.startswith("''", j):
+                        j += 2
+                        continue
+                    break
+                j += 1
+            salida[i + 1:j] = [c if c == "\n" else " " for c in texto[i + 1:j]]
+            i = j + 1
+        else:
+            i += 1
+    return "".join(salida)
 
 
 def _es_temporal(nombre: str) -> bool:
@@ -77,6 +108,15 @@ _ALIAS_Y_NOLOCK = re.compile(
     r"\s*(?:WITH\s*)?\(\s*(?:NOLOCK|READUNCOMMITTED)\b",
     re.IGNORECASE,
 )
+
+
+def _tabla_del_alias(limpio: str, alias: str) -> str:
+    """Tabla a la que apunta un alias en un FROM o JOIN (dbo.Cliente c → dbo.Cliente); si no, el alias."""
+    match = re.search(
+        rf"\b(?:FROM|JOIN)\s+({_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}})\s+(?:AS\s+)?{re.escape(alias)}\b",
+        limpio, re.IGNORECASE,
+    )
+    return match.group(1).strip() if match else alias
 
 
 def _nombres_cte(limpio: str) -> Set[str]:
@@ -199,7 +239,8 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     reglas = [
         (
-            r"(?is)(?:^|;|\bGO\b)\s*(?P<pos>SELECT)\b(?:(?!;|\bGO\b).)*?\bINTO\s+(?P<tabla>[#@\w\[\].]+)",
+            r"(?is)\b(?P<pos>SELECT)\b(?:(?!\b(?:SELECT|INSERT|MERGE|OUTPUT|FROM|UPDATE|DELETE)\b|;).)*?"
+            r"\bINTO\s+(?P<tabla>[#\w\[\].]+)",
             "SELECT_INTO_PROHIBIDO",
             lambda m: (
                 f"Se ha identificado que la tabla {'temporal ' if m.group('tabla').startswith('#') else ''}"
@@ -208,7 +249,8 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             ),
         ),
         (
-            rf"\bSELECT\s+(?:DISTINCT\s+)?\*(?:\s+FROM\s+(?P<tabla>{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}))?",
+            rf"\bSELECT\s+(?:ALL\s+|DISTINCT\s+)?(?:TOP\s*(?:\(\s*[\w@]+\s*\)|\d+)\s*(?:PERCENT\s+)?(?:WITH\s+TIES\s+)?)?"
+            rf"\*(?:\s+FROM\s+(?P<tabla>{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}))?",
             "SELECT_ESTRELLA_PROHIBIDO",
             lambda m: (
                 (f"Se identificó un SELECT * sobre la tabla {m.group('tabla')}, que trae todas sus columnas. "
@@ -219,11 +261,22 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             ),
         ),
         (
+            r"(?<![\w.])(?P<alias>[A-Za-z_]\w*)\s*\.\s*\*(?=\s*(?:,|\bFROM\b))",
+            "SELECT_ESTRELLA_PROHIBIDO",
+            lambda m: (
+                f"Se identificó un SELECT {m.group('alias')}.*, que trae todas las columnas de la tabla "
+                f"{_tabla_del_alias(limpio, m.group('alias'))}. Se recomienda escribir solo las columnas que el reporte necesita, ya que "
+                f"traer todas aumenta la lectura de datos, vuelve más lento el reporte y puede fallar si la "
+                f"tabla cambia (ej.: SELECT {m.group('alias')}.cNombre, {m.group('alias')}.dFecha)."
+            ),
+        ),
+        (
             r"\bIN\s*\(\s*(?P<valor>[^,()]+?)\s*\)",
             "IN_CON_UN_SOLO_VALOR",
             lambda m: (
-                f"Se identificó un IN con un solo valor: IN ({m.group('valor')}). Se recomienda usar el signo "
-                f"igual, ya que es más claro y directo (ej.: WHERE nEstado = {m.group('valor')})."
+                f"Se identificó un IN con un solo valor: IN ({texto[m.start('valor'):m.end('valor')]}). Se "
+                f"recomienda usar el signo igual, ya que es más claro y directo "
+                f"(ej.: WHERE nEstado = {texto[m.start('valor'):m.end('valor')]})."
             ),
         ),
         (
@@ -246,9 +299,16 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
 
 def _validar_modificaciones_fisicas(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
-    patron = re.compile(rf"\b(UPDATE|INSERT\s+INTO|DELETE\s+FROM|MERGE\s+INTO)\s+({_IDENTIFICADOR}(?:\s*\.(?:\s*\.)?\s*{_IDENTIFICADOR}){{0,2}})", re.IGNORECASE)
+    patron = re.compile(
+        rf"\b(UPDATE|INSERT(?:\s+INTO)?|DELETE(?:\s+FROM)?|MERGE(?:\s+INTO)?|TRUNCATE\s+TABLE)\s+"
+        rf"(?!(?:INTO|FROM|SET|JOIN|STATISTICS)\b)({_IDENTIFICADOR}(?:\s*\.(?:\s*\.)?\s*{_IDENTIFICADOR}){{0,2}})",
+        re.IGNORECASE,
+    )
     for match in patron.finditer(limpio):
         tabla = match.group(2).strip()
+        if "." not in tabla and not _es_temporal(tabla):
+            # UPDATE c ... FROM dbo.Cliente c: el objetivo es el alias de una tabla del FROM.
+            tabla = _tabla_del_alias(_sentencia(limpio, match.start()), tabla)
         if not _es_temporal(tabla):
             hallazgos.append(_hallazgo(
                 texto,
@@ -482,7 +542,7 @@ def _validar_funciones_reemplazables(texto: str, limpio: str) -> List[Hallazgo]:
         hallazgos.append(_hallazgo(
             texto, match.start(), "LTRIM_RTRIM_PROHIBIDO",
             "Se identificó la combinación de LTRIM y RTRIM para quitar espacios. Se recomienda usar TRIM, "
-            "ya que hace lo mismo en una sola función y es más fácil de leer (ej.: TRIM(cNombre)).",
+            "ya que hace lo mismo en una sola función y le da más legibilidad al código (ej.: TRIM(cNombre)).",
         ))
     for match in re.finditer(r"\bFOR\s+XML\s+PATH\s*\(\s*(?:''|\"\")\s*\)", limpio, re.IGNORECASE):
         con_stuff = re.search(r"\bSTUFF\s*\(", _sentencia(limpio, match.start()), re.IGNORECASE)
