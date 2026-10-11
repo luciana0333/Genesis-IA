@@ -138,7 +138,7 @@ class TestReportesQA(unittest.TestCase):
         hallazgos = verificar_reporte(sql)
         self.assertEqual([(h.regla, h.linea) for h in hallazgos],
                          [("PROCEDIMIENTO_SIN_PREFIJO_PA", 1), ("PROCEDIMIENTO_SIN_ACCION", 1)])
-        self.assertIn("ej.: PA_BI_Sel_Reporte", hallazgos[0].mensaje)
+        self.assertIn("ej.: PA_BI_Reporte", hallazgos[0].mensaje)
         self.assertIn("ej.: PA_BI_Sel_Reporte", hallazgos[1].mensaje)
 
     def test_nombre_con_accion_en_cualquier_posicion(self):

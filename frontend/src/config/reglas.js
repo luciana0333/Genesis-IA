@@ -108,6 +108,7 @@ export const NOMBRES_REGLAS = {
   SOBREESTIMACION_FILAS: 'Desviación de cardinalidad',
   MEMORIA_CONCEDIDA_SOBREDIMENSIONADA: 'Memoria concedida sobredimensionada',
   VARBINARY_DOCUMENTO_IDENTIFICADO: 'VARBINARY identificado',
+  DOCUMENTO_GUARDADO_EN_BD: 'Documento guardado en la base de datos',
 };
 
 export function nombreRegla(codigo) {

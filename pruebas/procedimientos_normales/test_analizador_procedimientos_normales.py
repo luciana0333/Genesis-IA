@@ -96,14 +96,33 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             {"CATALOGO_SISTEMA_PROHIBIDO", "SQL_DINAMICO_PROHIBIDO", "VARCHAR_MAX_PROHIBIDO"},
         )
 
-    def test_identifica_varbinary_para_documentos(self):
-        reglas = {
-            hallazgo.regla
-            for hallazgo in verificar_procedimiento_normal("DECLARE @documento VARBINARY(MAX);")
-        }
+    def test_varbinary_solo_se_marca_si_guarda_documentos(self):
+        declarado = {h.regla for h in verificar_procedimiento_normal("DECLARE @documento VARBINARY(MAX);")}
+        self.assertNotIn("DOCUMENTO_GUARDADO_EN_BD", declarado)
+        self.assertNotIn("VARCHAR_MAX_PROHIBIDO", declarado)
+        consulta = "SELECT d.vArchivo FROM dbo.Documento d WHERE d.nId = 1;"
+        self.assertNotIn("DOCUMENTO_GUARDADO_EN_BD", {h.regla for h in verificar_procedimiento_normal(consulta)})
 
-        self.assertIn("VARBINARY_DOCUMENTO_IDENTIFICADO", reglas)
-        self.assertNotIn("VARCHAR_MAX_PROHIBIDO", reglas)
+        sql = (
+            "CREATE PROCEDURE dbo.PA_Documento_Ins_Archivo\n    @nId INT,\n    @vArchivo VARBINARY(MAX)\nAS\nBEGIN\n"
+            "    INSERT INTO dbo.Documento (nId, vArchivo)\n    VALUES (@nId, @vArchivo);\nEND"
+        )
+        hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "DOCUMENTO_GUARDADO_EN_BD")
+        self.assertEqual((hallazgo.linea, hallazgo.severidad.value), (7, "alto"))
+        self.assertIn("@vArchivo (VARBINARY) se escribe en la tabla dbo.Documento con INSERT", hallazgo.mensaje)
+
+    def test_varbinary_otras_formas_de_guardar_documentos(self):
+        casos = (
+            "UPDATE d SET d.vArchivo = CONVERT(VARBINARY(MAX), @cBase64) FROM dbo.Documento d;",
+            "INSERT INTO dbo.Documento (vArchivo) SELECT BulkColumn FROM OPENROWSET(BULK 'C:\\a.pdf', SINGLE_BLOB) x;",
+            "CREATE TABLE dbo.Documento (nId INT NOT NULL, vArchivo VARBINARY(MAX) NOT NULL);",
+            "ALTER TABLE dbo.Documento ADD vFirma VARBINARY(MAX) NULL;",
+        )
+        for sql in casos:
+            with self.subTest(sql=sql):
+                self.assertIn("DOCUMENTO_GUARDADO_EN_BD", {h.regla for h in verificar_procedimiento_normal(sql)})
+        temporal = "DECLARE @v VARBINARY(MAX); CREATE TABLE #Doc (vArchivo VARBINARY(MAX)); INSERT INTO #Doc VALUES (@v);"
+        self.assertNotIn("DOCUMENTO_GUARDADO_EN_BD", {h.regla for h in verificar_procedimiento_normal(temporal)})
 
 
     def test_nombre_correcto_al_crear(self):
@@ -160,10 +179,10 @@ END"""
 
     def test_severidades_salen_del_catalogo(self):
         hallazgos = {h.regla: h.severidad.value for h in verificar_procedimiento_normal(
-            "SELECT * FROM #T ORDER BY 1; DECLARE @doc VARBINARY(MAX);")}
-        self.assertEqual(hallazgos["SELECT_ESTRELLA_PROHIBIDO"], "medio")
+            "SELECT * FROM #T ORDER BY 1; DECLARE @doc VARBINARY(MAX); INSERT INTO dbo.Doc (v) VALUES (@doc);")}
+        self.assertEqual(hallazgos["SELECT_ESTRELLA_PROHIBIDO"], "alto")
         self.assertEqual(hallazgos["ORDER_BY_NUMERICO_PROHIBIDO"], "medio")
-        self.assertEqual(hallazgos["VARBINARY_DOCUMENTO_IDENTIFICADO"], "bajo")
+        self.assertEqual(hallazgos["DOCUMENTO_GUARDADO_EN_BD"], "alto")
 
 
     def test_nombre_en_minusculas_mayusculas_y_sin_accion(self):

@@ -864,13 +864,89 @@ def _validar_sintaxis_prohibida(texto: str, limpio: str) -> List[Hallazgo]:
             f"sp_executesql. Escribir la consulta directamente y usar parámetros para los filtros, ya que el "
             f"SQL dinámico es difícil de revisar y puede permitir ataques de inyección de SQL.",
         ))
-    for match in re.finditer(r"\bVARBINARY(?:\s*\(\s*(?:MAX|\d+)\s*\))?", limpio, re.IGNORECASE):
-        nombre = _nombre_declarado_antes(limpio, match.start())
-        en = f" en {nombre}" if nombre else ""
-        hallazgos.append(_hallazgo(
-            texto, match.start(), "VARBINARY_DOCUMENTO_IDENTIFICADO",
-            f"Se identificó un tipo de dato VARBINARY{en}, que guarda archivos dentro de la base de datos. Se "
-            f"recomienda evaluar si es necesario, ya que lo ideal es guardar el archivo fuera de la base de "
-            f"datos y registrar solo su ruta.",
+    hallazgos.extend(_validar_documentos_guardados(texto, limpio))
+    return hallazgos
+
+
+_TIPO_BINARIO = r"\b(?:VARBINARY|IMAGE)\b(?:\s*\(\s*(?:MAX|\d+)\s*\))?"
+# Fin de un INSERT/UPDATE: punto y coma o el inicio de otra sentencia.
+_FIN_ESCRITURA = re.compile(
+    r";|\b(?:INSERT|UPDATE|DELETE|MERGE|DECLARE|RETURN|END|IF|BEGIN|COMMIT|ROLLBACK|EXEC(?:UTE)?|GO)\b",
+    re.IGNORECASE,
+)
+
+
+def _validar_documentos_guardados(texto: str, limpio: str) -> List[Hallazgo]:
+    """
+    VARBINARY solo se marca cuando de verdad se guarda un documento en una tabla
+    física: un INSERT/UPDATE que escribe un valor binario (variable o parámetro
+    VARBINARY, CAST/CONVERT a VARBINARY, OPENROWSET SINGLE_BLOB) o una tabla
+    física que agrega una columna VARBINARY. Consultarlo o declararlo no se marca.
+    """
+    hallazgos = []
+    variables = {
+        nombre.lower()
+        for match in re.finditer(_TIPO_BINARIO, limpio, re.IGNORECASE)
+        if (nombre := _nombre_declarado_antes(limpio, match.start())) and nombre.startswith("@")
+    }
+    pistas = [
+        (rf"\b(?:CAST|CONVERT)\s*\((?:[^()]|\([^()]*\))*?{_TIPO_BINARIO}", "un valor convertido a VARBINARY"),
+        (r"\bOPENROWSET\s*\([^)]*\bSINGLE_BLOB\b", "un archivo leído con OPENROWSET"),
+    ]
+    if variables:
+        pistas.append((
+            r"(?<![\w@])(" + "|".join(re.escape(v) for v in sorted(variables, key=len, reverse=True)) + r")\b",
+            None,
         ))
+
+    escrituras = re.finditer(
+        rf"\b(INSERT(?:\s+INTO)?|UPDATE)\s+(?!(?:INTO|STATISTICS)\b)({_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}})",
+        limpio, re.IGNORECASE,
+    )
+    for escritura in escrituras:
+        tabla = escritura.group(2).strip()
+        fin = _FIN_ESCRITURA.search(limpio, escritura.end())
+        tramo_fin = fin.start() if fin else len(limpio)
+        tramo = limpio[escritura.end():tramo_fin]
+        if "." not in tabla and not _es_temporal(tabla):
+            # UPDATE d SET ... FROM dbo.Documento d: el objetivo es la tabla del alias.
+            alias = re.search(
+                rf"\bFROM\s+({_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}})\s+(?:AS\s+)?{re.escape(tabla)}\b",
+                tramo, re.IGNORECASE,
+            )
+            if alias:
+                tabla = alias.group(1).strip()
+        if _es_temporal(tabla):
+            continue
+        for patron, descripcion in pistas:
+            pista = re.search(patron, tramo, re.IGNORECASE)
+            if not pista:
+                continue
+            que = descripcion or f"la variable {pista.group(1)} (VARBINARY)"
+            accion = "UPDATE" if escritura.group(1).upper() == "UPDATE" else "INSERT"
+            hallazgos.append(_hallazgo(
+                texto, escritura.end() + pista.start(), "DOCUMENTO_GUARDADO_EN_BD",
+                f"Se identificó que el procedimiento guarda un documento en la base de datos: {que} se "
+                f"escribe en la tabla {tabla} con {accion}. Se recomienda guardar el documento en la solución "
+                f"externa y registrar solo su ruta, ya que la base de datos es solo para datos transaccionales.",
+            ))
+            break
+
+    # Una tabla física que agrega una columna para documentos.
+    for match in re.finditer(
+        rf"\b(CREATE\s+TABLE|ALTER\s+TABLE)\s+({_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}})", limpio, re.IGNORECASE,
+    ):
+        tabla = match.group(2).strip()
+        if _es_temporal(tabla):
+            continue
+        fin = re.search(r";|\bGO\b|\b(?:CREATE|ALTER|INSERT|UPDATE|DELETE|SELECT|DECLARE)\b", limpio[match.end():], re.IGNORECASE)
+        tramo = limpio[match.end():match.end() + (fin.start() if fin else len(limpio))]
+        columna = re.search(rf"({_IDENTIFICADOR})\s+{_TIPO_BINARIO}", tramo, re.IGNORECASE)
+        if columna:
+            hallazgos.append(_hallazgo(
+                texto, match.end() + columna.start(), "DOCUMENTO_GUARDADO_EN_BD",
+                f"Se identificó que la tabla {tabla} tendrá la columna {columna.group(1)} de tipo VARBINARY para "
+                f"guardar documentos. Se recomienda guardar el documento en la solución externa y registrar solo "
+                f"su ruta, ya que la base de datos es solo para datos transaccionales.",
+            ))
     return hallazgos

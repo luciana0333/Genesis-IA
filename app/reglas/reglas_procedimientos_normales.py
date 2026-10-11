@@ -71,7 +71,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     "SELECT_ESTRELLA_PROHIBIDO": ReglaDiccionario(
         codigo="SELECT_ESTRELLA_PROHIBIDO",
         nombre="SELECT estrella prohibido",
-        severidad="medio",
+        severidad="alto",
         descripcion="Las consultas deben indicar sus columnas explícitamente.",
         alcance="procedimiento",
         activo=True,
@@ -292,11 +292,13 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
-    "VARBINARY_DOCUMENTO_IDENTIFICADO": ReglaDiccionario(
-        codigo="VARBINARY_DOCUMENTO_IDENTIFICADO",
-        nombre="VARBINARY para documento identificado",
-        severidad="bajo",
-        descripcion="Se identificó VARBINARY, tipo adecuado para almacenar contenido binario de archivos o documentos.",
+    "DOCUMENTO_GUARDADO_EN_BD": ReglaDiccionario(
+        codigo="DOCUMENTO_GUARDADO_EN_BD",
+        nombre="Documento guardado en la base de datos",
+        severidad="alto",
+        descripcion="No se guardan documentos en la base de datos (INSERT/UPDATE de un valor VARBINARY o una "
+                    "columna VARBINARY nueva): van en la solución externa y se registra solo su ruta. "
+                    "Consultar o declarar un VARBINARY no se marca.",
         alcance="procedimiento",
         activo=True,
     ),
