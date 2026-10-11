@@ -125,7 +125,10 @@ def _tabla_del_from(limpio: str, posicion: int) -> str:
     """Primera tabla del FROM de la sentencia que empieza en `posicion`."""
     fin = limpio.find(";", posicion)
     tramo = limpio[posicion:fin if fin >= 0 else len(limpio)]
-    encontrado = re.search(rf"\bFROM\s+({_REFERENCIA})", tramo, re.IGNORECASE)
+    # Admite Base..Tabla (esquema omitido) para nombrar la tabla completa.
+    encontrado = re.search(
+        rf"\bFROM\s+({_IDENTIFICADOR}(?:\s*\.(?:\s*\.)?\s*{_IDENTIFICADOR}){{0,2}})", tramo, re.IGNORECASE,
+    )
     return _limpiar_nombre(encontrado.group(1)) if encontrado else ""
 
 
@@ -393,7 +396,13 @@ _CLAUSULAS_COLLATE = re.compile(
 
 def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
-    for match in re.finditer(r"(?is)(?:^|;|\bGO\b)\s*(SELECT)\b(?:(?!;|\bGO\b).)*?\bINTO\b\s*([#@]?[\w\[\].]*)", limpio):
+    # Cada SELECT seguido de INTO sin pasar por otra sentencia ni por su FROM: así se
+    # detecta también justo después de BEGIN o de una sentencia sin ";".
+    for match in re.finditer(
+        r"(?is)\b(SELECT)\b(?:(?!\b(?:SELECT|INSERT|MERGE|OUTPUT|FROM|UPDATE|DELETE|GO)\b|;).)*?"
+        r"\bINTO\b\s*([#@]?[\w\[\].]*)",
+        limpio,
+    ):
         destino = match.group(2).strip()
         tabla = f"la tabla {destino}" if destino else "una tabla temporal"
         hallazgos.append(_hallazgo(

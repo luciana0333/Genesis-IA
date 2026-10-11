@@ -96,6 +96,20 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             {"CATALOGO_SISTEMA_PROHIBIDO", "SQL_DINAMICO_PROHIBIDO", "VARCHAR_MAX_PROHIBIDO"},
         )
 
+    def test_select_into_tras_begin_o_sin_punto_y_coma(self):
+        tras_begin = "CREATE PROCEDURE dbo.PA_C_Sel\nAS\nBEGIN\n    SELECT c.n INTO #T FROM dbo.Cliente c;\nEND"
+        self.assertIn(("SELECT_INTO_PROHIBIDO", 4), [(h.regla, h.linea) for h in verificar_procedimiento_normal(tras_begin)])
+        sin_punto_y_coma = "DECLARE @x INT = 1\nSELECT c.n INTO #T FROM dbo.Cliente c WHERE c.n = @x"
+        self.assertIn(("SELECT_INTO_PROHIBIDO", 2), [(h.regla, h.linea) for h in verificar_procedimiento_normal(sin_punto_y_coma)])
+        for valido in ("INSERT INTO #T (n) SELECT c.n FROM dbo.Cliente c;", "DECLARE @n INT; SELECT @n = c.n FROM dbo.Cliente c;"):
+            with self.subTest(sql=valido):
+                self.assertNotIn("SELECT_INTO_PROHIBIDO", {h.regla for h in verificar_procedimiento_normal(valido)})
+
+    def test_select_estrella_sobre_base_sin_esquema(self):
+        hallazgo = next(h for h in verificar_procedimiento_normal("SELECT * FROM DBCMAICA..Cliente c WHERE c.n = 1;")
+                        if h.regla == "SELECT_ESTRELLA_PROHIBIDO")
+        self.assertIn("sobre la tabla DBCMAICA..Cliente", hallazgo.mensaje)
+
     def test_texto_entre_comillas_no_se_revisa_como_codigo(self):
         sql = ("SELECT 'Revisar SELECT * FROM sys.objects' AS cNota, 'COLLATE Modern_Spanish_CI_AS' AS cOtra,\n"
                "       c.cNombre FROM dbo.Cliente c WHERE c.nClienteId = 1;")
