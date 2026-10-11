@@ -326,6 +326,30 @@ def _validar_esquema(llamadas: List[LlamadaPropiedad], esquema_real: Optional[st
     ]
 
 
+def _validar_nombres_vacios(
+    llamadas: List[LlamadaPropiedad], esquema: Optional[str], nombre_tabla: str, texto_diccionario: str
+) -> List[Hallazgo]:
+    """@level0name, @level1name o @level2name vacíos (N''): el diccionario no indica el objeto."""
+    hallazgos = []
+    for ll in llamadas:
+        for clave, que, ejemplo in (
+            ("level0name", "el esquema de la tabla", esquema or "dbo"),
+            ("level1name", "el nombre de la tabla", nombre_tabla or "Tabla"),
+            ("level2name", "el nombre de la columna", "cColumna"),
+        ):
+            if ll.tiene(clave) and ll.texto(clave) == "":
+                # La línea es la del parámetro vacío, no la del inicio del EXEC.
+                donde = re.compile(r"@" + clave + r"\s*=", re.IGNORECASE).search(texto_diccionario, ll.posicion)
+                linea = texto_diccionario.count("\n", 0, donde.start()) + 1 if donde else ll.linea
+                hallazgos.append(_hallazgo(
+                    linea, "NOMBRE_VACIO",
+                    f"Se identificó que @{clave} está vacío, es decir, el diccionario no indica {que}. Se recomienda "
+            f"añadir {que} (ej.: @{clave}=N'{ejemplo}'), ya que actualmente está vacío y la documentación no "
+            f"quedaría asociada a ningún objeto.",
+                ))
+    return hallazgos
+
+
 def _validar_nombre_tabla(llamadas: List[LlamadaPropiedad], nombre_tabla: str) -> List[Hallazgo]:
     return [
         _hallazgo(
@@ -651,6 +675,12 @@ def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> Li
             for regla, mensaje in nomenclatura_tabla(nombre_tabla)
         ]
     hallazgos += _validar_esquema(llamadas, esquema)
+    vacios = _validar_nombres_vacios(llamadas, esquema, nombre_tabla, texto_diccionario)
+    hallazgos += vacios
+    # Si la descripción de la tabla tiene @level1name vacío, la tabla sí se documentó (con el
+    # nombre vacío): no se marca además como «tabla sin descripción».
+    if any("@level1name" in h.mensaje for h in vacios):
+        hallazgos = [h for h in hallazgos if h.regla != "TABLA_SIN_DESCRIPCION"]
     hallazgos += _validar_nombre_tabla(llamadas, nombre_tabla)
     hallazgos += _validar_descripciones_vacias(llamadas)
     hallazgos += _validar_ortografia(llamadas, esquema, nombre_tabla, columnas_reales)

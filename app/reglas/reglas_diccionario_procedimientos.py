@@ -92,6 +92,15 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
         alcance="procedimiento",
         activo=True,
     ),
+    "NOMBRE_VACIO": ReglaDiccionario(
+        codigo="NOMBRE_VACIO",
+        nombre="Nombre vacío en el diccionario",
+        severidad="alto",
+        descripcion="@level0name, @level1name o @level2name no pueden ir vacíos (N''): deben indicar el "
+                    "esquema, el procedimiento o el parámetro documentado.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "NOMBRE_NO_COINCIDE": ReglaDiccionario(
         codigo="NOMBRE_NO_COINCIDE",
         nombre="Nombre del procedimiento no coincide",

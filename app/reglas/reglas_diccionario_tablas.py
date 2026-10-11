@@ -87,6 +87,15 @@ REGLAS_DICCIONARIO_TABLAS = {
         alcance="tabla",
         activo=True,
     ),
+    "NOMBRE_VACIO": ReglaDiccionario(
+        codigo="NOMBRE_VACIO",
+        nombre="Nombre vacío en el diccionario",
+        severidad="alto",
+        descripcion="@level0name, @level1name o @level2name no pueden ir vacíos (N''): deben indicar el "
+                    "esquema, la tabla o la columna documentada.",
+        alcance="tabla",
+        activo=True,
+    ),
     "NOMBRE_TABLA_NO_COINCIDE": ReglaDiccionario(
         codigo="NOMBRE_TABLA_NO_COINCIDE",
         nombre="Nombre de tabla no coincide",

@@ -390,7 +390,8 @@ def _validar_nombre_procedimiento(
     for pos, args in llamadas:
         if "level1name" in args and "PROCEDURE" in args.get("level1type", "").upper():
             valor = _limpiar_valor(args["level1name"])
-            if valor.lower() != nombre_proc.lower():
+            # Vacío (N'') no es «no coincide»: lo marca _validar_nombres_vacios.
+            if valor and valor.lower() != nombre_proc.lower():
                 hallazgos.append(Hallazgo(
                     linea=_numero_linea(texto_diccionario, pos),
                     origen=OrigenAnalisis.DICCIONARIO,
@@ -400,6 +401,35 @@ def _validar_nombre_procedimiento(
                             f"se llama '{nombre_proc}'. Corregir el nombre en el diccionario por "
                             f"'{nombre_proc}', ya que no coincide con el nombre del procedimiento y "
                             f"la documentación quedaría en un objeto que no existe."
+                ))
+    return hallazgos
+
+
+def _validar_nombres_vacios(
+    llamadas: List[Tuple[int, Dict[str, str]]],
+    texto_diccionario: str,
+    esquema: Optional[str],
+    nombre_proc: str,
+) -> List[Hallazgo]:
+    """@level0name, @level1name o @level2name vacíos (N''): el diccionario no indica el objeto."""
+    hallazgos = []
+    for pos, args in llamadas:
+        for clave, que, ejemplo in (
+            ("level0name", "el esquema del procedimiento", esquema or "dbo"),
+            ("level1name", "el nombre del procedimiento", nombre_proc or "PA_Tabla_Sel_Finalidad"),
+            ("level2name", "el nombre del parámetro", "@nParametro"),
+        ):
+            if clave in args and _limpiar_valor(args[clave]) == "":
+                # La línea es la del parámetro vacío, no la del inicio del EXEC.
+                donde = re.compile(r"@" + clave + r"\s*=", re.IGNORECASE).search(texto_diccionario, pos)
+                hallazgos.append(Hallazgo(
+                    linea=_numero_linea(texto_diccionario, donde.start() if donde else pos),
+                    origen=OrigenAnalisis.DICCIONARIO,
+                    severidad=Severidad(REGLAS_DICCIONARIO_PROCEDIMIENTOS["NOMBRE_VACIO"].severidad),
+                    regla="NOMBRE_VACIO",
+                    mensaje=f"Se identificó que @{clave} está vacío, es decir, el diccionario no indica {que}. Se recomienda "
+            f"añadir {que} (ej.: @{clave}=N'{ejemplo}'), ya que actualmente está vacío y la documentación no "
+            f"quedaría asociada a ningún objeto.",
                 ))
     return hallazgos
 
@@ -582,6 +612,7 @@ def verificar_diccionario(
     hallazgos += _validar_parametros_faltantes(
         parametros_reales, llamadas, tipo_sentencia, esquema, nombre_proc
     )
+    hallazgos += _validar_nombres_vacios(llamadas, texto_diccionario, esquema, nombre_proc)
     hallazgos += _validar_nombre_procedimiento(llamadas, nombre_proc, texto_diccionario)
     hallazgos += _validar_esquema(llamadas, esquema, texto_diccionario)
     hallazgos += _validar_descripciones_vacias(llamadas, texto_diccionario)
