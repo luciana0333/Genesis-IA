@@ -638,6 +638,8 @@ _ACCIONES_ABREVIADAS = {
     "insertar": "Ins", "inserta": "Ins", "insert": "Ins",
     "eliminar": "Del", "elimina": "Del", "delete": "Del", "borrar": "Del",
 }
+# Ejemplo fijo que usa el diccionario de procedimientos (diccionario_nomenclatura.py).
+_EJEMPLO_NOMBRE = "PA_Cliente_Sel_PorDocumento"
 _ACCIONES_ESTANDAR = {"sel": "Sel", "upd": "Upd", "ins": "Ins", "del": "Del"}
 # Otras formas de nombrar la acción que solo se usan para armar el ejemplo.
 _ACCIONES_EN_SUGERENCIA = {
