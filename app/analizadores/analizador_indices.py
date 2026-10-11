@@ -76,6 +76,7 @@ class _Indice:
     claves: List[str]
     incluidas: List[str]
     posicion_tabla: int
+    tipo_explicito: bool = True  # False si dice solo CREATE INDEX (SQL Server lo toma NONCLUSTERED)
 
 
 def _limpiar(nombre: str) -> str:
@@ -314,6 +315,7 @@ def _leer_indice(texto: str, inicio: int, sentencia: str, hallazgos: List[Hallaz
         nombre=nombre,
         unico=bool(cabecera.group(1)),
         clustered=bool(cabecera.group(2)) and cabecera.group(2).strip().upper() == "CLUSTERED",
+        tipo_explicito=bool(cabecera.group(2)),
         tabla=cabecera.group(4),
         claves=claves,
         incluidas=incluidas,
@@ -353,9 +355,16 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
     if indice.nombre.split("_")[0].upper() != prefijo:
         hallazgos.append(_hallazgo(
             texto, indice.posicion, "INDICE_PREFIJO_INVALIDO",
-            f"Se identificó que el índice {indice.nombre} es de tipo {tipo}, pero su nombre no empieza con "
-            f"{prefijo}_, que es el prefijo que el manual asigna a ese tipo. Se recomienda cambiar el nombre a "
-            f"{esperado}, ya que el prefijo permite saber de qué tipo es el índice con solo leer su nombre.",
+            (
+                f"Se ha identificado que el índice {indice.nombre} no sigue la nomenclatura establecida y no "
+                f"indica su tipo. Se recomienda añadir el tipo de índice y nombrarlo con el prefijo que le "
+                f"corresponde según el manual (ej.: CREATE {tipo} INDEX {esperado}), ya que sin el tipo SQL "
+                f"Server lo crea como {tipo} por defecto y el nombre debe indicarlo."
+            ) if not indice.tipo_explicito else (
+                f"Se ha identificado que el índice {indice.nombre} no sigue la nomenclatura establecida: es "
+                f"{tipo} y su nombre no empieza con {prefijo}_. Se recomienda cambiar el nombre a {esperado}, "
+                f"ya que el prefijo permite saber de qué tipo es el índice con solo leer su nombre."
+            ),
         ))
     elif indice.nombre.lower() != esperado.lower() and not hay_repetidas:
         hallazgos.append(_hallazgo(

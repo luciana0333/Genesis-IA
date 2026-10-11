@@ -50,7 +50,17 @@ class TestIndices(unittest.TestCase):
         for indices, sugerido in casos.items():
             with self.subTest(indices=indices):
                 self.assertEqual(reglas(indices), [("INDICE_PREFIJO_INVALIDO", 1)])
-                self.assertIn(f"nombre a {sugerido}", mensaje(indices))
+                self.assertIn("no sigue la nomenclatura establecida", mensaje(indices))
+                self.assertIn(sugerido, mensaje(indices))
+
+    def test_indice_sin_tipo_pide_anadir_el_tipo(self):
+        sin_tipo = "CREATE INDEX idx_persona\n    ON CLICKTOPAY.Cliente (cCodPersona);"
+        texto = mensaje(sin_tipo)
+        self.assertIn("no indica su tipo", texto)
+        self.assertIn("añadir el tipo de índice", texto)
+        self.assertIn("CREATE NONCLUSTERED INDEX IXN_Cliente_cCodPersona", texto)
+        con_tipo = "CREATE NONCLUSTERED INDEX IX_Cliente_cCodPersona ON CLICKTOPAY.Cliente (cCodPersona);"
+        self.assertNotIn("no indica su tipo", mensaje(con_tipo))
 
     def test_nombre_con_tabla_campos_e_inc(self):
         campos = "CREATE NONCLUSTERED INDEX IXN_Cliente_Codigo ON CLICKTOPAY.Cliente (cCodPersona);"

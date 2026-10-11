@@ -112,7 +112,7 @@ export const NOMBRES_REGLAS = {
   TABLA_PESADA_SIN_NOLOCK: 'Tabla de movimientos o constantes sin NOLOCK',
   INDICE_SINTAXIS_INVALIDA: 'Índice mal escrito',
   INDICE_SENTENCIA_NO_RECONOCIDA: 'Instrucción que no es un índice',
-  INDICE_PREFIJO_INVALIDO: 'Prefijo de índice inválido',
+  INDICE_PREFIJO_INVALIDO: 'Índice sin nomenclatura correcta',
   INDICE_NOMBRE_NO_ESTANDAR: 'Nombre de índice fuera del estándar',
   INDICE_SIN_ESQUEMA: 'Índice sin esquema',
   INDICE_TABLA_EXISTENTE: 'Índice sobre tabla existente',
