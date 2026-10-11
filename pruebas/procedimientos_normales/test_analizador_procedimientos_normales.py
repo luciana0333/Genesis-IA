@@ -96,6 +96,17 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             {"CATALOGO_SISTEMA_PROHIBIDO", "SQL_DINAMICO_PROHIBIDO", "VARCHAR_MAX_PROHIBIDO"},
         )
 
+    def test_hints_de_bloqueo(self):
+        sql = "SELECT c.cNombre FROM dbo.Cliente c WITH (UPDLOCK, HOLDLOCK) WHERE c.nId = 1;"
+        hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "HINT_BLOQUEO_PROHIBIDO"]
+        self.assertEqual(len(hallazgos), 1)  # agrupados en un solo mensaje
+        self.assertIn("'UPDLOCK', que bloquea las filas leídas", hallazgos[0].mensaje)
+        self.assertIn("'HOLDLOCK', que mantiene bloqueadas", hallazgos[0].mensaje)
+        self.assertEqual(hallazgos[0].severidad.value, "alto")
+        self.assertNotIn("HINT_PLAN_PROHIBIDO", {h.regla for h in verificar_procedimiento_normal(sql)})
+        self.assertNotIn("HINT_BLOQUEO_PROHIBIDO",
+                         {h.regla for h in verificar_procedimiento_normal("SELECT c.n FROM dbo.Cliente c WITH (NOLOCK);")})
+
     def test_varbinary_solo_se_marca_si_guarda_documentos(self):
         declarado = {h.regla for h in verificar_procedimiento_normal("DECLARE @documento VARBINARY(MAX);")}
         self.assertNotIn("DOCUMENTO_GUARDADO_EN_BD", declarado)

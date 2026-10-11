@@ -10,10 +10,30 @@ from app.reglas.reglas_procedimientos_normales import REGLAS_PROCEDIMIENTOS_NORM
 
 _IDENTIFICADOR = r"(?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)"
 _HINTS_PROHIBIDOS = (
-    r"FORCESEEK|FORCESCAN|RECOMPILE|NOEXPAND|HOLDLOCK|INDEX\s*\(|"
+    r"FORCESEEK|FORCESCAN|RECOMPILE|NOEXPAND|INDEX\s*\(|"
     r"LOOP\s+JOIN|HASH\s+JOIN|MERGE\s+JOIN|OPTIMIZE\s+FOR|MAXDOP\s*\(|FAST\s+\d+|"
     r"OPTION\s*\([^)]*\)"
 )
+# Hints de bloqueo: fuerzan al motor a bloquear de una forma determinada.
+# Cada uno con lo que hace, para explicarlo en el mensaje.
+_HINTS_BLOQUEO = {
+    "UPDLOCK": "bloquea las filas leídas como si se fueran a actualizar y las mantiene bloqueadas hasta que "
+               "termina la transacción",
+    "HOLDLOCK": "mantiene bloqueadas las filas leídas hasta que termina la transacción, como el aislamiento "
+                "SERIALIZABLE",
+    "SERIALIZABLE": "mantiene bloqueadas las filas leídas hasta que termina la transacción",
+    "REPEATABLEREAD": "mantiene bloqueadas las filas leídas hasta que termina la transacción",
+    "XLOCK": "toma un bloqueo exclusivo sobre las filas leídas",
+    "TABLOCKX": "toma un bloqueo exclusivo sobre toda la tabla",
+    "TABLOCK": "bloquea toda la tabla en lugar de solo las filas usadas",
+    "PAGLOCK": "obliga al motor a bloquear páginas completas",
+    "ROWLOCK": "obliga al motor a bloquear fila por fila",
+    "READPAST": "salta las filas que otro proceso tiene bloqueadas",
+}
+# Palabras que pueden ir antes de un hint de bloqueo dentro del mismo paréntesis.
+_HINTS_DE_TABLA = set(_HINTS_BLOQUEO) | {
+    "NOLOCK", "READUNCOMMITTED", "READCOMMITTED", "FORCESEEK", "FORCESCAN", "NOEXPAND", "NOWAIT",
+}
 _PALABRAS_SQL_COMENTADAS = r"SELECT|INSERT|UPDATE|DELETE|MERGE|EXEC(?:UTE)?|DECLARE|CREATE|ALTER|DROP|WHILE|GOTO"
 _TIPOS_TEXTO = r"(?:N?VARCHAR|N?CHAR|TEXT|NTEXT)\b"
 _CATALOGO_SISTEMA = r"\bsys\s*\.\s*[A-Za-z_][\w$]*"
@@ -110,6 +130,27 @@ def _validar_hints(texto: str, limpio: str) -> List[Hallazgo]:
         )
         for match in re.finditer(_HINTS_PROHIBIDOS, limpio, re.IGNORECASE)
     ]
+
+
+def _validar_hints_bloqueo(texto: str, limpio: str) -> List[Hallazgo]:
+    """UPDLOCK, HOLDLOCK, TABLOCK...: fuerzan al motor a bloquear; no se permiten."""
+    hallazgos = []
+    for match in re.finditer(r"\b(" + "|".join(_HINTS_BLOQUEO) + r")\b", limpio, re.IGNORECASE):
+        # Solo dentro del paréntesis de hints de una tabla: WITH (UPDLOCK, HOLDLOCK) o (UPDLOCK).
+        abre = limpio.rfind("(", 0, match.start())
+        previo = limpio[abre + 1:match.start()] if abre >= 0 else None
+        if previo is None or not re.fullmatch(r"[\sA-Za-z,]*", previo):
+            continue
+        if any(palabra.upper() not in _HINTS_DE_TABLA for palabra in re.findall(r"[A-Za-z]+", previo)):
+            continue
+        hint = match.group(1).upper()
+        hallazgos.append(_hallazgo(
+            texto, match.start(1), "HINT_BLOQUEO_PROHIBIDO",
+            f"Se identificó el uso de '{hint}', que {_HINTS_BLOQUEO[hint]}. Se recomienda retirarlo y dejar que "
+            f"el motor gestione los bloqueos, ya que forzarlo no está permitido por las buenas prácticas y "
+            f"detiene a los demás procesos que usan la tabla.",
+        ))
+    return hallazgos
 
 
 # Palabras que pueden seguir al nombre de una tabla y que no son un alias.
@@ -822,6 +863,7 @@ def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_nombre_procedimiento(texto_sql, limpio))
     hallazgos.extend(_validar_control_flujo(texto_sql, limpio))
     hallazgos.extend(_validar_hints(texto_sql, limpio))
+    hallazgos.extend(_validar_hints_bloqueo(texto_sql, limpio))
     hallazgos.extend(_validar_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_update_from_nolock(texto_sql, limpio))
     hallazgos.extend(_validar_order_by_numerico(texto_sql, limpio))

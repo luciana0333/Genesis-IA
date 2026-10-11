@@ -36,6 +36,15 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "HINT_BLOQUEO_PROHIBIDO": ReglaDiccionario(
+        codigo="HINT_BLOQUEO_PROHIBIDO",
+        nombre="Hint de bloqueo prohibido",
+        severidad="alto",
+        descripcion="No se permiten hints que fuerzan al motor a bloquear (UPDLOCK, HOLDLOCK, XLOCK, "
+                    "TABLOCK, ROWLOCK, PAGLOCK, READPAST): el motor gestiona los bloqueos.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "HINT_PLAN_PROHIBIDO": ReglaDiccionario(
         codigo="HINT_PLAN_PROHIBIDO",
         nombre="Comando que le dice al motor qué hacer",
