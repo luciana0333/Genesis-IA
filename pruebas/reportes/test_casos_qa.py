@@ -103,6 +103,20 @@ class TestReportesQA(unittest.TestCase):
         sql = procedimiento("    SELECT c.cNombre FROM dbo.Cliente c WITH (NOLOCK);")
         self.assertEqual(reglas(sql), [])
 
+    def test_tabla_sin_nolock_dentro_de_sql_dinamico(self):
+        sql = (
+            "ALTER PROCEDURE dbo.PA_Cliente_Sel_Reporte\n    @nClienteId INT\nAS\nBEGIN\n"
+            "    DECLARE @cSQL NVARCHAR(500);\n"
+            "    SET @cSQL = N'\n        SELECT nClienteId\n        FROM dbo.Cliente\n"
+            "        WHERE nClienteId = @nClienteId';\n"
+            "    EXEC sys.sp_executesql @cSQL, N'@nClienteId INT', @nClienteId = @nClienteId;\nEND"
+        )
+        self.assertIn(("TABLA_FISICA_SIN_NOLOCK", 8), reglas(sql))
+
+    def test_texto_comun_no_es_sql_dinamico(self):
+        sql = procedimiento("    DECLARE @cNota VARCHAR(50) = 'Pendiente de revisión';\n    SELECT @cNota;")
+        self.assertEqual(reglas(sql), [])
+
     def test_varchar_max_nombra_el_tipo_escrito(self):
         hallazgo = verificar_reporte(procedimiento("    DECLARE @cTexto NVARCHAR(MAX) = N'';\n    SELECT @cTexto;"))[0]
         self.assertIn("@cTexto se declara como NVARCHAR(MAX)", hallazgo.mensaje)

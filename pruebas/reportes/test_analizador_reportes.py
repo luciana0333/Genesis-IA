@@ -139,8 +139,8 @@ class TestAnalizadorReportes(unittest.TestCase):
         """
         reglas = {hallazgo.regla for hallazgo in verificar_reporte(sql)}
 
-        # Lo que va dentro del texto no se revisa como código; el SQL dinámico ya se marca.
-        self.assertNotIn("CATALOGO_SISTEMA_PROHIBIDO", reglas)
+        # El texto de un SQL dinámico se revisa como código.
+        self.assertIn("CATALOGO_SISTEMA_PROHIBIDO", reglas)
         self.assertIn("SQL_DINAMICO_PROHIBIDO", reglas)
         self.assertIn("VARCHAR_MAX_PROHIBIDO", reglas)
 

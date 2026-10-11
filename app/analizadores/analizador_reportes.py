@@ -67,7 +67,8 @@ def _quitar_comentarios(texto: str, vaciar_textos: bool = True) -> str:
     Reemplaza por espacios los comentarios y el contenido de los textos ('...'),
     conservando las comillas, los saltos de línea y las posiciones. Se recorre
     una sola vez para que un '--' dentro de un texto no se tome como comentario
-    y un 'SELECT * FROM sys.objects' escrito como texto no dispare reglas.
+    y un 'SELECT * FROM sys.objects' escrito como texto no dispare reglas. El
+    SQL dinámico (N'SELECT ...' asignado o ejecutado) sí se conserva: es código.
     """
     salida = list(texto)
     i, n = 0, len(texto)
@@ -91,12 +92,24 @@ def _quitar_comentarios(texto: str, vaciar_textos: bool = True) -> str:
                         continue
                     break
                 j += 1
-            if vaciar_textos:
+            if vaciar_textos and not _es_sql_dinamico(texto, i, texto[i + 1:j]):
                 salida[i + 1:j] = [c if c == "\n" else " " for c in texto[i + 1:j]]
             i = j + 1
         else:
             i += 1
     return "".join(salida)
+
+
+# Un texto es SQL dinámico si se asigna a una variable, se concatena o se pasa
+# a EXEC / sp_executesql, y además contiene una consulta.
+_ANTES_DE_SQL_DINAMICO = re.compile(r"(?:=|\+|\bEXEC(?:UTE)?\s*\(?|\bsp_executesql)\s*N?$", re.IGNORECASE)
+_CONTENIDO_SQL = re.compile(r"\b(?:SELECT|FROM|JOIN|INSERT|UPDATE|DELETE|MERGE)\b", re.IGNORECASE)
+
+
+def _es_sql_dinamico(texto: str, comilla: int, contenido: str) -> bool:
+    """Indica si el texto que abre en `comilla` es código SQL dinámico (se revisa como código)."""
+    return bool(_ANTES_DE_SQL_DINAMICO.search(texto[max(0, comilla - 40):comilla])
+                and _CONTENIDO_SQL.search(contenido))
 
 
 def _es_temporal(nombre: str) -> bool:
