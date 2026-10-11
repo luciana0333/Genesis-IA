@@ -468,19 +468,9 @@ _CIERRE_TRAN = re.compile(r"\b(?:COMMIT|ROLLBACK)(?:\s+(?:TRAN(?:SACTION)?|WORK)
 
 
 def _validar_transacciones(texto: str, limpio: str) -> List[Hallazgo]:
-    """
-    Un reporte solo consulta: no abre transacciones. Y toda transacción abierta
-    necesita su COMMIT (o ROLLBACK), si no, sus bloqueos no se liberan.
-    """
+    """Toda transacción abierta necesita su COMMIT (o ROLLBACK); si no, sus bloqueos no se liberan."""
     hallazgos = []
     inicios = list(_BEGIN_TRAN.finditer(limpio))
-    for match in inicios:
-        hallazgos.append(_hallazgo(
-            texto, match.start(), "TRANSACCION_EN_REPORTE",
-            "Se identificó un BEGIN TRANSACTION en el reporte. Se recomienda retirar la transacción, ya que "
-            "un reporte solo consulta datos y la transacción mantiene los bloqueos hasta el COMMIT, "
-            "deteniendo a los procesos que están registrando operaciones.",
-        ))
     cierres = len(_CIERRE_TRAN.findall(limpio))
     # Los BEGIN que sobran (los últimos) son los que quedan sin cerrar.
     for match in inicios[cierres:] if cierres < len(inicios) else []:

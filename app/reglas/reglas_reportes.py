@@ -133,15 +133,6 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
-    "TRANSACCION_EN_REPORTE": ReglaDiccionario(
-        codigo="TRANSACCION_EN_REPORTE",
-        nombre="Transacción en reporte",
-        severidad="alto",
-        descripcion="Un reporte solo consulta datos: no abre transacciones (BEGIN TRANSACTION), "
-                    "ya que mantienen bloqueos hasta el COMMIT.",
-        alcance="reporte",
-        activo=True,
-    ),
     "TRANSACCION_SIN_CIERRE": ReglaDiccionario(
         codigo="TRANSACCION_SIN_CIERRE",
         nombre="Transacción sin COMMIT",
