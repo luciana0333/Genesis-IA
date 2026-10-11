@@ -207,13 +207,14 @@
   flex-direction: column;
   padding: 22px 18px 18px;
   border-radius: 10px;
-  background: #16161b;
+  /* Rojo de marca plano, el mismo del logo y del botón principal. */
+  background: var(--red-main);
   color: #ffffff;
-  box-shadow: 0 18px 36px -18px rgba(17, 17, 26, 0.55);
+  box-shadow: 0 18px 36px -18px rgba(120, 8, 24, 0.55);
 }
 
 .tablero-kicker {
-  color: #a9a9b5;
+  color: rgba(255, 255, 255, 0.75);
   font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 700;
@@ -231,19 +232,21 @@
 
 .tablero-estado {
   margin-top: 8px;
-  color: #ff6b74;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   font-family: var(--font-sans);
   font-size: 0.86rem;
   font-weight: 700;
 }
 
 .tablero-lateral.sev-bajo .tablero-estado {
-  color: #d6d6de;
+  color: #ffffff;
 }
 
 .tablero-texto {
   margin-top: 4px;
-  color: #a9a9b5;
+  color: rgba(255, 255, 255, 0.82);
   font-size: 0.74rem;
   line-height: 1.5;
 }
@@ -254,7 +257,7 @@
   gap: 4px;
   margin-top: 20px;
   padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 .tablero-filtro {
@@ -265,7 +268,7 @@
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: #d6d6de;
+  color: #ffffff;
   font-family: var(--font-sans);
   font-size: 0.82rem;
   font-weight: 500;
@@ -283,17 +286,27 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--sev-bajo);
+  /* Sobre el rojo, los puntos van en blanco y rosa según la severidad. */
+  background: rgba(255, 255, 255, 0.55);
 }
 
-.tablero-filtro.filtro-critico i { background: var(--sev-critico); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15); }
-.tablero-filtro.filtro-alto i { background: var(--sev-alto); }
-.tablero-filtro.filtro-medio i { background: var(--sev-medio); }
+.tablero-filtro.filtro-critico i { background: #ffffff; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35); }
+.tablero-filtro.filtro-alto i { background: #ffffff; }
+.tablero-filtro.filtro-medio i { background: #ffc2c9; }
 
-.tablero-filtro:hover:not(:disabled),
-.tablero-filtro.active {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+.tablero-filtro:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* Filtro activo: ficha blanca con texto rojo. */
+.tablero-filtro.active,
+.tablero-filtro.active:hover {
+  background: #ffffff;
+  color: var(--red-main);
+}
+
+.tablero-filtro.active i {
+  background: var(--red-main);
 }
 
 .tablero-filtro.active {
@@ -301,7 +314,7 @@
 }
 
 .tablero-filtro:disabled {
-  opacity: 0.4;
+  opacity: 0.55;
   cursor: default;
 }
 
