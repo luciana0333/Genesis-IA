@@ -677,6 +677,13 @@
   font-weight: 700;
 }
 
+/* Éxito: la imagen de la persona es vertical; se limita por alto. */
+.estado-exito .estado-inicial-imagen {
+  width: auto;
+  max-width: 100%;
+  max-height: 170px;
+}
+
 /* Éxito: sello en tinta oscura (sin verde, fuera de la paleta) y checks. */
 .estado-exito .estado-inicial-lupa {
   background: var(--text-primary);
