@@ -96,6 +96,25 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             {"CATALOGO_SISTEMA_PROHIBIDO", "SQL_DINAMICO_PROHIBIDO", "VARCHAR_MAX_PROHIBIDO"},
         )
 
+    def test_collate_distinto_al_de_la_empresa(self):
+        sql = "CREATE TABLE #T (cNombre VARCHAR(50) COLLATE Modern_Spanish_CI_AS);\nSELECT t.cNombre FROM #T t;"
+        hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "COLLATE_DISTINTO_AL_ESTANDAR")
+        self.assertEqual((hallazgo.linea, hallazgo.severidad.value), (1, "medio"))
+        self.assertIn("COLLATE Modern_Spanish_CI_AS, distinto al que usa la empresa", hallazgo.mensaje)
+        self.assertIn("validar si el COLLATE es el correcto", hallazgo.mensaje)
+
+    def test_collate_database_default(self):
+        sql = "CREATE TABLE #T (cNombre VARCHAR(50) COLLATE DATABASE_DEFAULT);\nSELECT t.cNombre FROM #T t;"
+        reglas = {h.regla: h for h in verificar_procedimiento_normal(sql)}
+        self.assertEqual(reglas["COLLATE_DATABASE_DEFAULT"].severidad.value, "alto")
+        self.assertIn("COLLATE SQL_Latin1_General_CP1_CI_AS", reglas["COLLATE_DATABASE_DEFAULT"].mensaje)
+        self.assertNotIn("COLLATE_DISTINTO_AL_ESTANDAR", reglas)
+
+    def test_collate_de_la_empresa_es_valido(self):
+        sql = "CREATE TABLE #T (cNombre VARCHAR(50) COLLATE sql_latin1_general_cp1_ci_as);\nSELECT t.cNombre FROM #T t;"
+        reglas = {h.regla for h in verificar_procedimiento_normal(sql)}
+        self.assertFalse(reglas & {"COLLATE_DISTINTO_AL_ESTANDAR", "COLLATE_DATABASE_DEFAULT"})
+
     def test_nolock_recomendado_en_tablas_de_movimientos_y_constantes(self):
         sql = "SELECT m.nMonto FROM dbo.CuentaMov m\nJOIN dbo.Constante k ON k.nId = m.nTipo\nJOIN dbo.MovimientoCaja c ON c.nId = m.nId;"
         hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "TABLA_PESADA_SIN_NOLOCK")

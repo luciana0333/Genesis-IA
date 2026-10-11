@@ -111,6 +111,8 @@ export const NOMBRES_REGLAS = {
   DOCUMENTO_GUARDADO_EN_BD: 'Documento guardado en la base de datos',
   TIPO_DISTINTO_ENTRE_TEMPORALES: 'Misma columna con distinto tipo',
   TABLA_PESADA_SIN_NOLOCK: 'Tabla de movimientos o constantes sin NOLOCK',
+  COLLATE_DATABASE_DEFAULT: 'COLLATE DATABASE_DEFAULT',
+  COLLATE_DISTINTO_AL_ESTANDAR: 'COLLATE distinto al de la empresa',
 };
 
 export function nombreRegla(codigo) {

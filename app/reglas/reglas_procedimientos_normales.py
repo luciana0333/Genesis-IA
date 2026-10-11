@@ -61,6 +61,24 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "COLLATE_DATABASE_DEFAULT": ReglaDiccionario(
+        codigo="COLLATE_DATABASE_DEFAULT",
+        nombre="COLLATE DATABASE_DEFAULT",
+        severidad="alto",
+        descripcion="El COLLATE se define explícitamente con el de la empresa (SQL_Latin1_General_CP1_CI_AS), "
+                    "no con DATABASE_DEFAULT.",
+        alcance="procedimiento",
+        activo=True,
+    ),
+    "COLLATE_DISTINTO_AL_ESTANDAR": ReglaDiccionario(
+        codigo="COLLATE_DISTINTO_AL_ESTANDAR",
+        nombre="COLLATE distinto al de la empresa",
+        severidad="medio",
+        descripcion="Un COLLATE distinto a SQL_Latin1_General_CP1_CI_AS (ej.: Modern_Spanish_CI_AS) se valida "
+                    "antes de pasar a producción.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "TABLA_PESADA_SIN_NOLOCK": ReglaDiccionario(
         codigo="TABLA_PESADA_SIN_NOLOCK",
         nombre="Tabla de movimientos o constantes sin NOLOCK",

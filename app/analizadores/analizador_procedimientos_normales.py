@@ -459,6 +459,37 @@ def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+_COLLATE_EMPRESA = "SQL_Latin1_General_CP1_CI_AS"
+
+
+def _validar_collate_usado(texto: str, limpio: str) -> List[Hallazgo]:
+    """
+    El COLLATE de la empresa es SQL_Latin1_General_CP1_CI_AS. DATABASE_DEFAULT
+    depende de cada base (alto); otro COLLATE, como Modern_Spanish, se pide validar (medio).
+    """
+    hallazgos = []
+    for match in re.finditer(r"\bCOLLATE\s+([A-Za-z_]\w*)", limpio, re.IGNORECASE):
+        collate = match.group(1)
+        if collate.upper() == _COLLATE_EMPRESA.upper():
+            continue
+        if collate.upper() == "DATABASE_DEFAULT":
+            hallazgos.append(_hallazgo(
+                texto, match.start(1), "COLLATE_DATABASE_DEFAULT",
+                f"Se identificó el uso de COLLATE DATABASE_DEFAULT, que toma el COLLATE de la base donde se "
+                f"ejecuta. Se recomienda definir el COLLATE explícitamente con el que usa la empresa, ya que "
+                f"DATABASE_DEFAULT puede cambiar entre bases y servidores, y las comparaciones fallarían "
+                f"(ej.: COLLATE {_COLLATE_EMPRESA}).",
+            ))
+        else:
+            hallazgos.append(_hallazgo(
+                texto, match.start(1), "COLLATE_DISTINTO_AL_ESTANDAR",
+                f"Se identificó el COLLATE {collate}, distinto al que usa la empresa ({_COLLATE_EMPRESA}). Se "
+                f"recomienda validar si el COLLATE es el correcto, ya que si no coincide con el de las demás "
+                f"tablas las comparaciones y los JOIN pueden fallar.",
+            ))
+    return hallazgos
+
+
 def _validar_collate_temporales(texto: str, limpio: str) -> List[Hallazgo]:
     """Toda columna de texto de una tabla temporal (#T) o variable de tabla (@T) lleva COLLATE."""
     hallazgos = []
@@ -984,6 +1015,7 @@ def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_esquema_entre_bases(texto_sql, limpio))
     hallazgos.extend(_validar_tabla_repetida(texto_sql, limpio))
     hallazgos.extend(_validar_collate_temporales(texto_sql, limpio))
+    hallazgos.extend(_validar_collate_usado(texto_sql, limpio))
     hallazgos.extend(_validar_tipos_entre_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_comentarios(texto_sql))
     hallazgos.extend(_validar_variables(texto_sql, limpio))
