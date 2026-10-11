@@ -113,6 +113,19 @@ class TestIndices(unittest.TestCase):
         self.assertIn("definirlo como UNIQUE NONCLUSTERED", hallazgo.mensaje)
         self.assertIn("(ej.: IXUN_Cliente_cCodPersona)", hallazgo.mensaje)
 
+    def test_columna_repetida_en_el_indice(self):
+        repetida = "CREATE NONCLUSTERED INDEX IXN_Movimiento_nPersonaId\nON dbo.Movimiento (nPersonaId, nPersonaId);"
+        hallazgos = verificar_indices(repetida, "")
+        repetidas = [h for h in hallazgos if h.regla == "INDICE_COLUMNA_REPETIDA"]
+        self.assertEqual([(h.linea, h.severidad.value) for h in repetidas], [(2, "critico")])
+        self.assertIn("repite la columna nPersonaId", repetidas[0].mensaje)
+        # El nombre no se marca: la columna repetida cuenta una sola vez.
+        self.assertNotIn("INDICE_NOMBRE_NO_ESTANDAR", {h.regla for h in hallazgos})
+
+        en_include = "CREATE INDEX IXN_Cliente_cCodPersona_INC01 ON CLICKTOPAY.Cliente (cCodPersona) INCLUDE (cCodPersona, dRegistro);"
+        self.assertEqual(reglas(en_include), [("INDICE_COLUMNA_REPETIDA", 1)])
+        self.assertIn("en el INCLUDE la columna cCodPersona, que ya es columna clave", mensaje(en_include))
+
     def test_columnas_descriptivas_en_el_indice(self):
         persona = ("CREATE TABLE DBO.PERSONA (CPERSCOD VARCHAR(20) NOT NULL, CPERSDIRECCION VARCHAR(200) NOT NULL, "
                    "cDescripcion VARCHAR(300) NOT NULL, nEstado INT NOT NULL, dRegistro DATETIME NOT NULL);")

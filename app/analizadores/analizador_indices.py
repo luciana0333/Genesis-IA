@@ -162,11 +162,25 @@ def _tipo(unico: bool, clustered: bool) -> str:
     return f"{'UNIQUE ' if unico else ''}{'CLUSTERED' if clustered else 'NONCLUSTERED'}"
 
 
+def _sin_repetir(columnas: List[str], excluir: List[str] = ()) -> List[str]:
+    """Columnas sin repetidas (sin distinguir mayúsculas), en su orden."""
+    vistas = {c.lower() for c in excluir}
+    unicas = []
+    for columna in columnas:
+        if columna.lower() not in vistas:
+            vistas.add(columna.lower())
+            unicas.append(columna)
+    return unicas
+
+
 def _nombre_esperado(indice: _Indice) -> str:
+    """Nombre según el manual; las columnas repetidas cuentan una sola vez."""
     tabla = _limpiar(indice.tabla).split(".")[-1]
-    partes = [_prefijo(indice.unico, indice.clustered), tabla] + indice.claves
-    if indice.incluidas:
-        partes.append(f"INC{len(indice.incluidas):02d}")
+    claves = _sin_repetir(indice.claves)
+    incluidas = _sin_repetir(indice.incluidas, excluir=claves)
+    partes = [_prefijo(indice.unico, indice.clustered), tabla] + claves
+    if incluidas:
+        partes.append(f"INC{len(incluidas):02d}")
     return "_".join(partes)
 
 
@@ -253,6 +267,26 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
     esperado = _nombre_esperado(indice)
     tabla = _limpiar(indice.tabla)
 
+    # Columnas repetidas en la clave, o columnas clave repetidas en el INCLUDE: SQL Server
+    # no crea el índice ("Cannot use duplicate column names in index").
+    repetidas = [c for i, c in enumerate(indice.claves) if c.lower() in {x.lower() for x in indice.claves[:i]}]
+    en_include = [c for c in indice.incluidas if c.lower() in {x.lower() for x in indice.claves}]
+    repetidas += [c for i, c in enumerate(indice.incluidas)
+                  if c.lower() in {x.lower() for x in indice.incluidas[:i]}]
+    for columna in dict.fromkeys(repetidas):
+        hallazgos.append(_hallazgo(
+            texto, indice.posicion_tabla, "INDICE_COLUMNA_REPETIDA",
+            f"Se identificó que el índice {indice.nombre} repite la columna {columna} en su lista de columnas. "
+            f"Se recomienda dejarla una sola vez, ya que así como está SQL Server no puede crear el índice.",
+        ))
+    for columna in dict.fromkeys(en_include):
+        hallazgos.append(_hallazgo(
+            texto, indice.posicion_tabla, "INDICE_COLUMNA_REPETIDA",
+            f"Se identificó que el índice {indice.nombre} incluye en el INCLUDE la columna {columna}, que ya es "
+            f"columna clave del índice. Se recomienda quitarla del INCLUDE, ya que así como está SQL Server no "
+            f"puede crear el índice.",
+        ))
+
     # Nombre: prefijo según el tipo y formato <Prefijo>_<Tabla>_<Campos>_INC<nn>.
     if indice.nombre.split("_")[0].upper() != prefijo:
         hallazgos.append(_hallazgo(
@@ -265,7 +299,7 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
         hallazgos.append(_hallazgo(
             texto, indice.posicion, "INDICE_NOMBRE_NO_ESTANDAR",
             f"Se identificó que el nombre del índice {indice.nombre} no sigue el formato "
-            f"{prefijo}_Tabla_Campos{f'_INC{len(indice.incluidas):02d}' if indice.incluidas else ''}. Se "
+            f"{prefijo}_Tabla_Campos{'_INC' + esperado.rsplit('_INC', 1)[1] if '_INC' in esperado else ''}. Se "
             f"recomienda nombrarlo con la tabla y los campos indexados"
             f"{' y el número de columnas incluidas' if indice.incluidas else ''}, ya que así se sabe qué "
             f"cubre el índice sin abrirlo (ej.: {esperado}).",

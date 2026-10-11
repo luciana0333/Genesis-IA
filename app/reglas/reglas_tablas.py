@@ -139,6 +139,10 @@ REGLAS_TABLAS = {
         "INDICE_COLUMNA_NO_EXISTE", "Columna del índice inexistente", "critico",
         "Las columnas del índice (y de su INCLUDE) deben existir en la tabla.",
     ),
+    "INDICE_COLUMNA_REPETIDA": _regla(
+        "INDICE_COLUMNA_REPETIDA", "Columna repetida en el índice", "critico",
+        "Una columna no puede repetirse en la clave del índice ni estar a la vez en la clave y en el INCLUDE.",
+    ),
     "INDICE_COLUMNA_NO_INDEXABLE": _regla(
         "INDICE_COLUMNA_NO_INDEXABLE", "Columna no indexable", "critico",
         "Una columna VARCHAR(MAX), NVARCHAR(MAX), VARBINARY(MAX), TEXT, IMAGE o XML no puede ser clave de un índice.",
