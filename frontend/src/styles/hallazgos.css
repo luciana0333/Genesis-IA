@@ -584,56 +584,47 @@
 
 .estado-inicial-ilustracion {
   position: relative;
-  height: 150px;
-}
-
-.estado-inicial-doc {
-  position: absolute;
-  top: 6px;
-  left: 30px;
-  width: 130px;
-  height: 140px;
-  padding: 16px 14px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-card);
-  box-shadow: 0 14px 30px -14px rgba(17, 17, 26, 0.25);
-}
-
-.estado-inicial-doc i {
-  display: block;
-  height: 7px;
-  margin-bottom: 9px;
-  border-radius: 3px;
-  background: var(--bg-subtle);
-}
-
-.estado-inicial-doc i.marcada {
-  width: 70%;
-  background: rgba(227, 6, 19, 0.14);
-}
-
-.estado-inicial-doc i.corta {
-  width: 55%;
-}
-
-.estado-inicial-lupa {
-  position: absolute;
-  top: 66px;
-  left: 120px;
   display: grid;
   place-items: center;
-  width: 76px;
-  height: 76px;
+  height: 160px;
+}
+
+/* Brillo muy suave detrás de la imagen para que no "flote" sobre la tarjeta. */
+.estado-inicial-ilustracion::before {
+  content: "";
+  position: absolute;
+  inset: 10px 0;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(227, 6, 19, 0.07), transparent);
+}
+
+.estado-inicial-imagen {
+  position: relative;
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  filter: drop-shadow(0 18px 22px rgba(17, 17, 26, 0.12));
+}
+
+/* Sello pequeño sobre la esquina de la imagen: lupa al inicio, check al terminar. */
+.estado-inicial-lupa {
+  position: absolute;
+  right: 6px;
+  bottom: 8px;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--bg-card);
   border-radius: 50%;
   background: var(--red-main);
   color: #ffffff;
-  box-shadow: 0 14px 28px -10px rgba(227, 6, 19, 0.6);
+  box-shadow: 0 12px 24px -10px rgba(227, 6, 19, 0.6);
 }
 
 .estado-inicial-lupa svg {
-  width: 34px;
-  height: 34px;
+  width: 22px;
+  height: 22px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
@@ -693,10 +684,6 @@
 
 .estado-exito .estado-inicial-lupa svg {
   stroke-width: 2.4;
-}
-
-.estado-exito .estado-inicial-doc i.marcada {
-  background: var(--bg-subtle);
 }
 
 .estado-inicial-pasos li > span svg {
