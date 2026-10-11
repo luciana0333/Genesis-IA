@@ -357,15 +357,26 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
 
     # La clave primaria siempre es el índice clúster (identidad): ningún otro índice
     # puede serlo. No se prohíbe tajantemente: se pide definirlo NONCLUSTERED.
-    if indice.clustered:
-        sugerido = _nombre_esperado(_Indice(**{**indice.__dict__, "clustered": False}))
-        pk = (tabla_script.pk_nombre if tabla_script else "") or "la clave primaria"
+    if indice.clustered and indice.unico:
+        # Un UNIQUE CLUSTERED hace el papel de la clave primaria: se declara la PK directamente.
+        identificador = _identificador_de(indice, tabla_script)
+        tabla_pk = _nombre_estandar_tabla(indice.tabla)
         hallazgos.append(_hallazgo(
             texto, indice.posicion, "INDICE_CLUSTERED_CON_PK",
-            f"Se identificó que el índice {indice.nombre} se define como {tipo}, pero {pk} es siempre el "
-            f"índice clúster de la tabla (identidad). Se recomienda definirlo como "
-            f"{'UNIQUE ' if indice.unico else ''}NONCLUSTERED, ya que la tabla solo puede tener un índice "
-            f"clúster y ese lugar lo ocupa la clave primaria (ej.: {sugerido}).",
+            f"Se identificó que el índice {indice.nombre} se crea como UNIQUE CLUSTERED, es decir, hace el "
+            f"papel de la clave primaria de la tabla. Se recomienda declarar la clave primaria directamente "
+            f"con un CONSTRAINT sobre una columna identidad, en lugar de un índice UNIQUE CLUSTERED, ya que así "
+            f"el índice clúster queda en la clave primaria y se maneja mejor "
+            f"(ej.: CONSTRAINT PK_{tabla_pk} PRIMARY KEY CLUSTERED ({identificador})).",
+        ))
+    elif indice.clustered:
+        sugerido = _nombre_esperado(_Indice(**{**indice.__dict__, "clustered": False}))
+        hallazgos.append(_hallazgo(
+            texto, indice.posicion, "INDICE_CLUSTERED_CON_PK",
+            f"Se identificó que el índice {indice.nombre} se crea como CLUSTERED, pero el índice clúster le "
+            f"corresponde a la clave primaria identidad de la tabla. Se recomienda definirlo como NONCLUSTERED, "
+            f"ya que una tabla solo puede tener un índice clúster y ese lugar es de la clave primaria "
+            f"(ej.: {sugerido}).",
         ))
 
     # Tabla que ya existe (no se crea en el script de la tabla): además de la estructura,
@@ -419,14 +430,18 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
     return hallazgos
 
 
+def _nombre_estandar_tabla(tabla: str) -> str:
+    """Nombre de la tabla sin esquema ni prefijos TB_/T_ y en PascalCase (TB_cliente_datos → ClienteDatos)."""
+    tabla = _limpiar(tabla).split(".")[-1]
+    tabla = re.sub(r"^(?:TB|TBL|T)_", "", tabla, flags=re.IGNORECASE)
+    return "".join(parte[:1].upper() + parte[1:] for parte in re.split(r"[_\s]+", tabla) if parte)
+
+
 def _identificador_de(indice: _Indice, tabla_script: Optional[_Tabla]) -> str:
     """Columna identidad de la tabla: la PK del script o, si no la hay, n + NombreTabla + Id."""
     if tabla_script and tabla_script.pk:
         return ", ".join(tabla_script.pk)
-    tabla = _limpiar(indice.tabla).split(".")[-1]
-    tabla = re.sub(r"^(?:TB|TBL|T)_", "", tabla, flags=re.IGNORECASE)
-    nombre = "".join(parte[:1].upper() + parte[1:] for parte in re.split(r"[_\s]+", tabla) if parte)
-    return f"n{nombre}Id"
+    return f"n{_nombre_estandar_tabla(indice.tabla)}Id"
 
 
 def _validar_duplicados(texto: str, indices: List[_Indice], tabla_script: Optional[_Tabla]) -> List[Hallazgo]:

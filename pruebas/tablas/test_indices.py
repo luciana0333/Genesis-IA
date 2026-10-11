@@ -106,12 +106,19 @@ class TestIndices(unittest.TestCase):
             with self.subTest(indices=indices):
                 self.assertEqual([r for r, _ in reglas(indices)], [regla])
 
-    def test_unique_clustered_con_pk_identidad_se_pide_nonclustered(self):
+    def test_unique_clustered_se_pide_declarar_la_pk(self):
         indices = "CREATE UNIQUE CLUSTERED INDEX IXU_Cliente_cCodPersona ON CLICKTOPAY.Cliente (cCodPersona);"
         hallazgo = verificar_indices(indices, TABLA)[0]
         self.assertEqual((hallazgo.regla, hallazgo.severidad.value), ("INDICE_CLUSTERED_CON_PK", "medio"))
-        self.assertIn("definirlo como UNIQUE NONCLUSTERED", hallazgo.mensaje)
-        self.assertIn("(ej.: IXUN_Cliente_cCodPersona)", hallazgo.mensaje)
+        self.assertIn("hace el papel de la clave primaria", hallazgo.mensaje)
+        self.assertIn("declarar la clave primaria directamente con un CONSTRAINT sobre una columna identidad",
+                      hallazgo.mensaje)
+        self.assertIn("(ej.: CONSTRAINT PK_Cliente PRIMARY KEY CLUSTERED (nClienteId))", hallazgo.mensaje)
+        # Sin PK en el script, el identificador se arma con el nombre de la tabla.
+        sin_pk = "CREATE TABLE dbo.TB_cliente_datos (id INT, cCodigo VARCHAR(10));"
+        unico = "CREATE UNIQUE CLUSTERED INDEX IXU_TB_cliente_datos_cCodigo ON dbo.TB_cliente_datos (cCodigo);"
+        mensaje_sin_pk = next(h.mensaje for h in verificar_indices(unico, sin_pk) if h.regla == "INDICE_CLUSTERED_CON_PK")
+        self.assertIn("CONSTRAINT PK_ClienteDatos PRIMARY KEY CLUSTERED (nClienteDatosId)", mensaje_sin_pk)
 
     def test_columna_repetida_en_el_indice(self):
         repetida = "CREATE NONCLUSTERED INDEX IXN_Movimiento_nPersonaId\nON dbo.Movimiento (nPersonaId, nPersonaId);"
