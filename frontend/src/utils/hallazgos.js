@@ -52,7 +52,7 @@ export function separarMensaje(texto) {
  * la introducción (si no es el resumen genérico) y cada ocurrencia por separado.
  */
 export function desglosarGrupo(problema) {
-  const grupo = problema.match(/^(Se (?:encontraron|identificaron) \d+ [^:]+?), en (?:la línea|las líneas) ([\d, ]+): ([\s\S]+)$/);
+  const grupo = problema.match(/^(Se (?:encontraron|identificaron) \d+ [^:]+?), en (?:la línea|las líneas|los nodos|la consulta|las consultas) ([\d, ]+): ([\s\S]+)$/);
   if (!grupo) return { lineas: null, intro: null, ocurrencias: [problema] };
   // "Se identificaron 2 parámetros sin documentar" se muestra como introducción
   // de la lista; el resumen genérico ("observaciones de este tipo") no.

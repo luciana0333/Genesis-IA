@@ -18,6 +18,7 @@ class OperadorPlan:
     profundidad: int
     tiene_spill: bool
     tiene_conversion_implicita: bool
+    consulta: int = 1  # orden de la sentencia (StmtSimple) dentro del plan
 
 
 @dataclass(frozen=True)

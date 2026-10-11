@@ -53,5 +53,37 @@ class TestAnalizadorPlanes(unittest.TestCase):
         self.assertIsNone(memoria)
 
 
+def _table_scan(nodo, tabla):
+    return (f'<RelOp NodeId="{nodo}" PhysicalOp="Table Scan" LogicalOp="Table Scan" EstimateRows="10">'
+            f'<TableScan><Object Database="[DB]" Schema="[dbo]" Table="[{tabla}]" /></TableScan></RelOp>')
+
+
+def _plan(*consultas):
+    return "<ShowPlanXML>" + "".join(
+        f"<StmtSimple><QueryPlan>{''.join(operadores)}</QueryPlan></StmtSimple>" for operadores in consultas
+    ) + "</ShowPlanXML>"
+
+
+class TestAgrupacionPlanes(unittest.TestCase):
+    def test_varios_table_scan_se_agrupan_con_tablas_y_nodos(self):
+        plan = _plan([_table_scan(9, "Cliente"), _table_scan(3, "Credito"), _table_scan(1, "Cliente")])
+        hallazgos, _, _ = analizar_plan_ejecucion(plan)
+        self.assertEqual([h.regla for h in hallazgos], ["TABLE_SCAN"])
+        self.assertIn("Se identificaron 2 tablas que se leen completas con un Table Scan, en los nodos 1, 3, 9: "
+                      "[DB].[dbo].[Cliente] (nodos 1, 9); [DB].[dbo].[Credito] (nodo 3).", hallazgos[0].mensaje)
+
+    def test_con_varias_consultas_indica_la_consulta_de_cada_nodo(self):
+        plan = _plan([_table_scan(1, "Cliente")], [_table_scan(4, "Cliente"), _table_scan(2, "Mov")])
+        hallazgos, _, _ = analizar_plan_ejecucion(plan)
+        self.assertEqual(len(hallazgos), 1)
+        self.assertIn("en las consultas 1, 2: [DB].[dbo].[Cliente] (nodo 1 de la consulta 1, nodo 4 de la "
+                      "consulta 2); [DB].[dbo].[Mov] (nodo 2 de la consulta 2).", hallazgos[0].mensaje)
+
+    def test_un_solo_table_scan_indica_su_nodo(self):
+        hallazgos, _, _ = analizar_plan_ejecucion(_plan([_table_scan(2, "Mov")]))
+        self.assertTrue(hallazgos[0].mensaje.startswith(
+            "Se lee la tabla [DB].[dbo].[Mov] completa con un Table Scan (nodo 2). Confirme"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -93,8 +93,12 @@ def _objeto_operador(elemento: ET.Element) -> str:
 
 def _extraer_operadores(raiz: ET.Element) -> List[OperadorPlan]:
     operadores = []
+    consulta = 0
 
     def recorrer(elemento: ET.Element, profundidad: int) -> None:
+        nonlocal consulta
+        if _nombre_local(elemento) == "StmtSimple":
+            consulta += 1
         if _nombre_local(elemento) == "RelOp":
             runtime = next(
                 (hijo for hijo in _elementos_del_operador(elemento) if _nombre_local(hijo) == "RunTimeCountersPerThread"),
@@ -113,6 +117,7 @@ def _extraer_operadores(raiz: ET.Element) -> List[OperadorPlan]:
                 profundidad=profundidad,
                 tiene_spill=_tiene_spill(elemento),
                 tiene_conversion_implicita=_tiene_conversion_implicita(elemento),
+                consulta=max(consulta, 1),
             ))
         for hijo in elemento:
             recorrer(hijo, profundidad + (1 if _nombre_local(elemento) == "RelOp" else 0))
@@ -142,50 +147,115 @@ def _hallazgo(regla: str, severidad: Severidad, mensaje: str) -> Hallazgo:
     )
 
 
-def _revisar_operador(operador: OperadorPlan, umbrales: UmbralesPlan) -> List[Hallazgo]:
-    hallazgos = []
-    referencia = operador.objeto or f"el nodo {operador.nodo_id}"
+@dataclass(frozen=True)
+class _Observacion:
+    regla: str
+    severidad: Severidad
+    hecho: str    # qué se encontró, sin el nodo (permite agrupar la misma tabla)
+    accion: str   # qué hacer
+    operador: OperadorPlan
+
+
+def _revisar_operador(operador: OperadorPlan, umbrales: UmbralesPlan) -> List[_Observacion]:
+    observaciones = []
+    referencia = operador.objeto or "un operador sin tabla"
+
+    def agregar(regla: str, severidad: Severidad, hecho: str, accion: str) -> None:
+        observaciones.append(_Observacion(regla, severidad, hecho, accion, operador))
+
     if operador.tiene_conversion_implicita:
-        hallazgos.append(_hallazgo(
-            "CONVERSION_IMPLICITA",
-            Severidad.ALTO,
+        agregar(
+            "CONVERSION_IMPLICITA", Severidad.ALTO,
             f"En {referencia} SQL Server convierte un tipo de dato a otro por su cuenta (conversión implícita), "
-            f"lo que puede impedir usar el índice. Compare columnas y variables del mismo tipo.",
-        ))
+            f"lo que puede impedir usar el índice.",
+            "Compare columnas y variables del mismo tipo.",
+        )
     if operador.tiene_spill:
-        hallazgos.append(_hallazgo(
-            "SPILL_TEMPDB",
-            Severidad.ALTO,
-            f"En {referencia} la memoria no alcanzó y SQL Server tuvo que usar el disco (TempDB). Revise que "
-            f"las estadísticas estén actualizadas y que existan los índices necesarios.",
-        ))
+        agregar(
+            "SPILL_TEMPDB", Severidad.ALTO,
+            f"En {referencia} la memoria no alcanzó y SQL Server tuvo que usar el disco (TempDB).",
+            "Revise que las estadísticas estén actualizadas y que existan los índices necesarios.",
+        )
     if operador.operacion_fisica.lower() == "table scan":
-        hallazgos.append(_hallazgo(
-            "TABLE_SCAN",
-            Severidad.MEDIO,
-            f"Se lee la tabla {referencia} completa (Table Scan). Confirme si es necesario; si la consulta "
-            f"filtra datos, cree un índice sobre las columnas del filtro.",
-        ))
+        agregar(
+            "TABLE_SCAN", Severidad.MEDIO,
+            f"Se lee la tabla {referencia} completa con un Table Scan.",
+            "Confirme si es necesario; si la consulta filtra datos, cree un índice sobre las columnas del filtro.",
+        )
     if operador.lecturas_logicas is not None and operador.lecturas_logicas >= umbrales.lecturas_logicas_altas:
-        hallazgos.append(_hallazgo(
-            "LECTURAS_LOGICAS_ELEVADAS",
-            Severidad.ALTO,
+        agregar(
+            "LECTURAS_LOGICAS_ELEVADAS", Severidad.ALTO,
             f"En {referencia} se leyeron {operador.lecturas_logicas:.0f} páginas (lecturas lógicas), más de lo "
-            f"permitido. Revise los filtros y los índices para leer menos datos.",
-        ))
+            f"permitido.",
+            "Revise los filtros y los índices para leer menos datos.",
+        )
     if (
         operador.estimacion_filas
         and operador.filas_reales
         and operador.estimacion_filas > 0
         and operador.filas_reales / operador.estimacion_filas >= umbrales.diferencia_filas_alta
     ):
-        hallazgos.append(_hallazgo(
-            "SOBREESTIMACION_FILAS",
-            Severidad.ALTO,
+        agregar(
+            "SOBREESTIMACION_FILAS", Severidad.ALTO,
             f"En {referencia} SQL Server estimó {operador.estimacion_filas:.0f} filas, pero salieron "
-            f"{operador.filas_reales:.0f}. Una estimación tan distinta lleva a malos planes: actualice las "
-            f"estadísticas de la tabla (UPDATE STATISTICS).",
-        ))
+            f"{operador.filas_reales:.0f}.",
+            "Una estimación tan distinta lleva a malos planes: actualice las estadísticas de la tabla "
+            "(UPDATE STATISTICS).",
+        )
+    return observaciones
+
+
+def _ubicacion(operadores: List[OperadorPlan], varias_consultas: bool) -> str:
+    """'nodo 3', 'nodos 3, 9' o, si el plan tiene varias consultas, 'nodo 5 de la consulta 2'."""
+    if not varias_consultas:
+        nodos = sorted({o.nodo_id for o in operadores}, key=_orden_nodo)
+        return ("nodo " if len(nodos) == 1 else "nodos ") + ", ".join(nodos)
+    return ", ".join(dict.fromkeys(f"nodo {o.nodo_id} de la consulta {o.consulta}" for o in operadores))
+
+
+# Reglas cuyo grupo se resume con una introducción propia y lista solo las tablas.
+_INTRO_GRUPO = {"TABLE_SCAN": "tablas que se leen completas con un Table Scan"}
+
+
+def _orden_nodo(nodo_id: str):
+    return (0, int(nodo_id)) if nodo_id.isdigit() else (1, nodo_id)
+
+
+def _agrupar(observaciones: List[_Observacion], varias_consultas: bool) -> List[Hallazgo]:
+    """Une las observaciones de una misma regla en un solo hallazgo (como en los demás módulos).
+
+    La misma tabla con el mismo problema en varios nodos se nombra una sola vez.
+    """
+    por_regla: dict = {}
+    for observacion in observaciones:
+        por_regla.setdefault(observacion.regla, {}).setdefault(observacion.hecho, []).append(observacion)
+
+    hallazgos = []
+    for regla, por_hecho in por_regla.items():
+        primera = next(iter(por_hecho.values()))[0]
+        casos = [
+            (hecho, _ubicacion([o.operador for o in grupo], varias_consultas))
+            for hecho, grupo in por_hecho.items()
+        ]
+        if len(casos) == 1:
+            hecho, donde = casos[0]
+            mensaje = f"{hecho[:-1]} ({donde}). {primera.accion}"
+        else:
+            consultas = sorted({o.operador.consulta for grupo in por_hecho.values() for o in grupo})
+            if varias_consultas:
+                encabezado = ("la consulta " if len(consultas) == 1 else "las consultas ") + ", ".join(map(str, consultas))
+            else:
+                nodos = sorted({o.operador.nodo_id for grupo in por_hecho.values() for o in grupo}, key=_orden_nodo)
+                encabezado = "los nodos " + ", ".join(nodos)
+            if regla in _INTRO_GRUPO:
+                tablas = [next(iter(grupo)).operador.objeto or "operador sin tabla" for grupo in por_hecho.values()]
+                detalle = "; ".join(f"{tabla} ({donde})" for tabla, (_, donde) in zip(tablas, casos))
+                intro = f"Se identificaron {len(casos)} {_INTRO_GRUPO[regla]}"
+            else:
+                detalle = "; ".join(f"{hecho[:1].lower()}{hecho[1:-1]} ({donde})" for hecho, donde in casos)
+                intro = f"Se encontraron {len(casos)} observaciones de este tipo"
+            mensaje = f"{intro}, en {encabezado}: {detalle}. {primera.accion}"
+        hallazgos.append(_hallazgo(regla, primera.severidad, mensaje))
     return hallazgos
 
 
@@ -198,9 +268,8 @@ def analizar_plan_ejecucion(
     configuracion = umbrales or UmbralesPlan()
     operadores = _extraer_operadores(raiz)
     memoria = _extraer_memoria(raiz)
-    hallazgos = []
-    for operador in operadores:
-        hallazgos.extend(_revisar_operador(operador, configuracion))
+    observaciones = [o for operador in operadores for o in _revisar_operador(operador, configuracion)]
+    hallazgos = _agrupar(observaciones, varias_consultas=len({o.consulta for o in operadores}) > 1)
     if (
         memoria
         and memoria.memoria_concedida_kb
