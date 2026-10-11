@@ -638,7 +638,37 @@ _ACCIONES_ABREVIADAS = {
     "insertar": "Ins", "inserta": "Ins", "insert": "Ins",
     "eliminar": "Del", "elimina": "Del", "delete": "Del", "borrar": "Del",
 }
-_EJEMPLO_NOMBRE = "PA_Cliente_Sel_PorDocumento"
+_ACCIONES_ESTANDAR = {"sel": "Sel", "upd": "Upd", "ins": "Ins", "del": "Del"}
+# Otras formas de nombrar la acción que solo se usan para armar el ejemplo.
+_ACCIONES_EN_SUGERENCIA = {
+    "get": "Sel", "obtener": "Sel", "listar": "Sel", "buscar": "Sel",
+    "set": "Upd", "modificar": "Upd", "add": "Ins", "agregar": "Ins", "registrar": "Ins",
+    "remove": "Del", "quitar": "Del",
+}
+
+
+def _nombre_sugerido(nombre: str) -> str:
+    """
+    Ejemplo de nombre correcto armado con el nombre escrito:
+    PA_ConsultarVentas → PA_Ventas_Sel; Cliente_Upd_Estado → PA_Cliente_Upd_Estado.
+    Si no se reconoce la acción se propone Sel; si no hay tabla, se indica "Tabla".
+    """
+    segmentos = [x for x in nombre.split("_") if x]
+    # Prefijos de otros estándares (PA_, SP_, USP_) no forman parte del nombre sugerido.
+    if segmentos and segmentos[0].upper() in {"PA", "SP", "USP", "PROC"}:
+        segmentos = segmentos[1:]
+    palabras = [p for segmento in segmentos for p in re.findall(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+", segmento)]
+    accion, resto = None, []
+    for palabra in palabras:
+        abreviada = (_ACCIONES_ESTANDAR.get(palabra.lower()) or _ACCIONES_ABREVIADAS.get(palabra.lower())
+                     or _ACCIONES_EN_SUGERENCIA.get(palabra.lower()))
+        if abreviada and accion is None:
+            accion = abreviada
+        else:
+            resto.append(_en_pascal(palabra))
+    tabla = resto[0] if resto else "Tabla"
+    finalidad = "".join(resto[1:])
+    return "_".join(["PA", tabla, accion or "Sel"] + ([finalidad] if finalidad else []))
 
 
 def _es_pascal(parte: str) -> bool:
@@ -714,7 +744,7 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
             texto, posicion, "PROCEDIMIENTO_SIN_PREFIJO_PA",
             f"Se identificó que el procedimiento {nombre} no empieza con el prefijo PA_. Se recomienda usar el "
             f"formato PA_Tabla_Acción_Finalidad, ya que PA identifica a los procedimientos almacenados "
-            f"(ej.: {_EJEMPLO_NOMBRE}).",
+            f"(ej.: {_nombre_sugerido(nombre)}).",
         ))
         return hallazgos
     # PA_ y pa_ son equivalentes: el prefijo no distingue mayúsculas.
@@ -724,7 +754,7 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
             texto, posicion, "PROCEDIMIENTO_NOMBRE_INCOMPLETO",
             f"Se identificó que el nombre del procedimiento {nombre} no indica la tabla y la acción. Se "
             f"recomienda usar el formato PA_Tabla_Acción_Finalidad, ya que así se entiende qué hace el "
-            f"procedimiento (ej.: {_EJEMPLO_NOMBRE}).",
+            f"procedimiento (ej.: {_nombre_sugerido(nombre)}).",
         ))
         return hallazgos
 
@@ -765,27 +795,6 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
             f"Se identificó que partes del nombre {nombre} no están en PascalCase ({corregidas}). Se "
             f"recomienda escribir cada palabra con mayúscula inicial y el resto en minúscula, ya que es el "
             f"estándar de nomenclatura.",
-        ))
-    return hallazgos
-
-    if len(segmentos) < 3 or not all(segmentos[1:3]):
-        hallazgos.append(_hallazgo(
-            texto, posicion, "PROCEDIMIENTO_NOMBRE_INCOMPLETO",
-            f"Se identificó que el nombre del procedimiento {nombre} no indica la tabla y la acción. Se "
-            f"recomienda usar el formato PA_Tabla_Acción_Finalidad, ya que así se entiende qué hace el "
-            f"procedimiento (ej.: {_EJEMPLO_NOMBRE}).",
-        ))
-        return hallazgos
-
-    accion = segmentos[2]
-    abreviatura = _ACCIONES_ABREVIADAS.get(accion.lower())
-    if abreviatura and accion != abreviatura:
-        sugerido = "_".join(segmentos[:2] + [abreviatura] + segmentos[3:])
-        hallazgos.append(_hallazgo(
-            texto, posicion, "PROCEDIMIENTO_ACCION_NO_ABREVIADA",
-            f"Se identificó que la acción del procedimiento {nombre} está escrita como '{accion}'. Se "
-            f"recomienda usar la abreviatura del manual, {abreviatura}, ya que así se nombran las acciones "
-            f"estándar (ej.: {sugerido}).",
         ))
     return hallazgos
 

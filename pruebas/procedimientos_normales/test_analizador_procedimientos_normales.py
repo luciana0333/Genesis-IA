@@ -96,6 +96,19 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             {"CATALOGO_SISTEMA_PROHIBIDO", "SQL_DINAMICO_PROHIBIDO", "VARCHAR_MAX_PROHIBIDO"},
         )
 
+    def test_ejemplo_de_nombre_armado_con_el_nombre_escrito(self):
+        casos = {
+            "PA_ConsultarVentas": "PA_Ventas_Sel",
+            "PA_ActualizarCliente": "PA_Cliente_Upd",
+            "PA_Reporte": "PA_Reporte_Sel",
+            "Cliente_Upd_Estado": "PA_Cliente_Upd_Estado",
+            "SP_GetCliente": "PA_Cliente_Sel",
+        }
+        for nombre, sugerido in casos.items():
+            with self.subTest(nombre=nombre):
+                hallazgo = verificar_procedimiento_normal(f"CREATE PROCEDURE dbo.{nombre} AS SELECT 1;")[0]
+                self.assertIn(f"(ej.: {sugerido}).", hallazgo.mensaje)
+
     def test_select_into_tras_begin_o_sin_punto_y_coma(self):
         tras_begin = "CREATE PROCEDURE dbo.PA_C_Sel\nAS\nBEGIN\n    SELECT c.n INTO #T FROM dbo.Cliente c;\nEND"
         self.assertIn(("SELECT_INTO_PROHIBIDO", 4), [(h.regla, h.linea) for h in verificar_procedimiento_normal(tras_begin)])
