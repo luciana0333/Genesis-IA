@@ -118,6 +118,20 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             with self.subTest(sql=valido):
                 self.assertNotIn("SELECT_INTO_PROHIBIDO", {h.regla for h in verificar_procedimiento_normal(valido)})
 
+    def test_select_top_y_alias_estrella(self):
+        casos = {
+            "SELECT TOP 10 * FROM dbo.Cliente c;": "SELECT * sobre la tabla dbo.Cliente",
+            "SELECT TOP (10) PERCENT * FROM dbo.Cliente c;": "SELECT * sobre la tabla dbo.Cliente",
+            "SELECT c.*, z.cNombre FROM dbo.Cliente AS c JOIN dbo.Zona z ON z.n = c.n;": "SELECT c.* sobre la tabla dbo.Cliente",
+        }
+        for sql, esperado in casos.items():
+            with self.subTest(sql=sql):
+                hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "SELECT_ESTRELLA_PROHIBIDO")
+                self.assertIn(esperado, hallazgo.mensaje)
+        for valido in ("SELECT COUNT(*) FROM dbo.Cliente c;", "SELECT c.nMonto * c.nTasa AS n FROM dbo.Cliente c;"):
+            with self.subTest(sql=valido):
+                self.assertNotIn("SELECT_ESTRELLA_PROHIBIDO", {h.regla for h in verificar_procedimiento_normal(valido)})
+
     def test_select_estrella_sobre_base_sin_esquema(self):
         hallazgo = next(h for h in verificar_procedimiento_normal("SELECT * FROM DBCMAICA..Cliente c WHERE c.n = 1;")
                         if h.regla == "SELECT_ESTRELLA_PROHIBIDO")

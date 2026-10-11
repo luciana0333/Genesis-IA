@@ -411,7 +411,12 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             f"CREATE TABLE, indicando sus tipos y COLLATE, y luego llenarla con INSERT INTO seguido del SELECT, "
             f"ya que así se controlan sus tipos de datos.",
         ))
-    for match in re.finditer(r"\bSELECT\s+(?:DISTINCT\s+)?\*", limpio, re.IGNORECASE):
+    # SELECT *, SELECT DISTINCT * y SELECT TOP 10 / TOP (10) [PERCENT] [WITH TIES] *.
+    patron_estrella = (
+        r"\bSELECT\s+(?:ALL\s+|DISTINCT\s+)?"
+        r"(?:TOP\s*(?:\(\s*[\w@]+\s*\)|\d+)\s*(?:PERCENT\s+)?(?:WITH\s+TIES\s+)?)?\*"
+    )
+    for match in re.finditer(patron_estrella, limpio, re.IGNORECASE):
         tabla = _tabla_del_from(limpio, match.start())
         sobre = f" sobre la tabla {tabla}" if tabla else ""
         hallazgos.append(_hallazgo(
@@ -419,6 +424,21 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             f"Se identificó un SELECT *{sobre}, que trae todas sus columnas. Se recomienda escribir solo las "
             f"columnas necesarias, ya que traer columnas de más consume memoria y vuelve más lento el "
             f"procedimiento (ej.: SELECT cNombre, dFecha).",
+        ))
+    # SELECT c.*: todas las columnas de la tabla del alias c.
+    for match in re.finditer(r"(?<![\w.@#])([A-Za-z_]\w*)\s*\.\s*\*(?=\s*(?:,|\bFROM\b))", limpio, re.IGNORECASE):
+        alias = match.group(1)
+        sentencia = _sentencia_de(limpio, match.start())
+        origen = re.search(
+            rf"\b(?:FROM|JOIN)\s+({_IDENTIFICADOR}(?:\s*\.(?:\s*\.)?\s*{_IDENTIFICADOR}){{0,2}})\s+(?:AS\s+)?{re.escape(alias)}\b",
+            sentencia, re.IGNORECASE,
+        )
+        tabla = _limpiar_nombre(origen.group(1)) if origen else alias
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "SELECT_ESTRELLA_PROHIBIDO",
+            f"Se identificó un SELECT {alias}.* sobre la tabla {tabla}, que trae todas sus columnas. Se recomienda "
+            f"escribir solo las columnas necesarias, ya que traer columnas de más consume memoria y vuelve más "
+            f"lento el procedimiento (ej.: SELECT {alias}.cNombre, {alias}.dFecha).",
         ))
     for match in re.finditer(r"([\w.\[\]@#]+)\s+COLLATE\s+\w+", limpio, re.IGNORECASE):
         # La cláusula que manda es la más cercana al COLLATE (puede haber un ON antes del WHERE).
