@@ -19,6 +19,7 @@ import {
   Globe,
   Gauge,
   BookOpen,
+  Briefcase,
   Inbox,
   Info,
   ListChecks,
@@ -29,6 +30,7 @@ import {
   Play,
   Plus,
   RotateCcw,
+  Server,
   ShieldAlert,
   ShieldCheck,
   Sun,
@@ -57,6 +59,8 @@ export const IconoSubir = crearIcono(CloudUpload);
 export const IconoArchivo = crearIcono(FileCode2);
 export const IconoCerrar = crearIcono(X);
 export const IconoBaseDatos = crearIcono(Database);
+export const IconoNegocio = crearIcono(Briefcase);
+export const IconoMotor = crearIcono(Server);
 export const IconoCopiar = crearIcono(Copy);
 export const IconoCopiado = crearIcono(Check);
 export const IconoAgregar = crearIcono(Plus);

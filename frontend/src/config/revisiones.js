@@ -72,6 +72,8 @@ export const REVISIONES = {
       ayuda: 'Pega aquí el CREATE o ALTER PROCEDURE para aplicar las reglas generales.',
     },
     diccionario: null,
+    // Los procedimientos del motor de base de datos pueden usar SELECT *.
+    permiteMotor: true,
     ejemplo: { sql: SQL_NORMAL, diccionario: '', nombre: 'dbo.PA_Cliente_Actualizar' },
     demo: { sql: DEMO_NORMAL, diccionario: '', nombre: 'dbo.PA_Cliente_Upd_Estado' },
   },
@@ -111,5 +113,6 @@ export function construirSolicitud(tipoRevision, campos) {
     dictScript: campos.dictScript,
     indicesScript: campos.indicesScript ?? '',
     esDbcmaica: campos.esDbcmaica,
+    esDelMotor: Boolean(campos.esDelMotor),
   };
 }

@@ -72,6 +72,7 @@ class GenesisHandler(SimpleHTTPRequestHandler):
         dict_text = payload.get('dictScript') or ''
         indices_text = payload.get('indicesScript') or ''
         es_dbcmaica = bool(payload.get('esDbcmaica', False))
+        es_del_motor = bool(payload.get('esDelMotor', False))
         modo_revision = (payload.get('modoRevision') or 'diccionario').strip()
 
         # En Tablas se puede revisar solo el índice de una tabla que ya existe (sin su script).
@@ -96,7 +97,7 @@ class GenesisHandler(SimpleHTTPRequestHandler):
             if tipo == 'reporte':
                 hallazgos = verificar_reporte(sql_text)
             elif tipo == 'procedimiento_normal':
-                hallazgos = verificar_procedimiento_normal(sql_text)
+                hallazgos = verificar_procedimiento_normal(sql_text, es_del_motor)
             elif tipo == 'procedimiento':
                 hallazgos = verificar_diccionario(sql_text, dict_text)
             elif tipo == 'tabla_estructura' or modo_revision == 'tabla_estructura':

@@ -118,6 +118,16 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             with self.subTest(sql=valido):
                 self.assertNotIn("SELECT_INTO_PROHIBIDO", {h.regla for h in verificar_procedimiento_normal(valido)})
 
+    def test_procedimiento_del_motor_puede_usar_select_estrella(self):
+        sql = ("SELECT * FROM dbo.Cliente c;\nSELECT TOP 10 * FROM dbo.Zona z;\nSELECT c.* FROM dbo.Cliente c;\n"
+               "SELECT o.name FROM sys.objects o;")
+        de_negocio = {h.regla for h in verificar_procedimiento_normal(sql)}
+        del_motor = {h.regla for h in verificar_procedimiento_normal(sql, es_del_motor=True)}
+        self.assertIn("SELECT_ESTRELLA_PROHIBIDO", de_negocio)
+        self.assertNotIn("SELECT_ESTRELLA_PROHIBIDO", del_motor)
+        # El resto de reglas se sigue aplicando.
+        self.assertIn("CATALOGO_SISTEMA_PROHIBIDO", del_motor)
+
     def test_select_top_y_alias_estrella(self):
         casos = {
             "SELECT TOP 10 * FROM dbo.Cliente c;": "SELECT * sobre la tabla dbo.Cliente",

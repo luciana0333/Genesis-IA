@@ -33,7 +33,7 @@ function camposDeDemo(tipoRevision, base) {
 export function useAuditoria(tipoInicial) {
   const [tipoRevision, setTipoRevision] = useState(tipoInicial);
   const [campos, setCampos] = useState(() =>
-    camposDeEjemplo(tipoInicial, { objetoNombre: NOMBRE_OBJETO_INICIAL, esDbcmaica: false }),
+    camposDeEjemplo(tipoInicial, { objetoNombre: NOMBRE_OBJETO_INICIAL, esDbcmaica: false, esDelMotor: false }),
   );
   const [resultado, setResultado] = useState(RESULTADO_INICIAL);
   const { ejecutar, cancelar } = useSolicitudCancelable();
@@ -58,7 +58,7 @@ export function useAuditoria(tipoInicial) {
 
   const limpiar = useCallback(() => {
     cancelar();
-    setCampos({ objetoNombre: '', sqlObject: '', dictScript: '', indicesScript: '', esDbcmaica: false });
+    setCampos({ objetoNombre: '', sqlObject: '', dictScript: '', indicesScript: '', esDbcmaica: false, esDelMotor: false });
     setResultado(RESULTADO_INICIAL);
   }, [cancelar]);
 

@@ -1105,8 +1105,12 @@ def _validar_tabla_repetida(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
-def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
-    """Aplica exclusivamente las reglas de procedimientos normales."""
+def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -> List[Hallazgo]:
+    """
+    Aplica exclusivamente las reglas de procedimientos normales. Si el
+    procedimiento pertenece al motor de base de datos (es_del_motor), se le
+    permite el SELECT * (sus tablas son enormes); el resto de reglas se aplica igual.
+    """
     limpio = _quitar_comentarios(texto_sql)
     # Igual que "limpio", pero con el contenido de los textos (para los mensajes que lo muestran).
     con_textos = _quitar_solo_comentarios(texto_sql)
@@ -1138,6 +1142,8 @@ def verificar_procedimiento_normal(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_tipos_entre_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_comentarios(texto_sql))
     hallazgos.extend(_validar_variables(texto_sql, limpio))
+    if es_del_motor:
+        hallazgos = [h for h in hallazgos if h.regla != "SELECT_ESTRELLA_PROHIBIDO"]
     # Las reglas desactivadas en el catálogo no se reportan.
     hallazgos = [h for h in hallazgos if REGLAS_PROCEDIMIENTOS_NORMALES[h.regla].activo]
     return _agrupar_repetidos(hallazgos)

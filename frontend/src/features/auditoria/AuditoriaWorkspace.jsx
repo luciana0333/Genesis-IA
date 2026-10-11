@@ -3,8 +3,8 @@ import { Boton } from '../../components/Boton';
 import { EditorCodigo } from '../../components/EditorCodigo';
 import { EncabezadoSeccion } from '../../components/EncabezadoSeccion';
 import {
-  IconoAgregar, IconoBaseDatos, IconoCerrar, IconoEjecutar, IconoGlobo, IconoLimpiar, IconoRestaurar,
-  IconoSeveridadMedia,
+  IconoAgregar, IconoBaseDatos, IconoCerrar, IconoEjecutar, IconoGlobo, IconoLimpiar, IconoMotor, IconoNegocio,
+  IconoRestaurar, IconoSeveridadMedia,
 } from '../../components/Iconos';
 import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
@@ -100,7 +100,7 @@ export function AuditoriaWorkspace({ vista }) {
         </div>
 
         <form className="panel-body" onSubmit={alEnviar} onKeyDown={alPresionarTecla} noValidate>
-          <div className={revision.permiteDbcmaica ? 'control-row control-row--base' : 'control-row'}>
+          <div className={revision.permiteDbcmaica || revision.permiteMotor ? 'control-row control-row--base' : 'control-row'}>
             {esSelectorVisible && (
               <div className="field-group">
                 <label className="field-label" htmlFor={`${ids}-tipo`}>Tipo de revisión</label>
@@ -152,6 +152,36 @@ export function AuditoriaWorkspace({ vista }) {
               <p className="nota-base">
                 <IconoSeveridadMedia />
                 En DBCMAICA las columnas de texto pueden omitir COLLATE.
+              </p>
+            )}
+
+            {revision.permiteMotor && (
+              <div className="field-group">
+                <span className="field-label" id={`${ids}-motor`}>Tipo de procedimiento</span>
+                <div className="selector-base" role="radiogroup" aria-labelledby={`${ids}-motor`}>
+                  {[
+                    { valor: false, etiqueta: 'De negocio', icono: <IconoNegocio /> },
+                    { valor: true, etiqueta: 'Del motor', icono: <IconoMotor /> },
+                  ].map((opcion) => (
+                    <label key={opcion.etiqueta} className={Boolean(campos.esDelMotor) === opcion.valor ? 'activa' : undefined}>
+                      <input
+                        type="radio"
+                        name={`${ids}-motor`}
+                        checked={Boolean(campos.esDelMotor) === opcion.valor}
+                        onChange={() => actualizarCampo('esDelMotor', opcion.valor)}
+                      />
+                      {opcion.icono}
+                      {opcion.etiqueta}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {revision.permiteMotor && (
+              <p className="nota-base">
+                <IconoSeveridadMedia />
+                Los procedimientos del motor de base de datos pueden usar SELECT *.
               </p>
             )}
           </div>
