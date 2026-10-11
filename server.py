@@ -252,6 +252,10 @@ class GenesisHandler(SimpleHTTPRequestHandler):
         return
 
 
+# Código de salida del servidor cuando el puerto ya está en uso.
+_SALIDA_PUERTO_OCUPADO = 3
+
+
 def _archivos_del_backend():
     """Fecha de modificación de server.py y de cada .py de app/ (para recargar al cambiar)."""
     raiz = Path(__file__).resolve().parent
@@ -273,19 +277,27 @@ def _vigilar_y_recargar():
     print('Recarga automática activa: el servidor se reinicia solo al cambiar el código.')
     hijo = subprocess.Popen(comando, env=entorno)
     vistos = _archivos_del_backend()
+    avisado = False
     try:
         while True:
             time.sleep(1)
             actuales = _archivos_del_backend()
             if actuales != vistos:
                 vistos = actuales
+                avisado = False
                 print('Cambios en el código: reiniciando el servidor...')
-                hijo.terminate()
-                hijo.wait()
+                if hijo.poll() is None:
+                    hijo.terminate()
+                    hijo.wait()
                 hijo = subprocess.Popen(comando, env=entorno)
             elif hijo.poll() is not None and hijo.returncode != 0:
-                # El hijo terminó con error (p. ej. puerto ocupado): no se insiste.
-                sys.exit(hijo.returncode)
+                if hijo.returncode == _SALIDA_PUERTO_OCUPADO:
+                    sys.exit(hijo.returncode)  # otro servidor ya usa el puerto: no se insiste
+                # Error en el código: se espera al siguiente cambio y se vuelve a intentar.
+                if not avisado:
+                    print('El servidor no pudo iniciar por un error en el código; '
+                          'se reintentará al guardar el siguiente cambio.')
+                    avisado = True
     except KeyboardInterrupt:
         pass
     finally:
@@ -314,7 +326,7 @@ def _iniciar_servidor():
     if server is None:
         print(f'El puerto {puerto} ya está en uso: Genesis IA probablemente ya está corriendo.')
         print('Cierre el otro servidor (Ctrl + C en su terminal) y vuelva a iniciar este.')
-        sys.exit(1)
+        sys.exit(_SALIDA_PUERTO_OCUPADO)
     if not ortografia.disponible():
         print('AVISO: pyspellchecker no está instalado; no se revisará la ortografía de los diccionarios.')
         print('       Instálelo con: python -m pip install -r requirements.txt')
