@@ -13,6 +13,7 @@ import {
   DEMO_TABLA,
   DICCIONARIO_PROCEDIMIENTO,
   DICCIONARIO_TABLA,
+  INDICES_TABLA,
   SQL_NORMAL,
   SQL_PROCEDIMIENTO,
   SQL_REPORTE,
@@ -82,8 +83,13 @@ export const REVISIONES = {
       ayuda: 'Pega aquí el script completo de CREATE TABLE o ALTER TABLE.',
     },
     diccionario: null,
-    ejemplo: { sql: SQL_TABLA, diccionario: '', nombre: 'CLICKTOPAY.Cliente' },
-    demo: { sql: DEMO_TABLA, diccionario: '', nombre: 'TB_cliente_datos' },
+    // Segunda cajita, opcional: los CREATE INDEX que acompañan al script de la tabla.
+    indices: {
+      etiqueta: 'Índices de la tabla',
+      ayuda: 'Pega aquí los CREATE INDEX de la tabla, si el script los trae.',
+    },
+    ejemplo: { sql: SQL_TABLA, diccionario: '', indices: INDICES_TABLA, nombre: 'CLICKTOPAY.Cliente' },
+    demo: { sql: DEMO_TABLA, diccionario: '', indices: '', nombre: 'TB_cliente_datos' },
   },
 };
 
@@ -102,6 +108,7 @@ export function construirSolicitud(tipoRevision, campos) {
     objetoNombre: campos.objetoNombre,
     sqlObject: campos.sqlObject,
     dictScript: campos.dictScript,
+    indicesScript: campos.indicesScript ?? '',
     esDbcmaica: campos.esDbcmaica,
   };
 }

@@ -18,6 +18,9 @@ export const SQL_TABLA = `CREATE TABLE CLICKTOPAY.Cliente (
     CONSTRAINT PK_Cliente PRIMARY KEY CLUSTERED (nClienteId)
 );`;
 
+export const INDICES_TABLA = `CREATE NONCLUSTERED INDEX IX_Cliente_cCodPersona
+    ON CLICKTOPAY.Cliente (cCodPersona);`;
+
 export const SQL_REPORTE = `ALTER PROCEDURE dbo.PA_BI_Sel_Reporte
 AS
 BEGIN

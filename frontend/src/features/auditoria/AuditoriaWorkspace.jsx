@@ -57,11 +57,14 @@ export function AuditoriaWorkspace({ vista }) {
     if (detectado && detectado !== tipoRevision) ajustarTipo(detectado);
   };
   const tieneDiccionario = Boolean(revision.diccionario);
-  const contarLineas = (texto) => (texto.trim() ? texto.split('\n').length : 0);
+  const tieneIndices = Boolean(revision.indices);
+  const contarLineas = (texto = '') => (texto.trim() ? texto.split('\n').length : 0);
   const lineasSql = contarLineas(campos.sqlObject);
   const lineasDiccionario = tieneDiccionario ? contarLineas(campos.dictScript) : 0;
+  const lineasIndices = tieneIndices ? contarLineas(campos.indicesScript) : 0;
   const hayCodigo = lineasSql > 0;
-  const resumenLineas = tieneDiccionario ? `${lineasSql} + ${lineasDiccionario} líneas` : `${lineasSql} líneas`;
+  const lineasSegunda = tieneDiccionario ? lineasDiccionario : lineasIndices;
+  const resumenLineas = lineasSegunda ? `${lineasSql} + ${lineasSegunda} líneas` : `${lineasSql} líneas`;
   const cargando = resultado.estado === 'cargando';
 
   const alEnviar = (evento) => {
@@ -182,6 +185,25 @@ export function AuditoriaWorkspace({ vista }) {
                   valor={campos.dictScript}
                   onCambiar={(valor) => actualizarCampo('dictScript', valor)}
                   placeholder="EXEC sys.sp_addextendedproperty ..."
+                />
+              </TarjetaEditor>
+            )}
+
+            {tieneIndices && (
+              <TarjetaEditor
+                className="field-card-full"
+                numero={2}
+                etiqueta={revision.indices.etiqueta}
+                htmlFor={`${ids}-indices`}
+                estado="Opcional"
+                requerido={false}
+                ayuda={revision.indices.ayuda}
+              >
+                <EditorCodigo
+                  id={`${ids}-indices`}
+                  valor={campos.indicesScript ?? ''}
+                  onCambiar={(valor) => actualizarCampo('indicesScript', valor)}
+                  placeholder="CREATE NONCLUSTERED INDEX ..."
                 />
               </TarjetaEditor>
             )}
