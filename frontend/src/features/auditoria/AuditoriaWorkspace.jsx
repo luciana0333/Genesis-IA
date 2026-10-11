@@ -146,9 +146,9 @@ export function AuditoriaWorkspace({ vista }) {
             )}
           </div>
 
-          <div className="editor-grid">
+          <div className={tieneIndices ? 'editor-grid editor-grid--indices' : 'editor-grid'}>
             <TarjetaEditor
-              className={tieneDiccionario ? 'field-card-primary' : 'field-card-primary field-card-full'}
+              className={tieneDiccionario || tieneIndices ? 'field-card-primary' : 'field-card-primary field-card-full'}
               numero={1}
               etiqueta={revision.sql.etiqueta}
               htmlFor={`${ids}-sql`}
@@ -191,7 +191,7 @@ export function AuditoriaWorkspace({ vista }) {
 
             {tieneIndices && (
               <TarjetaEditor
-                className="field-card-full"
+                className="field-card-secondary"
                 numero={2}
                 etiqueta={revision.indices.etiqueta}
                 htmlFor={`${ids}-indices`}

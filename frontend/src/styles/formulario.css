@@ -216,6 +216,11 @@ h3.section-title {
   grid-column: 1 / -1;
 }
 
+/* Tablas: el script de la tabla, ancho; los índices (pocas líneas), en una columna angosta. */
+.editor-grid--indices {
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+}
+
 .field-card-heading {
   position: relative;
   z-index: 1;
@@ -716,7 +721,8 @@ select.campo-icono-tipo {
 /* ───────── RESPONSIVE ───────── */
 @media (max-width: 900px) {
   .control-row,
-  .editor-grid {
+  .editor-grid,
+  .editor-grid--indices {
     grid-template-columns: 1fr;
   }
 

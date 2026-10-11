@@ -87,7 +87,7 @@ export const REVISIONES = {
     // Segunda cajita, opcional: los CREATE INDEX que acompañan al script de la tabla.
     indices: {
       etiqueta: 'Índices de la tabla',
-      ayuda: 'Pega aquí los CREATE INDEX de la tabla, si el script los trae.',
+      ayuda: 'Los CREATE INDEX de la tabla, si los trae.',
     },
     ejemplo: { sql: SQL_TABLA, diccionario: '', indices: INDICES_TABLA, nombre: 'CLICKTOPAY.Cliente' },
     demo: { sql: DEMO_TABLA, diccionario: '', indices: DEMO_INDICES, nombre: 'TB_cliente_datos' },
