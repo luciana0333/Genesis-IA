@@ -389,16 +389,32 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
                 f"tabla {tabla_script.nombre}. Se recomienda usar el nombre exacto de la columna, ya que así "
                 f"como está SQL Server no puede crear el índice.",
             ))
-    for columna in indice.claves:
+    # (N)VARCHAR(MAX), VARBINARY(MAX) y XML no pueden ser columna clave, pero sí ir en el INCLUDE.
+    # TEXT, NTEXT e IMAGE no pueden ir en un índice de ninguna forma (ni en el INCLUDE).
+    for columna in indice.claves + indice.incluidas:
         tipo_columna = tabla_script.columnas.get(columna.lower(), "")
-        if tipo_columna and _TIPOS_NO_INDEXABLES.match(tipo_columna):
-            hallazgos.append(_hallazgo(
-                texto, indice.posicion, "INDICE_COLUMNA_NO_INDEXABLE",
-                f"Se identificó que la columna {columna} es de tipo {tipo_columna} y está entre las columnas del "
-                f"índice {indice.nombre}. Se recomienda quitarla de esa lista (si se necesita, puede ir en el "
-                f"INCLUDE) o darle una longitud fija, ya que SQL Server no permite crear un índice sobre una "
-                f"columna {tipo_columna}.",
-            ))
+        if not tipo_columna or not _TIPOS_NO_INDEXABLES.match(tipo_columna):
+            continue
+        es_max = "(MAX)" in tipo_columna or tipo_columna == "XML"
+        en_include = columna not in indice.claves
+        if es_max and en_include:
+            continue  # válido: una columna MAX sí puede ir en el INCLUDE
+        if es_max:
+            mensaje = (
+                f"Se identificó que la columna {columna} es de tipo {tipo_columna} y está entre las columnas "
+                f"clave del índice {indice.nombre}. Se recomienda quitarla de esa lista (si se necesita, puede ir "
+                f"en el INCLUDE){' o darle una longitud fija' if '(MAX)' in tipo_columna else ''}, ya que SQL "
+                f"Server no permite usar una columna "
+                f"{tipo_columna} como columna clave de un índice."
+            )
+        else:
+            donde = "en el INCLUDE" if en_include else "entre las columnas clave"
+            mensaje = (
+                f"Se identificó que la columna {columna} es de tipo {tipo_columna} y está {donde} del índice "
+                f"{indice.nombre}. Se recomienda quitarla del índice, ya que SQL Server no permite usar una "
+                f"columna {tipo_columna} en un índice, ni siquiera en el INCLUDE."
+            )
+        hallazgos.append(_hallazgo(texto, indice.posicion, "INDICE_COLUMNA_NO_INDEXABLE", mensaje))
 
     return hallazgos
 

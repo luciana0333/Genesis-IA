@@ -126,6 +126,25 @@ class TestIndices(unittest.TestCase):
         self.assertEqual(reglas(en_include), [("INDICE_COLUMNA_REPETIDA", 1)])
         self.assertIn("en el INCLUDE la columna cCodPersona, que ya es columna clave", mensaje(en_include))
 
+    def test_tipos_no_indexables_segun_donde_van(self):
+        tabla = ("CREATE TABLE dbo.Persona (nPersonaId INT IDENTITY(1,1) NOT NULL, cObs VARCHAR(MAX) NOT NULL, "
+                 "cNota NTEXT NOT NULL, xDatos XML NULL, nEstado INT NOT NULL, "
+                 "CONSTRAINT PK_Persona PRIMARY KEY CLUSTERED (nPersonaId));")
+
+        def aviso(indices):
+            return next((h.mensaje for h in verificar_indices(indices, tabla) if h.regla == "INDICE_COLUMNA_NO_INDEXABLE"), None)
+
+        # (N)VARCHAR(MAX), VARBINARY(MAX) y XML: no como clave, sí en el INCLUDE.
+        self.assertIn("como columna clave de un índice", aviso("CREATE INDEX IXN_Persona_cObs ON dbo.Persona (cObs);"))
+        self.assertIn("o darle una longitud fija", aviso("CREATE INDEX IXN_Persona_cObs ON dbo.Persona (cObs);"))
+        self.assertNotIn("longitud fija", aviso("CREATE INDEX IXN_Persona_xDatos ON dbo.Persona (xDatos);"))
+        for incluida in ("cObs", "xDatos"):
+            with self.subTest(incluida=incluida):
+                self.assertIsNone(aviso(f"CREATE INDEX IXN_Persona_nEstado_INC01 ON dbo.Persona (nEstado) INCLUDE ({incluida});"))
+        # TEXT, NTEXT, IMAGE: ni siquiera en el INCLUDE.
+        self.assertIn("ni siquiera en el INCLUDE",
+                      aviso("CREATE INDEX IXN_Persona_nEstado_INC01 ON dbo.Persona (nEstado) INCLUDE (cNota);"))
+
     def test_descripcion_usada_como_identificador(self):
         tabla = "CREATE TABLE dbo.TB_cliente_datos (id INT, cDescripcion VARCHAR(MAX), cDireccion VARCHAR(200));"
         unico = "CREATE UNIQUE CLUSTERED INDEX IXU_TB_cliente_datos_cDescripcion ON dbo.TB_cliente_datos (cDescripcion);"

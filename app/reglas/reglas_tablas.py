@@ -145,7 +145,8 @@ REGLAS_TABLAS = {
     ),
     "INDICE_COLUMNA_NO_INDEXABLE": _regla(
         "INDICE_COLUMNA_NO_INDEXABLE", "Columna no indexable", "critico",
-        "Una columna VARCHAR(MAX), NVARCHAR(MAX), VARBINARY(MAX), TEXT, IMAGE o XML no puede ser clave de un índice.",
+        "VARCHAR(MAX), NVARCHAR(MAX), VARBINARY(MAX) y XML no pueden ser columna clave de un índice (sí van en "
+        "el INCLUDE); TEXT, NTEXT e IMAGE no pueden ir en un índice, ni siquiera en el INCLUDE.",
     ),
     "INDICE_CLUSTERED_CON_PK": _regla(
         "INDICE_CLUSTERED_CON_PK", "Índice clúster con PK clúster", "medio",
