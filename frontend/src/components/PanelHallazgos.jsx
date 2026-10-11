@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { SEVERIDADES, etiquetaSeveridad, nombreRegla } from '../config/reglas';
 import { contarPorSeveridad, desglosarGrupo, normalizarSeveridad, ordenarHallazgos, separarMensaje } from '../utils/hallazgos';
 import { EncabezadoSeccion } from './EncabezadoSeccion';
@@ -179,8 +179,19 @@ export function PanelHallazgos({
   mostrarLinea = true,
 }) {
   const [filtroElegido, setFiltro] = useState('todos');
-  const conteo = useMemo(() => contarPorSeveridad(hallazgos), [hallazgos]);
-  const ordenados = useMemo(() => ordenarHallazgos(hallazgos), [hallazgos]);
+  const [seccionElegida, setSeccion] = useState('tabla');
+
+  // Si hay hallazgos de los índices (Tablas), se separan en pestañas «Tabla | Índices».
+  const deIndices = hallazgos.filter((hallazgo) => hallazgo.seccion === 'indices');
+  const deTabla = hallazgos.filter((hallazgo) => hallazgo.seccion !== 'indices');
+  const conSecciones = deIndices.length > 0;
+  // Si la pestaña elegida quedó vacía (nuevo análisis), se muestra la otra.
+  const seccion = !conSecciones ? 'tabla'
+    : seccionElegida === 'indices' || !deTabla.length ? 'indices' : 'tabla';
+  const delaSeccion = !conSecciones ? hallazgos : seccion === 'indices' ? deIndices : deTabla;
+
+  const conteo = contarPorSeveridad(delaSeccion);
+  const ordenados = ordenarHallazgos(delaSeccion);
 
   // Si el filtro elegido ya no tiene resultados (nuevo análisis), se vuelve a "Todos".
   const filtro = filtroElegido !== 'todos' && !conteo[filtroElegido] ? 'todos' : filtroElegido;
@@ -217,16 +228,43 @@ export function PanelHallazgos({
       />
     );
   } else if (hayHallazgos) {
-    contenido = (
+    const lista = (
       <div className="findings-list">
         {visibles.map((hallazgo, indice) => (
           <FilaHallazgo
             // El backend no envía un id; regla + línea + posición es estable por resultado.
-            key={`${hallazgo.regla}-${hallazgo.linea}-${indice}`}
+            key={`${seccion}-${hallazgo.regla}-${hallazgo.linea}-${indice}`}
             hallazgo={hallazgo}
             mostrarLinea={mostrarLinea}
           />
         ))}
+      </div>
+    );
+    contenido = !conSecciones ? lista : (
+      <div className="resultados-secciones">
+        <div className="pestanas-seccion" role="tablist" aria-label="Origen de los hallazgos">
+          {[
+            { id: 'tabla', etiqueta: 'Tabla', cantidad: deTabla.length },
+            { id: 'indices', etiqueta: 'Índices', cantidad: deIndices.length },
+          ].map((opcion) => (
+            <button
+              key={opcion.id}
+              type="button"
+              role="tab"
+              aria-selected={seccion === opcion.id}
+              className={seccion === opcion.id ? 'pestana-seccion activa' : 'pestana-seccion'}
+              disabled={!opcion.cantidad}
+              onClick={() => {
+                setSeccion(opcion.id);
+                setFiltro('todos');
+              }}
+            >
+              {opcion.etiqueta}
+              <span className="pestana-seccion-cantidad">{opcion.cantidad}</span>
+            </button>
+          ))}
+        </div>
+        {lista}
       </div>
     );
   } else {
@@ -257,7 +295,7 @@ export function PanelHallazgos({
       {hayHallazgos ? (
         <div className="resultados-tablero">
           <div className="tablero-columna">
-            <ResumenLateral conteo={conteo} total={hallazgos.length} filtro={filtro} onFiltrar={setFiltro} />
+            <ResumenLateral conteo={conteo} total={delaSeccion.length} filtro={filtro} onFiltrar={setFiltro} />
           </div>
           {contenido}
         </div>

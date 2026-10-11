@@ -830,3 +830,73 @@
 :root[data-theme="dark"] .finding-fix {
   background: var(--bg-subtle);
 }
+
+/* ───────── PESTAÑAS «TABLA | ÍNDICES» ─────────
+ * En Tablas, cuando también se revisan índices, sus hallazgos van en su propia
+ * pestaña para no mezclarlos con los del script de la tabla.
+ */
+.resultados-secciones {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.pestanas-seccion {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pestana-seccion {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: -1px;
+  padding: 10px 16px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+
+.pestana-seccion:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.pestana-seccion.activa {
+  border-bottom-color: var(--red-main);
+  color: var(--red-main);
+}
+
+.pestana-seccion:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.pestana-seccion:focus-visible {
+  outline: 2px solid var(--red-main);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.pestana-seccion-cantidad {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.pestana-seccion.activa .pestana-seccion-cantidad {
+  background: rgba(227, 6, 19, 0.1);
+  color: var(--red-main);
+}

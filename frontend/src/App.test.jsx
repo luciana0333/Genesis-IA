@@ -49,6 +49,30 @@ describe('App', () => {
     expect(screen.queryByText(/Sugerencias de mejora/i)).not.toBeInTheDocument();
   });
 
+  it('en Tablas separa los hallazgos de la tabla y de los índices en pestañas', async () => {
+    const usuario = userEvent.setup();
+    mockRespuesta({
+      hallazgos: [
+        { linea: 1, severidad: 'alto', regla: 'PK_FALTANTE', mensaje: 'Sin PK. Se recomienda añadirla.' },
+        { linea: 3, severidad: 'critico', regla: 'INDICE_COLUMNA_NO_INDEXABLE', seccion: 'indices', mensaje: 'No indexable. Se recomienda quitarla.' },
+        { linea: 2, severidad: 'alto', regla: 'INDICE_SIN_ESQUEMA', seccion: 'indices', mensaje: 'Sin esquema. Se recomienda añadirlo.' },
+      ],
+    });
+    render(<App />);
+    await irA('tablas');
+    await usuario.click(screen.getByRole('button', { name: /Ejecutar revisión/ }));
+
+    const pestanas = await screen.findByRole('tablist', { name: 'Origen de los hallazgos' });
+    expect(within(pestanas).getByRole('tab', { name: /Tabla\s*1/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('Tabla sin clave primaria')).toBeInTheDocument();
+    expect(screen.queryByText('Columna no indexable')).not.toBeInTheDocument();
+
+    await usuario.click(within(pestanas).getByRole('tab', { name: /Índices\s*2/ }));
+    expect(screen.getByText('Columna no indexable')).toBeInTheDocument();
+    expect(screen.getByText('Índices · Línea 2')).toBeInTheDocument();
+    expect(screen.queryByText('Tabla sin clave primaria')).not.toBeInTheDocument();
+  });
+
   it('en Tablas oculta el selector y el diccionario y muestra DBCMAICA', async () => {
     render(<App />);
     await irA('tablas');
