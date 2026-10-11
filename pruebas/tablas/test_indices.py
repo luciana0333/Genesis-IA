@@ -126,6 +126,25 @@ class TestIndices(unittest.TestCase):
         self.assertEqual(reglas(en_include), [("INDICE_COLUMNA_REPETIDA", 1)])
         self.assertIn("en el INCLUDE la columna cCodPersona, que ya es columna clave", mensaje(en_include))
 
+    def test_descripcion_usada_como_identificador(self):
+        tabla = "CREATE TABLE dbo.TB_cliente_datos (id INT, cDescripcion VARCHAR(MAX), cDireccion VARCHAR(200));"
+        unico = "CREATE UNIQUE CLUSTERED INDEX IXU_TB_cliente_datos_cDescripcion ON dbo.TB_cliente_datos (cDescripcion);"
+        hallazgos = {h.regla: h for h in verificar_indices(unico, tabla)}
+        identifica = hallazgos["INDICE_IDENTIFICA_POR_DESCRIPCION"]
+        self.assertEqual(identifica.severidad.value, "alto")
+        self.assertIn("para identificar los registros", identifica.mensaje)
+        self.assertIn("clave primaria identidad (nClienteDatosId)", identifica.mensaje)
+        self.assertIn("INDICE_COLUMNA_NO_INDEXABLE", hallazgos)  # además falla por VARCHAR(MAX)
+        self.assertNotIn("INDICE_COLUMNA_DESCRIPTIVA", hallazgos)  # no se repite como «descriptiva»
+
+        con_pk = TABLA.replace("cObservacion VARCHAR(MAX)", "cObservacion VARCHAR(200)")
+        unique_nc = "CREATE UNIQUE NONCLUSTERED INDEX IXUN_Cliente_cObservacion ON CLICKTOPAY.Cliente (cObservacion);"
+        self.assertIn("(nClienteId)", next(h.mensaje for h in verificar_indices(unique_nc, con_pk)
+                                           if h.regla == "INDICE_IDENTIFICA_POR_DESCRIPCION"))
+        # Un índice NONCLUSTERED común sobre una descripción solo es «columna descriptiva» (medio).
+        normal = "CREATE NONCLUSTERED INDEX IXN_TB_cliente_datos_cDireccion ON dbo.TB_cliente_datos (cDireccion);"
+        self.assertEqual([h.regla for h in verificar_indices(normal, tabla)], ["INDICE_COLUMNA_DESCRIPTIVA"])
+
     def test_columnas_descriptivas_en_el_indice(self):
         persona = ("CREATE TABLE DBO.PERSONA (CPERSCOD VARCHAR(20) NOT NULL, CPERSDIRECCION VARCHAR(200) NOT NULL, "
                    "cDescripcion VARCHAR(300) NOT NULL, nEstado INT NOT NULL, dRegistro DATETIME NOT NULL);")

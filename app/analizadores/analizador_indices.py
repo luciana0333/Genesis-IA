@@ -324,10 +324,25 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
             f"evita crear el índice en una tabla equivocada (ej.: ON dbo.{tabla}).",
         ))
 
+    # Una descripción nunca identifica los registros: si un índice UNIQUE o CLUSTERED
+    # la usa como clave, la tabla debe identificarse por su clave primaria identidad.
+    identificadoras = [c for c in indice.claves if _texto_descriptivo(c)] if (indice.unico or indice.clustered) else []
+    for columna in identificadoras:
+        hallazgos.append(_hallazgo(
+            texto, indice.posicion, "INDICE_IDENTIFICA_POR_DESCRIPCION",
+            f"Se identificó que el índice {indice.nombre} ({_tipo(indice.unico, indice.clustered)}) usa la "
+            f"columna {columna}, de texto descriptivo ({_texto_descriptivo(columna)}), para identificar los "
+            f"registros. Se recomienda que la tabla se identifique por su clave primaria identidad "
+            f"({_identificador_de(indice, tabla_script)}), ya que una descripción no es un identificador: "
+            f"puede repetirse, cambiar con el tiempo y vuelve pesado el índice.",
+        ))
+
     # Columnas de texto descriptivo (descripción, dirección...): se busca indexar lo que sirve.
     for columna in indice.claves + indice.incluidas:
         que = _texto_descriptivo(columna)
         tipo_columna = tabla_script.columnas.get(columna.lower(), "") if tabla_script else ""
+        if columna in identificadoras:
+            continue  # ya se marca como identificador por descripción (alto)
         if columna in indice.claves and _TIPOS_NO_INDEXABLES.match(tipo_columna or "-"):
             continue  # ya se marca como columna no indexable (crítico)
         if que:
@@ -386,6 +401,16 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
             ))
 
     return hallazgos
+
+
+def _identificador_de(indice: _Indice, tabla_script: Optional[_Tabla]) -> str:
+    """Columna identidad de la tabla: la PK del script o, si no la hay, n + NombreTabla + Id."""
+    if tabla_script and tabla_script.pk:
+        return ", ".join(tabla_script.pk)
+    tabla = _limpiar(indice.tabla).split(".")[-1]
+    tabla = re.sub(r"^(?:TB|TBL|T)_", "", tabla, flags=re.IGNORECASE)
+    nombre = "".join(parte[:1].upper() + parte[1:] for parte in re.split(r"[_\s]+", tabla) if parte)
+    return f"n{nombre}Id"
 
 
 def _validar_duplicados(texto: str, indices: List[_Indice], tabla_script: Optional[_Tabla]) -> List[Hallazgo]:
