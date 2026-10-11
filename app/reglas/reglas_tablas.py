@@ -117,6 +117,10 @@ REGLAS_TABLAS = {
         "INDICE_SINTAXIS_INVALIDA", "Índice mal escrito", "critico",
         "El CREATE INDEX debe tener nombre, tabla (ON Esquema.Tabla) y columnas entre paréntesis.",
     ),
+    "INDICE_SENTENCIA_NO_RECONOCIDA": _regla(
+        "INDICE_SENTENCIA_NO_RECONOCIDA", "Instrucción que no es un índice", "medio",
+        "La cajita de índices solo lleva CREATE INDEX; un DROP INDEX u otra instrucción se señala.",
+    ),
     "INDICE_PREFIJO_INVALIDO": _regla(
         "INDICE_PREFIJO_INVALIDO", "Prefijo de índice inválido", "alto",
         "El prefijo indica el tipo: IX clúster, IXN nonclustered, IXU unique clúster, IXUN unique nonclustered.",

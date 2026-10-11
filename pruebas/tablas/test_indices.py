@@ -50,14 +50,14 @@ class TestIndices(unittest.TestCase):
         for indices, sugerido in casos.items():
             with self.subTest(indices=indices):
                 self.assertEqual(reglas(indices), [("INDICE_PREFIJO_INVALIDO", 1)])
-                self.assertIn(f"(ej.: {sugerido})", mensaje(indices))
+                self.assertIn(f"nombre a {sugerido}", mensaje(indices))
 
     def test_nombre_con_tabla_campos_e_inc(self):
         campos = "CREATE NONCLUSTERED INDEX IXN_Cliente_Codigo ON CLICKTOPAY.Cliente (cCodPersona);"
         self.assertEqual(reglas(campos), [("INDICE_NOMBRE_NO_ESTANDAR", 1)])
         sin_inc = ("CREATE NONCLUSTERED INDEX IXN_Cliente_cCodPersona ON CLICKTOPAY.Cliente (cCodPersona) "
                    "INCLUDE (dRegistro, cCorreoElectronico);")
-        self.assertIn("(ej.: IXN_Cliente_cCodPersona_INC02)", mensaje(sin_inc))
+        self.assertIn("nombrarlo IXN_Cliente_cCodPersona_INC02", mensaje(sin_inc))
 
     def test_ejemplos_del_manual(self):
         persona = """CREATE TABLE DBO.PERSONA (
@@ -78,14 +78,14 @@ class TestIndices(unittest.TestCase):
             with self.subTest(indices=indices):
                 self.assertEqual(reglas(indices, persona), [])
         inc_un_digito = con_include.replace("_INC02", "_INC2")
-        self.assertIn("(ej.: IXN_PERSONA_CPERSCOD_NPERSCLASIFICACION_CPERSESTADO_INC02)", mensaje(inc_un_digito, persona))
+        self.assertIn("nombrarlo IXN_PERSONA_CPERSCOD_NPERSCLASIFICACION_CPERSESTADO_INC02", mensaje(inc_un_digito, persona))
 
     def test_sintaxis(self):
         casos = {
-            "CREATE NONCLUSTERED INDEX IXN_Cliente_cCodPersona (cCodPersona);": "falta la tabla",
-            "CREATE NONCLUSTERED INDEX IXN_Cliente_cCodPersona ON CLICKTOPAY.Cliente;": "faltan las columnas",
+            "CREATE NONCLUSTERED INDEX IXN_Cliente_cCodPersona (cCodPersona);": "le falta la tabla a la que pertenece",
+            "CREATE NONCLUSTERED INDEX IXN_Cliente_cCodPersona ON CLICKTOPAY.Cliente;": "le falta la lista de columnas",
             "CREATE NONCLUSTERED INDEX IXN_Cliente_cCodPersona ON CLICKTOPAY.Cliente (cCodPersona;": "paréntesis que cierra",
-            "CREATE NONCLUSTERED INDEX ON CLICKTOPAY.Cliente (cCodPersona);": "falta el nombre del índice",
+            "CREATE NONCLUSTERED INDEX ON CLICKTOPAY.Cliente (cCodPersona);": "a un índice le falta el nombre",
         }
         for indices, texto in casos.items():
             with self.subTest(indices=indices):
@@ -125,13 +125,37 @@ class TestIndices(unittest.TestCase):
         hallazgos = verificar_indices(repetida, "")
         repetidas = [h for h in hallazgos if h.regla == "INDICE_COLUMNA_REPETIDA"]
         self.assertEqual([(h.linea, h.severidad.value) for h in repetidas], [(2, "critico")])
-        self.assertIn("repite la columna nPersonaId", repetidas[0].mensaje)
+        self.assertIn("la columna nPersonaId aparece dos veces", repetidas[0].mensaje)
         # El nombre no se marca: la columna repetida cuenta una sola vez.
         self.assertNotIn("INDICE_NOMBRE_NO_ESTANDAR", {h.regla for h in hallazgos})
 
         en_include = "CREATE INDEX IXN_Cliente_cCodPersona_INC01 ON CLICKTOPAY.Cliente (cCodPersona) INCLUDE (cCodPersona, dRegistro);"
         self.assertEqual(reglas(en_include), [("INDICE_COLUMNA_REPETIDA", 1)])
-        self.assertIn("en el INCLUDE la columna cCodPersona, que ya es columna clave", mensaje(en_include))
+        self.assertIn("está a la vez entre las columnas del índice IXN_Cliente_cCodPersona_INC01 y en su INCLUDE", mensaje(en_include))
+
+    def test_qa_sintaxis_con_mensajes_claros(self):
+        con_esquema = "CREATE INDEX dbo.IXN_Cliente_cCodPersona ON CLICKTOPAY.Cliente (cCodPersona);"
+        self.assertEqual(reglas(con_esquema), [("INDICE_SINTAXIS_INVALIDA", 1)])
+        self.assertIn("incluye el esquema (dbo)", mensaje(con_esquema))
+        sin_coma = "CREATE INDEX IXN_Cliente_cCodPersona_dRegistro ON CLICKTOPAY.Cliente (cCodPersona dRegistro);"
+        self.assertEqual(reglas(sin_coma), [("INDICE_SINTAXIS_INVALIDA", 1)])
+        self.assertIn("le falta la coma entre las columnas cCodPersona y dRegistro", mensaje(sin_coma))
+
+    def test_qa_instrucciones_que_no_son_indices(self):
+        for texto, frase in (("DROP INDEX IXN_Cliente_cCodPersona ON CLICKTOPAY.Cliente;", "un DROP INDEX"),
+                             ("SELECT 1;", "no es un CREATE INDEX (SELECT 1...)"),
+                             ("CREATE INDX IXN_Cliente_cCodPersona ON CLICKTOPAY.Cliente (cCodPersona);", "no es un CREATE INDEX")):
+            with self.subTest(texto=texto):
+                self.assertEqual(reglas(texto), [("INDICE_SENTENCIA_NO_RECONOCIDA", 1)])
+                self.assertIn(frase, mensaje(texto))
+        envuelto = ("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IXN_Cliente_cCodPersona')\n"
+                    "    CREATE INDEX IXN_Cliente_cCodPersona ON CLICKTOPAY.Cliente (cCodPersona);")
+        self.assertEqual(reglas(envuelto), [])
+
+    def test_qa_duplicado_de_la_pk_pide_eliminar_el_indice(self):
+        indices = "CREATE NONCLUSTERED INDEX IXN_Cliente_nClienteId ON CLICKTOPAY.Cliente (nClienteId);"
+        self.assertIn("eliminar el índice IXN_Cliente_nClienteId, ya que la clave primaria ya cubre esas columnas",
+                      mensaje(indices))
 
     def test_tipos_no_indexables_segun_donde_van(self):
         tabla = ("CREATE TABLE dbo.Persona (nPersonaId INT IDENTITY(1,1) NOT NULL, cObs VARCHAR(MAX) NOT NULL, "
@@ -159,7 +183,7 @@ class TestIndices(unittest.TestCase):
         identifica = hallazgos["INDICE_IDENTIFICA_POR_DESCRIPCION"]
         self.assertEqual(identifica.severidad.value, "alto")
         self.assertIn("para identificar los registros", identifica.mensaje)
-        self.assertIn("clave primaria identidad (nClienteDatosId)", identifica.mensaje)
+        self.assertIn("clave primaria identidad de la tabla (nClienteDatosId)", identifica.mensaje)
         self.assertIn("INDICE_COLUMNA_NO_INDEXABLE", hallazgos)  # además falla por VARCHAR(MAX)
         self.assertNotIn("INDICE_COLUMNA_DESCRIPTIVA", hallazgos)  # no se repite como «descriptiva»
 
@@ -176,9 +200,9 @@ class TestIndices(unittest.TestCase):
                    "cDescripcion VARCHAR(300) NOT NULL, nEstado INT NOT NULL, dRegistro DATETIME NOT NULL);")
         clave = "CREATE INDEX IXN_PERSONA_CPERSCOD_CPERSDIRECCION ON DBO.PERSONA (CPERSCOD, CPERSDIRECCION);"
         self.assertEqual(reglas(clave, persona), [("INDICE_COLUMNA_DESCRIPTIVA", 1)])
-        self.assertIn("como clave la columna CPERSDIRECCION, que guarda texto descriptivo (dirección)", mensaje(clave, persona))
+        self.assertIn("incluye la columna CPERSDIRECCION, que guarda texto descriptivo (dirección)", mensaje(clave, persona))
         incluida = "CREATE INDEX IXN_PERSONA_nEstado_INC01 ON DBO.PERSONA (nEstado) INCLUDE (cDescripcion);"
-        self.assertIn("en el INCLUDE la columna cDescripcion", mensaje(incluida, persona))
+        self.assertIn("incluye en su INCLUDE la columna cDescripcion", mensaje(incluida, persona))
         util = "CREATE INDEX IXN_PERSONA_nEstado_dRegistro ON DBO.PERSONA (nEstado, dRegistro);"
         self.assertEqual(reglas(util, persona), [])
 
@@ -216,8 +240,8 @@ class TestIndices(unittest.TestCase):
         for tabla in ("ALTER TABLE CLICKTOPAY.Cliente ADD cX VARCHAR(5) NULL;", ""):
             with self.subTest(tabla=tabla):
                 self.assertEqual(reglas(indices, tabla), [("INDICE_TABLA_EXISTENTE", 1)])
-                self.assertIn("que ya existe (no se crea en este script)", mensaje(indices, tabla))
-                self.assertIn("validar si la tabla realmente necesita este índice", mensaje(indices, tabla))
+                self.assertIn("que ya existe (su CREATE TABLE no está en el script de la tabla)", mensaje(indices, tabla))
+                self.assertIn("validar que la tabla realmente necesite este índice", mensaje(indices, tabla))
         con_errores = "CREATE INDEX idx ON Cliente (cX);"
         self.assertEqual([r for r, _ in reglas(con_errores, "")],
                          ["INDICE_PREFIJO_INVALIDO", "INDICE_SIN_ESQUEMA", "INDICE_TABLA_EXISTENTE"])

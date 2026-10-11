@@ -206,6 +206,7 @@ def verificar_indices(texto_indices: str, texto_tabla: str = "") -> List[Hallazg
     hallazgos: List[Hallazgo] = []
     indices: List[_Indice] = []
 
+    hallazgos.extend(_validar_sentencias_ajenas(texto, limpio))
     inicios = [m.start() for m in _SENTENCIA.finditer(limpio)]
     for numero, inicio in enumerate(inicios):
         fin = inicios[numero + 1] if numero + 1 < len(inicios) else len(limpio)
@@ -220,8 +221,46 @@ def verificar_indices(texto_indices: str, texto_tabla: str = "") -> List[Hallazg
     return sorted(hallazgos, key=lambda h: h.linea)
 
 
+def _validar_sentencias_ajenas(texto: str, limpio: str) -> List[Hallazgo]:
+    """Instrucciones de la cajita de índices que no son un CREATE INDEX: no se ignoran en silencio."""
+    hallazgos = []
+    for match in re.finditer(r"[^;]+", limpio):
+        for parte in re.split(r"\bGO\b", match.group(0), flags=re.IGNORECASE):
+            if not parte.strip() or _SENTENCIA.search(parte):
+                continue
+            inicio = match.start() + match.group(0).find(parte) + (len(parte) - len(parte.lstrip()))
+            primeras = " ".join(parte.split()[:3])
+            if re.match(r"\s*DROP\s+INDEX\b", parte, re.IGNORECASE):
+                mensaje = (
+                    "Se identificó un DROP INDEX en la cajita de índices. Se recomienda quitarlo del script de "
+                    "creación, ya que elimina un índice y esta cajita es para revisar los índices que se crean."
+                )
+            else:
+                mensaje = (
+                    f"Se identificó una instrucción que no es un CREATE INDEX ({primeras}...). Se recomienda dejar "
+                    f"en esta cajita solo los CREATE INDEX de la tabla y revisar si está bien escrita, ya que lo "
+                    f"demás no se revisa como índice."
+                )
+            hallazgos.append(_hallazgo(texto, inicio, "INDICE_SENTENCIA_NO_RECONOCIDA", mensaje))
+    return hallazgos
+
+
 def _leer_indice(texto: str, inicio: int, sentencia: str, hallazgos: List[Hallazgo]) -> Optional[_Indice]:
     """Lee un CREATE INDEX; si su sintaxis no es válida, registra el hallazgo y devuelve None."""
+    # a) El nombre del índice no lleva esquema (CREATE INDEX dbo.IXN_... no es válido).
+    con_esquema = re.match(
+        rf"CREATE\s+(?:UNIQUE\s+)?(?:CLUSTERED\s+|NONCLUSTERED\s+)?INDEX\s+({_IDENTIFICADOR})\s*\.\s*({_IDENTIFICADOR})",
+        sentencia, re.IGNORECASE,
+    )
+    if con_esquema:
+        esquema, nombre = _limpiar(con_esquema.group(1)), _limpiar(con_esquema.group(2))
+        hallazgos.append(_hallazgo(
+            texto, inicio, "INDICE_SINTAXIS_INVALIDA",
+            f"Se identificó que el nombre del índice {esquema}.{nombre} incluye el esquema ({esquema}), por lo que "
+            f"SQL Server no podrá crearlo. Se recomienda escribir solo el nombre del índice ({nombre}) y poner el "
+            f"esquema en la tabla (ON {esquema}.Tabla), ya que el índice siempre pertenece al esquema de su tabla.",
+        ))
+        return None
     cabecera = re.match(
         rf"CREATE\s+(UNIQUE\s+)?(CLUSTERED\s+|NONCLUSTERED\s+)?INDEX\s+({_IDENTIFICADOR})?\s*"
         rf"(?:ON\s+({_REFERENCIA})\s*)?(\()?",
@@ -232,27 +271,38 @@ def _leer_indice(texto: str, inicio: int, sentencia: str, hallazgos: List[Hallaz
         nombre = ""
     falta = None
     if not nombre:
-        falta = "falta el nombre del índice"
+        falta = "el nombre"
     elif not cabecera.group(4):
-        falta = "falta la tabla (ON Esquema.Tabla)"
+        falta = "la tabla a la que pertenece (ON Esquema.Tabla)"
     elif not cabecera.group(5):
-        falta = "faltan las columnas entre paréntesis"
+        falta = "la lista de columnas entre paréntesis"
     else:
         claves_texto, cierre = _contenido_parentesis(sentencia, cabecera.end(5) - 1)
         if cierre < 0:
-            falta = "falta el paréntesis que cierra la lista de columnas"
+            falta = "el paréntesis que cierra la lista de columnas"
         elif not claves_texto.strip():
-            falta = "faltan las columnas del índice"
+            falta = "al menos una columna dentro de los paréntesis"
     if falta:
+        sujeto = f"al índice {nombre}" if nombre else "a un índice"
         hallazgos.append(_hallazgo(
             texto, inicio, "INDICE_SINTAXIS_INVALIDA",
-            f"Se identificó que el índice {nombre + ' ' if nombre else ''}no está bien escrito: {falta}. Se "
-            f"recomienda completarlo con la estructura CREATE [UNIQUE] [NONCLUSTERED] INDEX Nombre ON "
-            f"Esquema.Tabla (Columnas), ya que así como está SQL Server no puede crearlo.",
+            f"Se identificó que {sujeto} le falta {falta}, por lo que SQL Server no podrá crearlo. Se "
+            f"recomienda completarlo con esta estructura: CREATE NONCLUSTERED INDEX Nombre ON Esquema.Tabla "
+            f"(Columna1, Columna2), ya que es la forma que exige SQL Server para crear un índice.",
         ))
         return None
 
     claves = [_limpiar(re.sub(r"\s+(?:ASC|DESC)\s*$", "", c, flags=re.IGNORECASE)) for c in _separar(claves_texto)]
+    sin_coma = next((c for c in claves if re.search(r"\s", c)), None)
+    if sin_coma:
+        palabras = sin_coma.split()
+        hallazgos.append(_hallazgo(
+            texto, inicio, "INDICE_SINTAXIS_INVALIDA",
+            f"Se identificó que al índice {nombre} le falta la coma entre las columnas {palabras[0]} y "
+            f"{palabras[1]}, por lo que SQL Server no podrá crearlo. Se recomienda separar cada columna con una "
+            f"coma (ej.: ({', '.join(palabras)})), ya que así SQL Server reconoce cada columna del índice.",
+        ))
+        return None
     resto = sentencia[cabecera.end(5) - 1 + len(claves_texto) + 2:]
     incluidas: List[str] = []
     include = re.search(r"\bINCLUDE\s*\(", resto, re.IGNORECASE)
@@ -287,41 +337,41 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
     for columna in dict.fromkeys(repetidas):
         hallazgos.append(_hallazgo(
             texto, indice.posicion_tabla, "INDICE_COLUMNA_REPETIDA",
-            f"Se identificó que el índice {indice.nombre} repite la columna {columna} en su lista de columnas. "
-            f"Se recomienda dejarla una sola vez, ya que así como está SQL Server no puede crear el índice.",
+            f"Se identificó que la columna {columna} aparece dos veces en el índice {indice.nombre}. Se "
+            f"recomienda dejarla una sola vez, ya que SQL Server no permite repetir una columna en un índice.",
         ))
     for columna in dict.fromkeys(en_include):
         hallazgos.append(_hallazgo(
             texto, indice.posicion_tabla, "INDICE_COLUMNA_REPETIDA",
-            f"Se identificó que el índice {indice.nombre} incluye en el INCLUDE la columna {columna}, que ya es "
-            f"columna clave del índice. Se recomienda quitarla del INCLUDE, ya que así como está SQL Server no "
-            f"puede crear el índice.",
+            f"Se identificó que la columna {columna} está a la vez entre las columnas del índice {indice.nombre} "
+            f"y en su INCLUDE. Se recomienda quitarla del INCLUDE, ya que una columna del índice no puede "
+            f"repetirse en el INCLUDE.",
         ))
 
     # Nombre: prefijo según el tipo y formato <Prefijo>_<Tabla>_<Campos>_INC<nn>.
+    hay_repetidas = bool(repetidas or en_include)
     if indice.nombre.split("_")[0].upper() != prefijo:
         hallazgos.append(_hallazgo(
             texto, indice.posicion, "INDICE_PREFIJO_INVALIDO",
-            f"Se identificó que el índice {indice.nombre} es {tipo}, pero su nombre no usa el prefijo {prefijo}_. "
-            f"Se recomienda nombrarlo según el manual, ya que el prefijo indica el tipo de índice "
-            f"(ej.: {esperado}).",
+            f"Se identificó que el índice {indice.nombre} es de tipo {tipo}, pero su nombre no empieza con "
+            f"{prefijo}_, que es el prefijo que el manual asigna a ese tipo. Se recomienda cambiar el nombre a "
+            f"{esperado}, ya que el prefijo permite saber de qué tipo es el índice con solo leer su nombre.",
         ))
-    elif indice.nombre.lower() != esperado.lower():
+    elif indice.nombre.lower() != esperado.lower() and not hay_repetidas:
         hallazgos.append(_hallazgo(
             texto, indice.posicion, "INDICE_NOMBRE_NO_ESTANDAR",
-            f"Se identificó que el nombre del índice {indice.nombre} no sigue el formato "
-            f"{prefijo}_Tabla_Campos{'_INC' + esperado.rsplit('_INC', 1)[1] if '_INC' in esperado else ''}. Se "
-            f"recomienda nombrarlo con la tabla y los campos indexados"
-            f"{' y el número de columnas incluidas' if indice.incluidas else ''}, ya que así se sabe qué "
-            f"cubre el índice sin abrirlo (ej.: {esperado}).",
+            f"Se identificó que el nombre del índice {indice.nombre} no coincide con la tabla y las columnas "
+            f"que indexa. Se recomienda nombrarlo {esperado} (formato {prefijo}_Tabla_Columnas"
+            f"{'_INC' + esperado.rsplit('_INC', 1)[1] if '_INC' in esperado else ''}), ya que así se sabe qué "
+            f"tabla y columnas cubre sin abrir su definición.",
         ))
 
     if "." not in tabla:
         hallazgos.append(_hallazgo(
             texto, indice.posicion_tabla, "INDICE_SIN_ESQUEMA",
-            f"Se identificó que el índice {indice.nombre} se crea sobre la tabla {tabla} sin declarar su "
-            f"esquema. Se recomienda añadir el esquema; si es dbo, definirlo explícitamente, ya que así se "
-            f"evita crear el índice en una tabla equivocada (ej.: ON dbo.{tabla}).",
+            f"Se identificó que el índice {indice.nombre} indica la tabla {tabla} sin su esquema. Se recomienda "
+            f"escribir el esquema delante de la tabla; si es dbo, definirlo explícitamente (ej.: ON dbo.{tabla}), "
+            f"ya que así se evita crear el índice sobre una tabla equivocada.",
         ))
 
     # Una descripción nunca identifica los registros: si un índice UNIQUE o CLUSTERED
@@ -330,11 +380,11 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
     for columna in identificadoras:
         hallazgos.append(_hallazgo(
             texto, indice.posicion, "INDICE_IDENTIFICA_POR_DESCRIPCION",
-            f"Se identificó que el índice {indice.nombre} ({_tipo(indice.unico, indice.clustered)}) usa la "
-            f"columna {columna}, de texto descriptivo ({_texto_descriptivo(columna)}), para identificar los "
-            f"registros. Se recomienda que la tabla se identifique por su clave primaria identidad "
-            f"({_identificador_de(indice, tabla_script)}), ya que una descripción no es un identificador: "
-            f"puede repetirse, cambiar con el tiempo y vuelve pesado el índice.",
+            f"Se identificó que el índice {indice.nombre} es {_tipo(indice.unico, indice.clustered)} sobre la "
+            f"columna {columna}, que guarda texto descriptivo ({_texto_descriptivo(columna)}); es decir, usa una "
+            f"descripción para identificar los registros. Se recomienda identificar los registros por la clave "
+            f"primaria identidad de la tabla ({_identificador_de(indice, tabla_script)}), ya que una descripción "
+            f"puede repetirse o cambiar con el tiempo y vuelve pesado el índice.",
         ))
 
     # Columnas de texto descriptivo (descripción, dirección...): se busca indexar lo que sirve.
@@ -346,13 +396,13 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
         if columna in indice.claves and _TIPOS_NO_INDEXABLES.match(tipo_columna or "-"):
             continue  # ya se marca como columna no indexable (crítico)
         if que:
-            donde = "como clave" if columna in indice.claves else "en el INCLUDE"
+            donde = "" if columna in indice.claves else " en su INCLUDE"
             hallazgos.append(_hallazgo(
                 texto, indice.posicion, "INDICE_COLUMNA_DESCRIPTIVA",
-                f"Se identificó que el índice {indice.nombre} usa {donde} la columna {columna}, que guarda "
-                f"texto descriptivo ({que}). Se recomienda no incluirla e indexar columnas que se usan para "
-                f"buscar o filtrar (códigos, fechas, estados), ya que el texto largo vuelve pesado el índice "
-                f"y no ayuda a las búsquedas.",
+                f"Se identificó que el índice {indice.nombre} incluye{donde} la columna {columna}, que guarda "
+                f"texto descriptivo ({que}). Se recomienda quitarla del índice y usar columnas por las que se "
+                f"busca o filtra (códigos, fechas, estados), ya que un texto largo hace pesado el índice y no "
+                f"acelera las búsquedas.",
             ))
 
     # La clave primaria siempre es el índice clúster (identidad): ningún otro índice
@@ -384,10 +434,10 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
     if not tabla_script or tabla.split(".")[-1].lower() != tabla_script.nombre.lower():
         hallazgos.append(_hallazgo(
             texto, indice.posicion_tabla, "INDICE_TABLA_EXISTENTE",
-            f"Se identificó que el índice {indice.nombre} se crea sobre la tabla {tabla}, que ya existe (no "
-            f"se crea en este script). Se recomienda validar si la tabla realmente necesita este índice, "
-            f"revisando las consultas que lo usarán y los índices que ya tiene, ya que en una tabla existente "
-            f"un índice nuevo ocupa espacio, vuelve más lentas las inserciones y puede repetir uno que ya existe.",
+            f"Se identificó que el índice {indice.nombre} es para la tabla {tabla}, que ya existe (su CREATE "
+            f"TABLE no está en el script de la tabla). Se recomienda validar que la tabla realmente necesite este "
+            f"índice, revisando las consultas que lo usarán y los índices que ya tiene, ya que en una tabla con "
+            f"datos un índice nuevo ocupa espacio, vuelve más lentas las inserciones y podría repetir uno existente.",
         ))
         return hallazgos
 
@@ -396,9 +446,9 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
         if columna.lower() not in tabla_script.columnas:
             hallazgos.append(_hallazgo(
                 texto, indice.posicion, "INDICE_COLUMNA_NO_EXISTE",
-                f"Se identificó que el índice {indice.nombre} usa la columna {columna}, que no existe en la "
-                f"tabla {tabla_script.nombre}. Se recomienda usar el nombre exacto de la columna, ya que así "
-                f"como está SQL Server no puede crear el índice.",
+                f"Se identificó que el índice {indice.nombre} usa la columna {columna}, pero la tabla "
+                f"{tabla_script.nombre} no tiene una columna con ese nombre. Se recomienda corregir el nombre de la "
+                f"columna, ya que así como está SQL Server no podrá crear el índice.",
             ))
     # (N)VARCHAR(MAX), VARBINARY(MAX) y XML no pueden ser columna clave, pero sí ir en el INCLUDE.
     # TEXT, NTEXT e IMAGE no pueden ir en un índice de ninguna forma (ni en el INCLUDE).
@@ -454,11 +504,14 @@ def _validar_duplicados(texto: str, indices: List[_Indice], tabla_script: Option
     for indice in indices:
         clave = (_limpiar(indice.tabla).split(".")[-1].lower(), tuple(c.lower() for c in indice.claves))
         if clave in vistos:
+            es_pk = bool(tabla_script) and vistos[clave] == (tabla_script.pk_nombre or "la clave primaria")
+            accion = (f"eliminar el índice {indice.nombre}, ya que la clave primaria ya cubre esas columnas y"
+                      if es_pk else "eliminar uno de los dos, ya que")
             hallazgos.append(_hallazgo(
                 texto, indice.posicion, "INDICE_DUPLICADO",
-                f"Se identificó que el índice {indice.nombre} tiene las mismas columnas clave que "
-                f"{vistos[clave]} ({', '.join(indice.claves)}). Se recomienda eliminar el índice repetido, "
-                f"ya que ocupa espacio y vuelve más lentas las inserciones sin mejorar las consultas.",
+                f"Se identificó que el índice {indice.nombre} indexa las mismas columnas ({', '.join(indice.claves)}) "
+                f"que {vistos[clave]}. Se recomienda {accion} un índice repetido ocupa espacio y vuelve más lentas "
+                f"las inserciones sin acelerar las consultas.",
             ))
         else:
             vistos[clave] = indice.nombre

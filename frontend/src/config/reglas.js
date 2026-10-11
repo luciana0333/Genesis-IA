@@ -110,6 +110,7 @@ export const NOMBRES_REGLAS = {
   TIPO_DISTINTO_ENTRE_TEMPORALES: 'Misma columna con distinto tipo',
   TABLA_PESADA_SIN_NOLOCK: 'Tabla de movimientos o constantes sin NOLOCK',
   INDICE_SINTAXIS_INVALIDA: 'Índice mal escrito',
+  INDICE_SENTENCIA_NO_RECONOCIDA: 'Instrucción que no es un índice',
   INDICE_PREFIJO_INVALIDO: 'Prefijo de índice inválido',
   INDICE_NOMBRE_NO_ESTANDAR: 'Nombre de índice fuera del estándar',
   INDICE_SIN_ESQUEMA: 'Índice sin esquema',
