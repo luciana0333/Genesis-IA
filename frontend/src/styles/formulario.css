@@ -5,7 +5,9 @@
 
 /* Sin borde: mismo relieve que el panel de métricas (luz arriba y sombra amplia). */
 .panel {
-  overflow: hidden;
+  /* clip (no hidden) recorta igual sin crear un contenedor de scroll, así la
+     barra de resumen de los resultados puede quedarse fija al bajar. */
+  overflow: clip;
   border-radius: 10px;
   background: var(--bg-card);
   box-shadow:
