@@ -212,7 +212,7 @@
   /* Foto teñida de un solo rojo parejo (multiply) y una capa del mismo rojo
      encima: los servidores se ven en un único tono, sin zonas más claras. */
   background:
-    linear-gradient(rgba(227, 6, 19, 0.85), rgba(227, 6, 19, 0.85)),
+    linear-gradient(rgba(227, 6, 19, 0.78), rgba(227, 6, 19, 0.78)),
     url('../assets/centro-datos.png') 36% center / cover no-repeat;
   background-color: #ce0816;
   background-blend-mode: normal, multiply;
