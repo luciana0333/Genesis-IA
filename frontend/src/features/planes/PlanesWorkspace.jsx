@@ -9,6 +9,7 @@ import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { TarjetaMetrica } from '../../components/TarjetaMetrica';
 import { formatearKb } from '../../utils/hallazgos';
+import { DiagramaPlan } from './DiagramaPlan';
 import { TablaOperadores } from './TablaOperadores';
 import { usePlanEjecucion } from './usePlanEjecucion';
 import { useAlPedirEjemplo } from '../../hooks/useVerEjemplo';
@@ -194,6 +195,7 @@ export function PlanesWorkspace() {
               tituloError: 'No se pudo analizar el plan',
             }}
           />
+          {analisis?.diagrama?.length > 0 && <DiagramaPlan sentencias={analisis.diagrama} />}
           {analisis && <TablaOperadores operadores={analisis.operadores} />}
         </div>
       </section>

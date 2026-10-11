@@ -298,3 +298,236 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ───────── DIAGRAMA DEL PLAN (estilo SQL Sentry Plan Explorer) ───────── */
+.plan-diagrama-seccion {
+  margin-top: 28px;
+  --plan-flecha: #6d8496;
+  --plan-icono: #46647c;
+  --plan-texto: #1d1d24;
+  --plan-detalle: #45454f;
+  --plan-naranja: #f7891f;
+  --plan-rojo: #e0101e;
+  --plan-amarillo: #fff27a;
+  --plan-lienzo: #ffffff;
+}
+
+:root[data-theme="dark"] .plan-diagrama-seccion {
+  --plan-flecha: #8ea4b6;
+  --plan-icono: #a9c1d4;
+  --plan-texto: #f1f1f4;
+  --plan-detalle: #c2c2cc;
+  --plan-lienzo: #17171d;
+}
+
+.plan-sentencias tbody tr {
+  cursor: pointer;
+}
+
+.plan-sentencias tbody tr.elegida td {
+  background: var(--red-light);
+}
+
+.plan-sentencia-texto {
+  max-width: 640px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-diagrama {
+  position: relative;
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  background: var(--plan-lienzo);
+}
+
+.plan-zoom {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.plan-zoom button {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.plan-zoom button:hover {
+  border-color: var(--red-main);
+  color: var(--red-main);
+}
+
+.plan-lienzo {
+  position: relative;
+  max-height: 620px;
+  overflow: auto;
+  padding: 8px;
+}
+
+.plan-lienzo svg {
+  display: block;
+  font-family: 'Segoe UI', var(--font-texto);
+}
+
+.plan-flecha polyline {
+  stroke: var(--plan-flecha);
+}
+
+.plan-flecha polygon {
+  fill: var(--plan-flecha);
+}
+
+.plan-filas {
+  fill: var(--plan-detalle);
+  font-size: 12px;
+}
+
+.plan-costo {
+  fill: var(--plan-texto);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.plan-costo-pastilla rect {
+  fill: var(--plan-naranja);
+}
+
+.plan-costo-pastilla.alto rect {
+  fill: var(--plan-rojo);
+}
+
+.plan-costo-pastilla text {
+  fill: #ffffff;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.plan-icono-fondo {
+  fill: var(--plan-lienzo);
+  stroke: transparent;
+}
+
+.plan-icono {
+  color: var(--plan-icono);
+}
+
+.plan-nodo {
+  cursor: default;
+  outline: none;
+}
+
+.plan-nodo:hover .plan-icono-fondo,
+.plan-nodo:focus-visible .plan-icono-fondo,
+.plan-nodo.activo .plan-icono-fondo {
+  stroke: #36c23a;
+  stroke-width: 2;
+}
+
+.plan-alerta polygon {
+  fill: #ffc400;
+  stroke: #9a6a00;
+  stroke-width: 1;
+}
+
+.plan-alerta text {
+  fill: #3d2b00;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.plan-resaltado {
+  fill: var(--plan-amarillo);
+}
+
+.plan-nombre {
+  fill: var(--plan-texto);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.plan-detalle {
+  fill: var(--plan-detalle);
+  font-size: 12px;
+}
+
+/* Recuadro de detalle: como el de advertencias de SSMS / Plan Explorer. */
+.plan-detalle-flotante {
+  position: absolute;
+  z-index: 3;
+  width: 420px;
+  max-width: calc(100% - 16px);
+  padding: 10px 12px;
+  border: 1px solid #8fa3b5;
+  background: #f4f7fa;
+  color: #1d1d24;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+}
+
+.plan-detalle-titulo {
+  font-weight: 700;
+}
+
+.plan-detalle-objeto {
+  color: #4a4a55;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  word-break: break-all;
+}
+
+.plan-detalle-alertas,
+.plan-detalle-conversiones {
+  margin-top: 8px;
+}
+
+.plan-detalle-alertas-titulo {
+  color: #c4000c;
+  font-weight: 700;
+}
+
+.plan-detalle-flotante mark {
+  background: #fff27a;
+  color: inherit;
+}
+
+.plan-detalle-flotante dl {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #d3dce4;
+}
+
+.plan-detalle-flotante dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plan-detalle-flotante dt {
+  color: #4a4a55;
+}
+
+.plan-detalle-flotante dd {
+  font-weight: 600;
+}
