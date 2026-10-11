@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { Boton } from '../../components/Boton';
 import { EditorCodigo } from '../../components/EditorCodigo';
 import { EncabezadoSeccion } from '../../components/EncabezadoSeccion';
@@ -25,6 +25,8 @@ function esAtajoEjecutar(evento) {
  */
 export function AuditoriaWorkspace({ vista }) {
   const ids = useId();
+  // «Ver» del resumen por severidad baja hasta los resultados.
+  const resultadosRef = useRef(null);
   const {
     tipoRevision,
     revision,
@@ -88,7 +90,11 @@ export function AuditoriaWorkspace({ vista }) {
 
   return (
     <section className="workspace">
-      <MetricasSeveridad conteo={conteo} subtitulos={vista.resultados.subtitulos} />
+      <MetricasSeveridad
+        conteo={conteo}
+        subtitulos={vista.resultados.subtitulos}
+        onVerHallazgos={() => resultadosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+      />
 
       <section className="panel">
         <div className="panel-header">
@@ -274,7 +280,7 @@ export function AuditoriaWorkspace({ vista }) {
           </div>
         </form>
 
-        <div className="panel-footer">
+        <div className="panel-footer" ref={resultadosRef}>
           <PanelHallazgos
             titulo={vista.resultados.titulo}
             estado={resultado.estado}

@@ -28,6 +28,21 @@ describe('App', () => {
     expect(screen.getByText('Listo para iniciar la revisión')).toBeInTheDocument();
   });
 
+  it('«Ver» del resumen por severidad baja hasta los resultados', async () => {
+    const usuario = userEvent.setup();
+    const desplazar = vi.fn();
+    Element.prototype.scrollIntoView = desplazar;
+    render(<App />);
+
+    const resumen = screen.getByRole('region', { name: 'Resumen por severidad' });
+    await usuario.click(within(resumen).getAllByRole('button', { name: /Ver/ })[0]);
+    await usuario.click(within(resumen).getByRole('button', { name: 'Ver hallazgos' }));
+
+    expect(desplazar).toHaveBeenCalledTimes(2);
+    expect(desplazar.mock.contexts[0]).toHaveClass('panel-footer');
+    delete Element.prototype.scrollIntoView;
+  });
+
   it('no muestra ningún elemento de la capa de IA', () => {
     render(<App />);
     expect(screen.queryByText(/Ollama/i)).not.toBeInTheDocument();
@@ -94,7 +109,7 @@ describe('App', () => {
     expect(screen.getByText('REGLA_NUEVA')).toBeInTheDocument();
     expect(screen.getByText('Línea 3')).toBeInTheDocument();
 
-    const tarjetaAltos = screen.getByText('Altos').closest('.metric-card');
+    const tarjetaAltos = screen.getByText('Altos').closest('.resumen-tarjeta');
     expect(within(tarjetaAltos).getByText('1')).toBeInTheDocument();
   });
 

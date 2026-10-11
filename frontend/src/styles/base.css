@@ -13,6 +13,8 @@ html {
 
 body {
   min-height: 100vh;
+  /* Las secciones a todo el ancho (100vw) no generan scroll horizontal; clip no rompe sticky. */
+  overflow-x: clip;
   font-family: var(--font-sans);
   background-color: var(--bg-page);
   color: var(--text-primary);
