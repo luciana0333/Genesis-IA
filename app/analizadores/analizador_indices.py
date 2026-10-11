@@ -379,9 +379,10 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
         if tipo_columna and _TIPOS_NO_INDEXABLES.match(tipo_columna):
             hallazgos.append(_hallazgo(
                 texto, indice.posicion, "INDICE_COLUMNA_NO_INDEXABLE",
-                f"Se identificó que el índice {indice.nombre} usa como clave la columna {columna}, que es "
-                f"{tipo_columna}. Se recomienda llevarla al INCLUDE o definir una longitud fija, ya que SQL "
-                f"Server no permite usar ese tipo como clave de un índice.",
+                f"Se identificó que la columna {columna} es de tipo {tipo_columna} y está entre las columnas del "
+                f"índice {indice.nombre}. Se recomienda quitarla de esa lista (si se necesita, puede ir en el "
+                f"INCLUDE) o darle una longitud fija, ya que SQL Server no permite crear un índice sobre una "
+                f"columna {tipo_columna}.",
             ))
 
     return hallazgos
