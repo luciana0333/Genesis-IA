@@ -6,6 +6,7 @@
  */
 import {
   ArrowDown,
+  ChartColumn,
   Check,
   CircleCheck,
   CircleAlert,
@@ -61,6 +62,7 @@ export const IconoCerrar = crearIcono(X);
 export const IconoBaseDatos = crearIcono(Database);
 export const IconoNegocio = crearIcono(Briefcase);
 export const IconoMotor = crearIcono(Server);
+export const IconoReporte = crearIcono(ChartColumn);
 export const IconoCopiar = crearIcono(Copy);
 export const IconoCopiado = crearIcono(Check);
 export const IconoAgregar = crearIcono(Plus);

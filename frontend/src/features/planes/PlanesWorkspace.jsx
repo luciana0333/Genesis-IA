@@ -1,7 +1,10 @@
-import { useId, useRef } from 'react';
+import { useId, useRef, useState } from 'react';
 import { Boton } from '../../components/Boton';
 import { EncabezadoSeccion } from '../../components/EncabezadoSeccion';
-import { IconoBarras, IconoEjecutar, IconoHallazgo, IconoLimpiar, IconoMemoria, IconoRejilla } from '../../components/Iconos';
+import {
+  IconoBarras, IconoEjecutar, IconoHallazgo, IconoLimpiar, IconoMemoria, IconoNegocio, IconoRejilla, IconoReporte,
+  IconoSeveridadMedia,
+} from '../../components/Iconos';
 import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { TarjetaMetrica } from '../../components/TarjetaMetrica';
@@ -13,6 +16,12 @@ import { useAlPedirEjemplo } from '../../hooks/useVerEjemplo';
 // Plan real de prueba que se analiza con "Ver ejemplo".
 const PLAN_EJEMPLO = `${import.meta.env.BASE_URL}ejemplos/plan-ejemplo.sqlplan`;
 import { ZonaArchivo } from './ZonaArchivo';
+
+// Cada área revisa sus planes con sus propias reglas (por ahora solo se elige en la interfaz).
+const AREAS_PLAN = [
+  { id: 'reporte', etiqueta: 'Reportes', icono: <IconoReporte /> },
+  { id: 'negocio', etiqueta: 'Negocio', icono: <IconoNegocio /> },
+];
 
 const REVISIONES_PLAN = ['Conversiones implícitas', 'Spills a TempDB', 'Table Scan', 'Lecturas lógicas', 'Cardinalidad', 'Memoria concedida'];
 
@@ -53,6 +62,8 @@ function MetricasPlan({ analisis }) {
 
 export function PlanesWorkspace() {
   const idArchivo = useId();
+  const idArea = useId();
+  const [area, setArea] = useState('reporte');
   const inputArchivoRef = useRef(null);
   const { archivo, analisis, aviso, cargando, seleccionarArchivo, limpiar, analizar, analizarEjemplo } = usePlanEjecucion();
 
@@ -102,6 +113,30 @@ export function PlanesWorkspace() {
         </div>
 
         <div className="panel-body">
+          <div className="control-row control-row--area">
+            <div className="field-group">
+              <span className="field-label" id={idArea}>Área del plan de ejecución</span>
+              <div className="selector-base" role="radiogroup" aria-labelledby={idArea}>
+                {AREAS_PLAN.map((opcion) => (
+                  <label key={opcion.id} className={area === opcion.id ? 'activa' : undefined}>
+                    <input
+                      type="radio"
+                      name={idArea}
+                      checked={area === opcion.id}
+                      onChange={() => setArea(opcion.id)}
+                    />
+                    {opcion.icono}
+                    {opcion.etiqueta}
+                  </label>
+                ))}
+              </div>
+              <p className="nota-base nota-base--campo">
+                <IconoSeveridadMedia />
+                Cada área revisa su plan con sus propias reglas.
+              </p>
+            </div>
+          </div>
+
           <div className="plan-layout">
             <TarjetaEditor
               className="field-card-primary"
