@@ -73,6 +73,24 @@ class TestReportesQA(unittest.TestCase):
         sql = procedimiento("    SELECT c.cNombre FROM dbo.Cliente c WITH(NOLOCK) INNER MERGE JOIN dbo.Agencia a WITH(NOLOCK) ON a.nId = c.nId;")
         self.assertEqual(reglas(sql), [("HINT_PLAN_PROHIBIDO", 5)])
 
+    def test_hint_dentro_de_sql_dinamico(self):
+        sql = procedimiento(
+            "    DECLARE @cSQL NVARCHAR(MAX);\n"
+            "    SET @cSQL = N'\n"
+            "        SELECT nClienteId FROM dbo.Cliente WITH (UPDLOCK)\n"
+            "        WHERE nClienteId = @nClienteId';\n"
+            "    EXEC sys.sp_executesql @cSQL, N'@nClienteId INT', @nClienteId = @nAgenciaId;"
+        )
+        hallazgos = {(h.regla, h.linea) for h in verificar_reporte(sql)}
+        self.assertIn(("HINT_PLAN_PROHIBIDO", 7), hallazgos)
+        self.assertIn(("SQL_DINAMICO_PROHIBIDO", 9), hallazgos)
+        # sys.sp_executesql es un procedimiento del sistema, no una tabla interna.
+        self.assertNotIn("CATALOGO_SISTEMA_PROHIBIDO", {regla for regla, _ in hallazgos})
+
+    def test_varchar_max_nombra_el_tipo_escrito(self):
+        hallazgo = verificar_reporte(procedimiento("    DECLARE @cTexto NVARCHAR(MAX) = N'';\n    SELECT @cTexto;"))[0]
+        self.assertIn("@cTexto se declara como NVARCHAR(MAX)", hallazgo.mensaje)
+
     def test_mensaje_de_ltrim_rtrim(self):
         sql = procedimiento("    SELECT LTRIM(RTRIM(c.cNombre)) FROM dbo.Cliente c WITH(NOLOCK);")
         self.assertIn("le da más legibilidad al código", verificar_reporte(sql)[0].mensaje)

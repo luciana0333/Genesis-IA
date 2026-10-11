@@ -16,7 +16,7 @@ _HINTS_PROHIBIDOS = (
     r"\bREADPAST\b|\bINDEX\s*\(|\b(?:LOOP|HASH|MERGE)\s+JOIN\b|\bOPTIMIZE\s+FOR\b|\bMAXDOP\b|"
     r"\bFAST\s+\d+|\bUSE\s+PLAN\b|\bKEEP(?:FIXED)?\s+PLAN\b|\bQUERYTRACEON\b"
 )
-_CATALOGOS_PROHIBIDOS = r"(?:sys|information_schema)\.[A-Za-z_][\w$]*"
+_CATALOGOS_PROHIBIDOS = r"(?:sys|information_schema)\.(?!sp_|xp_)[A-Za-z_][\w$]*"
 _PALABRAS_SQL_COMENTADAS = r"SELECT|INSERT|UPDATE|DELETE|MERGE|EXEC(?:UTE)?|DECLARE|CREATE|ALTER|DROP"
 _SQL_DINAMICO = r"\b(?:sp_executesql\b|EXEC(?:UTE)?\s*(?:\(\s*)?(?:N?['\"]|@))"
 # Uso de JSON o XML: justifica un VARCHAR(MAX).
@@ -42,7 +42,7 @@ def _hallazgo(texto: str, posicion: int, regla: str, mensaje: str) -> Hallazgo:
     )
 
 
-def _quitar_comentarios(texto: str) -> str:
+def _quitar_comentarios(texto: str, vaciar_textos: bool = True) -> str:
     """
     Reemplaza por espacios los comentarios y el contenido de los textos ('...'),
     conservando las comillas, los saltos de línea y las posiciones. Se recorre
@@ -71,7 +71,8 @@ def _quitar_comentarios(texto: str) -> str:
                         continue
                     break
                 j += 1
-            salida[i + 1:j] = [c if c == "\n" else " " for c in texto[i + 1:j]]
+            if vaciar_textos:
+                salida[i + 1:j] = [c if c == "\n" else " " for c in texto[i + 1:j]]
             i = j + 1
         else:
             i += 1
@@ -361,11 +362,12 @@ def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
             es_json_xml = _USO_JSON_XML.search(_sentencia(limpio, match.start()))
         if es_json_xml:
             continue
-        sujeto = f"que {nombre} se declara como VARCHAR(MAX)" if nombre else "el uso de VARCHAR(MAX)"
+        tipo = " ".join(match.group(0).upper().split()).replace("( ", "(").replace(" )", ")")
+        sujeto = f"que {nombre} se declara como {tipo}" if nombre else f"el uso de {tipo}"
         hallazgos.append(_hallazgo(
             texto, match.start(), "VARCHAR_MAX_PROHIBIDO",
             f"Se identificó {sujeto} y no guarda JSON ni XML. Se recomienda definir un tamaño fijo, ya que "
-            f"VARCHAR(MAX) solo se permite para JSON o XML y consume más memoria (ej.: VARCHAR(500)).",
+            f"{tipo} solo se permite para JSON o XML y consume más memoria (ej.: {tipo.replace('MAX', '500')}).",
         ))
     return hallazgos
 
@@ -630,7 +632,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     limpio = _quitar_comentarios(texto_sql)
     hallazgos: List[Hallazgo] = []
     hallazgos.extend(_validar_nolock(texto_sql, limpio))
-    hallazgos.extend(_validar_hints(texto_sql, limpio))
+    hallazgos.extend(_validar_hints(texto_sql, _quitar_comentarios(texto_sql, vaciar_textos=False)))
     hallazgos.extend(_validar_comentarios_codigo(texto_sql))
     hallazgos.extend(_validar_tablas_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_sentencias(texto_sql, limpio))
