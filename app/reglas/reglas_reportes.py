@@ -14,7 +14,7 @@ REGLAS_REPORTES = {
     ),
     "NOLOCK_EN_TABLA_TEMPORAL": ReglaDiccionario(
         codigo="NOLOCK_EN_TABLA_TEMPORAL",
-        nombre="NOLOCK en tabla temporal",
+        nombre="WITH (NOLOCK) en tabla temporal",
         severidad="alto",
         descripcion="Las tablas temporales no deben utilizar WITH(NOLOCK).",
         alcance="reporte",

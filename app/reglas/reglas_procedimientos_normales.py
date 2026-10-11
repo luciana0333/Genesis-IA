@@ -55,7 +55,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "NOLOCK_EN_TABLA_TEMPORAL": ReglaDiccionario(
         codigo="NOLOCK_EN_TABLA_TEMPORAL",
-        nombre="NOLOCK en tabla temporal",
+        nombre="WITH (NOLOCK) en tabla temporal",
         severidad="alto",
         descripcion="Las tablas temporales no deben usar WITH(NOLOCK).",
         alcance="procedimiento",
