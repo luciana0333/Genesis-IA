@@ -251,7 +251,9 @@ export function PanelHallazgos({
       />
       {hayHallazgos ? (
         <div className="resultados-tablero">
-          <ResumenLateral conteo={conteo} total={hallazgos.length} filtro={filtro} onFiltrar={setFiltro} />
+          <div className="tablero-columna">
+            <ResumenLateral conteo={conteo} total={hallazgos.length} filtro={filtro} onFiltrar={setFiltro} />
+          </div>
           {contenido}
         </div>
       ) : contenido}
