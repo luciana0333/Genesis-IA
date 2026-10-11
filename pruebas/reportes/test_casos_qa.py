@@ -133,6 +133,24 @@ class TestReportesQA(unittest.TestCase):
         )
         self.assertEqual(reglas(sql), [])
 
+    def test_nombre_sin_prefijo_pa_ni_accion(self):
+        sql = "CREATE PROCEDURE dbo.BI_Reporte\nAS\nBEGIN\n    SELECT c.cCodigo FROM dbo.Cliente c WITH(NOLOCK);\nEND;"
+        hallazgos = verificar_reporte(sql)
+        self.assertEqual([(h.regla, h.linea) for h in hallazgos],
+                         [("PROCEDIMIENTO_SIN_PREFIJO_PA", 1), ("PROCEDIMIENTO_SIN_ACCION", 1)])
+        self.assertIn("ej.: PA_BI_Sel_Reporte", hallazgos[0].mensaje)
+        self.assertIn("ej.: PA_BI_Sel_Reporte", hallazgos[1].mensaje)
+
+    def test_nombre_con_accion_en_cualquier_posicion(self):
+        for nombre in ("PA_Sel_Reporte", "PA_BI_Reporte_Sel", "PA_Cliente_upd_Estado"):
+            with self.subTest(nombre=nombre):
+                sql = f"CREATE PROCEDURE dbo.{nombre}\nAS\nSELECT 1;"
+                self.assertEqual(reglas(sql), [])
+
+    def test_nombre_solo_se_revisa_en_create(self):
+        sql = "ALTER PROCEDURE dbo.BI_Reporte\nAS\nSELECT 1;"
+        self.assertEqual(reglas(sql), [])
+
     def test_varchar_max_nombra_el_tipo_escrito(self):
         hallazgo = verificar_reporte(procedimiento("    DECLARE @cTexto NVARCHAR(MAX) = N'';\n    SELECT @cTexto;"))[0]
         self.assertIn("@cTexto se declara como NVARCHAR(MAX)", hallazgo.mensaje)

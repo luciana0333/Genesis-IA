@@ -18,7 +18,7 @@ export const SQL_TABLA = `CREATE TABLE CLICKTOPAY.Cliente (
     CONSTRAINT PK_Cliente PRIMARY KEY CLUSTERED (nClienteId)
 );`;
 
-export const SQL_REPORTE = `ALTER PROCEDURE dbo.PA_BI_Reporte
+export const SQL_REPORTE = `ALTER PROCEDURE dbo.PA_BI_Sel_Reporte
 AS
 BEGIN
     SELECT cCodigo, cNombre

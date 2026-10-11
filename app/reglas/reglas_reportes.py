@@ -158,6 +158,22 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "PROCEDIMIENTO_SIN_PREFIJO_PA": ReglaDiccionario(
+        codigo="PROCEDIMIENTO_SIN_PREFIJO_PA",
+        nombre="Procedimiento sin prefijo PA_",
+        severidad="alto",
+        descripcion="Solo CREATE: el nombre del procedimiento empieza con PA_ (ej.: PA_Cliente_Sel_Resumen).",
+        alcance="reporte",
+        activo=True,
+    ),
+    "PROCEDIMIENTO_SIN_ACCION": ReglaDiccionario(
+        codigo="PROCEDIMIENTO_SIN_ACCION",
+        nombre="Procedimiento sin acción en el nombre",
+        severidad="alto",
+        descripcion="Solo CREATE: el nombre indica la acción del procedimiento (Sel, Upd, Ins o Del).",
+        alcance="reporte",
+        activo=True,
+    ),
     "PROCEDIMIENTO_ACCION_SIN_SEPARAR": ReglaDiccionario(
         codigo="PROCEDIMIENTO_ACCION_SIN_SEPARAR",
         nombre="Acción sin separar",

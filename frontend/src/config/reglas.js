@@ -87,6 +87,8 @@ export const NOMBRES_REGLAS = {
   VARCHAR_MAX_PROHIBIDO: 'VARCHAR(MAX) prohibido',
   RAISERROR_USAR_THROW: 'Usar THROW en lugar de RAISERROR',
   WAITFOR_DELAY_PROHIBIDO: 'WAITFOR prohibido',
+  PROCEDIMIENTO_SIN_PREFIJO_PA: 'Procedimiento sin prefijo PA_',
+  PROCEDIMIENTO_SIN_ACCION: 'Procedimiento sin acción en el nombre',
   TRANSACCION_SIN_CIERRE: 'Transacción sin COMMIT',
   ESQUEMA_OMITIDO_ENTRE_BASES: 'Esquema omitido entre bases',
   SINTAXIS_DICCIONARIO: 'Error de sintaxis en el diccionario',

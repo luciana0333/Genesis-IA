@@ -494,6 +494,9 @@ _ABREVIATURA_ACCION = {
 }
 
 
+_ACCIONES_ESTANDAR = {"sel", "upd", "ins", "del"}
+
+
 def _hallazgo_accion_pegada(texto: str, posicion: int, nombre: str, segmentos: List[str]):
     """Hallazgo si la acción va pegada a la finalidad (PA_Tabla_SelFinalidad); si no, None."""
     if len(segmentos) < 3:
@@ -512,7 +515,10 @@ def _hallazgo_accion_pegada(texto: str, posicion: int, nombre: str, segmentos: L
 
 
 def _validar_accion_del_nombre(texto: str, limpio: str) -> List[Hallazgo]:
-    """Al crear el reporte, la acción del nombre PA_Tabla_Acción_Finalidad va separada con "_"."""
+    """
+    Al crear el reporte, el nombre empieza con PA_ e indica la acción (Sel, Upd,
+    Ins o Del), separada con "_". En un ALTER no se revisa: el objeto ya existe.
+    """
     match = re.search(
         rf"\bCREATE\s+(?:OR\s+ALTER\s+)?PROC(?:EDURE)?\s+({_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}})",
         limpio, re.IGNORECASE,
@@ -521,10 +527,29 @@ def _validar_accion_del_nombre(texto: str, limpio: str) -> List[Hallazgo]:
         return []
     nombre = match.group(1).split(".")[-1].strip().strip("[]")
     segmentos = nombre.split("_")
-    if segmentos[0].upper() != "PA":
-        return []
-    pegada = _hallazgo_accion_pegada(texto, match.start(1), nombre, segmentos)
-    return [pegada] if pegada else []
+    hallazgos = []
+    tiene_prefijo = segmentos[0].upper() == "PA"
+    resto = segmentos[1:] if tiene_prefijo else segmentos
+    if not tiene_prefijo:
+        hallazgos.append(_hallazgo(
+            texto, match.start(1), "PROCEDIMIENTO_SIN_PREFIJO_PA",
+            f"Se identificó que el procedimiento {nombre} no empieza con el prefijo PA_. Se recomienda "
+            f"añadirlo, ya que así se identifica que el objeto es un procedimiento almacenado "
+            f"(ej.: PA_{nombre}).",
+        ))
+    pegada = _hallazgo_accion_pegada(texto, match.start(1), nombre, ["PA"] + resto)
+    if pegada:
+        hallazgos.append(pegada)
+    elif not any(segmento.lower() in _ACCIONES_ESTANDAR for segmento in resto):
+        # Para el ejemplo, la acción va después del primer segmento (la tabla o el módulo).
+        sugerido = "_".join(["PA"] + resto[:1] + ["Sel"] + resto[1:])
+        hallazgos.append(_hallazgo(
+            texto, match.start(1), "PROCEDIMIENTO_SIN_ACCION",
+            f"Se identificó que el nombre {nombre} no indica la acción del procedimiento (Sel, Upd, Ins o "
+            f"Del). Se recomienda añadirla, ya que así se sabe qué hace el procedimiento "
+            f"(ej.: {sugerido}).",
+        ))
+    return hallazgos
 
 
 def _validar_esquema_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
