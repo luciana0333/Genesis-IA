@@ -266,6 +266,19 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
             f"evita crear el índice en una tabla equivocada (ej.: ON dbo.{tabla}).",
         ))
 
+    # La clave primaria siempre es el índice clúster (identidad): ningún otro índice
+    # puede serlo. No se prohíbe tajantemente: se pide definirlo NONCLUSTERED.
+    if indice.clustered:
+        sugerido = _nombre_esperado(_Indice(**{**indice.__dict__, "clustered": False}))
+        pk = (tabla_script.pk_nombre if tabla_script else "") or "la clave primaria"
+        hallazgos.append(_hallazgo(
+            texto, indice.posicion, "INDICE_CLUSTERED_CON_PK",
+            f"Se identificó que el índice {indice.nombre} se define como {tipo}, pero {pk} es siempre el "
+            f"índice clúster de la tabla (identidad). Se recomienda definirlo como "
+            f"{'UNIQUE ' if indice.unico else ''}NONCLUSTERED, ya que la tabla solo puede tener un índice "
+            f"clúster y ese lugar lo ocupa la clave primaria (ej.: {sugerido}).",
+        ))
+
     if not tabla_script:
         return hallazgos
     if tabla.split(".")[-1].lower() != tabla_script.nombre.lower():
@@ -296,17 +309,6 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
                 f"Server no permite usar ese tipo como clave de un índice.",
             ))
 
-    # Índice clúster cuando la clave primaria ya lo es (no se prohíbe: se pide definirlo NONCLUSTERED).
-    if indice.clustered and tabla_script.pk_clustered:
-        sugerido = _nombre_esperado(_Indice(**{**indice.__dict__, "clustered": False}))
-        pk = tabla_script.pk_nombre or "la clave primaria"
-        hallazgos.append(_hallazgo(
-            texto, indice.posicion, "INDICE_CLUSTERED_CON_PK",
-            f"Se identificó que el índice {indice.nombre} se define como {tipo}, pero {pk} ya es el índice "
-            f"clúster de la tabla (identidad). Se recomienda definirlo como "
-            f"{'UNIQUE ' if indice.unico else ''}NONCLUSTERED, ya que la tabla solo puede tener un índice "
-            f"clúster y ese lugar ya lo ocupa la clave primaria (ej.: {sugerido}).",
-        ))
     return hallazgos
 
 

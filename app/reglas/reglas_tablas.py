@@ -144,7 +144,7 @@ REGLAS_TABLAS = {
     ),
     "INDICE_CLUSTERED_CON_PK": _regla(
         "INDICE_CLUSTERED_CON_PK", "Índice clúster con PK clúster", "medio",
-        "Si la clave primaria identidad ya es el índice clúster, los demás índices se definen NONCLUSTERED.",
+        "La clave primaria identidad siempre es el índice clúster: los demás índices se definen NONCLUSTERED.",
     ),
     "INDICE_DUPLICADO": _regla(
         "INDICE_DUPLICADO", "Índice duplicado", "medio",

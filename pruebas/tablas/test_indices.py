@@ -113,6 +113,16 @@ class TestIndices(unittest.TestCase):
         self.assertIn("definirlo como UNIQUE NONCLUSTERED", hallazgo.mensaje)
         self.assertIn("(ej.: IXUN_Cliente_cCodPersona)", hallazgo.mensaje)
 
+    def test_ningun_indice_puede_ser_clustered(self):
+        # La PK siempre es CLUSTERED: aunque el script la declare NONCLUSTERED o no la tenga,
+        # un índice CLUSTERED adicional se pide como NONCLUSTERED.
+        indices = "CREATE CLUSTERED INDEX IX_Cliente_dRegistro ON CLICKTOPAY.Cliente (dRegistro);"
+        for tabla in (TABLA.replace("PRIMARY KEY CLUSTERED", "PRIMARY KEY NONCLUSTERED"),
+                      TABLA.replace(",\n    CONSTRAINT PK_Cliente PRIMARY KEY CLUSTERED (nClienteId)", ""), ""):
+            with self.subTest(tabla=tabla[-60:]):
+                self.assertEqual(reglas(indices, tabla), [("INDICE_CLUSTERED_CON_PK", 1)])
+                self.assertIn("(ej.: IXN_Cliente_dRegistro)", mensaje(indices, tabla))
+
     def test_indice_duplicado_entre_indices(self):
         indices = ("CREATE NONCLUSTERED INDEX IXN_Cliente_cCodPersona ON CLICKTOPAY.Cliente (cCodPersona);\n"
                    "CREATE UNIQUE NONCLUSTERED INDEX IXUN_Cliente_cCodPersona ON CLICKTOPAY.Cliente (cCodPersona);")
