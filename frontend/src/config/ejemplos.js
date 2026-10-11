@@ -119,4 +119,9 @@ export const DEMO_TABLA = `CREATE TABLE TB_cliente_datos (
     nMonto DECIMAL(18,2) COLLATE SQL_Latin1_General_CP1_CI_AS
 );`;
 
+export const DEMO_INDICES = `CREATE INDEX idx_cliente
+    ON TB_cliente_datos (nombre89);
+CREATE UNIQUE CLUSTERED INDEX IXU_TB_cliente_datos_cDescripcion
+    ON dbo.TB_cliente_datos (cDescripcion);`;
+
 export const NOMBRE_OBJETO_INICIAL = 'CLICKTOPAY.Cliente';

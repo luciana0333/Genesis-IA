@@ -11,6 +11,7 @@ import xml.etree.ElementTree as ET
 from app.analizadores.analizador_diccionario_procedimientos import verificar_diccionario
 from app.analizadores.analizador_diccionario_tablas import verificar_diccionario_tablas
 from app.analizadores.analizador_tablas import verificar_tabla
+from app.analizadores.analizador_indices import verificar_indices
 from app.analizadores.analizador_reportes import verificar_reporte
 from app.analizadores.analizador_procedimientos_normales import verificar_procedimiento_normal
 from app.analizadores.deteccion_objeto import detectar_objeto
@@ -69,6 +70,7 @@ class GenesisHandler(SimpleHTTPRequestHandler):
         # números de línea de los hallazgos respecto a lo que ve el usuario.
         sql_text = payload.get('sqlObject') or ''
         dict_text = payload.get('dictScript') or ''
+        indices_text = payload.get('indicesScript') or ''
         es_dbcmaica = bool(payload.get('esDbcmaica', False))
         modo_revision = (payload.get('modoRevision') or 'diccionario').strip()
 
@@ -97,6 +99,8 @@ class GenesisHandler(SimpleHTTPRequestHandler):
                 hallazgos = verificar_diccionario(sql_text, dict_text)
             elif tipo == 'tabla_estructura' or modo_revision == 'tabla_estructura':
                 hallazgos = verificar_tabla(sql_text, es_dbcmaica)
+                if indices_text.strip():
+                    hallazgos += verificar_indices(indices_text, sql_text)
             else:
                 hallazgos = verificar_diccionario_tablas(sql_text, dict_text)
         except Exception as exc:  # pragma: no cover - safety net for runtime errors
@@ -121,6 +125,8 @@ class GenesisHandler(SimpleHTTPRequestHandler):
                 'severidad': severidad,
                 'regla': hallazgo.regla,
                 'mensaje': hallazgo.mensaje,
+                # En qué cajita está la línea (p. ej. 'indices'); None = el SQL principal.
+                'seccion': getattr(hallazgo, 'seccion', None),
             })
 
         self._send_json({

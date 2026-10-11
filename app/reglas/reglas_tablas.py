@@ -111,4 +111,42 @@ REGLAS_TABLAS = {
         "Solo ALTER: la columna nueva acepta NULL. No se exige NOT NULL porque la tabla ya tiene "
         "registros, pero conviene evaluar un valor DEFAULT.",
     ),
+
+    # --- Índices (segunda cajita: CREATE INDEX de la tabla) --------------
+    "INDICE_SINTAXIS_INVALIDA": _regla(
+        "INDICE_SINTAXIS_INVALIDA", "Índice mal escrito", "critico",
+        "El CREATE INDEX debe tener nombre, tabla (ON Esquema.Tabla) y columnas entre paréntesis.",
+    ),
+    "INDICE_PREFIJO_INVALIDO": _regla(
+        "INDICE_PREFIJO_INVALIDO", "Prefijo de índice inválido", "alto",
+        "El prefijo indica el tipo: IX clúster, IXN nonclustered, IXU unique clúster, IXUN unique nonclustered.",
+    ),
+    "INDICE_NOMBRE_NO_ESTANDAR": _regla(
+        "INDICE_NOMBRE_NO_ESTANDAR", "Nombre de índice fuera del estándar", "alto",
+        "Formato: <Prefijo>_<Tabla>_<Campos indexados>_INC<n> (n = columnas incluidas, solo si hay INCLUDE).",
+    ),
+    "INDICE_SIN_ESQUEMA": _regla(
+        "INDICE_SIN_ESQUEMA", "Índice sin esquema", "alto",
+        "El índice se crea sobre Esquema.Tabla (ej.: ON dbo.Cliente).",
+    ),
+    "INDICE_OTRA_TABLA": _regla(
+        "INDICE_OTRA_TABLA", "Índice de otra tabla", "medio",
+        "Los índices de la cajita deben ser de la tabla del script.",
+    ),
+    "INDICE_COLUMNA_NO_EXISTE": _regla(
+        "INDICE_COLUMNA_NO_EXISTE", "Columna del índice inexistente", "critico",
+        "Las columnas del índice (y de su INCLUDE) deben existir en la tabla.",
+    ),
+    "INDICE_COLUMNA_NO_INDEXABLE": _regla(
+        "INDICE_COLUMNA_NO_INDEXABLE", "Columna no indexable", "critico",
+        "Una columna VARCHAR(MAX), NVARCHAR(MAX), VARBINARY(MAX), TEXT, IMAGE o XML no puede ser clave de un índice.",
+    ),
+    "INDICE_CLUSTERED_CON_PK": _regla(
+        "INDICE_CLUSTERED_CON_PK", "Índice clúster con PK clúster", "medio",
+        "Si la clave primaria identidad ya es el índice clúster, los demás índices se definen NONCLUSTERED.",
+    ),
+    "INDICE_DUPLICADO": _regla(
+        "INDICE_DUPLICADO", "Índice duplicado", "medio",
+        "No debe haber dos índices con las mismas columnas clave (ni uno igual a la clave primaria).",
+    ),
 }

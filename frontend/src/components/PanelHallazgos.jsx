@@ -66,9 +66,13 @@ function ResumenLateral({ conteo, total, filtro, onFiltrar }) {
   );
 }
 
+// Cajitas secundarias del formulario: la línea del hallazgo es de esa cajita.
+const SECCIONES = { indices: 'Índices' };
+
 function textoParaCopiar(hallazgo, mostrarLinea) {
   const severidad = etiquetaSeveridad(normalizarSeveridad(hallazgo.severidad));
-  const ubicacion = mostrarLinea ? ` (línea ${hallazgo.linea || 1})` : '';
+  const seccion = SECCIONES[hallazgo.seccion];
+  const ubicacion = mostrarLinea ? ` (${seccion ? `${seccion}, línea` : 'línea'} ${hallazgo.linea || 1})` : '';
   return `[${severidad}] ${nombreRegla(hallazgo.regla)}${ubicacion}: ${hallazgo.mensaje}`;
 }
 
@@ -115,9 +119,10 @@ function FilaHallazgo({ hallazgo, mostrarLinea }) {
   const mensaje = hallazgo.mensaje || 'Revisa este hallazgo.';
   const { problema, solucion } = separarMensaje(mensaje);
   const { lineas, intro, ocurrencias } = desglosarGrupo(problema);
-  const etiquetaLinea = lineas
+  const seccion = SECCIONES[hallazgo.seccion];
+  const etiquetaLinea = (seccion ? `${seccion} · ` : '') + (lineas
     ? `${lineas.includes(',') ? 'Líneas' : 'Línea'} ${lineas}`
-    : `Línea ${hallazgo.linea || 1}`;
+    : `Línea ${hallazgo.linea || 1}`);
 
   return (
     <article className={`finding sev-${severidad}`}>

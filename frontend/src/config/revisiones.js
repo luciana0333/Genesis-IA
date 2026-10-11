@@ -10,6 +10,7 @@
 import {
   DEMO_NORMAL,
   DEMO_REPORTE,
+  DEMO_INDICES,
   DEMO_TABLA,
   DICCIONARIO_PROCEDIMIENTO,
   DICCIONARIO_TABLA,
@@ -89,7 +90,7 @@ export const REVISIONES = {
       ayuda: 'Pega aquí los CREATE INDEX de la tabla, si el script los trae.',
     },
     ejemplo: { sql: SQL_TABLA, diccionario: '', indices: INDICES_TABLA, nombre: 'CLICKTOPAY.Cliente' },
-    demo: { sql: DEMO_TABLA, diccionario: '', indices: '', nombre: 'TB_cliente_datos' },
+    demo: { sql: DEMO_TABLA, diccionario: '', indices: DEMO_INDICES, nombre: 'TB_cliente_datos' },
   },
 };
 
