@@ -89,17 +89,32 @@ function acomodar(texto, resaltados, ancho) {
 }
 
 /** Contenido del recuadro: solo las advertencias que trae el XML del plan. */
-function contenidoRecuadro(nodo) {
-  return nodo.advertencias.length ? [{ titulo: 'Warnings:', items: nodo.advertencias }] : [];
+function contenidoRecuadro(nodo, regla) {
+  const grupos = nodo.advertencias.length ? [{ titulo: 'Warnings:', items: nodo.advertencias }] : [];
+  // Lectura residual: SQL Server no la marca como «Warning»; se muestran sus datos del XML como en SSMS.
+  if (regla === 'LECTURA_RESIDUAL_ELEVADA' && nodo.filasLeidas != null) {
+    const leidas = Math.round(nodo.filasLeidas).toLocaleString('en-US');
+    const devueltas = Math.round(nodo.filasReales ?? 0).toLocaleString('en-US');
+    const filtro = (nodo.predicados ?? []).find((p) => p.nombre === 'Predicate');
+    grupos.push({
+      titulo: null,
+      items: [
+        { texto: `Actual Number of Rows Read: ${leidas}`, resaltados: [leidas] },
+        { texto: `Actual Number of Rows: ${devueltas}`, resaltados: [devueltas] },
+        ...(filtro ? [{ texto: `Predicate: ${filtro.texto}`, resaltados: [] }] : []),
+      ],
+    });
+  }
+  return grupos;
 }
 
 /** Recuadro de advertencias en SVG, dibujado desde (0, 0); devuelve su marcado, ancho y alto. */
-function recuadro(nodo) {
+function recuadro(nodo, regla) {
   const x = 0;
   const y = 0;
   const anchoTexto = ANCHO_RECUADRO - RELLENO * 2;
   const filas = [];
-  for (const grupo of contenidoRecuadro(nodo)) {
+  for (const grupo of contenidoRecuadro(nodo, regla)) {
     if (grupo.titulo) filas.push({ tipo: 'grupo', texto: grupo.titulo });
     for (const item of grupo.items) {
       for (const linea of acomodar(item.texto, item.resaltados ?? [], anchoTexto)) filas.push({ tipo: 'linea', linea });
@@ -133,7 +148,7 @@ function recuadro(nodo) {
 }
 
 /** Recorte del diagrama alrededor de un operador, con el recuadro encima. */
-function bloque(sentencia, nodo, posiciones, ancho, y) {
+function bloque(sentencia, nodo, posiciones, ancho, y, regla) {
   const objetivo = posiciones.get(nodo.id);
   const maximo = Math.max(...sentencia.nodos.map((n) => n.costoPct), 0);
   const filasDe = (n) => n.filasReales ?? n.filasEstimadas;
@@ -165,9 +180,9 @@ function bloque(sentencia, nodo, posiciones, ancho, y) {
   // El recuadro sale a la derecha del operador; si no entra en el recorte, a su izquierda.
   const xOperador = objetivo.x - recorteX;
   // Sin advertencias en el XML no hay recuadro: solo el operador marcado.
-  const conRecuadro = nodo.advertencias.length > 0;
+  const conRecuadro = contenidoRecuadro(nodo, regla).length > 0;
   const { marcado: contenidoRecuadroSvg, ancho: anchoRecuadro, alto } = conRecuadro
-    ? recuadro(nodo)
+    ? recuadro(nodo, regla)
     : { marcado: '', ancho: 0, alto: 0 };
   // A la derecha del operador (la imagen se ensancha un poco si hace falta); a su
   // izquierda solo si ahí entra completo, para no tapar el operador ni su costo.
@@ -189,7 +204,7 @@ function bloque(sentencia, nodo, posiciones, ancho, y) {
  * Arma la imagen PNG de los operadores de un hallazgo (hasta 4, uno debajo de otro).
  * Devuelve { blob, url }.
  */
-export async function crearCapturaPlan({ sentencia, nodoIds, archivo }) {
+export async function crearCapturaPlan({ sentencia, nodoIds, archivo, regla }) {
   const { posiciones, ancho } = calcularPosiciones(sentencia.nodos);
   const nodos = nodoIds
     .map((id) => sentencia.nodos.find((n) => n.id === id))
@@ -200,7 +215,7 @@ export async function crearCapturaPlan({ sentencia, nodoIds, archivo }) {
   let y = ALTO_PESTANA + 8;
   let anchoTotal = ANCHO_RECORTE;
   const bloques = nodos.map((nodo) => {
-    const resultado = bloque(sentencia, nodo, posiciones, ancho, y);
+    const resultado = bloque(sentencia, nodo, posiciones, ancho, y, regla);
     y += resultado.alto + SEPARACION;
     anchoTotal = Math.max(anchoTotal, resultado.ancho);
     return resultado.marcado;

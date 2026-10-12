@@ -102,6 +102,65 @@ def _conversion_implicita(sentencias: List[Dict]) -> List[Hallazgo]:
     return [hallazgo]
 
 
+# Lectura residual: filas leídas (ActualRowsRead) a partir de las cuales se marca.
+LECTURA_RESIDUAL_MINIMA = 1_000_000
+
+
+def _cifra(valor: float) -> str:
+    return f"{valor:,.0f}"
+
+
+def _lectura_residual(sentencias: List[Dict]) -> List[Hallazgo]:
+    """Operadores que leen más de un millón de filas y devuelven menos de las que leen.
+
+    Las filas que no pasan el filtro (Predicate) se leen y se descartan: «lectura residual».
+    """
+    varias_consultas = len({s["numero"] for s in sentencias}) > 1
+    casos = []
+    for sentencia in sentencias:
+        for nodo in sentencia["nodos"]:
+            leidas, devueltas = nodo.get("filasLeidas"), nodo.get("filasReales")
+            if leidas is None or devueltas is None or leidas <= LECTURA_RESIDUAL_MINIMA or devueltas >= leidas:
+                continue
+            casos.append({"consulta": sentencia["numero"], "nodo": nodo, "leidas": leidas, "devueltas": devueltas})
+    if not casos:
+        return []
+
+    def describir(caso: Dict) -> str:
+        nodo = caso["nodo"]
+        lugar = f"{_nombre_operador(nodo)} (nodo {nodo['id']})"
+        if nodo.get("objeto"):
+            lugar += f" sobre {nodo['objeto']}"
+        if varias_consultas:
+            lugar += f" de la consulta {caso['consulta']}"
+        # El filtro (Predicate) no va en el texto: trae comillas propias; se ve tal cual en la imagen.
+        return f"{lugar}: lee {_cifra(caso['leidas'])} filas y solo devuelve {_cifra(caso['devueltas'])} a la consulta"
+
+    accion = (
+        "revisar el filtro del operador (Predicate) y crear o ajustar un índice sobre sus columnas para leer "
+        "solo las filas necesarias, "
+        "ya que SQL Server lee y descarta millones de filas, lo que eleva las lecturas, el tiempo de ejecución "
+        "y el consumo de recursos del servidor."
+    )
+    if len(casos) == 1:
+        mensaje = f"Se ha identificado una lectura residual elevada en el operador {describir(casos[0])}, por lo que se recomienda {accion}"
+    else:
+        consultas = sorted({c["consulta"] for c in casos})
+        encabezado = ("la consulta " if len(consultas) == 1 else "las consultas ") + ", ".join(map(str, consultas))
+        detalle = "; ".join(f"Operador {describir(c)}" for c in casos)
+        mensaje = (f"Se identificaron {len(casos)} lecturas residuales elevadas, en {encabezado}: {detalle}. "
+                   f"Se recomienda {accion}")
+    hallazgo = Hallazgo(
+        linea=1,
+        origen=OrigenAnalisis.PLAN_EJECUCION,
+        severidad=Severidad.ALTO,
+        regla="LECTURA_RESIDUAL_ELEVADA",
+        mensaje=mensaje,
+    )
+    hallazgo.nodos = [{"consulta": c["consulta"], "nodo": c["nodo"]["id"]} for c in casos]
+    return [hallazgo]
+
+
 def analizar_plan_reporte(sentencias: List[Dict]) -> List[Hallazgo]:
     """Hallazgos del plan para el área Reportes, a partir del árbol de construir_diagrama."""
-    return _conversion_implicita(sentencias)
+    return _conversion_implicita(sentencias) + _lectura_residual(sentencias)

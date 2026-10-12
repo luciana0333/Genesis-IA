@@ -5,6 +5,14 @@ from app.reglas.reglas_base import ReglaDiccionario
 
 REGLAS_PLANES_EJECUCION = {
     # --- Área Reportes (reglas definidas por la usuaria) -----------------
+    "LECTURA_RESIDUAL_ELEVADA": ReglaDiccionario(
+        codigo="LECTURA_RESIDUAL_ELEVADA",
+        nombre="Lectura residual elevada",
+        severidad="alto",
+        descripcion="Un operador lee más de 1 000 000 de filas (ActualRowsRead) y devuelve muchas menos: el resto se descarta con el filtro.",
+        alcance="plan_ejecucion",
+        activo=True,
+    ),
     "CONVERSION_IMPLICITA_DETECTADA": ReglaDiccionario(
         codigo="CONVERSION_IMPLICITA_DETECTADA",
         nombre="Conversión implícita detectada",

@@ -23,7 +23,7 @@ export function CapturaHallazgo({ hallazgo, sentencias = [], archivo }) {
     if (captura) return captura;
     // El generador (con react-dom/server) se carga solo al pedir la primera imagen.
     const { crearCapturaPlan } = await import('./capturaPlan');
-    const nueva = await crearCapturaPlan({ sentencia, nodoIds, archivo });
+    const nueva = await crearCapturaPlan({ sentencia, nodoIds, archivo, regla: hallazgo.regla });
     setCaptura(nueva);
     return nueva;
   };
