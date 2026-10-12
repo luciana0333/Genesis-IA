@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Flecha, Nodo } from './DiagramaPlan';
-import { COLUMNA, calcularPosiciones, formatearFilas } from './geometriaPlan';
+import { COLUMNA, calcularPosiciones } from './geometriaPlan';
+import { DefinicionesIconos } from './IconosPlan';
 
 /*
  * Captura de un hallazgo del plan, como la que se pega en el informe: un recorte
@@ -9,13 +10,13 @@ import { COLUMNA, calcularPosiciones, formatearFilas } from './geometriaPlan';
  * que el tooltip de SSMS / Plan Explorer. Se dibuja como SVG y se pasa a PNG.
  */
 
-const FUENTE = '"Segoe UI", Arial, sans-serif';
+const FUENTE = '"Segoe UI", Tahoma, Arial, sans-serif';
 const TAMANO = 12;
 const ALTO_LINEA = 17;
 const ANCHO_RECUADRO = 560;
 const RELLENO = 10;
 const ANCHO_RECORTE = COLUMNA * 5;
-const ALTO_RECORTE = 172;
+const ALTO_RECORTE = 150;
 const ALTO_PESTANA = 26;
 const SEPARACION = 18;
 const MAXIMO_NODOS = 4;
@@ -24,21 +25,20 @@ const ESCALA = 2;
 // Los mismos colores del diagrama (tema claro): la imagen no lee el CSS de la página.
 const ESTILOS = `
   text { font-family: ${FUENTE}; }
-  .plan-flecha polyline { stroke: #6d8496; }
-  .plan-flecha polygon { fill: #6d8496; }
-  .plan-filas { fill: #45454f; font-size: 12px; }
-  .plan-costo { fill: #1d1d24; font-size: 13px; font-weight: 700; }
-  .plan-costo-pastilla rect { fill: #f7891f; }
-  .plan-costo-pastilla.alto rect { fill: #e0101e; }
-  .plan-costo-pastilla text { fill: #ffffff; font-size: 12.5px; font-weight: 600; }
+  .plan-flecha polyline { stroke: #8fa2b2; }
+  .plan-flecha polygon { fill: #8fa2b2; }
+  .plan-filas { fill: #555555; font-size: 10.5px; }
+  .plan-costo { fill: #222222; font-size: 12px; font-weight: 700; }
+  .plan-costo-pastilla rect { fill: #f58220; }
+  .plan-costo-pastilla.alto rect { fill: #c8102e; }
+  .plan-costo-pastilla text { fill: #ffffff; font-size: 11.5px; font-weight: 600; }
   .plan-icono-fondo { fill: #ffffff; }
-  .plan-icono { color: #46647c; }
   .plan-nodo.activo .plan-icono-fondo { stroke: #36c23a; stroke-width: 2.5; }
-  .plan-alerta polygon { fill: #ffc400; stroke: #9a6a00; stroke-width: 1; }
-  .plan-alerta text { fill: #3d2b00; font-size: 13px; font-weight: 800; }
-  .plan-resaltado { fill: #fff27a; }
-  .plan-nombre { fill: #1d1d24; font-size: 12.5px; font-weight: 700; }
-  .plan-detalle { fill: #45454f; font-size: 12px; }
+  .plan-alerta polygon { fill: #ffd200; stroke: #9c7a00; stroke-width: 1; }
+  .plan-alerta text { fill: #3d2b00; font-size: 10px; font-weight: 800; }
+  .plan-resaltado { fill: #ffef7a; }
+  .plan-nombre { fill: #222222; font-size: 11.5px; }
+  .plan-detalle { fill: #444444; font-size: 11px; }
 `;
 
 let contexto;
@@ -87,26 +87,9 @@ function acomodar(texto, resaltados, ancho) {
   return lineas;
 }
 
-/** Contenido del recuadro: advertencias del operador o, si no tiene, sus datos principales. */
+/** Contenido del recuadro: solo las advertencias que trae el XML del plan. */
 function contenidoRecuadro(nodo) {
-  const grupos = [];
-  if (nodo.advertencias.length) {
-    grupos.push({ titulo: 'Warnings:', items: nodo.advertencias });
-  }
-  if (nodo.conversiones?.length) {
-    grupos.push({
-      titulo: 'Conversiones implícitas:',
-      items: nodo.conversiones.map((texto) => ({ texto, resaltados: ['CONVERT_IMPLICIT'] })),
-    });
-  }
-  const datos = [
-    nodo.padre !== null && `Costo: ${nodo.costoPct.toFixed(1)}%`,
-    nodo.filasEstimadas != null && `Filas estimadas: ${formatearFilas(nodo.filasEstimadas)}`,
-    nodo.filasReales != null && `Filas reales: ${formatearFilas(nodo.filasReales)}`,
-    nodo.lecturas && `Lecturas lógicas: ${formatearFilas(nodo.lecturas)}`,
-  ].filter(Boolean);
-  if (datos.length) grupos.push({ titulo: null, items: [{ texto: datos.join('   ·   '), resaltados: [] }] });
-  return grupos;
+  return nodo.advertencias.length ? [{ titulo: 'Warnings:', items: nodo.advertencias }] : [];
 }
 
 /** Recuadro de advertencias en SVG, dibujado desde (0, 0); devuelve su marcado, ancho y alto. */
@@ -114,9 +97,7 @@ function recuadro(nodo) {
   const x = 0;
   const y = 0;
   const anchoTexto = ANCHO_RECUADRO - RELLENO * 2;
-  const titulo = [nodo.padre === null ? nodo.fisica.toUpperCase() : nodo.fisica, nodo.objeto, nodo.indice]
-    .filter(Boolean).join('  ');
-  const filas = [{ tipo: 'titulo', texto: titulo }];
+  const filas = [];
   for (const grupo of contenidoRecuadro(nodo)) {
     if (grupo.titulo) filas.push({ tipo: 'grupo', texto: grupo.titulo });
     for (const item of grupo.items) {
@@ -132,9 +113,7 @@ function recuadro(nodo) {
   let marcado = `<rect x="${x}" y="${y}" width="${ancho}" height="${alto}" fill="#f4f7fa" stroke="#8fa3b5"/>`;
   filas.forEach((fila, indice) => {
     const base = y + RELLENO + indice * ALTO_LINEA + 12;
-    if (fila.tipo === 'titulo') {
-      marcado += `<text x="${x + RELLENO}" y="${base}" font-size="${TAMANO}" font-weight="700" fill="#1d1d24">${escapar(fila.texto)}</text>`;
-    } else if (fila.tipo === 'grupo') {
+    if (fila.tipo === 'grupo') {
       marcado += `<text x="${x + RELLENO}" y="${base}" font-size="${TAMANO}" font-weight="700" fill="#c4000c">${escapar(fila.texto)}</text>`;
     } else {
       fila.linea.forEach((trozo, posicion) => {
@@ -159,10 +138,11 @@ function bloque(sentencia, nodo, posiciones, ancho, y) {
   const filasDe = (n) => n.filasReales ?? n.filasEstimadas;
   const filasMaximas = Math.max(...sentencia.nodos.map((n) => filasDe(n) ?? 0), 1);
   const recorteX = Math.max(0, Math.min(objetivo.x - COLUMNA * 1.5, ancho - ANCHO_RECORTE));
-  const recorteY = objetivo.y - 72;
+  const recorteY = objetivo.y - 58;
 
   const diagrama = renderToStaticMarkup(
     <g>
+      <DefinicionesIconos />
       {sentencia.nodos.filter((n) => n.padre !== null).map((n) => (
         <Flecha key={`f-${n.id}`} desde={posiciones.get(n.id)} hasta={posiciones.get(n.padre)} filas={filasDe(n)} filasMaximas={filasMaximas} />
       ))}
@@ -183,12 +163,18 @@ function bloque(sentencia, nodo, posiciones, ancho, y) {
 
   // El recuadro sale a la derecha del operador; si no entra en el recorte, a su izquierda.
   const xOperador = objetivo.x - recorteX;
-  const { marcado: contenidoRecuadroSvg, ancho: anchoRecuadro, alto } = recuadro(nodo);
-  const xRecuadro = xOperador + 36 + anchoRecuadro <= ANCHO_RECORTE
-    ? xOperador + 36
-    : Math.max(4, xOperador - 36 - anchoRecuadro);
-  const marcadoRecuadro = `<g transform="translate(${xRecuadro} ${y + 4})">${contenidoRecuadroSvg}</g>`;
-  const yDiagrama = y + Math.max(alto - 46, 0);
+  // Sin advertencias en el XML no hay recuadro: solo el operador marcado.
+  const conRecuadro = nodo.advertencias.length > 0;
+  const { marcado: contenidoRecuadroSvg, ancho: anchoRecuadro, alto } = conRecuadro
+    ? recuadro(nodo)
+    : { marcado: '', ancho: 0, alto: 0 };
+  // A la derecha del operador (la imagen se ensancha un poco si hace falta); a su
+  // izquierda solo si ahí entra completo, para no tapar el operador ni su costo.
+  const aLaDerecha = xOperador + 30;
+  const aLaIzquierda = xOperador - 30 - anchoRecuadro;
+  const xRecuadro = aLaDerecha + anchoRecuadro <= ANCHO_RECORTE + 160 || aLaIzquierda < 4 ? aLaDerecha : aLaIzquierda;
+  const marcadoRecuadro = conRecuadro ? `<g transform="translate(${xRecuadro} ${y + 4})">${contenidoRecuadroSvg}</g>` : '';
+  const yDiagrama = y + Math.max(alto - 40, 0);
   const anchoBloque = Math.max(ANCHO_RECORTE, xRecuadro + anchoRecuadro + 8);
   const marcado = `
     <svg x="0" y="${yDiagrama}" width="${ANCHO_RECORTE}" height="${ALTO_RECORTE}"

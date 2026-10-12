@@ -3,7 +3,7 @@
 Por cada sentencia del plan devuelve sus datos generales (texto, costo, duración,
 CPU) y sus operadores con el padre de cada uno, el porcentaje de costo propio,
 las filas y las advertencias que SQL Server dejó en el XML (spills, conversiones,
-memoria concedida de más...). El primer nodo de cada sentencia es la propia
+Excessive Grant...), tal como vienen en el XML, sin agregar nada. El primer nodo de cada sentencia es la propia
 sentencia (SELECT, INSERT...), como en el diagrama de SSMS y Plan Explorer.
 """
 
@@ -13,7 +13,6 @@ import re
 import xml.etree.ElementTree as ET
 from typing import Dict, Iterable, List, Optional, Union
 
-_CONVERSION_IMPLICITA = re.compile(r"CONVERT_IMPLICIT\((?:[^()]|\([^()]*\))*\)")
 
 
 def _local(elemento: ET.Element) -> str:
@@ -120,13 +119,6 @@ def _leer_advertencias(warnings: ET.Element) -> List[Dict]:
     return advertencias
 
 
-def _conversiones_implicitas(relop: ET.Element) -> List[str]:
-    expresiones = []
-    for elemento in _propios(relop):
-        expresiones.extend(_CONVERSION_IMPLICITA.findall(elemento.attrib.get("ScalarString", "")))
-    return list(dict.fromkeys(expresiones))
-
-
 def _objeto(relop: ET.Element) -> Dict[str, str]:
     for elemento in _propios(relop):
         if _local(elemento) == "Object" and elemento.attrib.get("Table"):
@@ -173,19 +165,9 @@ def _nodos_de(relop: ET.Element, padre: str, costo_total: float, nodos: List[Dic
         "filasEstimadas": (_numero(relop, "EstimateRows") or 0) * ejecuciones_estimadas,
         **_contadores(relop),
         "advertencias": advertencias,
-        "conversiones": _conversiones_implicitas(relop),
     })
     for hijo in hijos:
         _nodos_de(hijo, relop.attrib.get("NodeId", "?"), costo_total, nodos)
-
-
-def _memoria_de_mas(plan: ET.Element) -> List[Dict]:
-    """Memoria concedida que duplica (o más) la usada, cuando SQL Server no dejó su advertencia."""
-    info = next((e for e in plan if _local(e) == "MemoryGrantInfo"), None)
-    concedida, usada = _numero(info, "GrantedMemory"), _numero(info, "MaxUsedMemory")
-    if not concedida or usada is None or concedida < 2 * max(usada, 1):
-        return []
-    return [_memoria(_numero(info, "RequestedMemory"), concedida, usada)]
 
 
 def _indices_faltantes(plan: ET.Element) -> List[Dict]:
@@ -227,8 +209,6 @@ def construir_diagrama(contenido: Union[str, bytes]) -> List[Dict]:
         for elemento in plan:
             if _local(elemento) == "Warnings":
                 advertencias.extend(_leer_advertencias(elemento))
-        if not any(a["tipo"] == "memoria" for a in advertencias):
-            advertencias.extend(_memoria_de_mas(plan))
         advertencias.extend(_indices_faltantes(plan))
 
         tipo = sentencia.attrib.get("StatementType", "SELECT").split(" ")[0]
@@ -236,7 +216,7 @@ def construir_diagrama(contenido: Union[str, bytes]) -> List[Dict]:
             "id": "raiz", "padre": None, "fisica": tipo, "logica": tipo, "objeto": "", "indice": "",
             "costoPct": 0.0, "filasEstimadas": _numero(sentencia, "StatementEstRows"),
             "filasReales": None, "ejecuciones": None, "lecturas": None,
-            "advertencias": advertencias, "conversiones": [],
+            "advertencias": advertencias,
         }]
         for relop in superiores:
             _nodos_de(relop, "raiz", costo_total, nodos)

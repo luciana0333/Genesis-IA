@@ -2,41 +2,45 @@
  * Geometría del diagrama del plan (compartida por el diagrama y la captura):
  * tamaños, ícono de cada operador, posiciones y tono del costo.
  */
-import {
-  ArrowDownAZ, ArrowUpToLine, Box, Calculator, Combine, FileOutput, Filter, Hash, KeyRound, Layers, ListMinus,
-  ListPlus, Network, PencilLine, Repeat, ScanLine, Search, Sigma, Split, Table2,
-} from 'lucide-react';
-
-export const COLUMNA = 168;
-export const FILA = 148;
+export const COLUMNA = 160;
+export const FILA = 122;
 export const MARGEN = 28;
-export const ICONO = 40;
+export const ICONO = 32;
 export const MAX_TEXTO = 24;
 
-const ICONOS = [
-  [/^(select|insert|update|delete|merge)$/i, FileOutput],
-  [/seek/i, Search],
-  [/scan/i, ScanLine],
-  [/lookup/i, KeyRound],
-  [/nested loops/i, Repeat],
-  [/hash match/i, Hash],
-  [/merge join/i, Combine],
-  [/sort/i, ArrowDownAZ],
-  [/aggregate/i, Sigma],
-  [/compute scalar/i, Calculator],
-  [/filter/i, Filter],
-  [/spool/i, Layers],
-  [/parallelism/i, Split],
-  [/top/i, ArrowUpToLine],
-  [/insert/i, ListPlus],
-  [/delete/i, ListMinus],
-  [/update/i, PencilLine],
-  [/concatenation|sequence/i, Network],
-  [/constant/i, Box],
+// Ícono de cada operador (ver IconosPlan.jsx), según su operación física.
+const SIMBOLOS = [
+  [/^select$/i, 'raiz-select'],
+  [/^(insert|update|delete|merge)$/i, 'raiz-dml'],
+  [/^clustered index (insert|update|delete|merge)$/i, 'clustered-index-insert'],
+  [/^index (insert|update|delete)$/i, 'index-insert'],
+  [/^table (insert|update|delete|merge)$/i, 'table-insert'],
+  [/clustered index scan/i, 'clustered-index-scan'],
+  [/clustered index seek/i, 'clustered-index-seek'],
+  [/index scan/i, 'index-scan'],
+  [/index seek/i, 'index-seek'],
+  [/table scan/i, 'table-scan'],
+  [/key lookup/i, 'key-lookup'],
+  [/rid lookup/i, 'rid-lookup'],
+  [/constant scan/i, 'constant-scan'],
+  [/nested loops/i, 'nested-loops'],
+  [/hash match/i, 'hash-match'],
+  [/merge join|adaptive join/i, 'merge-join'],
+  [/concatenation/i, 'concatenation'],
+  [/sort/i, 'sort'],
+  [/compute scalar/i, 'compute-scalar'],
+  [/aggregate/i, 'stream-aggregate'],
+  [/filter/i, 'filter'],
+  [/^top|top n sort/i, 'top'],
+  [/spool/i, 'spool'],
+  [/parallelism/i, 'parallelism'],
+  [/segment|sequence project|window/i, 'segment'],
+  [/assert/i, 'assert'],
+  [/^sequence$/i, 'sequence'],
 ];
 
-export function iconoDe(fisica) {
-  return ICONOS.find(([patron]) => patron.test(fisica))?.[1] ?? Table2;
+export function simboloDe(fisica) {
+  return `op-${SIMBOLOS.find(([patron]) => patron.test(fisica))?.[1] ?? 'generico'}`;
 }
 
 export function recortar(texto) {
@@ -67,7 +71,7 @@ export function calcularPosiciones(nodos) {
     }
     posiciones.set(nodo.id, {
       x: MARGEN + columna * COLUMNA + COLUMNA / 2,
-      y: MARGEN + fila * FILA + 52,
+      y: MARGEN + fila * FILA + 40,
     });
     return fila;
   };

@@ -1,8 +1,9 @@
-import { createElement, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { EncabezadoSeccion } from '../../components/EncabezadoSeccion';
 import {
-  ICONO, MAX_TEXTO, calcularPosiciones, formatearFilas, iconoDe, recortar, tonoCosto,
+  ICONO, MAX_TEXTO, calcularPosiciones, formatearFilas, recortar, simboloDe, tonoCosto,
 } from './geometriaPlan';
+import { DefinicionesIconos } from './IconosPlan';
 
 /*
  * Diagrama del plan al estilo de SQL Sentry Plan Explorer: el resultado a la
@@ -13,26 +14,29 @@ import {
  */
 
 export function Flecha({ desde, hasta, filas, filasMaximas }) {
-  const grosor = 1.5 + 7 * (Math.log10((filas ?? 0) + 1) / Math.log10(filasMaximas + 1 || 10));
-  const inicio = desde.x - ICONO / 2 - 10;
-  const fin = hasta.x + ICONO / 2 + 10;
-  const tronco = fin + 18;
+  // Más gruesa cuantas más filas pasan, como en Plan Explorer.
+  const grosor = 1.5 + 4.5 * (Math.log10((filas ?? 0) + 1) / Math.log10(filasMaximas + 1 || 10));
+  const inicio = desde.x - ICONO / 2 - 8;
+  const fin = hasta.x + ICONO / 2 + 6;
+  const punta = 4 + grosor * 0.6;
+  // Enlaces en ángulo: las ramas inferiores suben en diagonal hacia su padre.
   const puntos = desde.y === hasta.y
-    ? `${inicio},${desde.y} ${fin + 9},${hasta.y}`
-    : `${inicio},${desde.y} ${tronco},${desde.y} ${tronco},${hasta.y} ${fin + 9},${hasta.y}`;
-  const punta = Math.max(grosor * 1.4, 7);
+    ? `${inicio},${desde.y} ${fin + punta * 1.6},${hasta.y}`
+    : `${inicio},${desde.y} ${fin + 34},${desde.y} ${fin + 20},${hasta.y} ${fin + punta * 1.6},${hasta.y}`;
   return (
     <g className="plan-flecha">
       <polyline points={puntos} fill="none" strokeWidth={grosor} strokeLinejoin="round" />
-      <polygon points={`${fin},${hasta.y} ${fin + 11},${hasta.y - punta} ${fin + 11},${hasta.y + punta}`} />
+      <polygon points={`${fin},${hasta.y} ${fin + punta * 1.8},${hasta.y - punta} ${fin + punta * 1.8},${hasta.y + punta}`} />
       {filas !== null && filas !== undefined && (
-        <text x={inicio - 6} y={desde.y - grosor / 2 - 6} textAnchor="end" className="plan-filas">
+        <text x={inicio - 4} y={desde.y - grosor / 2 - 4} textAnchor="end" className="plan-filas">
           {formatearFilas(filas)}
         </text>
       )}
     </g>
   );
 }
+
+const ANCHO_LETRA = 6.3; // ancho aproximado de un carácter a 11.5 px (Segoe UI)
 
 export function Nodo({ nodo, posicion, maximo, activo, marcado = false, onEntrar, onSalir }) {
   const tono = tonoCosto(nodo.costoPct, maximo);
@@ -43,8 +47,11 @@ export function Nodo({ nodo, posicion, maximo, activo, marcado = false, onEntrar
     nodo.objeto || null,
     nodo.indice || null,
   ].filter(Boolean);
-  const anchoNombre = Math.min(nombre.length, MAX_TEXTO) * 6.9 + 14;
+  const costo = `${nodo.costoPct.toFixed(1)}%`;
+  const anchoNombre = Math.min(nombre.length, MAX_TEXTO) * ANCHO_LETRA + 10;
+  const anchoPastilla = costo.length * 7 + 14;
   const { x, y } = posicion;
+  const mitad = ICONO / 2;
 
   return (
     <g
@@ -55,35 +62,31 @@ export function Nodo({ nodo, posicion, maximo, activo, marcado = false, onEntrar
       onFocus={(evento) => onEntrar(nodo, evento)}
       onBlur={onSalir}
     >
-      {nodo.padre !== null && (
-        tono === 'normal' ? (
-          <text x={x} y={y - ICONO / 2 - 12} textAnchor="middle" className="plan-costo">{nodo.costoPct.toFixed(1)}%</text>
-        ) : (
-          <g className={`plan-costo-pastilla ${tono}`}>
-            <rect x={x - 27} y={y - ICONO / 2 - 29} width={54} height={21} rx={10.5} />
-            <text x={x} y={y - ICONO / 2 - 14} textAnchor="middle">{nodo.costoPct.toFixed(1)}%</text>
-          </g>
-        )
+      {tono === 'normal' ? (
+        <text x={x} y={y - mitad - 8} textAnchor="middle" className="plan-costo">{costo}</text>
+      ) : (
+        <g className={`plan-costo-pastilla ${tono}`}>
+          <rect x={x - anchoPastilla / 2} y={y - mitad - 22} width={anchoPastilla} height={17} rx={8.5} />
+          <text x={x} y={y - mitad - 9.5} textAnchor="middle">{costo}</text>
+        </g>
       )}
-      <rect x={x - ICONO / 2 - 4} y={y - ICONO / 2 - 4} width={ICONO + 8} height={ICONO + 8} className="plan-icono-fondo" />
-      {createElement(iconoDe(nodo.fisica), {
-        x: x - ICONO / 2, y: y - ICONO / 2, width: ICONO, height: ICONO, strokeWidth: 1.4, className: 'plan-icono',
-      })}
+      <rect x={x - mitad - 3} y={y - mitad - 3} width={ICONO + 6} height={ICONO + 6} className="plan-icono-fondo" />
+      <use href={`#${simboloDe(nodo.fisica)}`} x={x - mitad} y={y - mitad} width={ICONO} height={ICONO} />
       {conAdvertencia && (
         <g className="plan-alerta">
-          <polygon points={`${x + 16},${y - 28} ${x + 29},${y - 6} ${x + 3},${y - 6}`} />
-          <text x={x + 16} y={y - 9} textAnchor="middle">!</text>
+          <polygon points={`${x - mitad + 2},${y + mitad - 13} ${x - mitad + 9},${y + mitad} ${x - mitad - 5},${y + mitad}`} />
+          <text x={x - mitad + 2} y={y + mitad - 1.5} textAnchor="middle">!</text>
         </g>
       )}
       {(conAdvertencia || marcado) && (
-        <rect x={x - anchoNombre / 2} y={y + ICONO / 2 + 6} width={anchoNombre} height={21} rx={10.5} className="plan-resaltado" />
+        <rect x={x - anchoNombre / 2} y={y + mitad + 5} width={anchoNombre} height={16} rx={2} className="plan-resaltado" />
       )}
-      <text x={x} y={y + ICONO / 2 + 21} textAnchor="middle" className="plan-nombre">
+      <text x={x} y={y + mitad + 17} textAnchor="middle" className="plan-nombre">
         {recortar(nombre)}
         <title>{nombre}</title>
       </text>
       {lineas.map((linea, indice) => (
-        <text key={linea} x={x} y={y + ICONO / 2 + 40 + indice * 16} textAnchor="middle" className="plan-detalle">
+        <text key={linea} x={x} y={y + mitad + 32 + indice * 14} textAnchor="middle" className="plan-detalle">
           {recortar(linea)}
           <title>{linea}</title>
         </text>
@@ -122,14 +125,6 @@ function DetalleNodo({ nodo, posicion }) {
           <p className="plan-detalle-alertas-titulo">Warnings:</p>
           {nodo.advertencias.map((advertencia) => (
             <p key={advertencia.texto}><TextoResaltado texto={advertencia.texto} resaltados={advertencia.resaltados} /></p>
-          ))}
-        </div>
-      )}
-      {nodo.conversiones?.length > 0 && (
-        <div className="plan-detalle-conversiones">
-          <p className="plan-detalle-alertas-titulo">Conversiones implícitas:</p>
-          {nodo.conversiones.map((expresion) => (
-            <p key={expresion} className="mono"><TextoResaltado texto={expresion} resaltados={['CONVERT_IMPLICIT']} /></p>
           ))}
         </div>
       )}
@@ -191,6 +186,7 @@ function Diagrama({ sentencia }) {
           role="img"
           aria-label={`Diagrama del plan de la consulta ${sentencia.numero}`}
         >
+          <DefinicionesIconos />
           {sentencia.nodos.filter((nodo) => nodo.padre !== null).map((nodo) => (
             <Flecha
               key={`flecha-${nodo.id}`}
