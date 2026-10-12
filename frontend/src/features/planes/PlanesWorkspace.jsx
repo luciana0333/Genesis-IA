@@ -11,6 +11,7 @@ import { TarjetaMetrica } from '../../components/TarjetaMetrica';
 import { formatearKb } from '../../utils/hallazgos';
 import { CapturaHallazgo } from './CapturaHallazgo';
 import { DiagramaPlan } from './DiagramaPlan';
+import { TiempoEjecucion } from './TiempoEjecucion';
 import { TablaOperadores } from './TablaOperadores';
 import { useLimitesTiempo } from './useLimitesTiempo';
 import { usePlanEjecucion } from './usePlanEjecucion';
@@ -195,6 +196,15 @@ export function PlanesWorkspace() {
         </div>
 
         <div className="panel-footer">
+          {/* El tiempo de ejecución va primero: es lo primero que se mira antes de las observaciones. */}
+          {analisis?.diagrama?.length > 0 && (
+            <TiempoEjecucion
+              sentencias={analisis.diagrama}
+              area={area}
+              limiteS={limites[area] ?? null}
+              onCambiarLimite={alCambiarLimite}
+            />
+          )}
           <PanelHallazgos
             titulo="Hallazgos del plan"
             meta={analisis?.archivo}
@@ -216,12 +226,7 @@ export function PlanesWorkspace() {
               tituloError: 'No se pudo analizar el plan',
             }}
           />
-          {analisis?.diagrama?.length > 0 && <DiagramaPlan
-              sentencias={analisis.diagrama}
-              area={area}
-              limiteS={limites[area] ?? null}
-              onCambiarLimite={alCambiarLimite}
-            />}
+          {analisis?.diagrama?.length > 0 && <DiagramaPlan sentencias={analisis.diagrama} />}
           {analisis && <TablaOperadores operadores={analisis.operadores} />}
         </div>
       </section>
