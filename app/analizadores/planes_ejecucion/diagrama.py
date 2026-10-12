@@ -242,6 +242,8 @@ def construir_diagrama(contenido: Union[str, bytes]) -> List[Dict]:
             "numero": numero,
             "tipo": tipo,
             "texto": re.sub(r"\s+", " ", sentencia.attrib.get("StatementText", "")).strip(),
+            # El código tal cual viene en el XML (con saltos de línea y comentarios): panel «Text Data».
+            "codigo": sentencia.attrib.get("StatementText", "").replace("\r\n", "\n").strip("\n"),
             "costo": costo_total,
             "duracionMs": _numero(tiempos, "ElapsedTime"),
             "cpuMs": _numero(tiempos, "CpuTime"),

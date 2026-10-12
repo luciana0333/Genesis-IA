@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { EncabezadoSeccion } from '../../components/EncabezadoSeccion';
+import { tokenizarSql } from '../../utils/resaltadoSql';
 import {
   ICONO, MAX_TEXTO, calcularPosiciones, filasDesviadas, formatearFilas, recortar, simboloDe, tonoCosto,
 } from './geometriaPlan';
@@ -240,6 +241,23 @@ const COLUMNAS_SENTENCIAS = [
   { titulo: 'Actual Rows', valor: (s) => formatearNumero(s.filasReales), filas: true },
 ];
 
+/** Panel «Text Data» de Plan Explorer: el código de la sentencia tal cual viene en el XML, coloreado. */
+function TextoSentencia({ codigo }) {
+  if (!codigo) return null;
+  return (
+    <div className="plan-panel">
+      <p className="plan-panel-titulo">Text Data</p>
+      <pre className="plan-texto">
+        {tokenizarSql(codigo).map((fragmento, indice) => (
+          fragmento.tipo === 'texto'
+            ? fragmento.valor
+            : <span key={indice} className={`tok-${fragmento.tipo}`}>{fragmento.valor}</span>
+        ))}
+      </pre>
+    </div>
+  );
+}
+
 /** Sentencias del plan (como la grilla de Plan Explorer) y el diagrama de la elegida. */
 export function DiagramaPlan({ sentencias = [] }) {
   const [elegida, setElegida] = useState(0);
@@ -288,6 +306,7 @@ export function DiagramaPlan({ sentencias = [] }) {
           </tbody>
         </table>
       </div>
+      <TextoSentencia codigo={sentencia.codigo} />
       <Diagrama key={sentencia.numero} sentencia={sentencia} />
     </section>
   );

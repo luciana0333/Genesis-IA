@@ -361,6 +361,40 @@
   text-overflow: ellipsis;
 }
 
+/* Panel «Text Data»: fondo rosado y colores de SSMS, como Plan Explorer. */
+.plan-panel {
+  margin-top: 16px;
+  border: 1px solid #c8c8c8;
+}
+
+.plan-panel-titulo {
+  padding: 5px 10px;
+  border-bottom: 1px solid #c8c8c8;
+  background: #f0f0f0;
+  color: #1e1e1e;
+  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+  font-size: 12.5px;
+}
+
+.plan-texto {
+  max-height: 240px;
+  margin: 0;
+  overflow: auto;
+  padding: 8px 12px;
+  background: #f9eef3;
+  color: #000000;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre;
+  tab-size: 4;
+}
+
+.plan-texto .tok-clave { color: #0000ff; font-weight: 400; }
+.plan-texto .tok-variable { color: #000000; }
+.plan-texto .tok-cadena { color: #ff0000; }
+.plan-texto .tok-comentario { color: #008000; font-style: normal; }
+
 .plan-diagrama {
   position: relative;
   margin-top: 16px;
