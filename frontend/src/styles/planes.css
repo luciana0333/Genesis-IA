@@ -304,6 +304,10 @@
   margin-top: 28px;
 }
 
+.plan-diagrama-seccion .plan-grilla {
+  margin-top: 14px;
+}
+
 /* Grilla de sentencias: como la de Plan Explorer (compacta, encabezado gris, bordes finos). */
 .plan-grilla {
   border: 1px solid #c8c8c8;
@@ -315,12 +319,12 @@
   border-collapse: collapse;
   color: #1e1e1e;
   font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
-  font-size: 12px;
+  font-size: 12.5px;
   white-space: nowrap;
 }
 
 .plan-sentencias th {
-  padding: 4px 8px;
+  padding: 9px 14px;
   border-right: 1px solid #d9d9d9;
   border-bottom: 1px solid #c8c8c8;
   background: #f0f0f0;
@@ -329,7 +333,7 @@
 }
 
 .plan-sentencias td {
-  padding: 3px 8px;
+  padding: 9px 14px;
   border-right: 1px solid #e3e3e3;
   border-bottom: 1px solid #ececec;
 }
@@ -356,6 +360,7 @@
 }
 
 .plan-sentencia-texto {
+  min-width: 260px;
   max-width: 420px;
   overflow: hidden;
   text-overflow: ellipsis;
