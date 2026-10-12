@@ -304,19 +304,61 @@
   margin-top: 28px;
 }
 
+/* Grilla de sentencias: como la de Plan Explorer (compacta, encabezado gris, bordes finos). */
+.plan-grilla {
+  border: 1px solid #c8c8c8;
+  background: #ffffff;
+}
+
+.plan-sentencias {
+  width: 100%;
+  border-collapse: collapse;
+  color: #1e1e1e;
+  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.plan-sentencias th {
+  padding: 4px 8px;
+  border-right: 1px solid #d9d9d9;
+  border-bottom: 1px solid #c8c8c8;
+  background: #f0f0f0;
+  font-weight: 400;
+  text-align: left;
+}
+
+.plan-sentencias td {
+  padding: 3px 8px;
+  border-right: 1px solid #e3e3e3;
+  border-bottom: 1px solid #ececec;
+}
+
+.plan-sentencias .num {
+  text-align: right;
+}
+
 .plan-sentencias tbody tr {
   cursor: pointer;
 }
 
+.plan-sentencias tbody tr:hover td {
+  background: #f3f7fb;
+}
+
 .plan-sentencias tbody tr.elegida td {
-  background: var(--red-light);
+  background: #e5eff9;
+}
+
+.plan-sentencias td.desviada,
+.plan-sentencias tbody tr td.desviada {
+  background: #f9cfa5;
 }
 
 .plan-sentencia-texto {
-  max-width: 640px;
+  max-width: 420px;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .plan-diagrama {

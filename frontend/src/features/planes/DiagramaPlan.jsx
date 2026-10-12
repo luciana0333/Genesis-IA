@@ -215,16 +215,40 @@ function Diagrama({ sentencia }) {
   );
 }
 
-function formatearMs(valor) {
-  return valor === null || valor === undefined ? '—' : Math.round(valor).toLocaleString('en-US');
+function formatearNumero(valor) {
+  return valor === null || valor === undefined ? '' : Math.round(valor).toLocaleString('en-US');
 }
+
+function porcentaje(valor, total) {
+  return total ? `${((valor / total) * 100).toFixed(1)}%` : '';
+}
+
+// Columnas de la grilla de sentencias de Plan Explorer, con sus mismos nombres.
+const COLUMNAS_SENTENCIAS = [
+  { titulo: 'Est Cost %', valor: (s, t) => porcentaje(s.costo, t.costo) },
+  { titulo: 'Compile Time', valor: (s) => formatearNumero(s.compilacionMs) },
+  { titulo: 'Duration', valor: (s) => formatearNumero(s.duracionMs) },
+  // Sin funciones en la consulta el XML no trae los tiempos de UDF: Plan Explorer muestra 0.
+  { titulo: 'UDF Duration', valor: (s) => formatearNumero(s.udfDuracionMs ?? (s.duracionMs != null ? 0 : null)) },
+  { titulo: 'CPU', valor: (s) => formatearNumero(s.cpuMs) },
+  { titulo: 'UDF CPU', valor: (s) => formatearNumero(s.udfCpuMs ?? (s.cpuMs != null ? 0 : null)) },
+  { titulo: 'Est CPU Cost %', valor: (s, t) => porcentaje(s.costoCpu, t.costoCpu) },
+  { titulo: 'Reads', valor: (s) => formatearNumero(s.lecturas) },
+  { titulo: 'Writes', valor: () => '' },
+  { titulo: 'Est IO Cost %', valor: (s, t) => porcentaje(s.costoIo, t.costoIo) },
+  { titulo: 'Est Rows', valor: (s) => formatearNumero(s.filasEstimadas), filas: true },
+  { titulo: 'Actual Rows', valor: (s) => formatearNumero(s.filasReales), filas: true },
+];
 
 /** Sentencias del plan (como la grilla de Plan Explorer) y el diagrama de la elegida. */
 export function DiagramaPlan({ sentencias = [] }) {
   const [elegida, setElegida] = useState(0);
   if (!sentencias.length) return null;
   const sentencia = sentencias[Math.min(elegida, sentencias.length - 1)];
-  const costoTotal = sentencias.reduce((suma, s) => suma + (s.costo || 0), 0);
+  const totales = ['costo', 'costoCpu', 'costoIo'].reduce(
+    (suma, campo) => ({ ...suma, [campo]: sentencias.reduce((t, s) => t + (s[campo] || 0), 0) }),
+    {},
+  );
 
   return (
     <section className="plan-diagrama-seccion">
@@ -234,29 +258,33 @@ export function DiagramaPlan({ sentencias = [] }) {
         titulo="Diagrama del plan"
         acciones={<span className="results-meta">Pasa el mouse sobre un operador para ver su detalle</span>}
       />
-      <div className="table-scroll">
-        <table className="data-table plan-sentencias">
+      <div className="table-scroll plan-grilla">
+        <table className="plan-sentencias">
           <thead>
             <tr>
-              <th scope="col">Sentencia</th>
-              <th scope="col" className="num">Costo est. %</th>
-              <th scope="col" className="num">Duración (ms)</th>
-              <th scope="col" className="num">CPU (ms)</th>
+              <th scope="col">Statement</th>
+              {COLUMNAS_SENTENCIAS.map((columna) => <th key={columna.titulo} scope="col" className="num">{columna.titulo}</th>)}
             </tr>
           </thead>
           <tbody>
-            {sentencias.map((item, indice) => (
-              <tr
-                key={item.numero}
-                className={item === sentencia ? 'elegida' : undefined}
-                onClick={() => setElegida(indice)}
-              >
-                <td className="mono plan-sentencia-texto" title={item.texto}>{item.texto || item.tipo}</td>
-                <td className="num">{costoTotal ? ((item.costo / costoTotal) * 100).toFixed(1) : '—'}%</td>
-                <td className="num">{formatearMs(item.duracionMs)}</td>
-                <td className="num">{formatearMs(item.cpuMs)}</td>
-              </tr>
-            ))}
+            {sentencias.map((item, indice) => {
+              // Como Plan Explorer: filas estimadas y reales en naranja si se alejan mucho.
+              const desviada = filasDesviadas(item);
+              return (
+                <tr
+                  key={item.numero}
+                  className={item === sentencia ? 'elegida' : undefined}
+                  onClick={() => setElegida(indice)}
+                >
+                  <td className="plan-sentencia-texto" title={item.texto}>{item.texto || item.tipo}</td>
+                  {COLUMNAS_SENTENCIAS.map((columna) => (
+                    <td key={columna.titulo} className={columna.filas && desviada ? 'num desviada' : 'num'}>
+                      {columna.valor(item, totales)}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -188,6 +188,22 @@ def _completar_filas_reales(nodos: List[Dict]) -> None:
                 nodo["filasReales"] = hijo["filasReales"]
 
 
+def _suma_estimada(plan: ET.Element, atributo: str) -> float:
+    """Costo estimado de CPU o de E/S de todos los operadores de la sentencia."""
+    total = 0.0
+    for relop in (e for e in plan.iter() if _local(e) == "RelOp"):
+        ejecuciones = 1 + (_numero(relop, "EstimateRebinds") or 0) + (_numero(relop, "EstimateRewinds") or 0)
+        total += (_numero(relop, atributo) or 0) * ejecuciones
+    return total
+
+
+def _filas_reales_de(superiores: List[ET.Element]) -> Optional[float]:
+    """Filas reales que devuelve la sentencia: las del primer operador (un INSERT devuelve 0)."""
+    if not superiores:
+        return None
+    return _contadores(superiores[0])["filasReales"]
+
+
 def construir_diagrama(contenido: Union[str, bytes]) -> List[Dict]:
     """Devuelve una lista de sentencias, cada una con sus nodos listos para dibujar."""
     raiz = ET.fromstring(contenido)
@@ -229,6 +245,15 @@ def construir_diagrama(contenido: Union[str, bytes]) -> List[Dict]:
             "costo": costo_total,
             "duracionMs": _numero(tiempos, "ElapsedTime"),
             "cpuMs": _numero(tiempos, "CpuTime"),
+            # Columnas de la grilla de sentencias de Plan Explorer, tal como vienen en el XML.
+            "compilacionMs": _numero(plan, "CompileTime"),
+            "udfDuracionMs": _numero(tiempos, "UdfElapsedTime"),
+            "udfCpuMs": _numero(tiempos, "UdfCpuTime"),
+            "costoCpu": _suma_estimada(plan, "EstimateCPU"),
+            "costoIo": _suma_estimada(plan, "EstimateIO"),
+            "lecturas": sum(n["lecturas"] or 0 for n in nodos[1:]) if any(n["lecturas"] is not None for n in nodos) else None,
+            "filasEstimadas": _numero(sentencia, "StatementEstRows"),
+            "filasReales": _filas_reales_de(superiores),
             "nodos": nodos,
         })
     return sentencias

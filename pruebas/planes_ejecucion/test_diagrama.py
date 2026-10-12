@@ -54,5 +54,14 @@ class TestDiagramaPlan(unittest.TestCase):
         self.assertTrue(all(n["filasReales"] is not None for n in sentencia["nodos"][1:]))
 
 
+    def test_datos_de_la_grilla_de_sentencias(self):
+        sentencia = construir_diagrama(EJEMPLO.read_bytes())[0]
+        self.assertEqual(
+            (sentencia["compilacionMs"], sentencia["duracionMs"], sentencia["cpuMs"], sentencia["lecturas"]),
+            (18, 1076, 944, 101041),
+        )
+        self.assertEqual((round(sentencia["filasEstimadas"]), sentencia["filasReales"]), (855, 250))
+
+
 if __name__ == "__main__":
     unittest.main()
