@@ -48,7 +48,9 @@ class TestConversionImplicitaReporte(unittest.TestCase):
         self.assertIn(
             "Se ha identificado una conversión implícita en el operador SELECT: "
             "'[DC].[nDocTpo]=CONVERT_IMPLICIT(int,[CL].[nConsEquivalente],0)', que impide buscar en el índice (SeekPlan), "
-            "por lo que se recomienda revisarla y corregirla",
+            "por lo que se recomienda corregir la alerta por conversión implícita revisándola dentro del "
+            "procedimiento, ya que no usar el mismo tipo de dato en ambos lados de la comparación impide que la "
+            "base de datos ejecute la consulta de forma óptima.",
             hallazgos[0].mensaje,
         )
         self.assertEqual(hallazgos[0].nodos, [{"consulta": 1, "nodo": "raiz"}])
@@ -66,6 +68,10 @@ class TestConversionImplicitaReporte(unittest.TestCase):
         self.assertIn("1: Operador SELECT: '[DC].[nDocTpo]=CONVERT_IMPLICIT(", hallazgos[0].mensaje)
         self.assertIn("; Operador Compute Scalar (nodo 0): 'CONVERT_IMPLICIT(", hallazgos[0].mensaje)
         self.assertEqual(len(hallazgos[0].nodos), 2)
+        self.assertTrue(hallazgos[0].mensaje.endswith(
+            "Se recomienda corregir las alertas por conversiones implícitas revisándolas dentro del procedimiento, "
+            "ya que no usar el mismo tipo de dato en ambos lados de la comparación impide que la base de datos "
+            "ejecute la consulta de forma óptima."))
 
     def test_dos_alertas_en_el_mismo_operador_se_muestran_una_vez_en_la_imagen(self):
         hallazgos = _hallazgos(_plan(IMPLICITA_SEEK + IMPLICITA_CARDINALIDAD))

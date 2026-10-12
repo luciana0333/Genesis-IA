@@ -60,10 +60,13 @@ def _ubicacion(caso: Dict, varias_consultas: bool) -> str:
     return lugar
 
 
+# Por qué corregirla (igual para uno o varios casos).
+_MOTIVO = (
+    "ya que no usar el mismo tipo de dato en ambos lados de la comparación impide que la base de datos "
+    "ejecute la consulta de forma óptima."
+)
 _RECOMENDACION = (
-    "se recomienda revisarla y corregirla usando el mismo tipo de dato en ambos lados de la comparación "
-    "(columna, variable o parámetro), ya que SQL Server convierte el valor fila por fila, lo que puede "
-    "impedir el uso del índice y alterar la estimación de filas del plan."
+    "se recomienda corregir la alerta por conversión implícita revisándola dentro del procedimiento, " + _MOTIVO
 )
 
 
@@ -86,9 +89,8 @@ def _conversion_implicita(sentencias: List[Dict]) -> List[Hallazgo]:
         )
         mensaje = (
             f"Se identificaron {len(casos)} conversiones implícitas, en {encabezado}: {detalle}. "
-            f"Se recomienda revisarlas y corregirlas usando el mismo tipo de dato en ambos lados de la "
-            f"comparación (columna, variable o parámetro), ya que SQL Server convierte el valor fila por fila, "
-            f"lo que puede impedir el uso del índice y alterar la estimación de filas del plan."
+            f"Se recomienda corregir las alertas por conversiones implícitas revisándolas dentro del "
+            f"procedimiento, {_MOTIVO}"
         )
     hallazgo = Hallazgo(
         linea=1,
