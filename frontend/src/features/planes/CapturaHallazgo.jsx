@@ -9,21 +9,26 @@ export function CapturaHallazgo({ hallazgo, sentencias = [], archivo }) {
   const [visible, setVisible] = useState(false);
   const [estado, setEstado] = useState('');
 
-  const consulta = hallazgo.nodos?.[0]?.consulta;
-  const sentencia = sentencias.find((item) => item.numero === consulta);
-  const nodoIds = [...new Set((hallazgo.nodos ?? []).filter((n) => n.consulta === consulta).map((n) => n.nodo))];
+  // Un grupo por consulta, con sus operadores sin repetir (una observación puede abarcar varias consultas).
+  const grupos = [...new Set((hallazgo.nodos ?? []).map((n) => n.consulta))]
+    .map((consulta) => ({
+      sentencia: sentencias.find((item) => item.numero === consulta),
+      nodoIds: [...new Set(hallazgo.nodos.filter((n) => n.consulta === consulta).map((n) => n.nodo))],
+    }))
+    .filter((grupo) => grupo.sentencia && grupo.nodoIds.length);
+  const consulta = grupos[0]?.sentencia.numero;
 
   useEffect(() => () => {
     if (captura) URL.revokeObjectURL(captura.url);
   }, [captura]);
 
-  if (!sentencia || !nodoIds.length) return null;
+  if (!grupos.length) return null;
 
   const obtener = async () => {
     if (captura) return captura;
     // El generador (con react-dom/server) se carga solo al pedir la primera imagen.
     const { crearCapturaPlan } = await import('./capturaPlan');
-    const nueva = await crearCapturaPlan({ sentencia, nodoIds, archivo, regla: hallazgo.regla });
+    const nueva = await crearCapturaPlan({ grupos, archivo, regla: hallazgo.regla });
     setCaptura(nueva);
     return nueva;
   };

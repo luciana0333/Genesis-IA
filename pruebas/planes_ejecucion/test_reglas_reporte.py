@@ -87,5 +87,19 @@ class TestConversionImplicitaReporte(unittest.TestCase):
         self.assertEqual(resaltados, [["CONVERT_IMPLICIT"], []])
 
 
+
+class TestPlanEjemploReportes(unittest.TestCase):
+    """El plan de ejemplo de Reportes («Ver ejemplo») debe romper todas sus reglas, y solo donde corresponde."""
+
+    def test_rompe_las_tres_reglas(self):
+        ejemplo = EJEMPLO.parent / "plan-ejemplo-reportes.sqlplan"
+        hallazgos = {h.regla: h for h in analizar_plan_reporte(construir_diagrama(ejemplo.read_bytes()), 30)}
+        self.assertEqual(set(hallazgos), {"TIEMPO_EJECUCION_SUPERADO", "CONVERSION_IMPLICITA_DETECTADA", "LECTURA_RESIDUAL_ELEVADA"})
+        self.assertEqual(hallazgos["TIEMPO_EJECUCION_SUPERADO"].nodos, [{"consulta": 2, "nodo": "raiz"}])
+        self.assertIn("Se identificaron 3 conversiones implícitas", hallazgos["CONVERSION_IMPLICITA_DETECTADA"].mensaje)
+        # Creditos (3.2 M) y Agencias (1.5 M); no Clientes (devuelve todo) ni el Seek de Movimientos.
+        self.assertEqual(hallazgos["LECTURA_RESIDUAL_ELEVADA"].nodos, [{"consulta": 1, "nodo": "2"}, {"consulta": 3, "nodo": "2"}])
+
+
 if __name__ == "__main__":
     unittest.main()

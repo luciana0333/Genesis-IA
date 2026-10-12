@@ -223,26 +223,38 @@ function bloque(sentencia, nodo, posiciones, ancho, y, regla) {
 
 /**
  * Arma la imagen PNG de los operadores de un hallazgo (hasta 4, uno debajo de otro).
+ * grupos: [{ sentencia, nodoIds }], uno por consulta; si son varias, cada recorte lleva su etiqueta.
  * Devuelve { blob, url }.
  */
-export async function crearCapturaPlan({ sentencia, nodoIds, archivo, regla }) {
-  const { posiciones, ancho } = calcularPosiciones(sentencia.nodos);
-  const nodos = nodoIds
-    .map((id) => sentencia.nodos.find((n) => n.id === id))
-    .filter(Boolean)
+export async function crearCapturaPlan({ grupos, archivo, regla }) {
+  const casos = grupos
+    .flatMap(({ sentencia, nodoIds }) => nodoIds
+      .map((id) => sentencia.nodos.find((n) => n.id === id))
+      .filter(Boolean)
+      .map((nodo) => ({ sentencia, nodo })))
     .slice(0, MAXIMO_NODOS);
-  if (!nodos.length) throw new Error('No se encontró el operador en el diagrama.');
+  if (!casos.length) throw new Error('No se encontró el operador en el diagrama.');
 
+  const variasConsultas = new Set(casos.map((c) => c.sentencia.numero)).size > 1;
+  const geometrias = new Map();
   let y = ALTO_PESTANA + 8;
   let anchoTotal = ANCHO_RECORTE;
-  const bloques = nodos.map((nodo) => {
+  const bloques = casos.map(({ sentencia, nodo }) => {
+    if (!geometrias.has(sentencia.numero)) geometrias.set(sentencia.numero, calcularPosiciones(sentencia.nodos));
+    const { posiciones, ancho } = geometrias.get(sentencia.numero);
+    let etiqueta = '';
+    if (variasConsultas) {
+      etiqueta = `<text x="2" y="${y + 12}" font-size="${TAMANO}" font-weight="700" fill="#4a4a55">Consulta ${sentencia.numero}</text>`;
+      y += 20;
+    }
     const resultado = bloque(sentencia, nodo, posiciones, ancho, y, regla);
     y += resultado.alto + SEPARACION;
     anchoTotal = Math.max(anchoTotal, resultado.ancho);
-    return resultado.marcado;
+    return etiqueta + resultado.marcado;
   });
   const altoTotal = y - SEPARACION + 8;
-  const pestana = `${archivo || 'plan.sqlplan'} · Consulta ${sentencia.numero}`;
+  const consultas = [...new Set(casos.map((c) => c.sentencia.numero))];
+  const pestana = `${archivo || 'plan.sqlplan'} · ${consultas.length > 1 ? 'Consultas' : 'Consulta'} ${consultas.join(', ')}`;
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${anchoTotal * ESCALA}" height="${altoTotal * ESCALA}"
       viewBox="0 0 ${anchoTotal} ${altoTotal}">

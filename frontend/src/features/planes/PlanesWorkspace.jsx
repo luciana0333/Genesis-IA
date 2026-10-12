@@ -17,7 +17,11 @@ import { usePlanEjecucion } from './usePlanEjecucion';
 import { useAlPedirEjemplo } from '../../hooks/useVerEjemplo';
 
 // Plan real de prueba que se analiza con "Ver ejemplo".
-const PLAN_EJEMPLO = `${import.meta.env.BASE_URL}ejemplos/plan-ejemplo.sqlplan`;
+// Plan de prueba de cada área para «Ver ejemplo»: el de Reportes rompe todas sus reglas.
+const PLANES_EJEMPLO = {
+  reporte: 'plan-ejemplo-reportes.sqlplan',
+  negocio: 'plan-ejemplo.sqlplan',
+};
 import { ZonaArchivo } from './ZonaArchivo';
 
 // Cada área revisa sus planes con sus propias reglas (por ahora solo se elige en la interfaz).
@@ -97,11 +101,12 @@ export function PlanesWorkspace() {
   useAlPedirEjemplo(async () => {
     if (!workspaceRef.current?.offsetParent) return;
     try {
-      const respuesta = await fetch(PLAN_EJEMPLO);
+      const nombre = PLANES_EJEMPLO[area] ?? PLANES_EJEMPLO.negocio;
+      const respuesta = await fetch(`${import.meta.env.BASE_URL}ejemplos/${nombre}`);
       if (!respuesta.ok) throw new Error();
       const contenido = await respuesta.blob();
       reiniciarInput();
-      analizarEjemplo(new File([contenido], 'plan-ejemplo.sqlplan'));
+      analizarEjemplo(new File([contenido], nombre));
     } catch {
       // Sin ejemplo disponible: el usuario puede cargar su propio plan.
     }
