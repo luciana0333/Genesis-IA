@@ -16,7 +16,7 @@ from app.analizadores.analizador_reportes import verificar_reporte
 from app.analizadores.analizador_procedimientos_normales import verificar_procedimiento_normal
 from app.analizadores.deteccion_objeto import detectar_objeto
 from app.analizadores import ortografia
-from app.analizadores.planes_ejecucion import analizar_plan_ejecucion, construir_diagrama
+from app.analizadores.planes_ejecucion import analizar_plan_ejecucion, analizar_plan_reporte, construir_diagrama
 
 
 # Compilación de producción del frontend React (cd frontend && npm run build).
@@ -176,8 +176,16 @@ class GenesisHandler(SimpleHTTPRequestHandler):
                 return
 
             contenido = parte_plan.get_payload(decode=True) or b''
+            # Área elegida en la pantalla: cada una revisa el plan con sus propias reglas.
+            parte_area = next(
+                (parte for parte in formulario.iter_parts() if parte.get_param('name', header='content-disposition') == 'area'),
+                None,
+            )
+            area = (parte_area.get_content().strip() if parte_area is not None else '') or 'negocio'
             hallazgos, operadores, memoria = analizar_plan_ejecucion(contenido)
             diagrama = construir_diagrama(contenido)
+            if area == 'reporte':
+                hallazgos = analizar_plan_reporte(diagrama)
         except ET.ParseError:
             self._send_json({'error': 'El archivo no contiene un plan XML válido de SQL Server.'}, status=400)
             return

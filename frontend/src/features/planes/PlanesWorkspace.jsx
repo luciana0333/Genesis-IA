@@ -67,7 +67,7 @@ export function PlanesWorkspace() {
   const idArea = useId();
   const [area, setArea] = useState('reporte');
   const inputArchivoRef = useRef(null);
-  const { archivo, analisis, aviso, cargando, seleccionarArchivo, limpiar, analizar, analizarEjemplo } = usePlanEjecucion();
+  const { archivo, analisis, aviso, cargando, seleccionarArchivo, limpiar, analizar, analizarEjemplo } = usePlanEjecucion(area);
 
   const reiniciarInput = () => {
     // El valor de un <input type="file"> solo puede reiniciarse desde el DOM.
@@ -125,7 +125,11 @@ export function PlanesWorkspace() {
                       type="radio"
                       name={idArea}
                       checked={area === opcion.id}
-                      onChange={() => setArea(opcion.id)}
+                      onChange={() => {
+                        setArea(opcion.id);
+                        // Con un plan ya analizado, se vuelve a revisar con las reglas de la nueva área.
+                        if (analisis && archivo) analizar(archivo, opcion.id);
+                      }}
                     />
                     {opcion.icono}
                     {opcion.etiqueta}

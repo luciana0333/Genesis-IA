@@ -101,6 +101,7 @@ export const NOMBRES_REGLAS = {
   DOCUMENTACION_EXISTENTE_EN_ALTER: 'Validar documentación existente',
   VALIDAR_DOCUMENTACION_ALTER: 'Validar documentación existente',
   CONVERSION_IMPLICITA: 'Conversión implícita',
+  CONVERSION_IMPLICITA_DETECTADA: 'Conversión implícita detectada',
   SPILL_TEMPDB: 'Spill hacia TempDB',
   TABLE_SCAN: 'Table Scan',
   LECTURAS_LOGICAS_ELEVADAS: 'Lecturas lógicas elevadas',

@@ -11,7 +11,7 @@ export function CapturaHallazgo({ hallazgo, sentencias = [], archivo }) {
 
   const consulta = hallazgo.nodos?.[0]?.consulta;
   const sentencia = sentencias.find((item) => item.numero === consulta);
-  const nodoIds = (hallazgo.nodos ?? []).filter((n) => n.consulta === consulta).map((n) => n.nodo);
+  const nodoIds = [...new Set((hallazgo.nodos ?? []).filter((n) => n.consulta === consulta).map((n) => n.nodo))];
 
   useEffect(() => () => {
     if (captura) URL.revokeObjectURL(captura.url);

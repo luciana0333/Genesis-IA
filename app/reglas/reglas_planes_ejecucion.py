@@ -4,6 +4,15 @@ from app.reglas.reglas_base import ReglaDiccionario
 
 
 REGLAS_PLANES_EJECUCION = {
+    # --- Área Reportes (reglas definidas por la usuaria) -----------------
+    "CONVERSION_IMPLICITA_DETECTADA": ReglaDiccionario(
+        codigo="CONVERSION_IMPLICITA_DETECTADA",
+        nombre="Conversión implícita detectada",
+        severidad="alto",
+        descripcion="Un operador tiene la alerta Convert Issue con CONVERT_IMPLICIT: SQL Server convierte el dato fila por fila.",
+        alcance="plan_ejecucion",
+        activo=True,
+    ),
     "CONVERSION_IMPLICITA": ReglaDiccionario(
         codigo="CONVERSION_IMPLICITA",
         nombre="Conversion implicita",

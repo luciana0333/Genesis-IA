@@ -11,7 +11,7 @@ const SIN_AVISO = { texto: '', tono: 'info' };
  * `analisis` es la respuesta de /api/analizar-plan o null si no hay análisis.
  * `aviso` es el mensaje de estado bajo los botones: { texto, tono: info | exito | error }.
  */
-export function usePlanEjecucion() {
+export function usePlanEjecucion(area) {
   const [archivo, setArchivo] = useState(null);
   const [analisis, setAnalisis] = useState(null);
   const [aviso, setAviso] = useState(SIN_AVISO);
@@ -31,8 +31,11 @@ export function usePlanEjecucion() {
     setAviso(SIN_AVISO);
   }, [cancelar]);
 
-  /** Analiza el archivo elegido, o el indicado (p. ej. el plan de ejemplo). */
-  const analizar = useCallback(async (archivoIndicado) => {
+  /**
+   * Analiza el archivo elegido, o el indicado (p. ej. el plan de ejemplo), con
+   * las reglas del área (o de la indicada, al cambiar de área).
+   */
+  const analizar = useCallback(async (archivoIndicado, areaIndicada) => {
     const plan = archivoIndicado instanceof File ? archivoIndicado : archivo;
     if (!plan) {
       setAviso({ texto: 'Selecciona un archivo .sqlplan.', tono: 'error' });
@@ -46,7 +49,7 @@ export function usePlanEjecucion() {
     setCargando(true);
     setAviso({ texto: 'Analizando el plan real...', tono: 'info' });
     try {
-      const datos = await ejecutar((signal) => analizarPlan(plan, { signal }));
+      const datos = await ejecutar((signal) => analizarPlan(plan, { signal, area: areaIndicada ?? area }));
       setAnalisis(datos);
       setAviso({ texto: 'Análisis completado.', tono: 'exito' });
     } catch (error) {
@@ -55,7 +58,7 @@ export function usePlanEjecucion() {
       setAviso({ texto: error.message, tono: 'error' });
     }
     setCargando(false);
-  }, [archivo, ejecutar]);
+  }, [archivo, area, ejecutar]);
 
   /** Elige el plan de ejemplo y lo analiza ("Ver ejemplo"). */
   const analizarEjemplo = useCallback((plan) => {

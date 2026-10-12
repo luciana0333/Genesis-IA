@@ -103,7 +103,8 @@ def _leer_advertencias(warnings: ET.Element) -> List[Dict]:
             advertencias.append(_advertencia(
                 "conversion",
                 f"Convert Issue: {problema} {expresion}",
-                ["CONVERT_IMPLICIT" if "CONVERT_IMPLICIT" in expresion else expresion],
+                # Solo se resalta la conversión implícita; un CONVERT o CAST escrito en la consulta no.
+                ["CONVERT_IMPLICIT"] if "CONVERT_IMPLICIT" in expresion else [],
             ))
         elif nombre == "MemoryGrantWarning":
             advertencias.append(_memoria(
