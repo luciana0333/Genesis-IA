@@ -547,3 +547,44 @@
 .plan-detalle-flotante dd {
   font-weight: 600;
 }
+
+/* Captura de cada hallazgo (imagen para el informe). */
+.captura-hallazgo {
+  margin-top: 12px;
+}
+
+.captura-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.captura-boton {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.captura-boton:hover {
+  border-color: var(--red-main);
+  color: var(--red-main);
+}
+
+.captura-estado {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.captura-imagen {
+  display: block;
+  max-width: 100%;
+  margin-top: 12px;
+  border: 1px solid var(--border);
+}

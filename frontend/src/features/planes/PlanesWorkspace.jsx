@@ -9,6 +9,7 @@ import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { TarjetaMetrica } from '../../components/TarjetaMetrica';
 import { formatearKb } from '../../utils/hallazgos';
+import { CapturaHallazgo } from './CapturaHallazgo';
 import { DiagramaPlan } from './DiagramaPlan';
 import { TablaOperadores } from './TablaOperadores';
 import { usePlanEjecucion } from './usePlanEjecucion';
@@ -183,6 +184,9 @@ export function PlanesWorkspace() {
             estado={estadoPanel}
             hallazgos={analisis?.hallazgos}
             mostrarLinea={false}
+            accionesHallazgo={(hallazgo) => (
+              <CapturaHallazgo hallazgo={hallazgo} sentencias={analisis?.diagrama} archivo={analisis?.archivo} />
+            )}
             textos={{
               inicialTitulo: 'Listo para analizar tu plan',
               pasos: [

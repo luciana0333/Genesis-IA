@@ -113,7 +113,7 @@ function BotonCopiar({ texto, etiqueta, conTexto = false }) {
  * que se encontró y, tras una línea punteada, qué hacer. Si el hallazgo agrupa
  * varias ocurrencias, cada una se lista por separado.
  */
-function FilaHallazgo({ hallazgo, mostrarLinea }) {
+function FilaHallazgo({ hallazgo, mostrarLinea, acciones }) {
   const severidad = normalizarSeveridad(hallazgo.severidad);
   const titulo = nombreRegla(hallazgo.regla);
   const mensaje = hallazgo.mensaje || 'Revisa este hallazgo.';
@@ -149,6 +149,7 @@ function FilaHallazgo({ hallazgo, mostrarLinea }) {
             <span className="finding-label">Qué hacer:</span> <MensajeResaltado texto={solucion} />
           </p>
         )}
+        {acciones?.(hallazgo)}
       </div>
 
     </article>
@@ -168,6 +169,7 @@ function EsqueletoCarga() {
  *
  * estado: 'inicial' | 'cargando' | 'listo' | 'error'
  * textos: { inicial, cargando, sinHallazgos, tituloError } — mensajes por estado.
+ * accionesHallazgo: (hallazgo) => contenido extra al pie de cada ficha (opcional).
  */
 export function PanelHallazgos({
   titulo,
@@ -177,6 +179,7 @@ export function PanelHallazgos({
   mensajeError,
   textos,
   mostrarLinea = true,
+  accionesHallazgo,
 }) {
   const [filtroElegido, setFiltro] = useState('todos');
   const [seccionElegida, setSeccion] = useState('tabla');
@@ -236,6 +239,7 @@ export function PanelHallazgos({
             key={`${seccion}-${hallazgo.regla}-${hallazgo.linea}-${indice}`}
             hallazgo={hallazgo}
             mostrarLinea={mostrarLinea}
+            acciones={accionesHallazgo}
           />
         ))}
       </div>

@@ -1,0 +1,245 @@
+import { renderToStaticMarkup } from 'react-dom/server';
+import { Flecha, Nodo } from './DiagramaPlan';
+import { COLUMNA, calcularPosiciones, formatearFilas } from './geometriaPlan';
+
+/*
+ * Captura de un hallazgo del plan, como la que se pega en el informe: un recorte
+ * del diagrama alrededor del operador (enmarcado en verde) con el recuadro de
+ * advertencias encima y los valores importantes resaltados en amarillo, igual
+ * que el tooltip de SSMS / Plan Explorer. Se dibuja como SVG y se pasa a PNG.
+ */
+
+const FUENTE = '"Segoe UI", Arial, sans-serif';
+const TAMANO = 12;
+const ALTO_LINEA = 17;
+const ANCHO_RECUADRO = 560;
+const RELLENO = 10;
+const ANCHO_RECORTE = COLUMNA * 5;
+const ALTO_RECORTE = 172;
+const ALTO_PESTANA = 26;
+const SEPARACION = 18;
+const MAXIMO_NODOS = 4;
+const ESCALA = 2;
+
+// Los mismos colores del diagrama (tema claro): la imagen no lee el CSS de la página.
+const ESTILOS = `
+  text { font-family: ${FUENTE}; }
+  .plan-flecha polyline { stroke: #6d8496; }
+  .plan-flecha polygon { fill: #6d8496; }
+  .plan-filas { fill: #45454f; font-size: 12px; }
+  .plan-costo { fill: #1d1d24; font-size: 13px; font-weight: 700; }
+  .plan-costo-pastilla rect { fill: #f7891f; }
+  .plan-costo-pastilla.alto rect { fill: #e0101e; }
+  .plan-costo-pastilla text { fill: #ffffff; font-size: 12.5px; font-weight: 600; }
+  .plan-icono-fondo { fill: #ffffff; }
+  .plan-icono { color: #46647c; }
+  .plan-nodo.activo .plan-icono-fondo { stroke: #36c23a; stroke-width: 2.5; }
+  .plan-alerta polygon { fill: #ffc400; stroke: #9a6a00; stroke-width: 1; }
+  .plan-alerta text { fill: #3d2b00; font-size: 13px; font-weight: 800; }
+  .plan-resaltado { fill: #fff27a; }
+  .plan-nombre { fill: #1d1d24; font-size: 12.5px; font-weight: 700; }
+  .plan-detalle { fill: #45454f; font-size: 12px; }
+`;
+
+let contexto;
+function medir(texto, negrita = false) {
+  contexto ??= document.createElement('canvas').getContext('2d');
+  contexto.font = `${negrita ? '700 ' : ''}${TAMANO}px ${FUENTE}`;
+  return contexto.measureText(texto).width;
+}
+
+function escapar(texto) {
+  return String(texto).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** Parte un texto en trozos normales y resaltados, y los acomoda en líneas del ancho dado. */
+function acomodar(texto, resaltados, ancho) {
+  const partes = resaltados.filter(Boolean);
+  const patron = partes.length
+    ? new RegExp(`(${partes.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`)
+    : null;
+  const trozos = (patron ? texto.split(patron) : [texto])
+    .filter(Boolean)
+    .flatMap((trozo) => {
+      const resaltado = partes.includes(trozo);
+      return trozo.split(/(?<= )/).map((palabra) => ({ texto: palabra, resaltado }));
+    });
+
+  const lineas = [[]];
+  let usado = 0;
+  for (const trozo of trozos) {
+    let { texto: resto } = trozo;
+    while (resto) {
+      const espacio = ancho - usado;
+      let pedazo = resto;
+      // Una «palabra» más larga que la línea (p. ej. una expresión sin espacios) se corta por caracteres.
+      while (medir(pedazo) > ancho && pedazo.length > 1) pedazo = pedazo.slice(0, -1);
+      if (medir(pedazo) > espacio && usado > 0) {
+        lineas.push([]);
+        usado = 0;
+        continue;
+      }
+      lineas.at(-1).push({ texto: pedazo, resaltado: trozo.resaltado, x: usado });
+      usado += medir(pedazo);
+      resto = resto.slice(pedazo.length);
+    }
+  }
+  return lineas;
+}
+
+/** Contenido del recuadro: advertencias del operador o, si no tiene, sus datos principales. */
+function contenidoRecuadro(nodo) {
+  const grupos = [];
+  if (nodo.advertencias.length) {
+    grupos.push({ titulo: 'Warnings:', items: nodo.advertencias });
+  }
+  if (nodo.conversiones?.length) {
+    grupos.push({
+      titulo: 'Conversiones implícitas:',
+      items: nodo.conversiones.map((texto) => ({ texto, resaltados: ['CONVERT_IMPLICIT'] })),
+    });
+  }
+  const datos = [
+    nodo.padre !== null && `Costo: ${nodo.costoPct.toFixed(1)}%`,
+    nodo.filasEstimadas != null && `Filas estimadas: ${formatearFilas(nodo.filasEstimadas)}`,
+    nodo.filasReales != null && `Filas reales: ${formatearFilas(nodo.filasReales)}`,
+    nodo.lecturas && `Lecturas lógicas: ${formatearFilas(nodo.lecturas)}`,
+  ].filter(Boolean);
+  if (datos.length) grupos.push({ titulo: null, items: [{ texto: datos.join('   ·   '), resaltados: [] }] });
+  return grupos;
+}
+
+/** Recuadro de advertencias en SVG, dibujado desde (0, 0); devuelve su marcado, ancho y alto. */
+function recuadro(nodo) {
+  const x = 0;
+  const y = 0;
+  const anchoTexto = ANCHO_RECUADRO - RELLENO * 2;
+  const titulo = [nodo.padre === null ? nodo.fisica.toUpperCase() : nodo.fisica, nodo.objeto, nodo.indice]
+    .filter(Boolean).join('  ');
+  const filas = [{ tipo: 'titulo', texto: titulo }];
+  for (const grupo of contenidoRecuadro(nodo)) {
+    if (grupo.titulo) filas.push({ tipo: 'grupo', texto: grupo.titulo });
+    for (const item of grupo.items) {
+      for (const linea of acomodar(item.texto, item.resaltados ?? [], anchoTexto)) filas.push({ tipo: 'linea', linea });
+    }
+  }
+  const alto = RELLENO * 2 + filas.length * ALTO_LINEA;
+  // Tan ancho como su línea más larga: un recuadro corto tapa menos el diagrama.
+  const anchoLinea = (fila) => (fila.tipo === 'linea'
+    ? Math.max(0, ...fila.linea.map((trozo) => trozo.x + medir(trozo.texto.trimEnd())))
+    : medir(fila.texto, true));
+  const ancho = Math.min(ANCHO_RECUADRO, Math.ceil(Math.max(...filas.map(anchoLinea))) + RELLENO * 2);
+  let marcado = `<rect x="${x}" y="${y}" width="${ancho}" height="${alto}" fill="#f4f7fa" stroke="#8fa3b5"/>`;
+  filas.forEach((fila, indice) => {
+    const base = y + RELLENO + indice * ALTO_LINEA + 12;
+    if (fila.tipo === 'titulo') {
+      marcado += `<text x="${x + RELLENO}" y="${base}" font-size="${TAMANO}" font-weight="700" fill="#1d1d24">${escapar(fila.texto)}</text>`;
+    } else if (fila.tipo === 'grupo') {
+      marcado += `<text x="${x + RELLENO}" y="${base}" font-size="${TAMANO}" font-weight="700" fill="#c4000c">${escapar(fila.texto)}</text>`;
+    } else {
+      fila.linea.forEach((trozo, posicion) => {
+        const tx = x + RELLENO + trozo.x;
+        if (trozo.resaltado && trozo.texto.trim()) {
+          // Si la palabra siguiente también va resaltada, el amarillo cubre el espacio entre ambas.
+          const sigue = fila.linea[posicion + 1]?.resaltado;
+          const ancho = medir(sigue ? trozo.texto : trozo.texto.trimEnd());
+          marcado += `<rect x="${tx}" y="${base - 12}" width="${ancho}" height="16" fill="#fff27a"/>`;
+        }
+        marcado += `<text x="${tx}" y="${base}" font-size="${TAMANO}" fill="#1d1d24" xml:space="preserve">${escapar(trozo.texto)}</text>`;
+      });
+    }
+  });
+  return { marcado, ancho, alto };
+}
+
+/** Recorte del diagrama alrededor de un operador, con el recuadro encima. */
+function bloque(sentencia, nodo, posiciones, ancho, y) {
+  const objetivo = posiciones.get(nodo.id);
+  const maximo = Math.max(...sentencia.nodos.map((n) => n.costoPct), 0);
+  const filasDe = (n) => n.filasReales ?? n.filasEstimadas;
+  const filasMaximas = Math.max(...sentencia.nodos.map((n) => filasDe(n) ?? 0), 1);
+  const recorteX = Math.max(0, Math.min(objetivo.x - COLUMNA * 1.5, ancho - ANCHO_RECORTE));
+  const recorteY = objetivo.y - 72;
+
+  const diagrama = renderToStaticMarkup(
+    <g>
+      {sentencia.nodos.filter((n) => n.padre !== null).map((n) => (
+        <Flecha key={`f-${n.id}`} desde={posiciones.get(n.id)} hasta={posiciones.get(n.padre)} filas={filasDe(n)} filasMaximas={filasMaximas} />
+      ))}
+      {sentencia.nodos.map((n) => (
+        <Nodo
+          key={n.id}
+          nodo={n}
+          posicion={posiciones.get(n.id)}
+          maximo={maximo}
+          activo={n.id === nodo.id}
+          marcado={n.id === nodo.id}
+          onEntrar={() => {}}
+          onSalir={() => {}}
+        />
+      ))}
+    </g>,
+  );
+
+  // El recuadro sale a la derecha del operador; si no entra en el recorte, a su izquierda.
+  const xOperador = objetivo.x - recorteX;
+  const { marcado: contenidoRecuadroSvg, ancho: anchoRecuadro, alto } = recuadro(nodo);
+  const xRecuadro = xOperador + 36 + anchoRecuadro <= ANCHO_RECORTE
+    ? xOperador + 36
+    : Math.max(4, xOperador - 36 - anchoRecuadro);
+  const marcadoRecuadro = `<g transform="translate(${xRecuadro} ${y + 4})">${contenidoRecuadroSvg}</g>`;
+  const yDiagrama = y + Math.max(alto - 46, 0);
+  const anchoBloque = Math.max(ANCHO_RECORTE, xRecuadro + anchoRecuadro + 8);
+  const marcado = `
+    <svg x="0" y="${yDiagrama}" width="${ANCHO_RECORTE}" height="${ALTO_RECORTE}"
+         viewBox="${recorteX} ${recorteY} ${ANCHO_RECORTE} ${ALTO_RECORTE}">${diagrama}</svg>
+    <rect x="0.5" y="${yDiagrama + 0.5}" width="${anchoBloque - 1}" height="${ALTO_RECORTE - 1}" fill="none" stroke="#c9d3dc"/>
+    ${marcadoRecuadro}`;
+  return { marcado, alto: yDiagrama - y + ALTO_RECORTE, ancho: anchoBloque };
+}
+
+/**
+ * Arma la imagen PNG de los operadores de un hallazgo (hasta 4, uno debajo de otro).
+ * Devuelve { blob, url }.
+ */
+export async function crearCapturaPlan({ sentencia, nodoIds, archivo }) {
+  const { posiciones, ancho } = calcularPosiciones(sentencia.nodos);
+  const nodos = nodoIds
+    .map((id) => sentencia.nodos.find((n) => n.id === id))
+    .filter(Boolean)
+    .slice(0, MAXIMO_NODOS);
+  if (!nodos.length) throw new Error('No se encontró el operador en el diagrama.');
+
+  let y = ALTO_PESTANA + 8;
+  let anchoTotal = ANCHO_RECORTE;
+  const bloques = nodos.map((nodo) => {
+    const resultado = bloque(sentencia, nodo, posiciones, ancho, y);
+    y += resultado.alto + SEPARACION;
+    anchoTotal = Math.max(anchoTotal, resultado.ancho);
+    return resultado.marcado;
+  });
+  const altoTotal = y - SEPARACION + 8;
+  const pestana = `${archivo || 'plan.sqlplan'} · Consulta ${sentencia.numero}`;
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${anchoTotal * ESCALA}" height="${altoTotal * ESCALA}"
+      viewBox="0 0 ${anchoTotal} ${altoTotal}">
+    <style>${ESTILOS}</style>
+    <rect width="100%" height="100%" fill="#ffffff"/>
+    <rect x="0" y="0" width="${Math.min(medir(pestana, true) + 44, anchoTotal)}" height="${ALTO_PESTANA}" fill="#2d2d30"/>
+    <rect x="12" y="8" width="10" height="10" fill="none" stroke="#d4d4d4" stroke-width="1.4"/>
+    <text x="30" y="17.5" font-size="${TAMANO}" font-weight="700" fill="#ffffff">${escapar(pestana)}</text>
+    ${bloques.join('')}
+  </svg>`;
+
+  const imagen = new Image();
+  imagen.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  await imagen.decode();
+  const lienzo = document.createElement('canvas');
+  lienzo.width = anchoTotal * ESCALA;
+  lienzo.height = altoTotal * ESCALA;
+  lienzo.getContext('2d').drawImage(imagen, 0, 0);
+  const blob = await new Promise((resolver, rechazar) => {
+    lienzo.toBlob((resultado) => (resultado ? resolver(resultado) : rechazar(new Error('No se pudo crear la imagen.'))), 'image/png');
+  });
+  return { blob, url: URL.createObjectURL(blob) };
+}

@@ -1,9 +1,8 @@
 import { createElement, useMemo, useRef, useState } from 'react';
-import {
-  ArrowDownAZ, ArrowUpToLine, Box, Calculator, Combine, FileOutput, Filter, Hash, KeyRound, Layers, ListMinus,
-  ListPlus, Network, PencilLine, Repeat, ScanLine, Search, Sigma, Split, Table2,
-} from 'lucide-react';
 import { EncabezadoSeccion } from '../../components/EncabezadoSeccion';
+import {
+  ICONO, MAX_TEXTO, calcularPosiciones, formatearFilas, iconoDe, recortar, tonoCosto,
+} from './geometriaPlan';
 
 /*
  * Diagrama del plan al estilo de SQL Sentry Plan Explorer: el resultado a la
@@ -13,84 +12,7 @@ import { EncabezadoSeccion } from '../../components/EncabezadoSeccion';
  * con advertencias se resaltan en amarillo con su triángulo.
  */
 
-const COLUMNA = 168;
-const FILA = 148;
-const MARGEN = 28;
-const ICONO = 40;
-const MAX_TEXTO = 24;
-
-const ICONOS = [
-  [/^(select|insert|update|delete|merge)$/i, FileOutput],
-  [/seek/i, Search],
-  [/scan/i, ScanLine],
-  [/lookup/i, KeyRound],
-  [/nested loops/i, Repeat],
-  [/hash match/i, Hash],
-  [/merge join/i, Combine],
-  [/sort/i, ArrowDownAZ],
-  [/aggregate/i, Sigma],
-  [/compute scalar/i, Calculator],
-  [/filter/i, Filter],
-  [/spool/i, Layers],
-  [/parallelism/i, Split],
-  [/top/i, ArrowUpToLine],
-  [/insert/i, ListPlus],
-  [/delete/i, ListMinus],
-  [/update/i, PencilLine],
-  [/concatenation|sequence/i, Network],
-  [/constant/i, Box],
-];
-
-function iconoDe(fisica) {
-  return ICONOS.find(([patron]) => patron.test(fisica))?.[1] ?? Table2;
-}
-
-function recortar(texto) {
-  return texto.length > MAX_TEXTO ? `${texto.slice(0, MAX_TEXTO - 1)}…` : texto;
-}
-
-function formatearFilas(valor) {
-  return valor === null || valor === undefined ? '' : Math.round(valor).toLocaleString('en-US');
-}
-
-/** Posición de cada nodo: el primer hijo en la misma fila, los demás debajo (como SSMS). */
-function calcularPosiciones(nodos) {
-  const hijos = new Map(nodos.map((nodo) => [nodo.id, []]));
-  for (const nodo of nodos) if (nodo.padre !== null) hijos.get(nodo.padre)?.push(nodo);
-  const posiciones = new Map();
-  let siguienteFila = 0;
-  const ubicar = (nodo, columna) => {
-    const propios = hijos.get(nodo.id) ?? [];
-    let fila;
-    if (!propios.length) {
-      fila = siguienteFila;
-      siguienteFila += 1;
-    } else {
-      propios.forEach((hijo, indice) => {
-        const filaHijo = ubicar(hijo, columna + 1);
-        if (indice === 0) fila = filaHijo;
-      });
-    }
-    posiciones.set(nodo.id, {
-      x: MARGEN + columna * COLUMNA + COLUMNA / 2,
-      y: MARGEN + fila * FILA + 52,
-    });
-    return fila;
-  };
-  const raiz = nodos.find((nodo) => nodo.padre === null);
-  if (raiz) ubicar(raiz, 0);
-  const columnas = Math.max(...[...posiciones.values()].map((p) => p.x), 0);
-  return { posiciones, ancho: columnas + COLUMNA / 2 + MARGEN, alto: MARGEN * 2 + siguienteFila * FILA };
-}
-
-/** Rojo para los operadores más caros, naranja para los que pesan al menos la mitad del mayor. */
-function tonoCosto(costo, maximo) {
-  if (maximo >= 5 && costo >= maximo * 0.9) return 'alto';
-  if (costo >= 1 && costo >= maximo * 0.5) return 'medio';
-  return 'normal';
-}
-
-function Flecha({ desde, hasta, filas, filasMaximas }) {
+export function Flecha({ desde, hasta, filas, filasMaximas }) {
   const grosor = 1.5 + 7 * (Math.log10((filas ?? 0) + 1) / Math.log10(filasMaximas + 1 || 10));
   const inicio = desde.x - ICONO / 2 - 10;
   const fin = hasta.x + ICONO / 2 + 10;
@@ -112,7 +34,7 @@ function Flecha({ desde, hasta, filas, filasMaximas }) {
   );
 }
 
-function Nodo({ nodo, posicion, maximo, activo, onEntrar, onSalir }) {
+export function Nodo({ nodo, posicion, maximo, activo, marcado = false, onEntrar, onSalir }) {
   const tono = tonoCosto(nodo.costoPct, maximo);
   const conAdvertencia = nodo.advertencias.length > 0;
   const nombre = nodo.padre === null ? nodo.fisica.toUpperCase() : nodo.fisica;
@@ -153,7 +75,7 @@ function Nodo({ nodo, posicion, maximo, activo, onEntrar, onSalir }) {
           <text x={x + 16} y={y - 9} textAnchor="middle">!</text>
         </g>
       )}
-      {conAdvertencia && (
+      {(conAdvertencia || marcado) && (
         <rect x={x - anchoNombre / 2} y={y + ICONO / 2 + 6} width={anchoNombre} height={21} rx={10.5} className="plan-resaltado" />
       )}
       <text x={x} y={y + ICONO / 2 + 21} textAnchor="middle" className="plan-nombre">
@@ -171,7 +93,7 @@ function Nodo({ nodo, posicion, maximo, activo, onEntrar, onSalir }) {
 }
 
 /** Texto con las partes importantes resaltadas en amarillo (como en las capturas del informe). */
-function TextoResaltado({ texto, resaltados }) {
+export function TextoResaltado({ texto, resaltados }) {
   const partes = resaltados.filter(Boolean);
   if (!partes.length) return texto;
   const patron = new RegExp(`(${partes.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`);

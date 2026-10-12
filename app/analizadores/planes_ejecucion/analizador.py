@@ -255,8 +255,25 @@ def _agrupar(observaciones: List[_Observacion], varias_consultas: bool) -> List[
                 detalle = "; ".join(f"{hecho[:1].lower()}{hecho[1:-1]} ({donde})" for hecho, donde in casos)
                 intro = f"Se encontraron {len(casos)} observaciones de este tipo"
             mensaje = f"{intro}, en {encabezado}: {detalle}. {primera.accion}"
-        hallazgos.append(_hallazgo(regla, primera.severidad, mensaje))
+        hallazgo = _hallazgo(regla, primera.severidad, mensaje)
+        # Nodos del diagrama donde está cada caso: la interfaz arma con ellos la captura del plan.
+        hallazgo.nodos = [
+            {"consulta": o.operador.consulta, "nodo": o.operador.nodo_id}
+            for grupo in por_hecho.values() for o in grupo
+        ]
+        hallazgos.append(hallazgo)
     return hallazgos
+
+
+def _consulta_con_memoria(raiz: ET.Element) -> int:
+    """Número de la primera sentencia (StmtSimple) que trae MemoryGrantInfo."""
+    numero = 0
+    for elemento in raiz.iter():
+        if _nombre_local(elemento) == "StmtSimple":
+            numero += 1
+            if any(_nombre_local(e) == "MemoryGrantInfo" for e in elemento.iter()):
+                return numero
+    return 1
 
 
 def analizar_plan_ejecucion(
@@ -277,11 +294,13 @@ def analizar_plan_ejecucion(
         and memoria.memoria_maxima_utilizada_kb > 0
         and memoria.memoria_concedida_kb >= memoria.memoria_maxima_utilizada_kb * configuracion.memoria_sobrante_factor
     ):
-        hallazgos.append(_hallazgo(
+        hallazgo = _hallazgo(
             "MEMORIA_CONCEDIDA_SOBREDIMENSIONADA",
             Severidad.MEDIO,
             f"La consulta reservó {memoria.memoria_concedida_kb:.0f} KB de memoria pero solo usó "
             f"{memoria.memoria_maxima_utilizada_kb:.0f} KB, quitándosela a otras consultas. Suele deberse a "
             f"estadísticas desactualizadas o a columnas de texto demasiado grandes.",
-        ))
+        )
+        hallazgo.nodos = [{"consulta": _consulta_con_memoria(raiz), "nodo": "raiz"}]  # la memoria es de la sentencia
+        hallazgos.append(hallazgo)
     return hallazgos, operadores, memoria
