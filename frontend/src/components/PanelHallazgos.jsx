@@ -147,6 +147,11 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones }) {
         ) : (
           <p className="finding-message"><MensajeResaltado texto={ocurrencias[0]} /></p>
         )}
+        {solucion && (
+          <p className="finding-fix">
+            <span className="finding-label">Qué hacer:</span> <MensajeResaltado texto={solucion} />
+          </p>
+        )}
         {hallazgo.codigo && (
           <pre className="finding-code">
             {tokenizarSql(hallazgo.codigo).map((fragmento, indice) => (
@@ -155,11 +160,6 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones }) {
                 : <span key={indice} className={`tok-${fragmento.tipo}`}>{fragmento.valor}</span>
             ))}
           </pre>
-        )}
-        {solucion && (
-          <p className="finding-fix">
-            <span className="finding-label">Qué hacer:</span> <MensajeResaltado texto={solucion} />
-          </p>
         )}
         {acciones?.(hallazgo)}
       </div>
