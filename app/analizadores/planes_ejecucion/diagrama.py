@@ -53,8 +53,7 @@ def _kb(valor: Optional[float]) -> str:
     if valor is None:
         return "?"
     if valor >= 1024:
-        megas = valor / 1024
-        return f"{megas:,.0f} MB" if megas >= 100 else f"{megas:,.1f} MB"
+        return f"{valor / 1024:,.0f} MB"  # como SSMS: «899 MB», «3 MB»
     return f"{valor:,.0f} KB"
 
 

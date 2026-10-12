@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { createElement, useMemo, useRef, useState } from 'react';
 import {
   ArrowDownAZ, ArrowUpToLine, Box, Calculator, Combine, FileOutput, Filter, Hash, KeyRound, Layers, ListMinus,
   ListPlus, Network, PencilLine, Repeat, ScanLine, Search, Sigma, Split, Table2,
@@ -113,7 +113,6 @@ function Flecha({ desde, hasta, filas, filasMaximas }) {
 }
 
 function Nodo({ nodo, posicion, maximo, activo, onEntrar, onSalir }) {
-  const Icono = iconoDe(nodo.fisica);
   const tono = tonoCosto(nodo.costoPct, maximo);
   const conAdvertencia = nodo.advertencias.length > 0;
   const nombre = nodo.padre === null ? nodo.fisica.toUpperCase() : nodo.fisica;
@@ -145,7 +144,9 @@ function Nodo({ nodo, posicion, maximo, activo, onEntrar, onSalir }) {
         )
       )}
       <rect x={x - ICONO / 2 - 4} y={y - ICONO / 2 - 4} width={ICONO + 8} height={ICONO + 8} className="plan-icono-fondo" />
-      <Icono x={x - ICONO / 2} y={y - ICONO / 2} width={ICONO} height={ICONO} strokeWidth={1.4} className="plan-icono" />
+      {createElement(iconoDe(nodo.fisica), {
+        x: x - ICONO / 2, y: y - ICONO / 2, width: ICONO, height: ICONO, strokeWidth: 1.4, className: 'plan-icono',
+      })}
       {conAdvertencia && (
         <g className="plan-alerta">
           <polygon points={`${x + 16},${y - 28} ${x + 29},${y - 6} ${x + 3},${y - 6}`} />
@@ -196,7 +197,7 @@ function DetalleNodo({ nodo, posicion }) {
       {(nodo.objeto || nodo.indice) && <p className="plan-detalle-objeto">{[nodo.objeto, nodo.indice].filter(Boolean).join('.')}</p>}
       {nodo.advertencias.length > 0 && (
         <div className="plan-detalle-alertas">
-          <p className="plan-detalle-alertas-titulo">Advertencias:</p>
+          <p className="plan-detalle-alertas-titulo">Warnings:</p>
           {nodo.advertencias.map((advertencia) => (
             <p key={advertencia.texto}><TextoResaltado texto={advertencia.texto} resaltados={advertencia.resaltados} /></p>
           ))}
@@ -219,7 +220,10 @@ function DetalleNodo({ nodo, posicion }) {
   );
 }
 
-const ZOOMS = [0.5, 0.65, 0.8, 1, 1.2];
+const ANCHO_DETALLE = 480;
+const ZOOM_MINIMO = 0.25;
+const ZOOM_MAXIMO = 1.5;
+const PASO_ZOOM = 0.1;
 
 /** Diagrama de una sentencia del plan con zoom y detalle al pasar el mouse. */
 function Diagrama({ sentencia }) {
@@ -229,26 +233,35 @@ function Diagrama({ sentencia }) {
   const maximo = Math.max(...sentencia.nodos.map((nodo) => nodo.costoPct), 0);
   const filasDe = (nodo) => nodo.filasReales ?? nodo.filasEstimadas;
   const filasMaximas = Math.max(...sentencia.nodos.map((nodo) => filasDe(nodo) ?? 0), 1);
-  const indiceZoom = ZOOMS.indexOf(zoom);
+  const lienzoRef = useRef(null);
+  const cambiarZoom = (valor) => setZoom(Math.round(Math.min(Math.max(valor, ZOOM_MINIMO), ZOOM_MAXIMO) * 100) / 100);
+  // «Ajustar»: el plan completo a lo ancho del recuadro.
+  const ajustar = () => cambiarZoom(((lienzoRef.current?.clientWidth ?? ancho) - 24) / ancho);
 
   const alEntrar = (nodo, evento) => {
     const lienzo = evento.currentTarget.ownerSVGElement.parentElement;
     const caja = evento.currentTarget.getBoundingClientRect();
     const base = lienzo.getBoundingClientRect();
-    setEnfocado({
-      nodo,
-      posicion: { left: caja.right - base.left + lienzo.scrollLeft + 8, top: caja.top - base.top + lienzo.scrollTop },
-    });
+    // A la derecha del operador; si no entra en el recuadro visible, a su izquierda.
+    const anchoDetalle = Math.min(ANCHO_DETALLE, lienzo.clientWidth - 16);
+    let left = caja.right - base.left + lienzo.scrollLeft + 8;
+    if (left + anchoDetalle > lienzo.scrollLeft + lienzo.clientWidth) {
+      left = Math.max(caja.left - base.left + lienzo.scrollLeft - anchoDetalle - 8, lienzo.scrollLeft + 8);
+    }
+    setEnfocado({ nodo, posicion: { left, top: caja.top - base.top + lienzo.scrollTop } });
   };
 
   return (
     <div className="plan-diagrama">
       <div className="plan-zoom" role="group" aria-label="Zoom del diagrama">
-        <button type="button" onClick={() => setZoom(ZOOMS[Math.max(indiceZoom - 1, 0)])} aria-label="Alejar">−</button>
-        <span>{Math.round(zoom * 100)}%</span>
-        <button type="button" onClick={() => setZoom(ZOOMS[Math.min(indiceZoom + 1, ZOOMS.length - 1)])} aria-label="Acercar">+</button>
+        <span className="plan-zoom-etiqueta">Zoom</span>
+        <button type="button" onClick={() => cambiarZoom(zoom - PASO_ZOOM)} aria-label="Alejar">−</button>
+        <span className="plan-zoom-valor">{Math.round(zoom * 100)}%</span>
+        <button type="button" onClick={() => cambiarZoom(zoom + PASO_ZOOM)} aria-label="Acercar">+</button>
+        <button type="button" className="plan-zoom-texto" onClick={ajustar}>Ajustar</button>
+        <button type="button" className="plan-zoom-texto" onClick={() => cambiarZoom(1)}>100%</button>
       </div>
-      <div className="plan-lienzo">
+      <div className="plan-lienzo" ref={lienzoRef}>
         <svg
           width={ancho * zoom}
           height={alto * zoom}

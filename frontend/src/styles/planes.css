@@ -343,16 +343,13 @@
 }
 
 .plan-zoom {
-  position: absolute;
-  z-index: 2;
-  top: 10px;
-  right: 10px;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
-  padding: 4px 6px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
   color: var(--text-secondary);
   font-size: 0.76rem;
   font-weight: 600;
@@ -367,6 +364,25 @@
   font-size: 0.95rem;
   line-height: 1;
   cursor: pointer;
+}
+
+.plan-zoom-etiqueta {
+  margin-right: auto;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  font-size: 0.7rem;
+}
+
+.plan-zoom-valor {
+  min-width: 40px;
+  text-align: center;
+}
+
+.plan-zoom button.plan-zoom-texto {
+  width: auto;
+  padding: 0 10px;
+  font-size: 0.74rem;
+  font-weight: 600;
 }
 
 .plan-zoom button:hover {
@@ -471,7 +487,7 @@
 .plan-detalle-flotante {
   position: absolute;
   z-index: 3;
-  width: 420px;
+  width: 480px;
   max-width: calc(100% - 16px);
   padding: 10px 12px;
   border: 1px solid #8fa3b5;
