@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { SEVERIDADES, etiquetaSeveridad, nombreRegla } from '../config/reglas';
+import { tokenizarSql } from '../utils/resaltadoSql';
 import { contarPorSeveridad, desglosarGrupo, normalizarSeveridad, ordenarHallazgos, separarMensaje } from '../utils/hallazgos';
 import { EncabezadoSeccion } from './EncabezadoSeccion';
 import { EstadoInicial } from './EstadoInicial';
@@ -73,7 +74,9 @@ function textoParaCopiar(hallazgo, mostrarLinea) {
   const severidad = etiquetaSeveridad(normalizarSeveridad(hallazgo.severidad));
   const seccion = SECCIONES[hallazgo.seccion];
   const ubicacion = mostrarLinea ? ` (${seccion ? `${seccion}, línea` : 'línea'} ${hallazgo.linea || 1})` : '';
-  return `[${severidad}] ${nombreRegla(hallazgo.regla)}${ubicacion}: ${hallazgo.mensaje}`;
+  const texto = `[${severidad}] ${nombreRegla(hallazgo.regla)}${ubicacion}: ${hallazgo.mensaje}`;
+  // Si trae un bloque de código (p. ej. la consulta más lenta del plan), se copia debajo del mensaje.
+  return hallazgo.codigo ? `${texto}\n\n${hallazgo.codigo}` : texto;
 }
 
 async function copiar(texto) {
@@ -143,6 +146,15 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones }) {
           </ul>
         ) : (
           <p className="finding-message"><MensajeResaltado texto={ocurrencias[0]} /></p>
+        )}
+        {hallazgo.codigo && (
+          <pre className="finding-code">
+            {tokenizarSql(hallazgo.codigo).map((fragmento, indice) => (
+              fragmento.tipo === 'texto'
+                ? fragmento.valor
+                : <span key={indice} className={`tok-${fragmento.tipo}`}>{fragmento.valor}</span>
+            ))}
+          </pre>
         )}
         {solucion && (
           <p className="finding-fix">

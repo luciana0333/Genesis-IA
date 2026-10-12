@@ -216,6 +216,7 @@ class GenesisHandler(SimpleHTTPRequestHandler):
                 'regla': hallazgo.regla,
                 'mensaje': hallazgo.mensaje,
                 'nodos': getattr(hallazgo, 'nodos', []),
+                'codigo': getattr(hallazgo, 'codigo', None),
             })
 
         operadores_serializados = [

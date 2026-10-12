@@ -900,3 +900,24 @@
   background: rgba(227, 6, 19, 0.1);
   color: var(--red-main);
 }
+
+/* Bloque de código dentro de un hallazgo (p. ej. la consulta más lenta del plan), como «Text Data». */
+.finding-code {
+  max-height: 260px;
+  margin: 10px 0 4px;
+  overflow: auto;
+  padding: 10px 14px;
+  border: 1px solid #ecd9e1;
+  background: #f9eef3;
+  color: #000000;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre;
+  tab-size: 4;
+}
+
+.finding-code .tok-clave { color: #0000ff; font-weight: 400; }
+.finding-code .tok-variable { color: #000000; }
+.finding-code .tok-cadena { color: #ff0000; }
+.finding-code .tok-comentario { color: #008000; font-style: normal; }
