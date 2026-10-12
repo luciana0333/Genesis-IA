@@ -52,9 +52,8 @@ def _conversiones_con_alerta(sentencias: List[Dict]) -> List[Dict]:
 
 def _ubicacion(caso: Dict, varias_consultas: bool) -> str:
     nodo = caso["nodo"]
+    # Sin el número de nodo (NodeId): confunde en el informe; la imagen ya señala el operador.
     lugar = f"el operador {_nombre_operador(nodo)}"
-    if nodo["padre"] is not None:
-        lugar += f" (nodo {nodo['id']})"
     if varias_consultas:
         lugar += f" de la consulta {caso['consulta']}"
     return lugar
@@ -135,7 +134,7 @@ def _lectura_residual(sentencias: List[Dict]) -> List[Hallazgo]:
     def describir(caso: Dict) -> str:
         nodo = caso["nodo"]
         tabla = f"la tabla {nodo['objeto']}" if nodo.get("objeto") else "una tabla"
-        lugar = f"{tabla} ({_nombre_operador(nodo)}, nodo {nodo['id']}"
+        lugar = f"{tabla} ({_nombre_operador(nodo)}"
         lugar += f", consulta {caso['consulta']})" if varias_consultas else ")"
         return (f"{lugar}, que se lee en su totalidad o casi en su totalidad: se leen {_cifra(caso['leidas'])} filas "
                 f"y solo se devuelven {_cifra(caso['devueltas'])}")

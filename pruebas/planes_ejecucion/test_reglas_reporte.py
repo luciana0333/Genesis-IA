@@ -57,7 +57,7 @@ class TestConversionImplicitaReporte(unittest.TestCase):
 
     def test_conversion_implicita_con_alerta_en_un_compute_scalar(self):
         hallazgos = _hallazgos(_plan("", advertencias_compute=IMPLICITA_CARDINALIDAD))
-        self.assertIn("en el operador Compute Scalar (nodo 0)", hallazgos[0].mensaje)
+        self.assertIn("en el operador Compute Scalar:", hallazgos[0].mensaje)
         self.assertIn("altera la estimación de filas (CardinalityEstimate)", hallazgos[0].mensaje)
         self.assertEqual(hallazgos[0].nodos, [{"consulta": 1, "nodo": "0"}])
 
@@ -66,7 +66,7 @@ class TestConversionImplicitaReporte(unittest.TestCase):
         self.assertEqual(len(hallazgos), 1)
         self.assertTrue(hallazgos[0].mensaje.startswith("Se identificaron 2 conversiones implícitas, en la consulta 1: "))
         self.assertIn("1: Operador SELECT: '[DC].[nDocTpo]=CONVERT_IMPLICIT(", hallazgos[0].mensaje)
-        self.assertIn("; Operador Compute Scalar (nodo 0): 'CONVERT_IMPLICIT(", hallazgos[0].mensaje)
+        self.assertIn("; Operador Compute Scalar: 'CONVERT_IMPLICIT(", hallazgos[0].mensaje)
         self.assertEqual(len(hallazgos[0].nodos), 2)
         self.assertTrue(hallazgos[0].mensaje.endswith(
             "Se recomienda corregir las alertas por conversiones implícitas revisándolas dentro del procedimiento, "
