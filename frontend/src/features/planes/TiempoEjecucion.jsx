@@ -1,122 +1,211 @@
+import { useState } from 'react';
 import { LIMITES_TIEMPO_PLAN, NOMBRES_AREA_PLAN } from '../../config/planes';
 
 /*
- * Tarjeta «Tiempo de ejecución» con velocímetro: suma la duración (Duration del
- * XML, en milisegundos) de todas las consultas del plan, la pasa a segundos y la
- * compara con el límite del área elegida (Reportes o Negocio).
+ * Tarjeta «Tiempo de ejecución» con velocímetro de instrumento clásico: suma la
+ * duración (Duration del XML, en milisegundos) de todas las consultas del plan,
+ * la pasa a segundos y la compara con el límite del área (Reportes o Negocio).
+ * El límite se escribe o ajusta en la tarjeta y se guarda por área en este navegador.
  */
 
-const CENTRO_X = 115;
-const CENTRO_Y = 120;
-const RADIO = 90;
+const ANCHO = 280;
+const CX = 140;
+const CY = 150;
+const R = 110;
+const MARCAS = 30; // marcas finas; cada 5, una gruesa con su número
+const CLAVE_LIMITES = 'genesis.limitesTiempoPlan';
 
-function segundos(ms) {
-  const valor = ms / 1000;
-  return `${valor.toLocaleString('en-US', { maximumFractionDigits: valor < 10 ? 2 : 1, minimumFractionDigits: valor < 10 ? 2 : 1 })} s`;
+function leerLimites() {
+  try {
+    return { ...LIMITES_TIEMPO_PLAN, ...JSON.parse(localStorage.getItem(CLAVE_LIMITES) ?? '{}') };
+  } catch {
+    return { ...LIMITES_TIEMPO_PLAN };
+  }
 }
 
-/** Punto del arco (de izquierda a derecha) para una fracción entre 0 y 1. */
-function punto(fraccion) {
+function guardarLimites(limites) {
+  try {
+    localStorage.setItem(CLAVE_LIMITES, JSON.stringify(limites));
+  } catch {
+    // Sin almacenamiento (modo privado): el límite vale solo mientras la página esté abierta.
+  }
+}
+
+function seg(valor) {
+  const decimales = valor < 10 ? 2 : 1;
+  return `${valor.toLocaleString('en-US', { minimumFractionDigits: decimales, maximumFractionDigits: decimales })} s`;
+}
+
+/** Punto del arco para una fracción entre 0 (izquierda) y 1 (derecha). */
+function punto(fraccion, radio = R) {
   const angulo = Math.PI * (1 - Math.min(Math.max(fraccion, 0), 1));
-  return { x: CENTRO_X + RADIO * Math.cos(angulo), y: CENTRO_Y - RADIO * Math.sin(angulo) };
+  return [CX + radio * Math.cos(angulo), CY - radio * Math.sin(angulo)];
 }
 
-function arco(desde, hasta) {
-  const a = punto(desde);
-  const b = punto(hasta);
-  return `M${a.x.toFixed(2)} ${a.y.toFixed(2)} A${RADIO} ${RADIO} 0 0 1 ${b.x.toFixed(2)} ${b.y.toFixed(2)}`;
+function arco(desde, hasta, radio = R) {
+  const [x1, y1] = punto(desde, radio);
+  const [x2, y2] = punto(hasta, radio);
+  return `M${x1.toFixed(1)} ${y1.toFixed(1)} A${radio} ${radio} 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+}
+
+/** Escala «redonda» (6 divisiones de 1, 2, 2.5 o 5 × 10ⁿ) que contenga el valor con holgura. */
+function escalaPara(valor) {
+  const paso = valor / 6;
+  const potencia = 10 ** Math.floor(Math.log10(paso || 1));
+  const redondo = [1, 2, 2.5, 5, 10].find((m) => m * potencia >= paso) * potencia;
+  return redondo * 6;
+}
+
+function etiquetaEscala(valor) {
+  return valor >= 10 ? String(Math.round(valor)) : String(Number(valor.toFixed(2)));
+}
+
+function FlechaLimite({ fraccion }) {
+  const angulo = Math.PI * (1 - fraccion);
+  const [ax, ay] = punto(fraccion, R + 8);
+  const ex = Math.cos(angulo) * 8;
+  const ey = Math.sin(angulo) * 8;
+  const nx = Math.sin(angulo) * 5;
+  const ny = Math.cos(angulo) * 5;
+  return <polygon points={`${ax},${ay} ${ax + ex + nx},${ay - ey + ny} ${ax + ex - nx},${ay - ey - ny}`} className="tiempo-flecha-limite" />;
+}
+
+function Velocimetro({ totalS, limiteS }) {
+  const maximo = escalaPara(Math.max(totalS, limiteS ?? 0) * 1.15);
+  const fTotal = totalS / maximo;
+  const fLimite = limiteS != null ? limiteS / maximo : null;
+  const anguloAguja = Math.PI * (1 - Math.min(fTotal, 1));
+  const [px, py] = punto(fTotal, R - 14);
+  const bx = Math.sin(anguloAguja) * 6;
+  const by = Math.cos(anguloAguja) * 6;
+
+  return (
+    <svg viewBox={`0 0 ${ANCHO} 192`} className="tiempo-velocimetro" role="img">
+      <title>{`Tiempo de ejecución: ${seg(totalS)}${limiteS != null ? ` de ${limiteS} s permitidos` : ''}`}</title>
+      <path d={arco(0, 1)} className="tiempo-banda" />
+      {fLimite != null && fLimite < 1 && <path d={arco(fLimite, 1)} className="tiempo-banda-roja" />}
+      <path d={arco(0, Math.min(fTotal, 1))} className="tiempo-avance" />
+      {Array.from({ length: MARCAS + 1 }, (_, i) => {
+        const f = i / MARCAS;
+        const gruesa = i % 5 === 0;
+        const [x1, y1] = punto(f, R - 9);
+        const [x2, y2] = punto(f, R - (gruesa ? 22 : 16));
+        const roja = fLimite != null && f > fLimite + 1e-9;
+        const [tx, ty] = punto(f, R - 36);
+        return (
+          <g key={i}>
+            <line x1={x1} y1={y1} x2={x2} y2={y2} className={`tiempo-marca${gruesa ? ' gruesa' : ''}${roja ? ' roja' : ''}`} />
+            {gruesa && <text x={tx} y={ty + 4} textAnchor="middle" className="tiempo-escala">{etiquetaEscala(f * maximo)}</text>}
+          </g>
+        );
+      })}
+      {fLimite != null && fLimite <= 1 && <FlechaLimite fraccion={fLimite} />}
+      <polygon points={`${CX + bx},${CY + by} ${px},${py} ${CX - bx},${CY - by}`} className="tiempo-aguja" />
+      <circle cx={CX} cy={CY} r={9} className="tiempo-eje" />
+      <circle cx={CX} cy={CY} r={3} fill="#ffffff" />
+      <rect x={CX - 48} y={162} width={96} height={27} className="tiempo-lectura" />
+      <text x={CX} y={180.5} textAnchor="middle" className="tiempo-lectura-texto">{seg(totalS)}</text>
+    </svg>
+  );
+}
+
+/** Cajita del límite: − / valor / +, editable a mano. */
+function ControlLimite({ nombreArea, limiteS, onCambiar }) {
+  const [texto, setTexto] = useState(limiteS != null ? String(limiteS) : '');
+  const paso = limiteS == null ? 1 : limiteS < 1 ? 0.1 : limiteS < 10 ? 0.5 : 1;
+  const aplicar = (valor) => {
+    const limpio = valor == null || Number.isNaN(valor) || valor <= 0 ? null : Math.round(valor * 100) / 100;
+    setTexto(limpio != null ? String(limpio) : '');
+    onCambiar(limpio);
+  };
+  return (
+    <div className="tiempo-control">
+      <span className="tiempo-etiqueta">Límite {nombreArea}</span>
+      <div className="tiempo-caja">
+        <button type="button" aria-label="Bajar el límite" onClick={() => aplicar((limiteS ?? paso * 2) - paso)}>−</button>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={texto}
+          placeholder="—"
+          aria-label={`Límite de tiempo de ${nombreArea} en segundos`}
+          onChange={(evento) => setTexto(evento.target.value)}
+          onBlur={() => aplicar(texto.trim() === '' ? null : Number(texto.replace(',', '.')))}
+          onKeyDown={(evento) => { if (evento.key === 'Enter') evento.currentTarget.blur(); }}
+        />
+        <span className="tiempo-unidad">s</span>
+        <button type="button" aria-label="Subir el límite" onClick={() => aplicar((limiteS ?? 0) + paso)}>+</button>
+      </div>
+      {limiteS == null && <span className="tiempo-ayuda">Escribe el límite del área para compararlo.</span>}
+    </div>
+  );
 }
 
 export function TiempoEjecucion({ sentencias = [], area }) {
+  const [limites, setLimites] = useState(leerLimites);
   const conTiempo = sentencias.filter((s) => s.duracionMs != null);
   if (!sentencias.length) return null;
 
   const nombreArea = NOMBRES_AREA_PLAN[area] ?? area;
   if (!conTiempo.length) {
     return (
-      <section className="tiempo-plan" aria-label="Tiempo de ejecución">
+      <section className="tiempo-plan tiempo-plan--vacio" aria-label="Tiempo de ejecución">
         <span className="tiempo-etiqueta">Tiempo de ejecución</span>
         <p className="tiempo-texto">El XML no trae tiempos (QueryTimeStats): es un plan estimado. Carga el plan real para medirlo.</p>
       </section>
     );
   }
 
-  const totalMs = conTiempo.reduce((suma, s) => suma + s.duracionMs, 0);
-  const cpuMs = conTiempo.reduce((suma, s) => suma + (s.cpuMs ?? 0), 0);
-  const compilacionMs = sentencias.reduce((suma, s) => suma + (s.compilacionMs ?? 0), 0);
-  const limiteS = LIMITES_TIEMPO_PLAN[area] ?? null;
-  const limiteMs = limiteS != null ? limiteS * 1000 : null;
-  const supera = limiteMs != null && totalMs > limiteMs;
-
-  // Escala del velocímetro: un poco más que el mayor entre el total y el límite.
-  const escala = Math.max(totalMs, limiteMs ?? 0) * 1.15 || 1;
-  const fraccionTotal = totalMs / escala;
-  const fraccionLimite = limiteMs != null ? limiteMs / escala : null;
-  const tramoNormal = fraccionLimite != null ? Math.min(fraccionTotal, fraccionLimite) : fraccionTotal;
-  const marca = fraccionLimite != null ? { a: punto(fraccionLimite), angulo: Math.PI * (1 - fraccionLimite) } : null;
-
+  const totalS = conTiempo.reduce((suma, s) => suma + s.duracionMs, 0) / 1000;
+  const cpuS = conTiempo.reduce((suma, s) => suma + (s.cpuMs ?? 0), 0) / 1000;
+  const limiteS = limites[area] ?? null;
+  const supera = limiteS != null && totalS > limiteS;
   const lenta = conTiempo.reduce((mayor, s) => (s.duracionMs > mayor.duracionMs ? s : mayor), conTiempo[0]);
-  let resumen;
-  if (limiteMs == null) resumen = 'SIN LÍMITE DEFINIDO';
-  else if (supera) resumen = `${(totalMs / limiteMs).toFixed(1)}× EL LÍMITE`;
-  else resumen = `${Math.round((totalMs / limiteMs) * 100)}% DEL LÍMITE`;
+
+  const cambiarLimite = (valor) => {
+    const nuevos = { ...limites, [area]: valor };
+    setLimites(nuevos);
+    guardarLimites(nuevos);
+  };
+
+  let sello = null;
+  if (limiteS != null) {
+    sello = supera
+      ? <span className="tiempo-sello supera">Supera el límite · {(totalS / limiteS).toFixed(1)}×</span>
+      : <span className="tiempo-sello">Dentro del límite · {Math.round((totalS / limiteS) * 100)}%</span>;
+  }
+
+  let exceso = '—';
+  if (limiteS != null) exceso = supera ? `+${seg(totalS - limiteS)}` : seg(limiteS - totalS);
 
   return (
     <section className={`tiempo-plan${supera ? ' supera' : ''}`} aria-label="Tiempo de ejecución">
-      <svg viewBox="0 0 230 140" className="tiempo-velocimetro" role="img">
-        <title>{`Tiempo de ejecución: ${segundos(totalMs)}${limiteS != null ? ` de ${limiteS} s permitidos` : ''}`}</title>
-        <path d={arco(0, 1)} className="tiempo-fondo" />
-        {tramoNormal > 0 && <path d={arco(0, tramoNormal)} className="tiempo-normal" />}
-        {supera && <path d={arco(fraccionLimite, fraccionTotal)} className="tiempo-exceso" />}
-        {marca && (
-          <>
-            <line
-              x1={CENTRO_X + (RADIO - 14) * Math.cos(marca.angulo)}
-              y1={CENTRO_Y - (RADIO - 14) * Math.sin(marca.angulo)}
-              x2={CENTRO_X + (RADIO + 14) * Math.cos(marca.angulo)}
-              y2={CENTRO_Y - (RADIO + 14) * Math.sin(marca.angulo)}
-              className="tiempo-marca"
-            />
-            <text
-              x={CENTRO_X + (RADIO + 24) * Math.cos(marca.angulo)}
-              y={CENTRO_Y - (RADIO + 24) * Math.sin(marca.angulo)}
-              textAnchor="middle"
-              className="tiempo-marca-texto"
-            >
-              {`${limiteS} s`}
-            </text>
-          </>
-        )}
-        <text x={CENTRO_X} y={104} textAnchor="middle" className="tiempo-cifra">{segundos(totalMs)}</text>
-        <text x={CENTRO_X} y={124} textAnchor="middle" className="tiempo-pie">{resumen}</text>
-      </svg>
-
-      <div className="tiempo-detalle">
+      <div className="tiempo-esfera">
+        <Velocimetro totalS={totalS} limiteS={limiteS} />
+      </div>
+      <div className="tiempo-lado">
         <div className="tiempo-encabezado">
-          <span className="tiempo-etiqueta">Tiempo de ejecución</span>
-          {limiteMs != null && (
-            <span className={supera ? 'tiempo-sello supera' : 'tiempo-sello'}>
-              {supera ? 'Supera el límite' : 'Dentro del límite'}
-            </span>
-          )}
+          <span className="tiempo-etiqueta">Tiempo de ejecución · {nombreArea}</span>
+          {sello}
         </div>
-        <p className="tiempo-texto">
-          {limiteMs == null
-            ? <>El área <b>{nombreArea}</b> aún no tiene un límite de tiempo definido.</>
-            : <>Límite del área <b>{nombreArea}</b>: {limiteS} s.</>}
-          {' '}
-          {supera && <>El plan lo supera por <b className="tiempo-rojo">{segundos(totalMs - limiteMs)}</b>.</>}
-          {limiteMs != null && !supera && <>Quedan <b>{segundos(limiteMs - totalMs)}</b> de margen.</>}
-        </p>
-        <p className="tiempo-texto">
-          {conTiempo.length === 1
-            ? 'El plan tiene una sola consulta.'
-            : <>Suma {conTiempo.length} consultas; la más lenta es la <b>{lenta.numero}</b> ({segundos(lenta.duracionMs)}).</>}
-        </p>
         <div className="tiempo-datos">
-          <span>CPU <b>{segundos(cpuMs)}</b></span>
-          <span>Compilación <b>{segundos(compilacionMs)}</b></span>
+          <div>
+            <span className="tiempo-etiqueta">{limiteS != null && !supera ? 'Margen' : 'Exceso'}</span>
+            <strong className={supera ? 'rojo' : undefined}>{exceso}</strong>
+          </div>
+          <div>
+            <span className="tiempo-etiqueta">Consultas</span>
+            <strong>
+              {conTiempo.length}
+              {conTiempo.length > 1 && <small> · C{lenta.numero} {seg(lenta.duracionMs / 1000)}</small>}
+            </strong>
+          </div>
+          <div>
+            <span className="tiempo-etiqueta">CPU</span>
+            <strong>{seg(cpuS)}</strong>
+          </div>
         </div>
+        <ControlLimite key={area} nombreArea={nombreArea} limiteS={limiteS} onCambiar={cambiarLimite} />
       </div>
     </section>
   );

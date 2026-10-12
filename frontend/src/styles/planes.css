@@ -757,15 +757,12 @@
   font-weight: 700;
 }
 
-/* Tarjeta «Tiempo de ejecución» con velocímetro (lenguaje CAJA ICA: rojo plano, esquinas rectas). */
+/* Tarjeta «Tiempo de ejecución»: velocímetro de instrumento clásico (CAJA ICA: rojo plano, esquinas rectas). */
 .tiempo-plan {
   display: grid;
-  grid-template-columns: 230px minmax(0, 1fr);
-  gap: 24px;
-  align-items: center;
+  grid-template-columns: 300px minmax(0, 1fr);
   margin-top: 14px;
-  padding: 18px 22px;
-  border: 1px solid var(--border);
+  border: 1px solid #e9e9ee;
   border-top: 3px solid #1d1d24;
   background: #ffffff;
   color: #1d1d24;
@@ -775,67 +772,70 @@
   border-top-color: var(--red-main);
 }
 
+.tiempo-plan--vacio {
+  display: block;
+  padding: 18px 22px;
+}
+
+.tiempo-esfera {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 10px 12px;
+}
+
 .tiempo-velocimetro {
-  width: 230px;
+  width: 280px;
   overflow: visible;
   font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
 }
 
-.tiempo-fondo,
-.tiempo-normal,
-.tiempo-exceso {
-  fill: none;
-  stroke-width: 16;
-}
+.tiempo-banda { fill: none; stroke: #f0f0f3; stroke-width: 10; }
+.tiempo-banda-roja { fill: none; stroke: #fde3e4; stroke-width: 10; }
+.tiempo-avance { fill: none; stroke: #1d1d24; stroke-width: 3; }
+.tiempo-marca { stroke: #4a4a55; stroke-width: 1; }
+.tiempo-marca.gruesa { stroke-width: 2; }
+.tiempo-marca.roja { stroke: var(--red-main); }
+.tiempo-escala { fill: #8a8a96; font-size: 10px; }
+.tiempo-flecha-limite { fill: #1d1d24; }
+.tiempo-aguja { fill: var(--red-main); }
+.tiempo-eje { fill: #1d1d24; }
+.tiempo-lectura { fill: #16161b; }
+.tiempo-lectura-texto { fill: #ffffff; font-size: 15px; font-weight: 600; }
 
-.tiempo-fondo { stroke: #f1f1f4; }
-.tiempo-normal { stroke: #1d1d24; }
-.tiempo-exceso { stroke: var(--red-main); }
-
-.tiempo-marca {
-  stroke: #1d1d24;
-  stroke-width: 2.5;
-}
-
-.tiempo-marca-texto {
-  fill: #777784;
-  font-size: 10px;
-}
-
-.tiempo-cifra {
-  fill: #1d1d24;
-  font-size: 28px;
-  font-weight: 600;
-}
-
-.tiempo-pie {
-  fill: #777784;
-  font-size: 10.5px;
-  letter-spacing: 1.2px;
+.tiempo-lado {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+  padding: 22px 26px;
+  border-left: 1px solid #f0f0f3;
 }
 
 .tiempo-encabezado {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .tiempo-etiqueta {
-  color: #777784;
-  font-size: 0.7rem;
+  color: #8a8a96;
+  font-size: 0.66rem;
   font-weight: 600;
-  letter-spacing: var(--tracking-label);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .tiempo-sello {
-  padding: 3px 10px;
+  padding: 4px 10px;
   background: #1d1d24;
   color: #ffffff;
-  font-size: 0.66rem;
+  font-size: 0.64rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -843,38 +843,109 @@
   background: var(--red-main);
 }
 
-.tiempo-texto {
-  margin-top: 8px;
-  color: #4a4a55;
-  font-size: 0.84rem;
-  line-height: 1.6;
+.tiempo-datos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid #f0f0f3;
+  border-bottom: 1px solid #f0f0f3;
 }
 
-.tiempo-rojo {
+.tiempo-datos > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 0 12px 16px;
+  border-left: 1px solid #f0f0f3;
+}
+
+.tiempo-datos > div:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.tiempo-datos strong {
+  color: #1d1d24;
+  font-size: 1.3rem;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+}
+
+.tiempo-datos strong.rojo {
   color: #c0050f;
 }
 
-.tiempo-datos {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
+.tiempo-datos small {
+  color: #8a8a96;
+  font-size: 0.75rem;
+  font-weight: 400;
 }
 
-.tiempo-datos span {
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  color: #4a4a55;
+.tiempo-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.tiempo-caja {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  border: 1px solid #d9d9e0;
+}
+
+.tiempo-caja button {
+  width: 32px;
+  height: 100%;
+  border: 0;
+  background: #fafafb;
+  color: #1d1d24;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.tiempo-caja button:hover {
+  background: var(--red-main);
+  color: #ffffff;
+}
+
+.tiempo-caja input {
+  width: 58px;
+  height: 100%;
+  border: 0;
+  border-left: 1px solid #ececf1;
+  outline: none;
+  color: #1d1d24;
+  font-size: 0.95rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.tiempo-caja input:focus {
+  background: #fff8f8;
+}
+
+.tiempo-unidad {
+  padding: 0 10px 0 4px;
+  border-right: 1px solid #ececf1;
+  color: #8a8a96;
+  font-size: 0.82rem;
+  line-height: 32px;
+}
+
+.tiempo-ayuda,
+.tiempo-texto {
+  color: #8a8a96;
   font-size: 0.78rem;
 }
 
-.tiempo-datos b {
-  color: #1d1d24;
-}
-
-@media (max-width: 720px) {
+@media (max-width: 760px) {
   .tiempo-plan {
     grid-template-columns: 1fr;
-    justify-items: center;
+  }
+
+  .tiempo-lado {
+    border-left: 0;
+    border-top: 1px solid #f0f0f3;
   }
 }
