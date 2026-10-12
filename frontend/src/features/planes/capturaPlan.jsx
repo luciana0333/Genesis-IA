@@ -89,7 +89,26 @@ function acomodar(texto, resaltados, ancho) {
 }
 
 /** Contenido del recuadro: solo las advertencias que trae el XML del plan. */
-function contenidoRecuadro(nodo, regla) {
+const MAX_LINEAS_CODIGO = 8;
+
+function contenidoRecuadro(nodo, regla, sentencia) {
+  // En la regla de tiempo el recuadro muestra el bloque y sus tiempos, no las advertencias.
+  if (regla === 'TIEMPO_EJECUCION_SUPERADO') {
+    const ms = (valor) => (valor == null ? '' : `${Math.round(valor).toLocaleString('en-US')} ms`);
+    const lineas = (sentencia?.codigo ?? '').split('\n').filter((linea) => linea.trim());
+    const codigo = lineas.slice(0, MAX_LINEAS_CODIGO).map((linea) => ({ texto: linea, resaltados: [] }));
+    if (lineas.length > MAX_LINEAS_CODIGO) codigo.push({ texto: '…', resaltados: [] });
+    return [
+      {
+        titulo: 'QueryTimeStats:',
+        items: [
+          { texto: `Elapsed Time: ${ms(sentencia?.duracionMs)}`, resaltados: [ms(sentencia?.duracionMs)] },
+          { texto: `CPU Time: ${ms(sentencia?.cpuMs)}`, resaltados: [] },
+        ],
+      },
+      { titulo: 'Statement:', items: codigo },
+    ];
+  }
   const grupos = nodo.advertencias.length ? [{ titulo: 'Warnings:', items: nodo.advertencias }] : [];
   // Lectura residual: con el mismo aviso que muestra Plan Explorer (datos del XML: ActualRowsRead y ActualRows).
   if (regla === 'LECTURA_RESIDUAL_ELEVADA' && nodo.filasLeidas != null) {
@@ -111,12 +130,12 @@ function contenidoRecuadro(nodo, regla) {
 }
 
 /** Recuadro de advertencias en SVG, dibujado desde (0, 0); devuelve su marcado, ancho y alto. */
-function recuadro(nodo, regla) {
+function recuadro(nodo, regla, sentencia) {
   const x = 0;
   const y = 0;
   const anchoTexto = ANCHO_RECUADRO - RELLENO * 2;
   const filas = [];
-  for (const grupo of contenidoRecuadro(nodo, regla)) {
+  for (const grupo of contenidoRecuadro(nodo, regla, sentencia)) {
     if (grupo.titulo) filas.push({ tipo: 'grupo', texto: grupo.titulo });
     for (const item of grupo.items) {
       for (const linea of acomodar(item.texto, item.resaltados ?? [], anchoTexto)) filas.push({ tipo: 'linea', linea });
@@ -182,9 +201,9 @@ function bloque(sentencia, nodo, posiciones, ancho, y, regla) {
   // El recuadro sale a la derecha del operador; si no entra en el recorte, a su izquierda.
   const xOperador = objetivo.x - recorteX;
   // Sin advertencias en el XML no hay recuadro: solo el operador marcado.
-  const conRecuadro = contenidoRecuadro(nodo, regla).length > 0;
+  const conRecuadro = contenidoRecuadro(nodo, regla, sentencia).length > 0;
   const { marcado: contenidoRecuadroSvg, ancho: anchoRecuadro, alto } = conRecuadro
-    ? recuadro(nodo, regla)
+    ? recuadro(nodo, regla, sentencia)
     : { marcado: '', ancho: 0, alto: 0 };
   // A la derecha del operador (la imagen se ensancha un poco si hace falta); a su
   // izquierda solo si ahí entra completo, para no tapar el operador ni su costo.

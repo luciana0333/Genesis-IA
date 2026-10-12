@@ -11,7 +11,7 @@ const SIN_AVISO = { texto: '', tono: 'info' };
  * `analisis` es la respuesta de /api/analizar-plan o null si no hay análisis.
  * `aviso` es el mensaje de estado bajo los botones: { texto, tono: info | exito | error }.
  */
-export function usePlanEjecucion(area) {
+export function usePlanEjecucion(area, limite = null) {
   const [archivo, setArchivo] = useState(null);
   const [analisis, setAnalisis] = useState(null);
   const [aviso, setAviso] = useState(SIN_AVISO);
@@ -33,9 +33,9 @@ export function usePlanEjecucion(area) {
 
   /**
    * Analiza el archivo elegido, o el indicado (p. ej. el plan de ejemplo), con
-   * las reglas del área (o de la indicada, al cambiar de área).
+   * las reglas del área y su límite de tiempo (o los indicados, al cambiarlos).
    */
-  const analizar = useCallback(async (archivoIndicado, areaIndicada) => {
+  const analizar = useCallback(async (archivoIndicado, areaIndicada, limiteIndicado) => {
     const plan = archivoIndicado instanceof File ? archivoIndicado : archivo;
     if (!plan) {
       setAviso({ texto: 'Selecciona un archivo .sqlplan.', tono: 'error' });
@@ -49,7 +49,11 @@ export function usePlanEjecucion(area) {
     setCargando(true);
     setAviso({ texto: 'Analizando el plan real...', tono: 'info' });
     try {
-      const datos = await ejecutar((signal) => analizarPlan(plan, { signal, area: areaIndicada ?? area }));
+      const datos = await ejecutar((signal) => analizarPlan(plan, {
+        signal,
+        area: areaIndicada ?? area,
+        limite: limiteIndicado !== undefined ? limiteIndicado : limite,
+      }));
       setAnalisis(datos);
       setAviso({ texto: 'Análisis completado.', tono: 'exito' });
     } catch (error) {
@@ -58,7 +62,7 @@ export function usePlanEjecucion(area) {
       setAviso({ texto: error.message, tono: 'error' });
     }
     setCargando(false);
-  }, [archivo, area, ejecutar]);
+  }, [archivo, area, limite, ejecutar]);
 
   /** Elige el plan de ejemplo y lo analiza ("Ver ejemplo"). */
   const analizarEjemplo = useCallback((plan) => {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LIMITES_TIEMPO_PLAN, NOMBRES_AREA_PLAN } from '../../config/planes';
+import { NOMBRES_AREA_PLAN } from '../../config/planes';
 
 /*
  * Tarjeta «Tiempo de ejecución» con velocímetro de instrumento clásico: suma la
@@ -13,24 +13,6 @@ const CX = 140;
 const CY = 150;
 const R = 110;
 const MARCAS = 30; // marcas finas; cada 5, una gruesa con su número
-const CLAVE_LIMITES = 'genesis.limitesTiempoPlan';
-
-function leerLimites() {
-  try {
-    return { ...LIMITES_TIEMPO_PLAN, ...JSON.parse(localStorage.getItem(CLAVE_LIMITES) ?? '{}') };
-  } catch {
-    return { ...LIMITES_TIEMPO_PLAN };
-  }
-}
-
-function guardarLimites(limites) {
-  try {
-    localStorage.setItem(CLAVE_LIMITES, JSON.stringify(limites));
-  } catch {
-    // Sin almacenamiento (modo privado): el límite vale solo mientras la página esté abierta.
-  }
-}
-
 function seg(valor) {
   const decimales = valor < 10 ? 2 : 1;
   return `${valor.toLocaleString('en-US', { minimumFractionDigits: decimales, maximumFractionDigits: decimales })} s`;
@@ -141,8 +123,7 @@ function ControlLimite({ nombreArea, limiteS, onCambiar }) {
   );
 }
 
-export function TiempoEjecucion({ sentencias = [], area }) {
-  const [limites, setLimites] = useState(leerLimites);
+export function TiempoEjecucion({ sentencias = [], area, limiteS = null, onCambiarLimite }) {
   const conTiempo = sentencias.filter((s) => s.duracionMs != null);
   if (!sentencias.length) return null;
 
@@ -158,15 +139,10 @@ export function TiempoEjecucion({ sentencias = [], area }) {
 
   const totalS = conTiempo.reduce((suma, s) => suma + s.duracionMs, 0) / 1000;
   const cpuS = conTiempo.reduce((suma, s) => suma + (s.cpuMs ?? 0), 0) / 1000;
-  const limiteS = limites[area] ?? null;
   const supera = limiteS != null && totalS > limiteS;
   const lenta = conTiempo.reduce((mayor, s) => (s.duracionMs > mayor.duracionMs ? s : mayor), conTiempo[0]);
 
-  const cambiarLimite = (valor) => {
-    const nuevos = { ...limites, [area]: valor };
-    setLimites(nuevos);
-    guardarLimites(nuevos);
-  };
+  const cambiarLimite = (valor) => onCambiarLimite?.(area, valor);
 
   let sello = null;
   if (limiteS != null) {

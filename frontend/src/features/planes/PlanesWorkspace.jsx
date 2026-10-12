@@ -12,6 +12,7 @@ import { formatearKb } from '../../utils/hallazgos';
 import { CapturaHallazgo } from './CapturaHallazgo';
 import { DiagramaPlan } from './DiagramaPlan';
 import { TablaOperadores } from './TablaOperadores';
+import { useLimitesTiempo } from './useLimitesTiempo';
 import { usePlanEjecucion } from './usePlanEjecucion';
 import { useAlPedirEjemplo } from '../../hooks/useVerEjemplo';
 
@@ -66,8 +67,15 @@ export function PlanesWorkspace() {
   const idArchivo = useId();
   const idArea = useId();
   const [area, setArea] = useState('reporte');
+  const { limites, cambiarLimite } = useLimitesTiempo();
   const inputArchivoRef = useRef(null);
-  const { archivo, analisis, aviso, cargando, seleccionarArchivo, limpiar, analizar, analizarEjemplo } = usePlanEjecucion(area);
+  const { archivo, analisis, aviso, cargando, seleccionarArchivo, limpiar, analizar, analizarEjemplo } = usePlanEjecucion(area, limites[area] ?? null);
+
+  // Cambiar el límite vuelve a revisar el plan: la regla de tiempo depende de él.
+  const alCambiarLimite = (areaLimite, valor) => {
+    cambiarLimite(areaLimite, valor);
+    if (analisis && archivo) analizar(archivo, areaLimite, valor);
+  };
 
   const reiniciarInput = () => {
     // El valor de un <input type="file"> solo puede reiniciarse desde el DOM.
@@ -128,7 +136,7 @@ export function PlanesWorkspace() {
                       onChange={() => {
                         setArea(opcion.id);
                         // Con un plan ya analizado, se vuelve a revisar con las reglas de la nueva área.
-                        if (analisis && archivo) analizar(archivo, opcion.id);
+                        if (analisis && archivo) analizar(archivo, opcion.id, limites[opcion.id] ?? null);
                       }}
                     />
                     {opcion.icono}
@@ -203,7 +211,12 @@ export function PlanesWorkspace() {
               tituloError: 'No se pudo analizar el plan',
             }}
           />
-          {analisis?.diagrama?.length > 0 && <DiagramaPlan sentencias={analisis.diagrama} area={area} />}
+          {analisis?.diagrama?.length > 0 && <DiagramaPlan
+              sentencias={analisis.diagrama}
+              area={area}
+              limiteS={limites[area] ?? null}
+              onCambiarLimite={alCambiarLimite}
+            />}
           {analisis && <TablaOperadores operadores={analisis.operadores} />}
         </div>
       </section>

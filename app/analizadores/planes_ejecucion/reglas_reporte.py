@@ -7,7 +7,7 @@ la observación y lo que se ve en el diagrama siempre coinciden.
 from __future__ import annotations
 
 import re
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 
@@ -161,6 +161,48 @@ def _lectura_residual(sentencias: List[Dict]) -> List[Hallazgo]:
     return [hallazgo]
 
 
-def analizar_plan_reporte(sentencias: List[Dict]) -> List[Hallazgo]:
-    """Hallazgos del plan para el área Reportes, a partir del árbol de construir_diagrama."""
-    return _conversion_implicita(sentencias) + _lectura_residual(sentencias)
+def _segundos(valor: float) -> str:
+    return f"{valor:,.2f} s" if valor < 10 else f"{valor:,.1f} s"
+
+
+def _tiempo_superado(sentencias: List[Dict], limite_s: Optional[float]) -> List[Hallazgo]:
+    """El procedimiento tarda más que el límite de tiempo del área (suma de Duration de sus consultas)."""
+    con_tiempo = [s for s in sentencias if s.get("duracionMs") is not None]
+    if not limite_s or not con_tiempo:
+        return []
+    total_s = sum(s["duracionMs"] for s in con_tiempo) / 1000
+    if total_s <= limite_s:
+        return []
+    lenta = max(con_tiempo, key=lambda s: s["duracionMs"])
+    lenta_s = lenta["duracionMs"] / 1000
+    bloque = f"la consulta {lenta['numero']} ({_segundos(lenta_s)}"
+    if len(con_tiempo) > 1:
+        bloque += f", el {lenta_s / total_s:.0%} del tiempo total"
+    bloque += ")"
+    mensaje = (
+        f"El procedimiento supera el umbral de tiempo establecido: su ejecución tomó {_segundos(total_s)} y el "
+        f"límite es de {limite_s:g} s (+{_segundos(total_s - limite_s)}). El bloque que más tiempo demora "
+        f"es {bloque}, que se muestra en la imagen del plan, por lo que se recomienda optimizarlo, ya que es el "
+        f"que más aporta al tiempo total del procedimiento."
+    )
+    hallazgo = Hallazgo(
+        linea=1,
+        origen=OrigenAnalisis.PLAN_EJECUCION,
+        severidad=Severidad.ALTO,
+        regla="TIEMPO_EJECUCION_SUPERADO",
+        mensaje=mensaje,
+    )
+    hallazgo.nodos = [{"consulta": lenta["numero"], "nodo": "raiz"}]
+    return [hallazgo]
+
+
+def analizar_plan_reporte(sentencias: List[Dict], limite_s: Optional[float] = None) -> List[Hallazgo]:
+    """Hallazgos del plan para el área Reportes, a partir del árbol de construir_diagrama.
+
+    limite_s: límite de tiempo del área en segundos (None = sin límite definido).
+    """
+    return (
+        _tiempo_superado(sentencias, limite_s)
+        + _conversion_implicita(sentencias)
+        + _lectura_residual(sentencias)
+    )

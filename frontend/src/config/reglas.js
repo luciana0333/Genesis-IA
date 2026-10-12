@@ -103,6 +103,7 @@ export const NOMBRES_REGLAS = {
   CONVERSION_IMPLICITA: 'Conversión implícita',
   CONVERSION_IMPLICITA_DETECTADA: 'Conversión implícita detectada',
   LECTURA_RESIDUAL_ELEVADA: 'Lectura residual elevada',
+  TIEMPO_EJECUCION_SUPERADO: 'Tiempo de ejecución superado',
   SPILL_TEMPDB: 'Spill hacia TempDB',
   TABLE_SCAN: 'Table Scan',
   LECTURAS_LOGICAS_ELEVADAS: 'Lecturas lógicas elevadas',

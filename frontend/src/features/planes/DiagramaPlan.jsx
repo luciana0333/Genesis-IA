@@ -280,7 +280,7 @@ function TextoSentencia({ codigo }) {
 }
 
 /** Sentencias del plan (como la grilla de Plan Explorer) y el diagrama de la elegida. */
-export function DiagramaPlan({ sentencias = [], area = 'reporte' }) {
+export function DiagramaPlan({ sentencias = [], area = 'reporte', limiteS = null, onCambiarLimite }) {
   const [elegida, setElegida] = useState(0);
   const [pestana, setPestana] = useState('diagrama');
   if (!sentencias.length) return null;
@@ -298,7 +298,7 @@ export function DiagramaPlan({ sentencias = [], area = 'reporte' }) {
         titulo="Diagrama del plan"
         acciones={<span className="results-meta">Pasa el mouse sobre un operador para ver su detalle</span>}
       />
-      <TiempoEjecucion sentencias={sentencias} area={area} />
+      <TiempoEjecucion sentencias={sentencias} area={area} limiteS={limiteS} onCambiarLimite={onCambiarLimite} />
       <div className="table-scroll plan-grilla">
         <table className="plan-sentencias">
           <thead>

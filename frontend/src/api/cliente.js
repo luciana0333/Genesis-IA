@@ -59,11 +59,13 @@ export function analizarObjeto(solicitud, { signal } = {}) {
 }
 
 /** POST /api/analizar-plan — analiza un archivo .sqlplan (multipart). */
-export function analizarPlan(archivo, { signal, area } = {}) {
+export function analizarPlan(archivo, { signal, area, limite } = {}) {
   const formulario = new FormData();
   formulario.append('plan', archivo);
   // Área del plan (reporte | negocio): cada una tiene sus propias reglas.
   if (area) formulario.append('area', area);
+  // Límite de tiempo del área en segundos (regla «Tiempo de ejecución superado»).
+  if (limite != null) formulario.append('limite', String(limite));
   return solicitar(
     '/api/analizar-plan',
     { method: 'POST', body: formulario, signal },

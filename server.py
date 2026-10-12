@@ -185,7 +185,15 @@ class GenesisHandler(SimpleHTTPRequestHandler):
             hallazgos, operadores, memoria = analizar_plan_ejecucion(contenido)
             diagrama = construir_diagrama(contenido)
             if area == 'reporte':
-                hallazgos = analizar_plan_reporte(diagrama)
+                parte_limite = next(
+                    (parte for parte in formulario.iter_parts() if parte.get_param('name', header='content-disposition') == 'limite'),
+                    None,
+                )
+                try:
+                    limite = float(parte_limite.get_content().strip()) if parte_limite is not None else None
+                except ValueError:
+                    limite = None
+                hallazgos = analizar_plan_reporte(diagrama, limite)
         except ET.ParseError:
             self._send_json({'error': 'El archivo no contiene un plan XML válido de SQL Server.'}, status=400)
             return

@@ -5,6 +5,14 @@ from app.reglas.reglas_base import ReglaDiccionario
 
 REGLAS_PLANES_EJECUCION = {
     # --- Área Reportes (reglas definidas por la usuaria) -----------------
+    "TIEMPO_EJECUCION_SUPERADO": ReglaDiccionario(
+        codigo="TIEMPO_EJECUCION_SUPERADO",
+        nombre="Tiempo de ejecución superado",
+        severidad="alto",
+        descripcion="La suma de la duración de las consultas del plan supera el límite de tiempo del área; se señala el bloque más lento.",
+        alcance="plan_ejecucion",
+        activo=True,
+    ),
     "LECTURA_RESIDUAL_ELEVADA": ReglaDiccionario(
         codigo="LECTURA_RESIDUAL_ELEVADA",
         nombre="Lectura residual elevada",
