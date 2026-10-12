@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { EncabezadoSeccion } from '../../components/EncabezadoSeccion';
 import {
-  ICONO, MAX_TEXTO, calcularPosiciones, formatearFilas, recortar, simboloDe, tonoCosto,
+  ICONO, MAX_TEXTO, calcularPosiciones, filasDesviadas, formatearFilas, recortar, simboloDe, tonoCosto,
 } from './geometriaPlan';
 import { DefinicionesIconos } from './IconosPlan';
 
@@ -13,7 +13,7 @@ import { DefinicionesIconos } from './IconosPlan';
  * con advertencias se resaltan en amarillo con su triángulo.
  */
 
-export function Flecha({ desde, hasta, filas, filasMaximas }) {
+export function Flecha({ desde, hasta, filas, filasMaximas, desviada = false }) {
   // Más gruesa cuantas más filas pasan, como en Plan Explorer.
   const grosor = 1.5 + 4.5 * (Math.log10((filas ?? 0) + 1) / Math.log10(filasMaximas + 1 || 10));
   const inicio = desde.x - ICONO / 2 - 8;
@@ -28,7 +28,7 @@ export function Flecha({ desde, hasta, filas, filasMaximas }) {
       <polyline points={puntos} fill="none" strokeWidth={grosor} strokeLinejoin="round" />
       <polygon points={`${fin},${hasta.y} ${fin + punta * 1.8},${hasta.y - punta} ${fin + punta * 1.8},${hasta.y + punta}`} />
       {filas !== null && filas !== undefined && (
-        <text x={inicio - 4} y={desde.y - grosor / 2 - 4} textAnchor="end" className="plan-filas">
+        <text x={inicio - 4} y={desde.y - grosor / 2 - 4} textAnchor="end" className={desviada ? 'plan-filas desviada' : 'plan-filas'}>
           {formatearFilas(filas)}
         </text>
       )}
@@ -79,7 +79,7 @@ export function Nodo({ nodo, posicion, maximo, activo, marcado = false, onEntrar
         </g>
       )}
       {(conAdvertencia || marcado) && (
-        <rect x={x - anchoNombre / 2} y={y + mitad + 5} width={anchoNombre} height={16} rx={2} className="plan-resaltado" />
+        <rect x={x - anchoNombre / 2} y={y + mitad + 5} width={anchoNombre} height={16} rx={8} className="plan-resaltado" />
       )}
       <text x={x} y={y + mitad + 17} textAnchor="middle" className="plan-nombre">
         {recortar(nombre)}
@@ -194,6 +194,7 @@ function Diagrama({ sentencia }) {
               hasta={posiciones.get(nodo.padre)}
               filas={filasDe(nodo)}
               filasMaximas={filasMaximas}
+              desviada={filasDesviadas(nodo)}
             />
           ))}
           {sentencia.nodos.map((nodo) => (

@@ -9,7 +9,8 @@ const T = '#5b7a93'; // trazo
 const B = '#7d98ae'; // barra superior
 const F = '#f7fafc'; // relleno claro
 const M = '#c9d8e4'; // relleno medio
-const A = '#4f6f88'; // flechas y acentos
+const A = '#2f6db5'; // flechas y acentos (azul de los íconos de SSMS)
+const E = '#3c6ea8'; // encabezado azul de las tablas
 const W = { strokeWidth: 1.3 };
 
 /** Hoja con barra superior: base de muchos operadores. */
@@ -41,10 +42,10 @@ function Tabla({ x = 4, y = 5, ancho = 24, alto = 16 }) {
   return (
     <>
       <rect x={x} y={y} width={ancho} height={alto} fill={F} stroke={T} {...W} />
-      <rect x={x} y={y} width={ancho} height={4} fill={B} />
+      <rect x={x} y={y} width={ancho} height={4} fill={E} />
       <path
-        d={`M${x} ${y + 8}h${ancho}M${x} ${y + 12}h${ancho}M${x + ancho / 3} ${y + 4}v${alto - 4}M${x + (2 * ancho) / 3} ${y + 4}v${alto - 4}`}
-        stroke={M}
+        d={`M${x} ${y + 4 + (alto - 4) / 3}h${ancho}M${x} ${y + 4 + (2 * (alto - 4)) / 3}h${ancho}M${x + ancho / 3} ${y + 4}v${alto - 4}M${x + (2 * ancho) / 3} ${y + 4}v${alto - 4}`}
+        stroke="#9fb2c3"
       />
     </>
   );
@@ -84,7 +85,8 @@ const SIMBOLOS = {
     </>
   ),
   // Lecturas
-  'table-scan': <><Tabla /><FlechaDerecha /></>,
+  // Como en SSMS / Plan Explorer: la tabla con la flecha azul hacia abajo a su derecha.
+  'table-scan': <><Tabla x={3} y={5} ancho={20} alto={20} /><FlechaAbajo x={26} desde={7} hasta={23} /></>,
   'index-scan': <><Arbol /><path d="M9 18v8h13" fill="none" stroke={A} strokeWidth={2.2} /><path d="M21 22.5l5 3.5-5 3.5z" fill={A} /></>,
   'clustered-index-scan': <><Arbol cluster /><path d="M9 18v8h13" fill="none" stroke={A} strokeWidth={2.2} /><path d="M21 22.5l5 3.5-5 3.5z" fill={A} /></>,
   'index-seek': <><Arbol resaltar={20} /><FlechaAbajo x={23} desde={19} hasta={25} /></>,

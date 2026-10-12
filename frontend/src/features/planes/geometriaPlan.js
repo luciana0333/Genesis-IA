@@ -88,3 +88,15 @@ export function tonoCosto(costo, maximo) {
   return 'normal';
 }
 
+
+/**
+ * Filas reales muy distintas de las estimadas (10 veces o más, en cualquier
+ * sentido): Plan Explorer pinta en rojo el número de filas de esa flecha.
+ */
+export function filasDesviadas(nodo) {
+  const { filasReales: reales, filasEstimadas: estimadas } = nodo;
+  if (reales == null || estimadas == null) return false;
+  const mayor = Math.max(reales, estimadas);
+  const menor = Math.max(Math.min(reales, estimadas), 1);
+  return mayor >= 100 && mayor / menor >= 10;
+}

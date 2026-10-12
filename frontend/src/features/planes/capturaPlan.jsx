@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Flecha, Nodo } from './DiagramaPlan';
-import { COLUMNA, calcularPosiciones } from './geometriaPlan';
+import { COLUMNA, calcularPosiciones, filasDesviadas } from './geometriaPlan';
 import { DefinicionesIconos } from './IconosPlan';
 
 /*
@@ -28,6 +28,7 @@ const ESTILOS = `
   .plan-flecha polyline { stroke: #8fa2b2; }
   .plan-flecha polygon { fill: #8fa2b2; }
   .plan-filas { fill: #555555; font-size: 10.5px; }
+  .plan-filas.desviada { fill: #c8102e; }
   .plan-costo { fill: #222222; font-size: 12px; font-weight: 700; }
   .plan-costo-pastilla rect { fill: #f58220; }
   .plan-costo-pastilla.alto rect { fill: #c8102e; }
@@ -144,7 +145,7 @@ function bloque(sentencia, nodo, posiciones, ancho, y) {
     <g>
       <DefinicionesIconos />
       {sentencia.nodos.filter((n) => n.padre !== null).map((n) => (
-        <Flecha key={`f-${n.id}`} desde={posiciones.get(n.id)} hasta={posiciones.get(n.padre)} filas={filasDe(n)} filasMaximas={filasMaximas} />
+        <Flecha key={`f-${n.id}`} desde={posiciones.get(n.id)} hasta={posiciones.get(n.padre)} filas={filasDe(n)} filasMaximas={filasMaximas} desviada={filasDesviadas(n)} />
       ))}
       {sentencia.nodos.map((n) => (
         <Nodo

@@ -400,6 +400,11 @@
   font-size: 10.5px;
 }
 
+/* Filas reales muy distintas de las estimadas: en rojo, como Plan Explorer. */
+.plan-filas.desviada {
+  fill: #c8102e;
+}
+
 .plan-costo {
   fill: #222222;
   font-size: 12px;
