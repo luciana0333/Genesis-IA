@@ -5,12 +5,12 @@
  * Son propios: imitan la forma y los tonos, no copian los de SolarWinds ni SSMS.
  */
 
-const T = '#5b7a93'; // trazo
-const B = '#7d98ae'; // barra superior
+const T = '#8ca1b4'; // trazo
+const B = '#aabdcc'; // barra superior
 const F = '#f7fafc'; // relleno claro
-const M = '#c9d8e4'; // relleno medio
+const M = '#dde6ee'; // relleno medio
 const A = '#2f6db5'; // flechas y acentos (azul de los íconos de SSMS)
-const E = '#3c6ea8'; // encabezado azul de las tablas
+const E = '#6f95c0'; // encabezado azul de las tablas
 const W = { strokeWidth: 1.3 };
 
 /** Hoja con barra superior: base de muchos operadores. */
@@ -45,7 +45,7 @@ function Tabla({ x = 4, y = 5, ancho = 24, alto = 16 }) {
       <rect x={x} y={y} width={ancho} height={4} fill={E} />
       <path
         d={`M${x} ${y + 4 + (alto - 4) / 3}h${ancho}M${x} ${y + 4 + (2 * (alto - 4)) / 3}h${ancho}M${x + ancho / 3} ${y + 4}v${alto - 4}M${x + (2 * ancho) / 3} ${y + 4}v${alto - 4}`}
-        stroke="#9fb2c3"
+        stroke="#c3d0dc"
       />
     </>
   );
