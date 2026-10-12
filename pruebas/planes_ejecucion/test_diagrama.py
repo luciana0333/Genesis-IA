@@ -62,14 +62,11 @@ class TestDiagramaPlan(unittest.TestCase):
         )
         self.assertEqual((round(sentencia["filasEstimadas"]), sentencia["filasReales"]), (855, 250))
 
-
     def test_codigo_de_la_sentencia_tal_cual(self):
         codigo = construir_diagrama(EJEMPLO.read_bytes())[0]["codigo"]
-        self.assertTrue(codigo.startswith("SELECT
-    U.Nombre,
-    A.Descripcion,"))
+        self.assertTrue(codigo.startswith("SELECT\n    U.Nombre,\n    A.Descripcion,"))
         self.assertIn("-- ❌ conversión en JOIN", codigo)
-        self.assertNotIn("", codigo)
+        self.assertNotIn("\r", codigo)
 
 
 if __name__ == "__main__":
