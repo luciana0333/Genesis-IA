@@ -199,7 +199,7 @@ export function PlanesWorkspace() {
               tituloError: 'No se pudo analizar el plan',
             }}
           />
-          {analisis?.diagrama?.length > 0 && <DiagramaPlan sentencias={analisis.diagrama} />}
+          {analisis?.diagrama?.length > 0 && <DiagramaPlan sentencias={analisis.diagrama} area={area} />}
           {analisis && <TablaOperadores operadores={analisis.operadores} />}
         </div>
       </section>
