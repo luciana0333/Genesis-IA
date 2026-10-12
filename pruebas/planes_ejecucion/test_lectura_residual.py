@@ -39,11 +39,12 @@ class TestLecturaResidual(unittest.TestCase):
         hallazgos = _residuales(_plan(_scan(1, "Tickets", 3_000_000, 300)))
         self.assertEqual(len(hallazgos), 1)
         self.assertEqual(hallazgos[0].severidad.value, "alto")
-        self.assertIn(
-            "Se ha identificado una lectura residual elevada en el operador Clustered Index Scan (nodo 1) sobre "
-            "[dbo].[Tickets]: lee 3,000,000 filas y solo devuelve 300 a la consulta, "
-            "por lo que se recomienda revisar el filtro del operador (Predicate)",
+        self.assertEqual(
             hallazgos[0].mensaje,
+            "Se ha identificado una lectura residual elevada sobre la tabla [dbo].[Tickets] (Clustered Index Scan, "
+            "nodo 1), que se lee en su totalidad o casi en su totalidad: se leen 3,000,000 filas y solo se devuelven "
+            "300, por lo que se recomienda optimizar sus filtros o revisar sus índices existentes, ya que leer y "
+            "descartar millones de filas eleva las lecturas, el tiempo de ejecución y el consumo de recursos del servidor.",
         )
         self.assertEqual(hallazgos[0].nodos, [{"consulta": 1, "nodo": "1"}])
 
@@ -57,7 +58,17 @@ class TestLecturaResidual(unittest.TestCase):
         hallazgos = _residuales(_plan(_scan(1, "Tickets", 3_000_000, 300), _scan(2, "Pagos", 1_500_000, 20)))
         self.assertEqual(len(hallazgos), 1)
         self.assertTrue(hallazgos[0].mensaje.startswith("Se identificaron 2 lecturas residuales elevadas, en la consulta 1: "))
-        self.assertIn("; Operador Clustered Index Scan (nodo 2) sobre [dbo].[Pagos]: lee 1,500,000 filas", hallazgos[0].mensaje)
+        self.assertIn("; La tabla [dbo].[Pagos] (Clustered Index Scan, nodo 2), que se lee en su totalidad", hallazgos[0].mensaje)
+
+    def test_un_seek_no_se_marca_aunque_pase_el_millon(self):
+        seek = _scan(1, "Tickets", 3_000_000, 300).replace("Clustered Index Scan", "Clustered Index Seek")
+        self.assertEqual(_residuales(_plan(seek)), [])
+
+    def test_table_scan_e_index_scan_si_se_marcan(self):
+        for operador in ("Table Scan", "Index Scan"):
+            with self.subTest(operador=operador):
+                scan = _scan(1, "Tickets", 3_000_000, 300).replace("Clustered Index Scan", operador)
+                self.assertEqual(len(_residuales(_plan(scan))), 1)
 
 
 if __name__ == "__main__":

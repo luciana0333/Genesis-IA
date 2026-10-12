@@ -111,14 +111,18 @@ def _cifra(valor: float) -> str:
 
 
 def _lectura_residual(sentencias: List[Dict]) -> List[Hallazgo]:
-    """Operadores que leen más de un millón de filas y devuelven menos de las que leen.
+    """Scans que leen más de un millón de filas y devuelven menos de las que leen.
 
-    Las filas que no pasan el filtro (Predicate) se leen y se descartan: «lectura residual».
+    Un Scan (Table Scan, Clustered Index Scan, Index Scan) recorre la tabla completa
+    o casi completa y descarta con el filtro las filas que no sirven: «lectura residual».
+    Un Seek no se marca: ya busca directo en el índice, es el acceso óptimo.
     """
     varias_consultas = len({s["numero"] for s in sentencias}) > 1
     casos = []
     for sentencia in sentencias:
         for nodo in sentencia["nodos"]:
+            if "scan" not in nodo["fisica"].lower():
+                continue
             leidas, devueltas = nodo.get("filasLeidas"), nodo.get("filasReales")
             if leidas is None or devueltas is None or leidas <= LECTURA_RESIDUAL_MINIMA or devueltas >= leidas:
                 continue
@@ -128,26 +132,22 @@ def _lectura_residual(sentencias: List[Dict]) -> List[Hallazgo]:
 
     def describir(caso: Dict) -> str:
         nodo = caso["nodo"]
-        lugar = f"{_nombre_operador(nodo)} (nodo {nodo['id']})"
-        if nodo.get("objeto"):
-            lugar += f" sobre {nodo['objeto']}"
-        if varias_consultas:
-            lugar += f" de la consulta {caso['consulta']}"
-        # El filtro (Predicate) no va en el texto: trae comillas propias; se ve tal cual en la imagen.
-        return f"{lugar}: lee {_cifra(caso['leidas'])} filas y solo devuelve {_cifra(caso['devueltas'])} a la consulta"
+        tabla = f"la tabla {nodo['objeto']}" if nodo.get("objeto") else "una tabla"
+        lugar = f"{tabla} ({_nombre_operador(nodo)}, nodo {nodo['id']}"
+        lugar += f", consulta {caso['consulta']})" if varias_consultas else ")"
+        return (f"{lugar}, que se lee en su totalidad o casi en su totalidad: se leen {_cifra(caso['leidas'])} filas "
+                f"y solo se devuelven {_cifra(caso['devueltas'])}")
 
     accion = (
-        "revisar el filtro del operador (Predicate) y crear o ajustar un índice sobre sus columnas para leer "
-        "solo las filas necesarias, "
-        "ya que SQL Server lee y descarta millones de filas, lo que eleva las lecturas, el tiempo de ejecución "
-        "y el consumo de recursos del servidor."
+        "optimizar sus filtros o revisar sus índices existentes, ya que leer y descartar millones de filas eleva "
+        "las lecturas, el tiempo de ejecución y el consumo de recursos del servidor."
     )
     if len(casos) == 1:
-        mensaje = f"Se ha identificado una lectura residual elevada en el operador {describir(casos[0])}, por lo que se recomienda {accion}"
+        mensaje = f"Se ha identificado una lectura residual elevada sobre {describir(casos[0])}, por lo que se recomienda {accion}"
     else:
         consultas = sorted({c["consulta"] for c in casos})
         encabezado = ("la consulta " if len(consultas) == 1 else "las consultas ") + ", ".join(map(str, consultas))
-        detalle = "; ".join(f"Operador {describir(c)}" for c in casos)
+        detalle = "; ".join(d[:1].upper() + d[1:] for d in (describir(c) for c in casos))
         mensaje = (f"Se identificaron {len(casos)} lecturas residuales elevadas, en {encabezado}: {detalle}. "
                    f"Se recomienda {accion}")
     hallazgo = Hallazgo(

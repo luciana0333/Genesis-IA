@@ -91,16 +91,18 @@ function acomodar(texto, resaltados, ancho) {
 /** Contenido del recuadro: solo las advertencias que trae el XML del plan. */
 function contenidoRecuadro(nodo, regla) {
   const grupos = nodo.advertencias.length ? [{ titulo: 'Warnings:', items: nodo.advertencias }] : [];
-  // Lectura residual: SQL Server no la marca como «Warning»; se muestran sus datos del XML como en SSMS.
+  // Lectura residual: con el mismo aviso que muestra Plan Explorer (datos del XML: ActualRowsRead y ActualRows).
   if (regla === 'LECTURA_RESIDUAL_ELEVADA' && nodo.filasLeidas != null) {
     const leidas = Math.round(nodo.filasLeidas).toLocaleString('en-US');
     const devueltas = Math.round(nodo.filasReales ?? 0).toLocaleString('en-US');
     const filtro = (nodo.predicados ?? []).find((p) => p.nombre === 'Predicate');
     grupos.push({
-      titulo: null,
+      titulo: grupos.length ? null : 'Warnings:',
       items: [
-        { texto: `Actual Number of Rows Read: ${leidas}`, resaltados: [leidas] },
-        { texto: `Actual Number of Rows: ${devueltas}`, resaltados: [devueltas] },
+        {
+          texto: `Operation caused residual I/O. The actual number of rows read was ${leidas}, but the number of rows returned was ${devueltas}.`,
+          resaltados: [leidas, devueltas],
+        },
         ...(filtro ? [{ texto: `Predicate: ${filtro.texto}`, resaltados: [] }] : []),
       ],
     });

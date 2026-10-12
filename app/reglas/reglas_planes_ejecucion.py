@@ -9,7 +9,7 @@ REGLAS_PLANES_EJECUCION = {
         codigo="LECTURA_RESIDUAL_ELEVADA",
         nombre="Lectura residual elevada",
         severidad="alto",
-        descripcion="Un operador lee más de 1 000 000 de filas (ActualRowsRead) y devuelve muchas menos: el resto se descarta con el filtro.",
+        descripcion="Un Scan lee más de 1 000 000 de filas (ActualRowsRead) y devuelve menos: recorre la tabla casi completa. Un Seek no se marca.",
         alcance="plan_ejecucion",
         activo=True,
     ),
