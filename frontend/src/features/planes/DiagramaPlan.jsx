@@ -5,6 +5,7 @@ import {
   ICONO, MAX_TEXTO, calcularPosiciones, filasDesviadas, formatearFilas, recortar, simboloDe, tonoCosto,
 } from './geometriaPlan';
 import { DefinicionesIconos } from './IconosPlan';
+import { IndicesFaltantes, ParametrosPlan } from './PestanasPlan';
 
 /*
  * Diagrama del plan al estilo de SQL Sentry Plan Explorer: el resultado a la
@@ -106,21 +107,24 @@ export function TextoResaltado({ texto, resaltados }) {
   ));
 }
 
+const MAX_PREDICADO = 420; // el recuadro no se desplaza: los textos muy largos se acortan
+
+/** Detalle del operador como el tooltip de SSMS: mismos nombres y datos del XML. */
 function DetalleNodo({ nodo, posicion }) {
   const filas = [
-    ['Costo del operador', `${nodo.costoPct.toFixed(1)}%`],
-    ['Filas estimadas', formatearFilas(nodo.filasEstimadas)],
-    ['Filas reales', formatearFilas(nodo.filasReales)],
-    ['Ejecuciones', formatearFilas(nodo.ejecuciones)],
-    ['Lecturas lógicas', formatearFilas(nodo.lecturas)],
-  ].filter(([, valor]) => valor && !(nodo.padre === null && valor === '0.0%'));
+    ['Estimated Operator Cost', nodo.padre === null ? '' : `${nodo.costoPct.toFixed(1)}%`],
+    ['Estimated Number of Rows', formatearFilas(nodo.filasEstimadas)],
+    ['Actual Number of Rows', formatearFilas(nodo.filasReales)],
+    ['Actual Number of Rows Read', formatearFilas(nodo.filasLeidas)],
+    ['Number of Executions', formatearFilas(nodo.ejecuciones)],
+    ['Actual Logical Reads', formatearFilas(nodo.lecturas)],
+  ].filter(([, valor]) => valor);
   return (
     <div className="plan-detalle-flotante" style={{ left: posicion.left, top: posicion.top }} role="tooltip">
       <p className="plan-detalle-titulo">
         {nodo.padre === null ? nodo.fisica.toUpperCase() : nodo.fisica}
         {nodo.logica && nodo.logica !== nodo.fisica && <span> ({nodo.logica})</span>}
       </p>
-      {(nodo.objeto || nodo.indice) && <p className="plan-detalle-objeto">{[nodo.objeto, nodo.indice].filter(Boolean).join('.')}</p>}
       {nodo.advertencias.length > 0 && (
         <div className="plan-detalle-alertas">
           <p className="plan-detalle-alertas-titulo">Warnings:</p>
@@ -129,11 +133,27 @@ function DetalleNodo({ nodo, posicion }) {
           ))}
         </div>
       )}
-      <dl>
-        {filas.map(([etiqueta, valor]) => (
-          <div key={etiqueta}><dt>{etiqueta}</dt><dd>{valor}</dd></div>
-        ))}
-      </dl>
+      {filas.length > 0 && (
+        <dl>
+          {filas.map(([etiqueta, valor]) => (
+            <div key={etiqueta}><dt>{etiqueta}</dt><dd>{valor}</dd></div>
+          ))}
+        </dl>
+      )}
+      {(nodo.objeto || nodo.indice) && (
+        <div className="plan-detalle-bloque">
+          <p className="plan-detalle-subtitulo">Object</p>
+          <p className="plan-detalle-objeto">{nodo.objetoCompleto || [nodo.objeto, nodo.indice].filter(Boolean).join('.')}</p>
+        </div>
+      )}
+      {(nodo.predicados ?? []).map((predicado) => (
+        <div key={predicado.nombre} className="plan-detalle-bloque">
+          <p className="plan-detalle-subtitulo">{predicado.nombre}</p>
+          <p className="plan-detalle-objeto">
+            {predicado.texto.length > MAX_PREDICADO ? `${predicado.texto.slice(0, MAX_PREDICADO - 1)}…` : predicado.texto}
+          </p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -261,6 +281,7 @@ function TextoSentencia({ codigo }) {
 /** Sentencias del plan (como la grilla de Plan Explorer) y el diagrama de la elegida. */
 export function DiagramaPlan({ sentencias = [] }) {
   const [elegida, setElegida] = useState(0);
+  const [pestana, setPestana] = useState('diagrama');
   if (!sentencias.length) return null;
   const sentencia = sentencias[Math.min(elegida, sentencias.length - 1)];
   const totales = ['costo', 'costoCpu', 'costoIo'].reduce(
@@ -307,7 +328,31 @@ export function DiagramaPlan({ sentencias = [] }) {
         </table>
       </div>
       <TextoSentencia codigo={sentencia.codigo} />
-      <Diagrama key={sentencia.numero} sentencia={sentencia} />
+      <div className="plan-vista">
+        {pestana === 'diagrama' && <Diagrama key={sentencia.numero} sentencia={sentencia} />}
+        {pestana === 'parametros' && <ParametrosPlan parametros={sentencia.parametros} />}
+        {pestana === 'indices' && <IndicesFaltantes indices={sentencia.indicesFaltantes} />}
+      </div>
+      {/* Pestañas al pie, como Plan Explorer; entre paréntesis, cuántos datos trae el XML. */}
+      <div className="plan-pestanas" role="tablist" aria-label="Vistas del plan">
+        {[
+          { id: 'diagrama', etiqueta: 'Plan Diagram' },
+          { id: 'parametros', etiqueta: 'Parameters', cantidad: sentencia.parametros?.length ?? 0 },
+          { id: 'indices', etiqueta: 'Missing Indexes', cantidad: sentencia.indicesFaltantes?.length ?? 0 },
+        ].map((opcion) => (
+          <button
+            key={opcion.id}
+            type="button"
+            role="tab"
+            aria-selected={pestana === opcion.id}
+            className={pestana === opcion.id ? 'plan-pestana activa' : 'plan-pestana'}
+            onClick={() => setPestana(opcion.id)}
+          >
+            {opcion.etiqueta}
+            {opcion.cantidad > 0 && <span className="plan-pestana-cantidad">{opcion.cantidad}</span>}
+          </button>
+        ))}
+      </div>
     </section>
   );
 }

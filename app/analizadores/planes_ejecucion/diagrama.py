@@ -124,25 +124,154 @@ def _objeto(relop: ET.Element) -> Dict[str, str]:
         if _local(elemento) == "Object" and elemento.attrib.get("Table"):
             atributos = elemento.attrib
             esquema = atributos.get("Schema", "")
+            completo = ".".join(p for p in (atributos.get("Database"), esquema, atributos["Table"], atributos.get("Index")) if p)
             return {
                 "objeto": f"{esquema}.{atributos['Table']}" if esquema else atributos["Table"],
                 "indice": atributos.get("Index", ""),
+                # Como el «Object» del tooltip de SSMS: [Base].[Esquema].[Tabla].[Índice] [Alias]
+                "objetoCompleto": f"{completo} {atributos['Alias']}" if atributos.get("Alias") else completo,
             }
-    return {"objeto": "", "indice": ""}
+    return {"objeto": "", "indice": "", "objetoCompleto": ""}
 
 
 def _contadores(relop: ET.Element) -> Dict[str, Optional[float]]:
     """Suma los contadores reales de todos los hilos del operador."""
     hilos = [e for e in _propios(relop) if _local(e) == "RunTimeCountersPerThread"]
     if not hilos:
-        return {"filasReales": None, "ejecuciones": None, "lecturas": None}
+        return {"filasReales": None, "filasLeidas": None, "ejecuciones": None, "lecturas": None}
 
     def suma(nombre: str) -> Optional[float]:
         valores = [_numero(hilo, nombre) for hilo in hilos]
         valores = [v for v in valores if v is not None]
         return sum(valores) if valores else None
 
-    return {"filasReales": suma("ActualRows"), "ejecuciones": suma("ActualExecutions"), "lecturas": suma("ActualLogicalReads")}
+    return {
+        "filasReales": suma("ActualRows"),
+        "filasLeidas": suma("ActualRowsRead"),
+        "ejecuciones": suma("ActualExecutions"),
+        "lecturas": suma("ActualLogicalReads"),
+    }
+
+
+def _columna(referencia: ET.Element) -> str:
+    """Columna como la escribe SSMS: [Base].[Esquema].[Tabla].[Columna] as [Alias].[Columna]."""
+    atributos = referencia.attrib
+    columna = atributos.get("Column", "")
+    if atributos.get("Table") and not columna.startswith("["):
+        columna = f"[{columna}]"
+    completa = ".".join(p for p in (atributos.get("Database"), atributos.get("Schema"), atributos.get("Table")) if p)
+    texto = f"{completa}.{columna}" if completa else columna
+    if atributos.get("Alias"):
+        texto += f" as {atributos['Alias']}.{columna}"
+    return texto
+
+
+def _columnas(elemento: ET.Element) -> str:
+    return ", ".join(_columna(c) for c in elemento if _local(c) == "ColumnReference")
+
+
+def _expresion(elemento: ET.Element) -> str:
+    """ScalarString del primer ScalarOperator dentro del elemento."""
+    escalar = next((e for e in elemento.iter() if _local(e) == "ScalarOperator" and e.attrib.get("ScalarString")), None)
+    return escalar.attrib["ScalarString"] if escalar is not None else ""
+
+
+_OPERADORES_SEEK = {"EQ": "=", "GT": ">", "GE": ">=", "LT": "<", "LE": "<=", "IS": "=", "ISNOT": "<>", "NE": "<>"}
+_TIPOS_SEEK = {"Prefix": "Prefix", "StartRange": "Start", "EndRange": "End"}
+
+
+def _seek_predicates(elemento: ET.Element) -> str:
+    """Seek Predicates como los muestra SSMS: Seek Keys[1]: Prefix: [col] = Scalar Operator(expr)."""
+    partes = []
+    for numero, claves in enumerate((e for e in elemento.iter() if _local(e) == "SeekKeys"), start=1):
+        rangos = []
+        for rango in claves:
+            tipo = _TIPOS_SEEK.get(_local(rango))
+            if not tipo:
+                continue
+            columnas = next((e for e in rango if _local(e) == "RangeColumns"), None)
+            expresiones = next((e for e in rango if _local(e) == "RangeExpressions"), None)
+            operador = _OPERADORES_SEEK.get(rango.attrib.get("ScanType", "EQ"), "=")
+            nombres = [_columna(c) for c in columnas] if columnas is not None else []
+            valores = [e.attrib.get("ScalarString", "") for e in expresiones] if expresiones is not None else []
+            comparaciones = ", ".join(f"{c} {operador} Scalar Operator({v})" for c, v in zip(nombres, valores))
+            rangos.append(f"{tipo}: {comparaciones}")
+        if rangos:
+            partes.append(f"Seek Keys[{numero}]: " + ", ".join(rangos))
+    return "; ".join(partes)
+
+
+# Datos del operador que SSMS muestra en su tooltip, con el mismo nombre.
+_PREDICADOS = [
+    ("SeekPredicates", "Seek Predicates", _seek_predicates),
+    ("Predicate", "Predicate", _expresion),
+    ("HashKeysBuild", "Hash Keys Build", _columnas),
+    ("HashKeysProbe", "Hash Keys Probe", _columnas),
+    ("ProbeResidual", "Probe Residual", _expresion),
+    ("OuterReferences", "Outer References", _columnas),
+    ("InnerSideJoinColumns", "Inner Side Join Columns", _columnas),
+    ("OuterSideJoinColumns", "Outer Side Join Columns", _columnas),
+    ("Residual", "Residual", _expresion),
+]
+
+
+def _predicados(relop: ET.Element) -> List[Dict]:
+    """Predicados y columnas del operador (Seek Predicates, Predicate, Hash Keys...) tal cual el XML."""
+    encontrados = []
+    for elemento in _propios(relop):
+        for etiqueta, nombre, leer in _PREDICADOS:
+            if _local(elemento) == etiqueta:
+                texto = leer(elemento)
+                if texto:
+                    encontrados.append({"nombre": nombre, "texto": texto})
+    salida = next((e for e in relop if _local(e) == "OutputList"), None)
+    if salida is not None and len(salida):
+        encontrados.append({"nombre": "Output List", "texto": _columnas(salida)})
+    return encontrados
+
+
+def _parametros(plan: ET.Element) -> List[Dict]:
+    """ParameterList: cada parámetro con su tipo y sus valores al compilar y al ejecutar."""
+    lista = next((e for e in plan if _local(e) == "ParameterList"), None)
+    if lista is None:
+        return []
+    return [
+        {
+            "nombre": c.attrib.get("Column", ""),
+            "tipo": c.attrib.get("ParameterDataType", ""),
+            "valorCompilado": c.attrib.get("ParameterCompiledValue"),
+            "valorEjecucion": c.attrib.get("ParameterRuntimeValue"),
+        }
+        for c in lista
+        if _local(c) == "ColumnReference"
+    ]
+
+
+def _detalle_indices_faltantes(plan: ET.Element) -> List[Dict]:
+    """MissingIndexes: tabla, columnas por uso e impacto, con el CREATE INDEX que sugiere SSMS."""
+    indices = []
+    for grupo in (e for e in plan.iter() if _local(e) == "MissingIndexGroup"):
+        for indice in (e for e in grupo if _local(e) == "MissingIndex"):
+            columnas = {"EQUALITY": [], "INEQUALITY": [], "INCLUDE": []}
+            for conjunto in (e for e in indice if _local(e) == "ColumnGroup"):
+                columnas.setdefault(conjunto.attrib.get("Usage", ""), []).extend(
+                    c.attrib.get("Name", "") for c in conjunto if _local(c) == "Column"
+                )
+            tabla = ".".join(p for p in (indice.attrib.get("Schema"), indice.attrib.get("Table")) if p)
+            claves = columnas["EQUALITY"] + columnas["INEQUALITY"]
+            sentencia = f"CREATE NONCLUSTERED INDEX [<Name of Missing Index, sysname,>]\nON {tabla} ({', '.join(claves)})"
+            if columnas["INCLUDE"]:
+                sentencia += f"\nINCLUDE ({', '.join(columnas['INCLUDE'])})"
+            indices.append({
+                "impacto": _numero(grupo, "Impact"),
+                "base": indice.attrib.get("Database", ""),
+                "tabla": tabla,
+                "igualdad": columnas["EQUALITY"],
+                "desigualdad": columnas["INEQUALITY"],
+                "incluidas": columnas["INCLUDE"],
+                "sentencia": sentencia,
+            })
+    return indices
 
 
 def _nodos_de(relop: ET.Element, padre: str, costo_total: float, nodos: List[Dict]) -> None:
@@ -165,6 +294,7 @@ def _nodos_de(relop: ET.Element, padre: str, costo_total: float, nodos: List[Dic
         "filasEstimadas": (_numero(relop, "EstimateRows") or 0) * ejecuciones_estimadas,
         **_contadores(relop),
         "advertencias": advertencias,
+        "predicados": _predicados(relop),
     })
     for hijo in hijos:
         _nodos_de(hijo, relop.attrib.get("NodeId", "?"), costo_total, nodos)
@@ -231,8 +361,8 @@ def construir_diagrama(contenido: Union[str, bytes]) -> List[Dict]:
         nodos = [{
             "id": "raiz", "padre": None, "fisica": tipo, "logica": tipo, "objeto": "", "indice": "",
             "costoPct": 0.0, "filasEstimadas": _numero(sentencia, "StatementEstRows"),
-            "filasReales": None, "ejecuciones": None, "lecturas": None,
-            "advertencias": advertencias,
+            "filasReales": None, "filasLeidas": None, "ejecuciones": None, "lecturas": None,
+            "advertencias": advertencias, "predicados": [],
         }]
         for relop in superiores:
             _nodos_de(relop, "raiz", costo_total, nodos)
@@ -256,6 +386,8 @@ def construir_diagrama(contenido: Union[str, bytes]) -> List[Dict]:
             "lecturas": sum(n["lecturas"] or 0 for n in nodos[1:]) if any(n["lecturas"] is not None for n in nodos) else None,
             "filasEstimadas": _numero(sentencia, "StatementEstRows"),
             "filasReales": _filas_reales_de(superiores),
+            "parametros": _parametros(plan),
+            "indicesFaltantes": _detalle_indices_faltantes(plan),
             "nodos": nodos,
         })
     return sentencias
