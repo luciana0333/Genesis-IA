@@ -131,7 +131,7 @@ export function TiempoEjecucion({ sentencias = [], area, limiteS = null, onCambi
     return (
       <section className="tiempo-plan tiempo-plan--vacio" aria-label="Tiempo de ejecución">
         <span className="tiempo-etiqueta">Tiempo de ejecución</span>
-        <p className="tiempo-texto">El XML no trae tiempos (QueryTimeStats): es un plan estimado. Carga el plan real para medirlo.</p>
+        <p className="tiempo-texto">El XML no trae tiempos (QueryTimeStats): puede ser un plan estimado o de una versión de SQL Server que no los registra. Carga el plan real para medirlo.</p>
       </section>
     );
   }

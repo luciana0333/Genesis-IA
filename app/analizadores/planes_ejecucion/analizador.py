@@ -8,6 +8,7 @@ from typing import Iterable, List, Optional, Tuple, Union
 
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.analizadores.planes_ejecucion.modelos import MemoriaPlan, OperadorPlan
+from app.analizadores.planes_ejecucion.diagrama import SENTENCIAS, plan_de_sentencia
 
 
 @dataclass(frozen=True)
@@ -97,7 +98,7 @@ def _extraer_operadores(raiz: ET.Element) -> List[OperadorPlan]:
 
     def recorrer(elemento: ET.Element, profundidad: int) -> None:
         nonlocal consulta
-        if _nombre_local(elemento) == "StmtSimple":
+        if _nombre_local(elemento) in SENTENCIAS:  # misma numeración que el diagrama (IF incluido)
             consulta += 1
         if _nombre_local(elemento) == "RelOp":
             runtime = next(
@@ -266,12 +267,13 @@ def _agrupar(observaciones: List[_Observacion], varias_consultas: bool) -> List[
 
 
 def _consulta_con_memoria(raiz: ET.Element) -> int:
-    """Número de la primera sentencia (StmtSimple) que trae MemoryGrantInfo."""
+    """Número de la primera sentencia (consulta o condición de IF) que trae MemoryGrantInfo."""
     numero = 0
     for elemento in raiz.iter():
-        if _nombre_local(elemento) == "StmtSimple":
+        if _nombre_local(elemento) in SENTENCIAS:
             numero += 1
-            if any(_nombre_local(e) == "MemoryGrantInfo" for e in elemento.iter()):
+            plan = plan_de_sentencia(elemento)
+            if plan is not None and any(_nombre_local(e) == "MemoryGrantInfo" for e in plan):
                 return numero
     return 1
 

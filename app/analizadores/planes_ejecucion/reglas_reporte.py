@@ -50,12 +50,18 @@ def _conversiones_con_alerta(sentencias: List[Dict]) -> List[Dict]:
     return casos
 
 
-def _ubicacion(caso: Dict, varias_consultas: bool) -> str:
+def _ubicacion(caso: Dict, varias_consultas: bool, mayuscula: bool = False) -> str:
     nodo = caso["nodo"]
     # Sin el número de nodo (NodeId): confunde en el informe; la imagen ya señala el operador.
-    lugar = f"el operador {_nombre_operador(nodo)}"
+    if nodo["padre"] is None and nodo["fisica"] == "IF":
+        lugar = "la condición IF"
+    else:
+        lugar = f"el operador {_nombre_operador(nodo)}"
     if varias_consultas:
         lugar += f" de la consulta {caso['consulta']}"
+    if mayuscula:  # en las listas va sin artículo: «Operador SELECT…», «Condición IF…»
+        lugar = lugar.split(" ", 1)[1]
+        return lugar[:1].upper() + lugar[1:]
     return lugar
 
 
@@ -79,13 +85,13 @@ def _conversion_implicita(sentencias: List[Dict]) -> List[Hallazgo]:
         caso = casos[0]
         mensaje = (
             f"Se ha identificado una conversión implícita en {_ubicacion(caso, varias_consultas)}: "
-            f"'{caso['expresion']}', que {caso['efecto']}. {_RECOMENDACION_CONVERSION}"
+            f"«{caso['expresion']}», que {caso['efecto']}. {_RECOMENDACION_CONVERSION}"
         )
     else:
         consultas = sorted({c["consulta"] for c in casos})
         encabezado = ("la consulta " if len(consultas) == 1 else "las consultas ") + ", ".join(map(str, consultas))
         detalle = "; ".join(
-            f"O{_ubicacion(c, varias_consultas)[4:]}: '{c['expresion']}', que {c['efecto']}" for c in casos
+            f"{_ubicacion(c, varias_consultas, mayuscula=True)}: «{c['expresion']}», que {c['efecto']}" for c in casos
         )
         mensaje = (
             f"Se identificaron {len(casos)} conversiones implícitas, en {encabezado}: {detalle}. "

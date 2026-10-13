@@ -336,16 +336,28 @@ def _filas_reales_de(superiores: List[ET.Element]) -> Optional[float]:
     return _contadores(superiores[0])["filasReales"]
 
 
+# Sentencias con plan propio: las consultas (StmtSimple) y la condición de cada IF (StmtCond).
+SENTENCIAS = {"StmtSimple", "StmtCond"}
+
+
+def plan_de_sentencia(sentencia: ET.Element) -> Optional[ET.Element]:
+    """QueryPlan propio de la sentencia; en un IF, el de su condición (sin los bloques THEN / ELSE)."""
+    if _local(sentencia) == "StmtCond":
+        condicion = next((e for e in sentencia if _local(e) == "Condition"), None)
+        return next((e for e in condicion if _local(e) == "QueryPlan"), None) if condicion is not None else None
+    return next((e for e in sentencia if _local(e) == "QueryPlan"), None)
+
+
 def construir_diagrama(contenido: Union[str, bytes]) -> List[Dict]:
     """Devuelve una lista de sentencias, cada una con sus nodos listos para dibujar."""
     raiz = ET.fromstring(contenido)
     sentencias = []
     numero = 0
     for sentencia in raiz.iter():
-        if _local(sentencia) != "StmtSimple":
+        if _local(sentencia) not in SENTENCIAS:
             continue
         numero += 1  # mismo orden que usan los hallazgos («consulta N»)
-        plan = next((e for e in sentencia if _local(e) == "QueryPlan"), None)
+        plan = plan_de_sentencia(sentencia)
         if plan is None:
             continue
         tiempos = next((e for e in plan if _local(e) == "QueryTimeStats"), None)
@@ -359,7 +371,8 @@ def construir_diagrama(contenido: Union[str, bytes]) -> List[Dict]:
                 advertencias.extend(_leer_advertencias(elemento))
         advertencias.extend(_indices_faltantes(plan))
 
-        tipo = sentencia.attrib.get("StatementType", "SELECT").split(" ")[0]
+        # La condición de un IF llega como «COND»: se muestra como IF, igual que en Plan Explorer.
+        tipo = "IF" if _local(sentencia) == "StmtCond" else sentencia.attrib.get("StatementType", "SELECT").split(" ")[0]
         nodos = [{
             "id": "raiz", "padre": None, "fisica": tipo, "logica": tipo, "objeto": "", "indice": "",
             "costoPct": 0.0, "filasEstimadas": _numero(sentencia, "StatementEstRows"),

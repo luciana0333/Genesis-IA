@@ -47,7 +47,7 @@ class TestConversionImplicitaReporte(unittest.TestCase):
         self.assertEqual(hallazgos[0].severidad.value, "alto")
         self.assertIn(
             "Se ha identificado una conversión implícita en el operador SELECT: "
-            "'[DC].[nDocTpo]=CONVERT_IMPLICIT(int,[CL].[nConsEquivalente],0)', que impide buscar en el índice (SeekPlan). "
+            "«[DC].[nDocTpo]=CONVERT_IMPLICIT(int,[CL].[nConsEquivalente],0)», que impide buscar en el índice (SeekPlan). "
             "Se recomienda corregir la conversión implícita, verificando que los tipos de datos de la comparación "
             "coincidan para favorecer el rendimiento de la consulta.",
             hallazgos[0].mensaje,
@@ -64,8 +64,8 @@ class TestConversionImplicitaReporte(unittest.TestCase):
         hallazgos = _hallazgos(_plan(IMPLICITA_SEEK, advertencias_compute=IMPLICITA_CARDINALIDAD))
         self.assertEqual(len(hallazgos), 1)
         self.assertTrue(hallazgos[0].mensaje.startswith("Se identificaron 2 conversiones implícitas, en la consulta 1: "))
-        self.assertIn("1: Operador SELECT: '[DC].[nDocTpo]=CONVERT_IMPLICIT(", hallazgos[0].mensaje)
-        self.assertIn("; Operador Compute Scalar: 'CONVERT_IMPLICIT(", hallazgos[0].mensaje)
+        self.assertIn("1: Operador SELECT: «[DC].[nDocTpo]=CONVERT_IMPLICIT(", hallazgos[0].mensaje)
+        self.assertIn("; Operador Compute Scalar: «CONVERT_IMPLICIT(", hallazgos[0].mensaje)
         self.assertEqual(len(hallazgos[0].nodos), 2)
         self.assertTrue(hallazgos[0].mensaje.endswith(
             "Se recomienda corregir las conversiones implícitas, verificando que los tipos de datos en las "
@@ -90,6 +90,41 @@ class TestConversionImplicitaReporte(unittest.TestCase):
         resaltados = [a["resaltados"] for a in raiz["advertencias"]]
         self.assertEqual(resaltados, [["CONVERT_IMPLICIT"], []])
 
+
+    def test_expresion_con_comillas_propias_va_entre_comillas_angulares(self):
+        con_texto = '<PlanAffectingConvert ConvertIssue="Cardinality Estimate" Expression="CONVERT_IMPLICIT(nvarchar(50),[A].[cZona],0)=N&apos;SUR&apos;"/>'
+        hallazgos = _hallazgos(_plan(con_texto))
+        self.assertIn("«CONVERT_IMPLICIT(nvarchar(50),[A].[cZona],0)=N'SUR'»", hallazgos[0].mensaje)
+
+
+class TestCondicionIf(unittest.TestCase):
+    """La condición de un IF (StmtCond) tiene su propio plan: también se revisa."""
+
+    XML = (
+        "<ShowPlanXML><BatchSequence><Batch><Statements>"
+        '<StmtCond StatementText="IF EXISTS (SELECT 1 FROM dbo.X WHERE c = @n)" StatementType="COND" StatementSubTreeCost="1">'
+        "<Condition><QueryPlan><Warnings>" + IMPLICITA_SEEK + "</Warnings>"
+        '<QueryTimeStats CpuTime="10" ElapsedTime="40000"/>'
+        '<RelOp NodeId="0" PhysicalOp="Clustered Index Scan" LogicalOp="Clustered Index Scan" EstimateRows="1" EstimatedTotalSubtreeCost="1">'
+        '<RunTimeInformation><RunTimeCountersPerThread Thread="0" ActualRows="1" ActualRowsRead="3000000" ActualExecutions="1"/></RunTimeInformation>'
+        '<IndexScan><Object Schema="[dbo]" Table="[X]"/></IndexScan></RelOp>'
+        "</QueryPlan></Condition>"
+        '<Then><Statements><StmtSimple StatementType="SELECT" StatementSubTreeCost="1" StatementText="SELECT 1">'
+        '<QueryPlan><QueryTimeStats CpuTime="10" ElapsedTime="1000"/>'
+        '<RelOp NodeId="0" PhysicalOp="Constant Scan" LogicalOp="Constant Scan" EstimateRows="1" EstimatedTotalSubtreeCost="0"/>'
+        "</QueryPlan></StmtSimple></Statements></Then></StmtCond>"
+        "</Statements></Batch></BatchSequence></ShowPlanXML>"
+    )
+
+    def test_la_condicion_es_una_sentencia_con_su_plan(self):
+        sentencias = construir_diagrama(self.XML)
+        self.assertEqual([(s["numero"], s["tipo"]) for s in sentencias], [(1, "IF"), (2, "SELECT")])
+
+    def test_las_reglas_revisan_la_condicion(self):
+        hallazgos = {h.regla: h for h in analizar_plan_reporte(construir_diagrama(self.XML), 30)}
+        self.assertEqual(set(hallazgos), {"TIEMPO_EJECUCION_SUPERADO", "CONVERSION_IMPLICITA_DETECTADA", "LECTURA_RESIDUAL_ELEVADA"})
+        self.assertIn("en la condición IF de la consulta 1", hallazgos["CONVERSION_IMPLICITA_DETECTADA"].mensaje)
+        self.assertEqual(hallazgos["TIEMPO_EJECUCION_SUPERADO"].codigo, "IF EXISTS (SELECT 1 FROM dbo.X WHERE c = @n)")
 
 
 class TestPlanEjemploReportes(unittest.TestCase):

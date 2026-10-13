@@ -7,11 +7,15 @@ import { EstadoInicial } from './EstadoInicial';
 import { EstadoVacio } from './EstadoVacio';
 import { IconoCopiar, IconoCopiado, IconoErrorCirculo } from './Iconos';
 
-/** Resalta lo que el mensaje cita entre comillas simples: 'Indicatg', 'dbo2'. */
+/**
+ * Resalta lo que el mensaje cita entre comillas simples ('Indicatg', 'dbo2') o
+ * entre comillas angulares («CONVERT_IMPLICIT(…)»), que se usan cuando el texto
+ * citado trae sus propias comillas simples (p. ej. N'SUR').
+ */
 function MensajeResaltado({ texto }) {
-  const partes = texto.split(/('[^'\n]+')/g);
+  const partes = texto.split(/(«[^»\n]+»|'[^'\n]+')/g);
   return partes.map((parte, indice) =>
-    /^'[^'\n]+'$/.test(parte)
+    /^«[^»\n]+»$|^'[^'\n]+'$/.test(parte)
       ? <mark key={indice} className="finding-token">{parte.slice(1, -1)}</mark>
       : parte,
   );
