@@ -22,8 +22,10 @@ Requisitos: Python 3.10+ y Node.js 20+.
 
 ```bash
 python -m pip install -r requirements.txt
-npm --prefix frontend install
-npm --prefix frontend run build
+cd frontend
+npm install
+npm run build
+cd ..
 python server.py
 ```
 

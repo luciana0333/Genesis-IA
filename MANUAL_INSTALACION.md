@@ -54,13 +54,16 @@ Dentro de la carpeta `Genesis-IA`, ejecuta en orden:
 
 ```
 python -m pip install -r requirements.txt
-npm --prefix frontend install
-npm --prefix frontend run build
+cd frontend
+npm install
+npm run build
+cd ..
 ```
 
-- La 1.ª instala el corrector ortográfico que usa la revisión de diccionarios.
-- La 2.ª descarga las librerías de la pantalla (tarda unos minutos la primera vez).
-- La 3.ª compila la pantalla; al final debe decir **«built in …»**.
+- `pip install` instala el corrector ortográfico que usa la revisión de diccionarios.
+- `npm install` (dentro de `frontend`) descarga las librerías de la pantalla; tarda unos minutos la primera vez. Si al final sugiere `npm audit fix`, puedes ignorarlo.
+- `npm run build` compila la pantalla; al final debe decir **«built in …»**.
+- `cd ..` vuelve a la carpeta principal `Genesis-IA`.
 
 ---
 
@@ -106,8 +109,10 @@ Cuando haya cambios nuevos en GitHub:
 cd %USERPROFILE%\Documents\Genesis-IA
 git pull
 python -m pip install -r requirements.txt
-npm --prefix frontend install
-npm --prefix frontend run build
+cd frontend
+npm install
+npm run build
+cd ..
 python server.py
 ```
 
@@ -120,10 +125,11 @@ python server.py
 | Síntoma | Solución |
 |---|---|
 | `python` no se reconoce | Reinstala Python marcando **«Add python.exe to PATH»**, o usa `py` en lugar de `python` (por ejemplo `py server.py`). Cierra y vuelve a abrir la terminal. |
+| `npm install` dice «Could not read package.json» | Estás en la carpeta equivocada: entra primero a `frontend` (`cd frontend`). |
 | `npm` da error de «ejecución de scripts deshabilitada» en PowerShell | Usa la terminal **«Símbolo del sistema» (cmd)** en lugar de PowerShell, o escribe `npm.cmd` en lugar de `npm`. |
 | `pip` o `npm` no descargan nada (red de la empresa / proxy) | Pide a TI la dirección del proxy y configúrala: `python -m pip install --proxy http://USUARIO:CLAVE@PROXY:PUERTO -r requirements.txt` y `npm config set proxy http://PROXY:PUERTO` + `npm config set https-proxy http://PROXY:PUERTO`. |
 | `pip` dice que no tiene permisos | Agrega `--user`: `python -m pip install --user -r requirements.txt` |
-| El navegador muestra la página pero sin estilos o en blanco | Falta compilar la pantalla: `npm --prefix frontend run build` y recarga. |
+| El navegador muestra la página pero sin estilos o en blanco | Falta compilar la pantalla: `cd frontend`, `npm run build`, `cd ..` y recarga. |
 | «El puerto 8000 está en uso» | Otro programa lo ocupa. Usa otro puerto: en cmd `set GENESIS_PUERTO=8080` (en PowerShell `$env:GENESIS_PUERTO="8080"`) y luego `python server.py`; abre http://localhost:8080. |
 | La revisión de diccionarios marca como error una palabra correcta del negocio | Agrégala a `app/reglas/vocabulario_tecnico.txt` (una por línea). |
 
