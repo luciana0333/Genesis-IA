@@ -116,15 +116,14 @@ def _spill(sentencias: List[Dict]) -> List[Hallazgo]:
             texto += f": se escribieron {_cifra(escritas)} páginas en TempDB"
         return texto
 
-    recomendacion = (
-        "Revisar la estimación de filas y los índices de la consulta, ya que al no alcanzar la "
-        "memoria asignada SQL Server escribe en disco (TempDB) y la ejecución se vuelve más lenta."
-    )
     if len(casos) == 1:
-        mensaje = f"Se ha identificado un spill a TempDB en {describir(casos[0])}. {recomendacion}"
+        mensaje = (f"Se ha identificado un spill a TempDB en {describir(casos[0])}. Corregir la alerta por spill "
+                   f"dentro del procedimiento, ya que puede ocasionar impactos en TempDB y afectar el rendimiento.")
     else:
         detalle = "; ".join("O" + d[4:] for d in (describir(c) for c in casos))  # «el operador…» → «Operador…»
-        mensaje = f"Se identificaron {len(casos)} spills a TempDB, en {_encabezado(casos)}: {detalle}. {recomendacion}"
+        mensaje = (f"Se identificaron {len(casos)} spills a TempDB, en {_encabezado(casos)}: {detalle}. Corregir las "
+                   f"alertas por spill dentro del procedimiento, ya que pueden ocasionar impactos en TempDB y afectar "
+                   f"el rendimiento.")
     return [_hallazgo("SPILL_TEMPDB_DETECTADO", Severidad.ALTO, mensaje, casos)]
 
 

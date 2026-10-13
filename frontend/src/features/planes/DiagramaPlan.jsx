@@ -40,7 +40,7 @@ export function Flecha({ desde, hasta, filas, filasMaximas, desviada = false }) 
 
 const ANCHO_LETRA = 6.3; // ancho aproximado de un carácter a 11.5 px (Segoe UI)
 
-export function Nodo({ nodo, posicion, maximo, activo, marcado = false, onEntrar, onSalir }) {
+export function Nodo({ nodo, posicion, maximo, activo, marcado = false, soloMarcado = false, onEntrar, onSalir }) {
   const tono = tonoCosto(nodo.costoPct, maximo);
   const conAdvertencia = nodo.advertencias.length > 0;
   const nombre = nodo.padre === null ? nodo.fisica.toUpperCase() : nodo.fisica;
@@ -80,7 +80,8 @@ export function Nodo({ nodo, posicion, maximo, activo, marcado = false, onEntrar
           <text x={x - mitad + 2} y={y + mitad - 1.5} textAnchor="middle">!</text>
         </g>
       )}
-      {(conAdvertencia || marcado) && (
+      {/* En la imagen de una observación (soloMarcado) solo se resalta su operador. */}
+      {(marcado || (conAdvertencia && !soloMarcado)) && (
         <rect x={x - anchoNombre / 2} y={y + mitad + 5} width={anchoNombre} height={16} rx={8} className="plan-resaltado" />
       )}
       <text x={x} y={y + mitad + 17} textAnchor="middle" className="plan-nombre">

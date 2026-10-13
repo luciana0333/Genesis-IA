@@ -61,8 +61,12 @@ class TestReglasNegocio(unittest.TestCase):
     def test_spill_a_tempdb(self):
         hallazgo = _reglas(_plan(operadores=SPILL))["SPILL_TEMPDB_DETECTADO"]
         self.assertEqual(hallazgo.severidad.value, "alto")
-        self.assertIn("Se ha identificado un spill a TempDB en el operador Sort: se escribieron 194 páginas en TempDB.",
-                      hallazgo.mensaje)
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se ha identificado un spill a TempDB en el operador Sort: se escribieron 194 páginas en TempDB. Corregir "
+            "la alerta por spill dentro del procedimiento, ya que puede ocasionar impactos en TempDB y afectar el "
+            "rendimiento.",
+        )
 
     def test_sobreestimacion_de_memoria_con_el_estilo_de_la_usuaria(self):
         hallazgo = _reglas(_plan(advertencias_sentencia=MEMORIA))["MEMORIA_SOBREESTIMADA"]

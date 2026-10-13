@@ -201,6 +201,7 @@ function bloque(sentencia, nodo, posiciones, ancho, y, regla, x = 0) {
           maximo={maximo}
           activo={n.id === nodo.id}
           marcado={n.id === nodo.id}
+          soloMarcado
           onEntrar={() => {}}
           onSalir={() => {}}
         />
