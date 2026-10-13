@@ -813,8 +813,8 @@
 .tiempo-encabezado {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 10px;
 }
 
@@ -950,4 +950,15 @@
 /* Sección «Rendimiento · Tiempo de ejecución»: título como las demás secciones. */
 .tiempo-seccion .section-heading {
   margin-bottom: 14px;
+}
+
+.tiempo-titulo {
+  color: #1d1d24;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.tiempo-encabezado .tiempo-ayuda {
+  display: block;
+  margin-top: 2px;
 }

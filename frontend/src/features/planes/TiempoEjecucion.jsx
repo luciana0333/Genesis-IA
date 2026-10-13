@@ -160,7 +160,13 @@ export function TiempoEjecucion({ sentencias = [], area, limiteS = null, onCambi
         <Velocimetro totalS={totalS} limiteS={limiteS} />
       </div>
       <div className="tiempo-lado">
-        {sello && <div className="tiempo-encabezado">{sello}</div>}
+        <div className="tiempo-encabezado">
+          <div>
+            <p className="tiempo-titulo">Tiempo óptimo de ejecución</p>
+            <p className="tiempo-ayuda">Establece el límite del área y compáralo con el tiempo que tomó el plan.</p>
+          </div>
+          {sello}
+        </div>
         <div className="tiempo-datos">
           <div>
             <span className="tiempo-etiqueta">{limiteS != null && !supera ? 'Margen' : 'Exceso'}</span>
