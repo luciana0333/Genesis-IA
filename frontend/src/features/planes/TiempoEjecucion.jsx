@@ -160,10 +160,7 @@ export function TiempoEjecucion({ sentencias = [], area, limiteS = null, onCambi
         <Velocimetro totalS={totalS} limiteS={limiteS} />
       </div>
       <div className="tiempo-lado">
-        <div className="tiempo-encabezado">
-          <span className="tiempo-etiqueta">Total del plan · {nombreArea}</span>
-          {sello}
-        </div>
+        {sello && <div className="tiempo-encabezado">{sello}</div>}
         <div className="tiempo-datos">
           <div>
             <span className="tiempo-etiqueta">{limiteS != null && !supera ? 'Margen' : 'Exceso'}</span>
