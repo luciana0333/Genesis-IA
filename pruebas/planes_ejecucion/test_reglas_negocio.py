@@ -73,7 +73,9 @@ class TestReglasNegocio(unittest.TestCase):
         self.assertEqual(hallazgo.severidad.value, "medio")
         self.assertTrue(hallazgo.mensaje.startswith(
             "Se observa una sobreestimación en la reserva de memoria, ya que se solicitan y reservan 899 MB, "
-            "mientras que solo se utilizan 3 MB durante la ejecución."))
+            "mientras que solo se utilizan 3 MB durante la ejecución. Corregir la sobreestimación de memoria, ya que "
+            "la cantidad reservada es muy alta para la cantidad utilizada; si bien se trata de tablas transaccionales, "
+            "se debe reducir lo más posible."))
         self.assertEqual(hallazgo.nodos, [{"consulta": 1, "nodo": "raiz"}])
 
     def test_sin_alertas_no_hay_spill_ni_memoria(self):

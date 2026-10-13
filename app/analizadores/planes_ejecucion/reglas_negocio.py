@@ -150,18 +150,18 @@ def _memoria(sentencias: List[Dict]) -> List[Hallazgo]:
                    else f"se solicitan {solicitada} y se reservan {concedida}")
         return f"{reserva}, mientras que solo se utilizan {usada} durante la ejecución"
 
-    recomendacion = (
-        "Revisar las estadísticas de las tablas y el tamaño de las columnas de la consulta, ya que "
-        "la memoria reservada y no usada deja de estar disponible para otros procesos."
+    motivo = (
+        "ya que la cantidad reservada es muy alta para la cantidad utilizada; si bien se trata de tablas "
+        "transaccionales, se debe reducir lo más posible."
     )
     if len(casos) == 1:
         lugar = f" en la consulta {casos[0]['consulta']}" if varias else ""
         mensaje = (f"Se observa una sobreestimación en la reserva de memoria{lugar}, ya que "
-                   f"{describir(casos[0])}. {recomendacion}")
+                   f"{describir(casos[0])}. Corregir la sobreestimación de memoria, {motivo}")
     else:
         detalle = "; ".join(f"Consulta {c['consulta']}: {describir(c)}" for c in casos)
         mensaje = (f"Se identificaron {len(casos)} sobreestimaciones en la reserva de memoria, en "
-                   f"{_encabezado(casos)}: {detalle}. {recomendacion}")
+                   f"{_encabezado(casos)}: {detalle}. Corregir las sobreestimaciones de memoria, {motivo}")
     return [_hallazgo("MEMORIA_SOBREESTIMADA", Severidad.MEDIO, mensaje, casos)]
 
 

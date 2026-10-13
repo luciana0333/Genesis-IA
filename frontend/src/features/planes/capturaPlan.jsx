@@ -96,6 +96,13 @@ function acomodar(texto, resaltados, ancho) {
 /** Contenido del recuadro: solo las advertencias que trae el XML del plan. */
 const MAX_LINEAS_CODIGO = 8;
 
+// Tipo de advertencia (del XML) que corresponde a cada regla: solo esa se resalta en su imagen.
+const TIPOS_POR_REGLA = {
+  CONVERSION_IMPLICITA_DETECTADA: ['conversion'],
+  SPILL_TEMPDB_DETECTADO: ['spill'],
+  MEMORIA_SOBREESTIMADA: ['memoria'],
+};
+
 function contenidoRecuadro(nodo, regla, sentencia) {
   // En la regla de tiempo el recuadro muestra el bloque y sus tiempos, no las advertencias.
   if (regla === 'TIEMPO_EJECUCION_SUPERADO') {
@@ -114,7 +121,10 @@ function contenidoRecuadro(nodo, regla, sentencia) {
       { titulo: 'Statement:', items: codigo },
     ];
   }
-  const grupos = nodo.advertencias.length ? [{ titulo: 'Warnings:', items: nodo.advertencias }] : [];
+  // Todas las advertencias del XML se muestran, pero solo se resalta la de la regla de la observación.
+  const propias = TIPOS_POR_REGLA[regla];
+  const items = nodo.advertencias.map((a) => (!propias || propias.includes(a.tipo) ? a : { ...a, resaltados: [] }));
+  const grupos = items.length ? [{ titulo: 'Warnings:', items }] : [];
   // Lectura residual: con el mismo aviso que muestra Plan Explorer (datos del XML: ActualRowsRead y ActualRows).
   if (regla === 'LECTURA_RESIDUAL_ELEVADA' && nodo.filasLeidas != null) {
     const leidas = Math.round(nodo.filasLeidas).toLocaleString('en-US');
