@@ -18,10 +18,10 @@ import { usePlanEjecucion } from './usePlanEjecucion';
 import { useAlPedirEjemplo } from '../../hooks/useVerEjemplo';
 
 // Plan real de prueba que se analiza con "Ver ejemplo".
-// Plan de prueba de cada área para «Ver ejemplo»: el de Reportes rompe todas sus reglas.
+// Plan de prueba de cada área para «Ver ejemplo»: cada uno rompe todas las reglas de su área.
 const PLANES_EJEMPLO = {
   reporte: 'plan-ejemplo-reportes.sqlplan',
-  negocio: 'plan-ejemplo.sqlplan',
+  negocio: 'plan-ejemplo-negocio.sqlplan',
 };
 import { ZonaArchivo } from './ZonaArchivo';
 
@@ -31,10 +31,10 @@ const AREAS_PLAN = [
   { id: 'negocio', etiqueta: 'Negocio', icono: <IconoNegocio /> },
 ];
 
-// Reglas que revisa cada área (las de Reportes las definió la usuaria; Negocio aún usa las generales).
+// Reglas que revisa cada área (las definió la usuaria).
 const REVISIONES_PLAN = {
   reporte: ['Conversión implícita detectada', 'Lectura residual elevada', 'Tiempo de ejecución superado'],
-  negocio: ['Conversiones implícitas', 'Spills a TempDB', 'Table Scan', 'Lecturas lógicas', 'Cardinalidad', 'Memoria concedida'],
+  negocio: ['Table Scan detectado', 'Conversión implícita detectada', 'Lectura residual elevada', 'Spill a TempDB', 'Sobreestimación de memoria'],
 };
 
 function MetricasPlan({ analisis }) {

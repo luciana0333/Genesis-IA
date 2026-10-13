@@ -4,6 +4,31 @@ from app.reglas.reglas_base import ReglaDiccionario
 
 
 REGLAS_PLANES_EJECUCION = {
+    # --- Área Negocio (reglas definidas por la usuaria; usa además conversión y lectura residual) ---
+    "TABLE_SCAN_DETECTADO": ReglaDiccionario(
+        codigo="TABLE_SCAN_DETECTADO",
+        nombre="Table Scan detectado",
+        severidad="alto",
+        descripcion="Un procedimiento de negocio recorre una tabla física completa (Table Scan). No cuenta tablas temporales ni variables de tabla.",
+        alcance="plan_ejecucion",
+        activo=True,
+    ),
+    "SPILL_TEMPDB_DETECTADO": ReglaDiccionario(
+        codigo="SPILL_TEMPDB_DETECTADO",
+        nombre="Spill a TempDB",
+        severidad="alto",
+        descripcion="Un operador trae la alerta SpillToTempDb: la memoria asignada no alcanzó y escribió en TempDB.",
+        alcance="plan_ejecucion",
+        activo=True,
+    ),
+    "MEMORIA_SOBREESTIMADA": ReglaDiccionario(
+        codigo="MEMORIA_SOBREESTIMADA",
+        nombre="Sobreestimación de memoria",
+        severidad="medio",
+        descripcion="La sentencia trae la alerta Excessive Grant: reserva mucha más memoria de la que usa.",
+        alcance="plan_ejecucion",
+        activo=True,
+    ),
     # --- Área Reportes (reglas definidas por la usuaria) -----------------
     "TIEMPO_EJECUCION_SUPERADO": ReglaDiccionario(
         codigo="TIEMPO_EJECUCION_SUPERADO",

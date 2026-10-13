@@ -111,6 +111,18 @@ function contenidoRecuadro(nodo, regla, sentencia) {
   }
   const grupos = nodo.advertencias.length ? [{ titulo: 'Warnings:', items: nodo.advertencias }] : [];
   // Lectura residual: con el mismo aviso que muestra Plan Explorer (datos del XML: ActualRowsRead y ActualRows).
+  if (regla === 'TABLE_SCAN_DETECTADO' && (nodo.filasLeidas != null || nodo.filasReales != null)) {
+    const cifra = (valor) => Math.round(valor ?? 0).toLocaleString('en-US');
+    const filtro = (nodo.predicados ?? []).find((p) => p.nombre === 'Predicate');
+    grupos.push({
+      titulo: null,
+      items: [
+        ...(nodo.filasLeidas != null ? [{ texto: `Actual Number of Rows Read: ${cifra(nodo.filasLeidas)}`, resaltados: [cifra(nodo.filasLeidas)] }] : []),
+        { texto: `Actual Number of Rows: ${cifra(nodo.filasReales)}`, resaltados: [] },
+        ...(filtro ? [{ texto: `Predicate: ${filtro.texto}`, resaltados: [] }] : []),
+      ],
+    });
+  }
   if (regla === 'LECTURA_RESIDUAL_ELEVADA' && nodo.filasLeidas != null) {
     const leidas = Math.round(nodo.filasLeidas).toLocaleString('en-US');
     const devueltas = Math.round(nodo.filasReales ?? 0).toLocaleString('en-US');

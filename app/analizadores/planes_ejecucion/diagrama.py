@@ -60,8 +60,12 @@ def _entero(valor: Optional[float]) -> str:
     return "?" if valor is None else f"{valor:,.0f}"
 
 
-def _advertencia(tipo: str, texto: str, resaltados: Iterable[str] = ()) -> Dict:
-    return {"tipo": tipo, "texto": texto, "resaltados": [r for r in resaltados if r]}
+def _advertencia(tipo: str, texto: str, resaltados: Iterable[str] = (), datos: Optional[Dict] = None) -> Dict:
+    """Advertencia del XML: su texto (como SSMS), lo que se resalta y, si hace falta, sus valores sueltos."""
+    advertencia = {"tipo": tipo, "texto": texto, "resaltados": [r for r in resaltados if r]}
+    if datos:
+        advertencia["datos"] = datos
+    return advertencia
 
 
 def _memoria(solicitada: Optional[float], concedida: Optional[float], usada: Optional[float]) -> Dict:
@@ -71,6 +75,7 @@ def _memoria(solicitada: Optional[float], concedida: Optional[float], usada: Opt
         "memoria",
         f"Excessive Grant: Requested {valores[0]}, Granted {valores[1]}, Max Used {valores[2]}",
         valores,
+        {"solicitada": _kb(solicitada), "concedida": _kb(concedida), "usada": _kb(usada)},
     )
 
 
@@ -88,7 +93,9 @@ def _leer_advertencias(warnings: ET.Element) -> List[Dict]:
             texto = (f"Operator used tempdb to spill data during execution with spill level "
                      f"{atributos.get('SpillLevel', '?')} and {atributos.get('SpilledThreadCount', '1')} spilled thread(s)")
             resaltados = [f"spill level {atributos.get('SpillLevel', '?')}"]
+            datos = {"nivel": atributos.get("SpillLevel", "?"), "escritas": None}
             if detalles_spill is not None:
+                datos["escritas"] = _numero(detalles_spill, "WritesToTempDb")
                 operador = _local(detalles_spill).replace("SpillDetails", "")
                 escritas = _entero(_numero(detalles_spill, "WritesToTempDb"))
                 leidas = _entero(_numero(detalles_spill, "ReadsFromTempDb"))
@@ -96,7 +103,7 @@ def _leer_advertencias(warnings: ET.Element) -> List[Dict]:
                           f"memory {_numero(detalles_spill, 'GrantedMemoryKb') or 0:.0f}KB and used memory "
                           f"{_numero(detalles_spill, 'UsedMemoryKb') or 0:.0f}KB")
                 resaltados += [f"wrote {escritas} pages", f"read {leidas} pages"]
-            advertencias.append(_advertencia("spill", texto, resaltados))
+            advertencias.append(_advertencia("spill", texto, resaltados, datos))
         elif nombre == "PlanAffectingConvert":
             expresion = atributos.get("Expression", "")
             problema = atributos.get("ConvertIssue", "").replace(" ", "")
