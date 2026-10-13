@@ -99,5 +99,31 @@ class TestReglasNegocio(unittest.TestCase):
         self.assertNotIn("TIEMPO_EJECUCION_SUPERADO", {h.regla for h in analizar_plan_negocio(sentencias, None)})
 
 
+
+class TestQaNegocio(unittest.TestCase):
+    """Casos encontrados en la QA de los planes de Negocio."""
+
+    def test_solo_excessive_grant_es_sobreestimacion(self):
+        for tipo in ("Used More Than Granted", "Grant Increase"):
+            with self.subTest(tipo=tipo):
+                xml = _plan(advertencias_sentencia=MEMORIA.replace("Excessive Grant", tipo))
+                self.assertNotIn("MEMORIA_SOBREESTIMADA", _reglas(xml))
+                raiz = construir_diagrama(xml)[0]["nodos"][0]
+                self.assertTrue(raiz["advertencias"][0]["texto"].startswith(f"{tipo}: Requested"))
+
+    def test_misma_tabla_con_varios_table_scan_se_nombra_una_vez(self):
+        hallazgo = _reglas(_plan(operadores=_table_scan(1, "Clientes") + _table_scan(2, "Clientes")))["TABLE_SCAN_DETECTADO"]
+        self.assertTrue(hallazgo.mensaje.startswith(
+            "Se identificaron 2 Table Scan dentro del procedimiento sobre la tabla [dbo].[Clientes]: se leen 10,000 "
+            "filas y se devuelven 20."))
+        self.assertEqual(len(hallazgo.nodos), 2)  # la imagen muestra los dos operadores
+
+    def test_varias_tablas_con_una_repetida(self):
+        xml = _plan(operadores=_table_scan(1, "Clientes") + _table_scan(2, "Clientes") + _table_scan(3, "Agencias"))
+        hallazgo = _reglas(xml)["TABLE_SCAN_DETECTADO"]
+        self.assertIn("La tabla [dbo].[Clientes] (2 veces): se leen 10,000 filas", hallazgo.mensaje)
+        self.assertIn("; La tabla [dbo].[Agencias]: se leen 5,000 filas", hallazgo.mensaje)
+
+
 if __name__ == "__main__":
     unittest.main()

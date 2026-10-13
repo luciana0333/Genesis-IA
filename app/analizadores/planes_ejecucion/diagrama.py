@@ -68,14 +68,18 @@ def _advertencia(tipo: str, texto: str, resaltados: Iterable[str] = (), datos: O
     return advertencia
 
 
-def _memoria(solicitada: Optional[float], concedida: Optional[float], usada: Optional[float]) -> Dict:
-    """Mismo texto que SSMS y Plan Explorer, con los valores resaltados."""
+def _memoria(solicitada: Optional[float], concedida: Optional[float], usada: Optional[float],
+             tipo: str = "Excessive Grant") -> Dict:
+    """Mismo texto que SSMS y Plan Explorer, con los valores resaltados.
+
+    tipo: GrantWarningKind del XML (Excessive Grant, Grant Increase, Used More Than Granted).
+    """
     valores = [f"({_kb(solicitada)})", f"({_kb(concedida)})", f"({_kb(usada)})"]
     return _advertencia(
         "memoria",
-        f"Excessive Grant: Requested {valores[0]}, Granted {valores[1]}, Max Used {valores[2]}",
+        f"{tipo}: Requested {valores[0]}, Granted {valores[1]}, Max Used {valores[2]}",
         valores,
-        {"solicitada": _kb(solicitada), "concedida": _kb(concedida), "usada": _kb(usada)},
+        {"tipo": tipo, "solicitada": _kb(solicitada), "concedida": _kb(concedida), "usada": _kb(usada)},
     )
 
 
@@ -116,6 +120,7 @@ def _leer_advertencias(warnings: ET.Element) -> List[Dict]:
         elif nombre == "MemoryGrantWarning":
             advertencias.append(_memoria(
                 _numero(hijo, "RequestedMemory"), _numero(hijo, "GrantedMemory"), _numero(hijo, "MaxUsedMemory"),
+                atributos.get("GrantWarningKind", "Excessive Grant"),
             ))
         elif nombre == "NoJoinPredicate":
             advertencias.append(_advertencia("join", "No Join Predicate", ["No Join Predicate"]))

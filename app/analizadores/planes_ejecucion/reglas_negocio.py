@@ -63,25 +63,40 @@ def _table_scan(sentencias: List[Dict]) -> List[Hallazgo]:
     if not casos:
         return []
 
-    def describir(caso: Dict) -> str:
-        nodo = caso["nodo"]
-        texto = f"la tabla {nodo['objeto']}"
+    # La misma tabla recorrida varias veces en una consulta se nombra una sola vez, con sus filas sumadas.
+    por_tabla: Dict = {}
+    for caso in casos:
+        por_tabla.setdefault((caso["consulta"], caso["nodo"]["objeto"]), []).append(caso["nodo"])
+
+    def describir(clave, con_veces: bool = True) -> str:
+        consulta, tabla = clave
+        nodos = por_tabla[clave]
+        texto = f"la tabla {tabla}"
+        detalles = []
         if varias:
-            texto += f" (consulta {caso['consulta']})"
-        leidas = nodo.get("filasLeidas")
-        devueltas = nodo.get("filasReales")
-        if leidas is not None and devueltas is not None:
+            detalles.append(f"consulta {consulta}")
+        if con_veces and len(nodos) > 1:
+            detalles.append(f"{len(nodos)} veces")
+        if detalles:
+            texto += f" ({', '.join(detalles)})"
+        if all(n.get("filasLeidas") is not None and n.get("filasReales") is not None for n in nodos):
+            leidas = sum(n["filasLeidas"] for n in nodos)
+            devueltas = sum(n["filasReales"] for n in nodos)
             texto += f": se leen {_cifra(leidas)} filas y se devuelven {_cifra(devueltas)}"
         return texto
 
     # Un Table Scan ocurre en tablas sin índice clúster (heap): la recomendación es su PK CLUSTERED.
-    if len(casos) == 1:
+    if len(por_tabla) == 1:
+        # Una sola tabla (una o varias veces): «Se ha identificado un…» o «Se identificaron N… sobre la tabla…».
+        inicio = ("Se ha identificado un Table Scan" if len(casos) == 1
+                  else f"Se identificaron {len(casos)} Table Scan")
         mensaje = (
-            f"Se ha identificado un Table Scan dentro del procedimiento sobre {describir(casos[0])}. Evaluar agregar "
-            f"la PK CLUSTERED en la tabla, ya que forma parte de las buenas prácticas y ayuda a agilizar la búsqueda."
+            f"{inicio} dentro del procedimiento sobre {describir(next(iter(por_tabla)), con_veces=False)}. Evaluar "
+            f"agregar la PK CLUSTERED en la tabla, ya que forma parte de las buenas prácticas y ayuda a agilizar la "
+            f"búsqueda."
         )
     else:
-        detalle = "; ".join(d[:1].upper() + d[1:] for d in (describir(c) for c in casos))
+        detalle = "; ".join(d[:1].upper() + d[1:] for d in (describir(clave) for clave in por_tabla))
         mensaje = (
             f"Se identificaron {len(casos)} Table Scan dentro del procedimiento, en {_encabezado(casos)}: "
             f"{detalle}. Evaluar agregar la PK CLUSTERED en las tablas con Table Scan, ya que forma parte de las "
@@ -139,7 +154,8 @@ def _memoria(sentencias: List[Dict]) -> List[Hallazgo]:
         for n in s["nodos"]
         if n["padre"] is None
         for a in n["advertencias"]
-        if a["tipo"] == "memoria"
+        # Solo «Excessive Grant» es sobreestimación; «Grant Increase» y «Used More Than Granted» son lo contrario.
+        if a["tipo"] == "memoria" and a.get("datos", {}).get("tipo", "Excessive Grant") == "Excessive Grant"
     ]
     if not casos:
         return []
