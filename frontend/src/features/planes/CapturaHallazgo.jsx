@@ -72,7 +72,7 @@ export function CapturaHallazgo({ hallazgo, sentencias = [], archivo }) {
         <button type="button" className="captura-boton" onClick={alDescargar}>Descargar PNG</button>
         {estado && <span className="captura-estado" role="status">{estado}</span>}
       </div>
-      {visible && captura && <img className="captura-imagen" src={captura.url} alt={`Captura del plan: ${hallazgo.regla}`} />}
+      {visible && captura && <img className="captura-imagen" src={captura.url} width={captura.ancho} alt={`Captura del plan: ${hallazgo.regla}`} />}
     </div>
   );
 }

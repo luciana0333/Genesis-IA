@@ -17,6 +17,11 @@ const ANCHO_RECUADRO = 560;
 const RELLENO = 10;
 const ANCHO_RECORTE = COLUMNA * 5;
 const ALTO_RECORTE = 150;
+// Reglas cuya imagen es solo el cuadrito del operador, sin recuadro ni el resto del plan.
+const REGLAS_COMPACTAS = new Set(['TABLE_SCAN_DETECTADO']);
+const POR_FILA_COMPACTA = 4;
+const ALTO_COMPACTO = 124; // del costo a la última línea del operador, sin la fila de abajo
+const MAXIMO_COMPACTOS = 8;
 const ALTO_PESTANA = 26;
 const SEPARACION = 18;
 const MAXIMO_NODOS = 4;
@@ -111,18 +116,6 @@ function contenidoRecuadro(nodo, regla, sentencia) {
   }
   const grupos = nodo.advertencias.length ? [{ titulo: 'Warnings:', items: nodo.advertencias }] : [];
   // Lectura residual: con el mismo aviso que muestra Plan Explorer (datos del XML: ActualRowsRead y ActualRows).
-  if (regla === 'TABLE_SCAN_DETECTADO' && (nodo.filasLeidas != null || nodo.filasReales != null)) {
-    const cifra = (valor) => Math.round(valor ?? 0).toLocaleString('en-US');
-    const filtro = (nodo.predicados ?? []).find((p) => p.nombre === 'Predicate');
-    grupos.push({
-      titulo: null,
-      items: [
-        ...(nodo.filasLeidas != null ? [{ texto: `Actual Number of Rows Read: ${cifra(nodo.filasLeidas)}`, resaltados: [cifra(nodo.filasLeidas)] }] : []),
-        { texto: `Actual Number of Rows: ${cifra(nodo.filasReales)}`, resaltados: [] },
-        ...(filtro ? [{ texto: `Predicate: ${filtro.texto}`, resaltados: [] }] : []),
-      ],
-    });
-  }
   if (regla === 'LECTURA_RESIDUAL_ELEVADA' && nodo.filasLeidas != null) {
     const leidas = Math.round(nodo.filasLeidas).toLocaleString('en-US');
     const devueltas = Math.round(nodo.filasReales ?? 0).toLocaleString('en-US');
@@ -181,13 +174,18 @@ function recuadro(nodo, regla, sentencia) {
 }
 
 /** Recorte del diagrama alrededor de un operador, con el recuadro encima. */
-function bloque(sentencia, nodo, posiciones, ancho, y, regla) {
+function bloque(sentencia, nodo, posiciones, ancho, y, regla, x = 0) {
+  const compacto = REGLAS_COMPACTAS.has(regla);
+  const anchoRecorte = compacto ? COLUMNA : ANCHO_RECORTE;
   const objetivo = posiciones.get(nodo.id);
   const maximo = Math.max(...sentencia.nodos.map((n) => n.costoPct), 0);
   const filasDe = (n) => n.filasReales ?? n.filasEstimadas;
   const filasMaximas = Math.max(...sentencia.nodos.map((n) => filasDe(n) ?? 0), 1);
-  const recorteX = Math.max(0, Math.min(objetivo.x - COLUMNA * 1.5, ancho - ANCHO_RECORTE));
-  const recorteY = objetivo.y - 58;
+  const recorteX = compacto
+    ? objetivo.x - COLUMNA / 2
+    : Math.max(0, Math.min(objetivo.x - COLUMNA * 1.5, ancho - ANCHO_RECORTE));
+  const altoRecorte = compacto ? ALTO_COMPACTO : ALTO_RECORTE;
+  const recorteY = objetivo.y - (compacto ? 48 : 58);
 
   const diagrama = renderToStaticMarkup(
     <g>
@@ -213,7 +211,7 @@ function bloque(sentencia, nodo, posiciones, ancho, y, regla) {
   // El recuadro sale a la derecha del operador; si no entra en el recorte, a su izquierda.
   const xOperador = objetivo.x - recorteX;
   // Sin advertencias en el XML no hay recuadro: solo el operador marcado.
-  const conRecuadro = contenidoRecuadro(nodo, regla, sentencia).length > 0;
+  const conRecuadro = !compacto && contenidoRecuadro(nodo, regla, sentencia).length > 0;
   const { marcado: contenidoRecuadroSvg, ancho: anchoRecuadro, alto } = conRecuadro
     ? recuadro(nodo, regla, sentencia)
     : { marcado: '', ancho: 0, alto: 0 };
@@ -224,19 +222,19 @@ function bloque(sentencia, nodo, posiciones, ancho, y, regla) {
   const xRecuadro = aLaDerecha + anchoRecuadro <= ANCHO_RECORTE + 160 || aLaIzquierda < 4 ? aLaDerecha : aLaIzquierda;
   const marcadoRecuadro = conRecuadro ? `<g transform="translate(${xRecuadro} ${y + 4})">${contenidoRecuadroSvg}</g>` : '';
   const yDiagrama = y + Math.max(alto - 40, 0);
-  const anchoBloque = Math.max(ANCHO_RECORTE, xRecuadro + anchoRecuadro + 8);
+  const anchoBloque = compacto ? anchoRecorte : Math.max(ANCHO_RECORTE, xRecuadro + anchoRecuadro + 8);
   const marcado = `
-    <svg x="0" y="${yDiagrama}" width="${ANCHO_RECORTE}" height="${ALTO_RECORTE}"
-         viewBox="${recorteX} ${recorteY} ${ANCHO_RECORTE} ${ALTO_RECORTE}">${diagrama}</svg>
-    <rect x="0.5" y="${yDiagrama + 0.5}" width="${anchoBloque - 1}" height="${ALTO_RECORTE - 1}" fill="none" stroke="#c9d3dc"/>
+    <svg x="${x}" y="${yDiagrama}" width="${anchoRecorte}" height="${altoRecorte}"
+         viewBox="${recorteX} ${recorteY} ${anchoRecorte} ${altoRecorte}">${diagrama}</svg>
+    <rect x="${x + 0.5}" y="${yDiagrama + 0.5}" width="${anchoBloque - 1}" height="${altoRecorte - 1}" fill="none" stroke="#c9d3dc"/>
     ${marcadoRecuadro}`;
-  return { marcado, alto: yDiagrama - y + ALTO_RECORTE, ancho: anchoBloque };
+  return { marcado, alto: yDiagrama - y + altoRecorte, ancho: anchoBloque };
 }
 
 /**
  * Arma la imagen PNG de los operadores de un hallazgo (hasta 4, uno debajo de otro).
  * grupos: [{ sentencia, nodoIds }], uno por consulta; si son varias, cada recorte lleva su etiqueta.
- * Devuelve { blob, url }.
+ * Devuelve { blob, url, ancho }.
  */
 export async function crearCapturaPlan({ grupos, archivo, regla }) {
   const casos = grupos
@@ -244,29 +242,41 @@ export async function crearCapturaPlan({ grupos, archivo, regla }) {
       .map((id) => sentencia.nodos.find((n) => n.id === id))
       .filter(Boolean)
       .map((nodo) => ({ sentencia, nodo })))
-    .slice(0, MAXIMO_NODOS);
+    .slice(0, REGLAS_COMPACTAS.has(regla) ? MAXIMO_COMPACTOS : MAXIMO_NODOS);
   if (!casos.length) throw new Error('No se encontró el operador en el diagrama.');
+  const compacto = REGLAS_COMPACTAS.has(regla);
 
   const variasConsultas = new Set(casos.map((c) => c.sentencia.numero)).size > 1;
   const geometrias = new Map();
   let y = ALTO_PESTANA + 8;
-  let anchoTotal = ANCHO_RECORTE;
-  const bloques = casos.map(({ sentencia, nodo }) => {
+  let anchoTotal = compacto ? 0 : ANCHO_RECORTE;
+  const etiquetaAlto = variasConsultas ? 20 : 0;
+  const bloques = casos.map(({ sentencia, nodo }, indice) => {
     if (!geometrias.has(sentencia.numero)) geometrias.set(sentencia.numero, calcularPosiciones(sentencia.nodos));
     const { posiciones, ancho } = geometrias.get(sentencia.numero);
-    let etiqueta = '';
-    if (variasConsultas) {
-      etiqueta = `<text x="2" y="${y + 12}" font-size="${TAMANO}" font-weight="700" fill="#4a4a55">Consulta ${sentencia.numero}</text>`;
-      y += 20;
+    // Compacto: cuadritos en filas de 4; si no, recortes uno debajo de otro.
+    const x = compacto ? (indice % POR_FILA_COMPACTA) * (COLUMNA + SEPARACION) : 0;
+    const yBloque = compacto
+      ? ALTO_PESTANA + 8 + Math.floor(indice / POR_FILA_COMPACTA) * (ALTO_COMPACTO + etiquetaAlto + SEPARACION)
+      : y;
+    const etiqueta = variasConsultas
+      ? `<text x="${x + 2}" y="${yBloque + 12}" font-size="${TAMANO}" font-weight="700" fill="#4a4a55">Consulta ${sentencia.numero}</text>`
+      : '';
+    const resultado = bloque(sentencia, nodo, posiciones, ancho, yBloque + etiquetaAlto, regla, x);
+    if (compacto) {
+      y = Math.max(y, yBloque + etiquetaAlto + resultado.alto + SEPARACION);
+      anchoTotal = Math.max(anchoTotal, x + resultado.ancho);
+    } else {
+      y += etiquetaAlto + resultado.alto + SEPARACION;
+      anchoTotal = Math.max(anchoTotal, resultado.ancho);
     }
-    const resultado = bloque(sentencia, nodo, posiciones, ancho, y, regla);
-    y += resultado.alto + SEPARACION;
-    anchoTotal = Math.max(anchoTotal, resultado.ancho);
     return etiqueta + resultado.marcado;
   });
   const altoTotal = y - SEPARACION + 8;
   const consultas = [...new Set(casos.map((c) => c.sentencia.numero))];
   const pestana = `${archivo || 'plan.sqlplan'} · ${consultas.length > 1 ? 'Consultas' : 'Consulta'} ${consultas.join(', ')}`;
+  // La imagen nunca es más angosta que su pestaña (un solo cuadrito compacto es estrecho).
+  anchoTotal = Math.max(anchoTotal, medir(pestana, true) + 44);
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${anchoTotal * ESCALA}" height="${altoTotal * ESCALA}"
       viewBox="0 0 ${anchoTotal} ${altoTotal}">
@@ -288,5 +298,6 @@ export async function crearCapturaPlan({ grupos, archivo, regla }) {
   const blob = await new Promise((resolver, rechazar) => {
     lienzo.toBlob((resultado) => (resultado ? resolver(resultado) : rechazar(new Error('No se pudo crear la imagen.'))), 'image/png');
   });
-  return { blob, url: URL.createObjectURL(blob) };
+  // ancho: tamaño real en pantalla (la imagen se genera al doble para que se vea nítida al pegarla).
+  return { blob, url: URL.createObjectURL(blob), ancho: anchoTotal };
 }
