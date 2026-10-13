@@ -31,7 +31,11 @@ const AREAS_PLAN = [
   { id: 'negocio', etiqueta: 'Negocio', icono: <IconoNegocio /> },
 ];
 
-const REVISIONES_PLAN = ['Conversiones implícitas', 'Spills a TempDB', 'Table Scan', 'Lecturas lógicas', 'Cardinalidad', 'Memoria concedida'];
+// Reglas que revisa cada área (las de Reportes las definió la usuaria; Negocio aún usa las generales).
+const REVISIONES_PLAN = {
+  reporte: ['Conversión implícita detectada', 'Lectura residual elevada', 'Tiempo de ejecución superado'],
+  negocio: ['Conversiones implícitas', 'Spills a TempDB', 'Table Scan', 'Lecturas lógicas', 'Cardinalidad', 'Memoria concedida'],
+};
 
 function MetricasPlan({ analisis }) {
   const memoria = analisis?.memoria;
@@ -184,7 +188,7 @@ export function PlanesWorkspace() {
               ayuda="Cada operador del plan se contrasta con estas reglas:"
             >
               <ul className="check-list">
-                {REVISIONES_PLAN.map((revision) => <li key={revision}>{revision}</li>)}
+                {(REVISIONES_PLAN[area] ?? REVISIONES_PLAN.negocio).map((revision) => <li key={revision}>{revision}</li>)}
               </ul>
               <div className="btn-group plan-actions">
                 <Boton icono={<IconoEjecutar />} cargando={cargando} onClick={analizar}>Analizar plan</Boton>
