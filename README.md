@@ -16,6 +16,8 @@ server.py   Servidor HTTP: API + interfaz compilada
 
 ## Puesta en marcha
 
+> Paso a paso para instalarlo en otra computadora (Windows): ver [MANUAL_INSTALACION.md](MANUAL_INSTALACION.md).
+
 Requisitos: Python 3.10+ y Node.js 20+.
 
 ```bash
