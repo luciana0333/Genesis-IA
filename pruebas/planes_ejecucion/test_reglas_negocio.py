@@ -41,9 +41,19 @@ class TestReglasNegocio(unittest.TestCase):
     def test_table_scan_sobre_tabla_fisica(self):
         hallazgo = _reglas(_plan(operadores=_table_scan(1, "Clientes")))["TABLE_SCAN_DETECTADO"]
         self.assertEqual(hallazgo.severidad.value, "alto")
-        self.assertTrue(hallazgo.mensaje.startswith(
+        self.assertEqual(
+            hallazgo.mensaje,
             "Se ha identificado un Table Scan sobre la tabla [dbo].[Clientes]: se leen 5,000 filas y se devuelven 10. "
-            "Se recomienda revisar los filtros de la consulta o crear un índice adecuado"))
+            "Se detectó un Table Scan dentro del procedimiento, por lo que se recomienda evaluar la inclusión de una "
+            "PK CLUSTERED en la tabla, ya que forma parte de las buenas prácticas y es fundamental para el rendimiento.",
+        )
+
+    def test_varios_table_scan_se_listan(self):
+        hallazgo = _reglas(_plan(operadores=_table_scan(1, "Clientes") + _table_scan(2, "Agencias")))["TABLE_SCAN_DETECTADO"]
+        self.assertTrue(hallazgo.mensaje.startswith(
+            "Se identificaron 2 Table Scan sobre las siguientes tablas, en la consulta 1: La tabla [dbo].[Clientes]"))
+        self.assertIn("Se detectaron Table Scan dentro del procedimiento, por lo que se recomienda evaluar la "
+                      "inclusión de una PK CLUSTERED en estas tablas", hallazgo.mensaje)
 
     def test_table_scan_de_temporales_no_se_marca(self):
         self.assertNotIn("TABLE_SCAN_DETECTADO", _reglas(_plan(operadores=_table_scan(1, "#Temporal"))))

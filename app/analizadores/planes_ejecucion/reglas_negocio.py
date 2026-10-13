@@ -73,16 +73,21 @@ def _table_scan(sentencias: List[Dict]) -> List[Hallazgo]:
             texto += f": se leen {_cifra(leidas)} filas y se devuelven {_cifra(devueltas)}"
         return texto
 
-    recomendacion = (
-        "Se recomienda revisar los filtros de la consulta o crear un índice adecuado sobre las columnas que se "
-        "filtran, ya que en un procedimiento de negocio recorrer la tabla completa aumenta el tiempo de respuesta "
-        "y los bloqueos."
-    )
+    # Un Table Scan ocurre en tablas sin índice clúster (heap): la recomendación es su PK CLUSTERED.
     if len(casos) == 1:
-        mensaje = f"Se ha identificado un Table Scan sobre {describir(casos[0])}. {recomendacion}"
+        mensaje = (
+            f"Se ha identificado un Table Scan sobre {describir(casos[0])}. Se detectó un Table Scan dentro del "
+            f"procedimiento, por lo que se recomienda evaluar la inclusión de una PK CLUSTERED en la tabla, ya que "
+            f"forma parte de las buenas prácticas y es fundamental para el rendimiento."
+        )
     else:
         detalle = "; ".join(d[:1].upper() + d[1:] for d in (describir(c) for c in casos))
-        mensaje = f"Se identificaron {len(casos)} Table Scan, en {_encabezado(casos)}: {detalle}. {recomendacion}"
+        mensaje = (
+            f"Se identificaron {len(casos)} Table Scan sobre las siguientes tablas, en {_encabezado(casos)}: "
+            f"{detalle}. Se detectaron Table Scan dentro del procedimiento, por lo que se recomienda evaluar la "
+            f"inclusión de una PK CLUSTERED en estas tablas, ya que forma parte de las buenas prácticas y es "
+            f"fundamental para el rendimiento."
+        )
     return [_hallazgo("TABLE_SCAN_DETECTADO", Severidad.ALTO, mensaje, casos)]
 
 

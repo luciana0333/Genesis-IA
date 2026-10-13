@@ -96,3 +96,12 @@ describe('desglosarGrupo', () => {
     expect(solucion).toBe('Se recomienda añadir las columnas faltantes al diccionario de la tabla.');
   });
 });
+
+describe('separarMensaje con «por lo que» en una oración posterior', () => {
+  it('la recomendación es la oración completa', () => {
+    expect(separarMensaje('Se ha identificado un Table Scan sobre la tabla [dbo].[X]. Se detectó un Table Scan dentro del procedimiento, por lo que se recomienda evaluar la inclusión de una PK CLUSTERED.')).toEqual({
+      problema: 'Se ha identificado un Table Scan sobre la tabla [dbo].[X].',
+      solucion: 'Se detectó un Table Scan dentro del procedimiento, por lo que se recomienda evaluar la inclusión de una PK CLUSTERED.',
+    });
+  });
+});
