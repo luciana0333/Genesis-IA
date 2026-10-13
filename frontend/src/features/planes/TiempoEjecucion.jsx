@@ -118,7 +118,6 @@ function ControlLimite({ nombreArea, limiteS, onCambiar }) {
         <span className="tiempo-unidad">s</span>
         <button type="button" aria-label="Subir el límite" onClick={() => aplicar((limiteS ?? 0) + paso)}>+</button>
       </div>
-      {limiteS == null && <span className="tiempo-ayuda">Escribe el límite del área para compararlo.</span>}
     </div>
   );
 }
@@ -160,11 +159,9 @@ export function TiempoEjecucion({ sentencias = [], area, limiteS = null, onCambi
         <Velocimetro totalS={totalS} limiteS={limiteS} />
       </div>
       <div className="tiempo-lado">
+        {/* Arriba manda el límite: es lo que se ajusta; a la derecha, el resultado. */}
         <div className="tiempo-encabezado">
-          <div>
-            <p className="tiempo-titulo">Tiempo óptimo de ejecución</p>
-            <p className="tiempo-ayuda">Establece el límite del área y compáralo con el tiempo que tomó el plan.</p>
-          </div>
+          <ControlLimite key={area} nombreArea={nombreArea} limiteS={limiteS} onCambiar={cambiarLimite} />
           {sello}
         </div>
         <div className="tiempo-datos">
@@ -184,7 +181,11 @@ export function TiempoEjecucion({ sentencias = [], area, limiteS = null, onCambi
             <strong>{seg(cpuS)}</strong>
           </div>
         </div>
-        <ControlLimite key={area} nombreArea={nombreArea} limiteS={limiteS} onCambiar={cambiarLimite} />
+        <p className="tiempo-nota">
+          {limiteS == null
+            ? 'Escribe el límite del área para comparar el tiempo del plan.'
+            : `Suma la duración de ${conTiempo.length === 1 ? 'la consulta' : `las ${conTiempo.length} consultas`} y la compara con el límite del área.`}
+        </p>
       </div>
     </section>
   );

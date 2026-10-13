@@ -813,7 +813,7 @@
 .tiempo-encabezado {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
 }
@@ -961,4 +961,9 @@
 .tiempo-encabezado .tiempo-ayuda {
   display: block;
   margin-top: 2px;
+}
+
+.tiempo-nota {
+  color: #8a8a96;
+  font-size: 0.74rem;
 }

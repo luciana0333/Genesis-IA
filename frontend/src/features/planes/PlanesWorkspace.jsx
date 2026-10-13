@@ -207,7 +207,6 @@ export function PlanesWorkspace() {
                 nivel={3}
                 etiqueta="Rendimiento"
                 titulo="Tiempo de ejecución"
-                descripcion="Suma la duración de todas las consultas del plan y la compara con el límite del área."
               />
               <TiempoEjecucion
                 sentencias={analisis.diagrama}
