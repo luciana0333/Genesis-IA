@@ -59,13 +59,14 @@ def _ubicacion(caso: Dict, varias_consultas: bool) -> str:
     return lugar
 
 
-# Por qué corregirla (igual para uno o varios casos).
-_MOTIVO = (
-    "ya que no usar el mismo tipo de dato en ambos lados de la comparación impide que la base de datos "
-    "ejecute la consulta de forma óptima."
+# Recomendaciones con el estilo de la usuaria: directas y simples.
+_RECOMENDACION_CONVERSION = (
+    "Se recomienda corregir la conversión implícita, verificando que los tipos de datos de la comparación "
+    "coincidan para favorecer el rendimiento de la consulta."
 )
-_RECOMENDACION = (
-    "se recomienda corregir la alerta por conversión implícita revisándola dentro del procedimiento, " + _MOTIVO
+_RECOMENDACION_CONVERSIONES = (
+    "Se recomienda corregir las conversiones implícitas, verificando que los tipos de datos en las comparaciones "
+    "coincidan para favorecer el rendimiento de las consultas."
 )
 
 
@@ -78,7 +79,7 @@ def _conversion_implicita(sentencias: List[Dict]) -> List[Hallazgo]:
         caso = casos[0]
         mensaje = (
             f"Se ha identificado una conversión implícita en {_ubicacion(caso, varias_consultas)}: "
-            f"'{caso['expresion']}', que {caso['efecto']}, por lo que {_RECOMENDACION}"
+            f"'{caso['expresion']}', que {caso['efecto']}. {_RECOMENDACION_CONVERSION}"
         )
     else:
         consultas = sorted({c["consulta"] for c in casos})
@@ -88,8 +89,7 @@ def _conversion_implicita(sentencias: List[Dict]) -> List[Hallazgo]:
         )
         mensaje = (
             f"Se identificaron {len(casos)} conversiones implícitas, en {encabezado}: {detalle}. "
-            f"Se recomienda corregir las alertas por conversiones implícitas revisándolas dentro del "
-            f"procedimiento, {_MOTIVO}"
+            f"{_RECOMENDACION_CONVERSIONES}"
         )
     hallazgo = Hallazgo(
         linea=1,
@@ -136,21 +136,23 @@ def _lectura_residual(sentencias: List[Dict]) -> List[Hallazgo]:
         tabla = f"la tabla {nodo['objeto']}" if nodo.get("objeto") else "una tabla"
         lugar = f"{tabla} ({_nombre_operador(nodo)}"
         lugar += f", consulta {caso['consulta']})" if varias_consultas else ")"
-        return (f"{lugar}, que se lee en su totalidad o casi en su totalidad: se leen {_cifra(caso['leidas'])} filas "
-                f"y solo se devuelven {_cifra(caso['devueltas'])}")
+        return f"{lugar}: se leen {_cifra(caso['leidas'])} filas y solo se devuelven {_cifra(caso['devueltas'])}"
 
-    accion = (
-        "optimizar sus filtros o revisar sus índices existentes, ya que leer y descartar millones de filas eleva "
-        "las lecturas, el tiempo de ejecución y el consumo de recursos del servidor."
-    )
     if len(casos) == 1:
-        mensaje = f"Se ha identificado una lectura residual elevada sobre {describir(casos[0])}, por lo que se recomienda {accion}"
+        mensaje = (
+            f"Se ha identificado una lectura residual elevada sobre {describir(casos[0])}. Se recomienda optimizar "
+            f"las condiciones de filtrado o revisar los índices existentes, ya que la lectura abarca la totalidad "
+            f"o casi la totalidad de los registros."
+        )
     else:
         consultas = sorted({c["consulta"] for c in casos})
         encabezado = ("la consulta " if len(consultas) == 1 else "las consultas ") + ", ".join(map(str, consultas))
         detalle = "; ".join(d[:1].upper() + d[1:] for d in (describir(c) for c in casos))
-        mensaje = (f"Se identificaron {len(casos)} lecturas residuales elevadas, en {encabezado}: {detalle}. "
-                   f"Se recomienda {accion}")
+        mensaje = (
+            f"Se identificaron {len(casos)} lecturas residuales elevadas, en {encabezado}: {detalle}. Se recomienda "
+            f"optimizar las condiciones de filtrado o revisar los índices existentes, ya que estas lecturas abarcan, "
+            f"en algunos casos, la totalidad de los registros."
+        )
     hallazgo = Hallazgo(
         linea=1,
         origen=OrigenAnalisis.PLAN_EJECUCION,
@@ -166,6 +168,11 @@ def _segundos(valor: float) -> str:
     return f"{valor:,.2f} s" if valor < 10 else f"{valor:,.1f} s"
 
 
+def _segundos_texto(valor: float) -> str:
+    """26.8 segundos; 8.20 segundos (dos decimales si es menos de 10)."""
+    return f"{valor:,.2f} segundos" if valor < 10 else f"{valor:,.1f} segundos"
+
+
 def _tiempo_superado(sentencias: List[Dict], limite_s: Optional[float]) -> List[Hallazgo]:
     """El procedimiento tarda más que el límite de tiempo del área (suma de Duration de sus consultas)."""
     con_tiempo = [s for s in sentencias if s.get("duracionMs") is not None]
@@ -176,13 +183,13 @@ def _tiempo_superado(sentencias: List[Dict], limite_s: Optional[float]) -> List[
         return []
     lenta = max(con_tiempo, key=lambda s: s["duracionMs"])
     lenta_s = lenta["duracionMs"] / 1000
-    bloque = f"consulta {lenta['numero']}, {_segundos(lenta_s)}"
+    motivo = f"presenta un tiempo de ejecución de {_segundos_texto(lenta_s)}"
     if len(con_tiempo) > 1:
-        bloque += f", el {lenta_s / total_s:.0%} del tiempo total"
+        motivo += f", equivalente al {lenta_s / total_s * 100:.0f} % del tiempo total"
     mensaje = (
-        f"El procedimiento supera el umbral de tiempo establecido: su ejecución tomó {_segundos(total_s)} y el "
-        f"límite es de {limite_s:g} s (+{_segundos(total_s - limite_s)}). Se recomienda optimizar la siguiente "
-        f"consulta ({bloque}), ya que toma la mayor parte del tiempo."
+        f"El procedimiento supera el umbral de tiempo establecido: su ejecución tomó {_segundos_texto(total_s)} "
+        f"y el límite es de {limite_s:g} segundos. Se recomienda revisar y optimizar la consulta {lenta['numero']}, "
+        f"ya que {motivo}."
     )
     hallazgo = Hallazgo(
         linea=1,

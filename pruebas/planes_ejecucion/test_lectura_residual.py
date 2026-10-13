@@ -41,10 +41,9 @@ class TestLecturaResidual(unittest.TestCase):
         self.assertEqual(hallazgos[0].severidad.value, "alto")
         self.assertEqual(
             hallazgos[0].mensaje,
-            "Se ha identificado una lectura residual elevada sobre la tabla [dbo].[Tickets] (Clustered Index Scan), "
-            "que se lee en su totalidad o casi en su totalidad: se leen 3,000,000 filas y solo se devuelven "
-            "300, por lo que se recomienda optimizar sus filtros o revisar sus índices existentes, ya que leer y "
-            "descartar millones de filas eleva las lecturas, el tiempo de ejecución y el consumo de recursos del servidor.",
+            "Se ha identificado una lectura residual elevada sobre la tabla [dbo].[Tickets] (Clustered Index Scan): "
+            "se leen 3,000,000 filas y solo se devuelven 300. Se recomienda optimizar las condiciones de filtrado "
+            "o revisar los índices existentes, ya que la lectura abarca la totalidad o casi la totalidad de los registros.",
         )
         self.assertEqual(hallazgos[0].nodos, [{"consulta": 1, "nodo": "1"}])
 
@@ -58,7 +57,10 @@ class TestLecturaResidual(unittest.TestCase):
         hallazgos = _residuales(_plan(_scan(1, "Tickets", 3_000_000, 300), _scan(2, "Pagos", 1_500_000, 20)))
         self.assertEqual(len(hallazgos), 1)
         self.assertTrue(hallazgos[0].mensaje.startswith("Se identificaron 2 lecturas residuales elevadas, en la consulta 1: "))
-        self.assertIn("; La tabla [dbo].[Pagos] (Clustered Index Scan), que se lee en su totalidad", hallazgos[0].mensaje)
+        self.assertIn("; La tabla [dbo].[Pagos] (Clustered Index Scan): se leen 1,500,000 filas", hallazgos[0].mensaje)
+        self.assertTrue(hallazgos[0].mensaje.endswith(
+            "Se recomienda optimizar las condiciones de filtrado o revisar los índices existentes, ya que estas "
+            "lecturas abarcan, en algunos casos, la totalidad de los registros."))
 
     def test_un_seek_no_se_marca_aunque_pase_el_millon(self):
         seek = _scan(1, "Tickets", 3_000_000, 300).replace("Clustered Index Scan", "Clustered Index Seek")
