@@ -946,3 +946,8 @@
     border-top: 1px solid #f0f0f3;
   }
 }
+
+/* Sección «Rendimiento · Tiempo de ejecución»: título como las demás secciones. */
+.tiempo-seccion .section-heading {
+  margin-bottom: 14px;
+}

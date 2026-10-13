@@ -202,12 +202,19 @@ export function PlanesWorkspace() {
         <div className="panel-footer">
           {/* El tiempo de ejecución va primero: es lo primero que se mira antes de las observaciones. */}
           {analisis?.diagrama?.length > 0 && (
-            <TiempoEjecucion
-              sentencias={analisis.diagrama}
-              area={area}
-              limiteS={limites[area] ?? null}
-              onCambiarLimite={alCambiarLimite}
-            />
+            <section className="tiempo-seccion">
+              <EncabezadoSeccion
+                etiqueta="Rendimiento"
+                titulo="Tiempo de ejecución"
+                descripcion="Suma la duración de todas las consultas del plan y la compara con el límite del área."
+              />
+              <TiempoEjecucion
+                sentencias={analisis.diagrama}
+                area={area}
+                limiteS={limites[area] ?? null}
+                onCambiarLimite={alCambiarLimite}
+              />
+            </section>
           )}
           <PanelHallazgos
             titulo="Hallazgos del plan"

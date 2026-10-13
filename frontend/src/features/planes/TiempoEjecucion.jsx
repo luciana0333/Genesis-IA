@@ -161,7 +161,7 @@ export function TiempoEjecucion({ sentencias = [], area, limiteS = null, onCambi
       </div>
       <div className="tiempo-lado">
         <div className="tiempo-encabezado">
-          <span className="tiempo-etiqueta">Tiempo de ejecución · {nombreArea}</span>
+          <span className="tiempo-etiqueta">Total del plan · {nombreArea}</span>
           {sello}
         </div>
         <div className="tiempo-datos">
