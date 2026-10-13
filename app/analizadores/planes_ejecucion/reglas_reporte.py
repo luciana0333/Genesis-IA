@@ -188,8 +188,8 @@ def _tiempo_superado(sentencias: List[Dict], limite_s: Optional[float]) -> List[
         motivo += f", equivalente al {lenta_s / total_s * 100:.0f} % del tiempo total"
     mensaje = (
         f"El procedimiento supera el umbral de tiempo establecido: su ejecución tomó {_segundos_texto(total_s)} "
-        f"y el límite es de {limite_s:g} segundos. Se recomienda revisar y optimizar la consulta {lenta['numero']}, "
-        f"ya que {motivo}."
+        f"y el límite es de {limite_s:g} segundos. Se recomienda revisar y optimizar el siguiente bloque de la "
+        f"consulta, ya que {motivo}."
     )
     hallazgo = Hallazgo(
         linea=1,
