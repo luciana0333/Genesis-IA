@@ -91,6 +91,13 @@ class TestReglasNegocio(unittest.TestCase):
         self.assertIn("se solicitan y reservan 1,264 MB, mientras que solo se utilizan 136 KB",
                       reglas["MEMORIA_SOBREESTIMADA"].mensaje)
 
+    def test_tiempo_superado_con_el_limite_de_negocio(self):
+        sentencias = construir_diagrama((EJEMPLOS / "plan-ejemplo-negocio.sqlplan").read_bytes())
+        con_limite = {h.regla: h for h in analizar_plan_negocio(sentencias, 30)}
+        self.assertIn("TIEMPO_EJECUCION_SUPERADO", con_limite)
+        self.assertIn("el límite es de 30 segundos", con_limite["TIEMPO_EJECUCION_SUPERADO"].mensaje)
+        self.assertNotIn("TIEMPO_EJECUCION_SUPERADO", {h.regla for h in analizar_plan_negocio(sentencias, None)})
+
 
 if __name__ == "__main__":
     unittest.main()

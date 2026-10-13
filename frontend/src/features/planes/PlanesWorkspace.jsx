@@ -34,7 +34,7 @@ const AREAS_PLAN = [
 // Reglas que revisa cada área (las definió la usuaria).
 const REVISIONES_PLAN = {
   reporte: ['Conversión implícita detectada', 'Lectura residual elevada', 'Tiempo de ejecución superado'],
-  negocio: ['Table Scan detectado', 'Conversión implícita detectada', 'Lectura residual elevada', 'Spill a TempDB', 'Sobreestimación de memoria'],
+  negocio: ['Table Scan detectado', 'Conversión implícita detectada', 'Lectura residual elevada', 'Spill a TempDB', 'Sobreestimación de memoria', 'Tiempo de ejecución superado'],
 };
 
 function MetricasPlan({ analisis }) {

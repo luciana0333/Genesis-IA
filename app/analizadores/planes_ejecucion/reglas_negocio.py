@@ -1,7 +1,7 @@
 """Reglas de los planes de ejecución del área Negocio (procedimientos transaccionales).
 
-Las define la usuaria. Conversión implícita y lectura residual son las mismas de
-Reportes; Table Scan, spill y sobreestimación de memoria son propias de Negocio.
+Las define la usuaria. Tiempo superado, conversión implícita y lectura residual son
+las mismas de Reportes (cada área con su propio límite de tiempo); Table Scan, spill y sobreestimación de memoria son propias de Negocio.
 Igual que en Reportes, trabajan sobre el árbol de construir_diagrama: lo que dice
 la observación y lo que se ve en el diagrama siempre coinciden.
 """
@@ -14,6 +14,7 @@ from app.analizadores.planes_ejecucion.reglas_reporte import (
     _conversion_implicita,
     _lectura_residual,
     _nombre_operador,
+    _tiempo_superado,
 )
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 
@@ -165,10 +166,14 @@ def _memoria(sentencias: List[Dict]) -> List[Hallazgo]:
     return [_hallazgo("MEMORIA_SOBREESTIMADA", Severidad.MEDIO, mensaje, casos)]
 
 
-def analizar_plan_negocio(sentencias: List[Dict]) -> List[Hallazgo]:
-    """Hallazgos del plan para el área Negocio, a partir del árbol de construir_diagrama."""
+def analizar_plan_negocio(sentencias: List[Dict], limite_s: Optional[float] = None) -> List[Hallazgo]:
+    """Hallazgos del plan para el área Negocio, a partir del árbol de construir_diagrama.
+
+    limite_s: límite de tiempo del área en segundos (None = sin límite definido).
+    """
     return (
-        _table_scan(sentencias)
+        _tiempo_superado(sentencias, limite_s)
+        + _table_scan(sentencias)
         + _conversion_implicita(sentencias)
         + _lectura_residual(sentencias)
         + _spill(sentencias)

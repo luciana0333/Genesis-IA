@@ -186,18 +186,19 @@ class GenesisHandler(SimpleHTTPRequestHandler):
             area = (parte_area.get_content().strip() if parte_area is not None else '') or 'negocio'
             hallazgos, operadores, memoria = analizar_plan_ejecucion(contenido)
             diagrama = construir_diagrama(contenido)
+            # Límite de tiempo del área (segundos), escrito en la tarjeta del velocímetro.
+            parte_limite = next(
+                (parte for parte in formulario.iter_parts() if parte.get_param('name', header='content-disposition') == 'limite'),
+                None,
+            )
+            try:
+                limite = float(parte_limite.get_content().strip()) if parte_limite is not None else None
+            except ValueError:
+                limite = None
             if area == 'reporte':
-                parte_limite = next(
-                    (parte for parte in formulario.iter_parts() if parte.get_param('name', header='content-disposition') == 'limite'),
-                    None,
-                )
-                try:
-                    limite = float(parte_limite.get_content().strip()) if parte_limite is not None else None
-                except ValueError:
-                    limite = None
                 hallazgos = analizar_plan_reporte(diagrama, limite)
             elif area == 'negocio':
-                hallazgos = analizar_plan_negocio(diagrama)
+                hallazgos = analizar_plan_negocio(diagrama, limite)
         except ET.ParseError:
             self._send_json({'error': 'El archivo no contiene un plan XML válido de SQL Server.'}, status=400)
             return
