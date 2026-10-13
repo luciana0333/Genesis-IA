@@ -67,11 +67,11 @@ def _ubicacion(caso: Dict, varias_consultas: bool, mayuscula: bool = False) -> s
 
 # Recomendaciones con el estilo de la usuaria: directas y simples.
 _RECOMENDACION_CONVERSION = (
-    "Se recomienda corregir la conversión implícita, verificando que los tipos de datos de la comparación "
+    "Corregir la conversión implícita, verificando que los tipos de datos de la comparación "
     "coincidan para favorecer el rendimiento de la consulta."
 )
 _RECOMENDACION_CONVERSIONES = (
-    "Se recomienda corregir las conversiones implícitas, verificando que los tipos de datos en las comparaciones "
+    "Corregir las conversiones implícitas, verificando que los tipos de datos en las comparaciones "
     "coincidan para favorecer el rendimiento de las consultas."
 )
 
@@ -146,7 +146,7 @@ def _lectura_residual(sentencias: List[Dict]) -> List[Hallazgo]:
 
     if len(casos) == 1:
         mensaje = (
-            f"Se ha identificado una lectura residual elevada sobre {describir(casos[0])}. Se recomienda optimizar "
+            f"Se ha identificado una lectura residual elevada sobre {describir(casos[0])}. Optimizar "
             f"las condiciones de filtrado o revisar los índices existentes, ya que la lectura abarca la totalidad "
             f"o casi la totalidad de los registros."
         )
@@ -155,8 +155,8 @@ def _lectura_residual(sentencias: List[Dict]) -> List[Hallazgo]:
         encabezado = ("la consulta " if len(consultas) == 1 else "las consultas ") + ", ".join(map(str, consultas))
         detalle = "; ".join(d[:1].upper() + d[1:] for d in (describir(c) for c in casos))
         mensaje = (
-            f"Se identificaron {len(casos)} lecturas residuales elevadas, en {encabezado}: {detalle}. Se recomienda "
-            f"optimizar las condiciones de filtrado o revisar los índices existentes, ya que estas lecturas abarcan, "
+            f"Se identificaron {len(casos)} lecturas residuales elevadas, en {encabezado}: {detalle}. "
+            f"Optimizar las condiciones de filtrado o revisar los índices existentes, ya que estas lecturas abarcan, "
             f"en algunos casos, la totalidad de los registros."
         )
     hallazgo = Hallazgo(
@@ -194,7 +194,7 @@ def _tiempo_superado(sentencias: List[Dict], limite_s: Optional[float]) -> List[
         motivo += f", equivalente al {lenta_s / total_s * 100:.0f} % del tiempo total"
     mensaje = (
         f"El procedimiento supera el umbral de tiempo establecido: su ejecución tomó {_segundos_texto(total_s)} "
-        f"y el límite es de {limite_s:g} segundos. Se recomienda revisar y optimizar el siguiente bloque de la "
+        f"y el límite es de {limite_s:g} segundos. Revisar y optimizar el siguiente bloque de la "
         f"consulta, ya que {motivo}."
     )
     hallazgo = Hallazgo(

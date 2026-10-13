@@ -34,7 +34,7 @@ class TestTiempoSuperado(unittest.TestCase):
         self.assertEqual(
             hallazgos[0].mensaje,
             "El procedimiento supera el umbral de tiempo establecido: su ejecución tomó 72.5 segundos y el límite "
-            "es de 30 segundos. Se recomienda revisar y optimizar el siguiente bloque de la consulta, ya que "
+            "es de 30 segundos. Revisar y optimizar el siguiente bloque de la consulta, ya que "
             "presenta un tiempo de ejecución de 24.4 segundos, equivalente al 34 % del tiempo total.",
         )
         self.assertEqual(hallazgos[0].nodos, [{"consulta": 3, "nodo": "raiz"}])
@@ -44,7 +44,7 @@ class TestTiempoSuperado(unittest.TestCase):
         hallazgos = _tiempo(_plan(_sentencia("SELECT 1", 8_200)), 5)
         self.assertIn("su ejecución tomó 8.20 segundos y el límite es de 5 segundos", hallazgos[0].mensaje)
         self.assertTrue(hallazgos[0].mensaje.endswith(
-            "Se recomienda revisar y optimizar el siguiente bloque de la consulta, ya que presenta un tiempo de "
+            "Revisar y optimizar el siguiente bloque de la consulta, ya que presenta un tiempo de "
             "ejecución de 8.20 segundos."))
 
     def test_dentro_del_limite_no_se_marca(self):

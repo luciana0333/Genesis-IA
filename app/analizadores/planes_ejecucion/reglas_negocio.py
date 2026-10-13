@@ -76,16 +76,15 @@ def _table_scan(sentencias: List[Dict]) -> List[Hallazgo]:
     # Un Table Scan ocurre en tablas sin índice clúster (heap): la recomendación es su PK CLUSTERED.
     if len(casos) == 1:
         mensaje = (
-            f"Se ha identificado un Table Scan dentro del procedimiento sobre {describir(casos[0])}. Se recomienda "
-            f"evaluar la inclusión de una PK CLUSTERED en la tabla, ya que forma parte de las buenas prácticas y es "
-            f"fundamental para el rendimiento."
+            f"Se ha identificado un Table Scan dentro del procedimiento sobre {describir(casos[0])}. Evaluar agregar "
+            f"la PK CLUSTERED en la tabla, ya que forma parte de las buenas prácticas y ayuda a agilizar la búsqueda."
         )
     else:
         detalle = "; ".join(d[:1].upper() + d[1:] for d in (describir(c) for c in casos))
         mensaje = (
             f"Se identificaron {len(casos)} Table Scan dentro del procedimiento, en {_encabezado(casos)}: "
-            f"{detalle}. Se recomienda evaluar la inclusión de una PK CLUSTERED en estas tablas, ya que forma parte "
-            f"de las buenas prácticas y es fundamental para el rendimiento."
+            f"{detalle}. Evaluar agregar la PK CLUSTERED en las tablas con Table Scan, ya que forma parte de las "
+            f"buenas prácticas y ayuda a agilizar la búsqueda."
         )
     return [_hallazgo("TABLE_SCAN_DETECTADO", Severidad.ALTO, mensaje, casos)]
 
@@ -118,7 +117,7 @@ def _spill(sentencias: List[Dict]) -> List[Hallazgo]:
         return texto
 
     recomendacion = (
-        "Se recomienda revisar la estimación de filas y los índices de la consulta, ya que al no alcanzar la "
+        "Revisar la estimación de filas y los índices de la consulta, ya que al no alcanzar la "
         "memoria asignada SQL Server escribe en disco (TempDB) y la ejecución se vuelve más lenta."
     )
     if len(casos) == 1:
@@ -153,7 +152,7 @@ def _memoria(sentencias: List[Dict]) -> List[Hallazgo]:
         return f"{reserva}, mientras que solo se utilizan {usada} durante la ejecución"
 
     recomendacion = (
-        "Se recomienda revisar las estadísticas de las tablas y el tamaño de las columnas de la consulta, ya que "
+        "Revisar las estadísticas de las tablas y el tamaño de las columnas de la consulta, ya que "
         "la memoria reservada y no usada deja de estar disponible para otros procesos."
     )
     if len(casos) == 1:

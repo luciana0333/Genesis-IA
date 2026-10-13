@@ -42,7 +42,7 @@ class TestLecturaResidual(unittest.TestCase):
         self.assertEqual(
             hallazgos[0].mensaje,
             "Se ha identificado una lectura residual elevada sobre la tabla [dbo].[Tickets] (Clustered Index Scan): "
-            "se leen 3,000,000 filas y solo se devuelven 300. Se recomienda optimizar las condiciones de filtrado "
+            "se leen 3,000,000 filas y solo se devuelven 300. Optimizar las condiciones de filtrado "
             "o revisar los índices existentes, ya que la lectura abarca la totalidad o casi la totalidad de los registros.",
         )
         self.assertEqual(hallazgos[0].nodos, [{"consulta": 1, "nodo": "1"}])
@@ -59,7 +59,7 @@ class TestLecturaResidual(unittest.TestCase):
         self.assertTrue(hallazgos[0].mensaje.startswith("Se identificaron 2 lecturas residuales elevadas, en la consulta 1: "))
         self.assertIn("; La tabla [dbo].[Pagos] (Clustered Index Scan): se leen 1,500,000 filas", hallazgos[0].mensaje)
         self.assertTrue(hallazgos[0].mensaje.endswith(
-            "Se recomienda optimizar las condiciones de filtrado o revisar los índices existentes, ya que estas "
+            "Optimizar las condiciones de filtrado o revisar los índices existentes, ya que estas "
             "lecturas abarcan, en algunos casos, la totalidad de los registros."))
 
     def test_un_seek_no_se_marca_aunque_pase_el_millon(self):
