@@ -68,7 +68,8 @@ class TestDetallePlan(unittest.TestCase):
             "ON [dbo].[Credito] ([nClienteId], [dFecha])\nINCLUDE ([cNombre])",
         )
         raiz = self.sentencia["nodos"][0]
-        self.assertIn("Missing indexes found.", [a["texto"] for a in raiz["advertencias"]])
+        faltante = next(a for a in raiz["advertencias"] if a["texto"] == "Missing indexes found.")
+        self.assertEqual(faltante["resaltados"], [])  # se muestra, pero sin resaltado amarillo
 
 
 if __name__ == "__main__":

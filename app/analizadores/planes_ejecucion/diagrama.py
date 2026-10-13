@@ -305,7 +305,8 @@ def _indices_faltantes(plan: ET.Element) -> List[Dict]:
     grupos = [e for e in plan.iter() if _local(e) == "MissingIndexGroup"]
     if not grupos:
         return []
-    return [_advertencia("indice_faltante", "Missing indexes found.", ["Missing indexes found."])]
+    # Se muestra tal cual el XML, pero sin resaltar: en Reportes solo se consulta, no se crean índices.
+    return [_advertencia("indice_faltante", "Missing indexes found.")]
 
 
 def _completar_filas_reales(nodos: List[Dict]) -> None:
