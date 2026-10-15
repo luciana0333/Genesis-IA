@@ -53,6 +53,17 @@ REGLAS_DICCIONARIO_TABLAS = {
         alcance="tabla",
         activo=True,
     ),
+    "ACTUALIZACION_SIN_DESCRIPCION_PREVIA": ReglaDiccionario(
+        codigo="ACTUALIZACION_SIN_DESCRIPCION_PREVIA",
+        nombre="Actualización sin descripción previa",
+        severidad="alto",
+        descripcion=(
+            "Se usa sp_updateextendedproperty sobre una tabla nueva (CREATE) o una columna nueva "
+            "(CREATE o ADD): aún no tiene descripción y la ejecución falla."
+        ),
+        alcance="tabla",
+        activo=True,
+    ),
     "ALTER_SIN_DICCIONARIO": ReglaDiccionario(
         codigo="ALTER_SIN_DICCIONARIO",
         nombre="ALTER sin diccionario",

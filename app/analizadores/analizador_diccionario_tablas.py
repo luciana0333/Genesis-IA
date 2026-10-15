@@ -446,6 +446,39 @@ def _validar_documentacion_existente_en_alter(
     return hallazgos
 
 
+def _validar_actualizacion_sin_descripcion_previa(
+    llamadas: List[LlamadaPropiedad],
+    tipo_sentencia: str,
+    esquema: Optional[str],
+    nombre_tabla: str,
+    columnas_agregadas: Set[str],
+) -> List[Hallazgo]:
+    """
+    sp_updateextendedproperty solo modifica una descripción que ya existe: sobre
+    una tabla nueva (CREATE) o una columna nueva (CREATE o ADD) la ejecución falla.
+    En un ALTER COLUMN o al completar el diccionario de una tabla existente es lo correcto.
+    """
+    es_create = tipo_sentencia == "CREATE"
+    nuevas = {c.upper() for c in columnas_agregadas}
+    hallazgos = []
+    for ll in llamadas:
+        if ll.operacion != "update" or not _es_descripcion(ll):
+            continue
+        if _es_de_tabla(ll) and es_create:
+            objeto = f"tabla {_nombre_completo(esquema, nombre_tabla)}"
+        elif _es_de_columna(ll) and (es_create or ll.texto("level2name").upper() in nuevas):
+            objeto = f"columna {ll.texto('level2name')}"
+        else:
+            continue
+        hallazgos.append(con_elemento(_hallazgo(
+            ll.linea, "ACTUALIZACION_SIN_DESCRIPCION_PREVIA",
+            f"Se identificó que la {objeto} se documenta con sp_updateextendedproperty, pero es nueva y aún "
+            f"no cuenta con una descripción. Corregir la sentencia usando sp_addextendedproperty, ya que la "
+            f"actualización fallará al no existir la propiedad.",
+        ), objeto))
+    return hallazgos
+
+
 def _sugerencia_columna(nombre: str, columnas_reales: Set[str]) -> str:
     """' ¿Quiso decir bActivo?' si hay una columna real con nombre parecido."""
     por_clave = {c.upper(): c for c in columnas_reales}
@@ -644,6 +677,11 @@ _PLANTILLAS_AGRUPADAS = {
         "descripciones con errores de escritura",
         "Se recomienda corregir cada palabra por la sugerida (o revisar su escritura si no hay sugerencia), ya que el diccionario es la documentación oficial de la tabla.",
     ),
+    "ACTUALIZACION_SIN_DESCRIPCION_PREVIA": (
+        "actualizaciones sin descripción previa",
+        "Corregir las sentencias usando sp_addextendedproperty, ya que la actualización fallará al no "
+        "existir la propiedad.",
+    ),
     "DOCUMENTACION_DUPLICADA": (
         "declaraciones duplicadas",
         "Se recomienda retirar las declaraciones duplicadas y dejar una sola por cada una, ya que SQL Server "
@@ -678,6 +716,9 @@ def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> Li
     hallazgos += _validar_columnas_faltantes(columnas_requeridas, llamadas, tipo_sentencia, esquema, nombre_tabla)
     hallazgos += _validar_columnas_inexistentes(columnas_reales, llamadas, tipo_sentencia, nombre_tabla)
     hallazgos += _validar_documentacion_existente_en_alter(
+        llamadas, tipo_sentencia, esquema, nombre_tabla, columnas_agregadas
+    )
+    hallazgos += _validar_actualizacion_sin_descripcion_previa(
         llamadas, tipo_sentencia, esquema, nombre_tabla, columnas_agregadas
     )
     hallazgos += _validar_duplicados(llamadas)

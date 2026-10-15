@@ -99,6 +99,7 @@ export const NOMBRES_REGLAS = {
   DESCRIPCION_TABLA_INADECUADA: 'Descripción de tabla inadecuada',
   ERROR_ORTOGRAFICO: 'Palabra mal escrita en la descripción',
   DOCUMENTACION_EXISTENTE_EN_ALTER: 'Validar documentación existente',
+  ACTUALIZACION_SIN_DESCRIPCION_PREVIA: 'Actualización sin descripción previa',
   VALIDAR_DOCUMENTACION_ALTER: 'Validar documentación existente',
   CONVERSION_IMPLICITA: 'Conversión implícita',
   CONVERSION_IMPLICITA_DETECTADA: 'Conversión implícita detectada',

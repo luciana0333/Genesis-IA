@@ -454,5 +454,60 @@ class TestDiccionarioTablasSinDependerDeGO(unittest.TestCase):
         self.assertIn("PARAMETROS_INCOMPLETOS", reglas)
 
 
+def _propiedad(operacion: str, descripcion: str, columna: str = None) -> str:
+    sentencia = (
+        f"EXEC sys.sp_{operacion}extendedproperty @name=N'MS_Description', @value=N'{descripcion}', "
+        f"@level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'Cliente'"
+    )
+    return sentencia + (f", @level2type=N'COLUMN', @level2name=N'{columna}';" if columna else ";")
+
+
+class TestActualizacionSinDescripcionPrevia(unittest.TestCase):
+    """sp_updateextendedproperty falla si el objeto es nuevo y aún no tiene descripción."""
+
+    def _reglas(self, tabla: str, diccionario: str):
+        return [h for h in verificar_diccionario_tablas(tabla, diccionario)
+                if h.regla == "ACTUALIZACION_SIN_DESCRIPCION_PREVIA"]
+
+    def test_update_en_columna_agregada_con_add(self):
+        hallazgos = self._reglas("ALTER TABLE dbo.Cliente ADD cTelefono VARCHAR(20) NULL",
+                                 _propiedad("update", "Teléfono del cliente", "cTelefono"))
+        self.assertEqual(len(hallazgos), 1)
+        self.assertEqual(hallazgos[0].severidad, Severidad.ALTO)
+        self.assertEqual(
+            hallazgos[0].mensaje,
+            "Se identificó que la columna cTelefono se documenta con sp_updateextendedproperty, pero es nueva "
+            "y aún no cuenta con una descripción. Corregir la sentencia usando sp_addextendedproperty, ya que "
+            "la actualización fallará al no existir la propiedad.",
+        )
+
+    def test_update_en_create_marca_tabla_y_columnas(self):
+        diccionario = "\n".join([
+            _propiedad("update", "Registra los clientes"),
+            _propiedad("update", "Identificador del cliente", "nClienteId"),
+        ])
+        hallazgos = self._reglas("CREATE TABLE dbo.Cliente (nClienteId INT NOT NULL)", diccionario)
+        self.assertEqual(len(hallazgos), 1)  # agrupado
+        self.assertIn("Se identificaron 2 actualizaciones sin descripción previa", hallazgos[0].mensaje)
+        self.assertIn("tabla dbo.Cliente; columna nClienteId", hallazgos[0].mensaje)
+
+    def test_update_en_alter_column_es_correcto(self):
+        self.assertEqual(self._reglas("ALTER TABLE dbo.Cliente ALTER COLUMN cNombre VARCHAR(100) NULL",
+                                      _propiedad("update", "Nombre del cliente", "cNombre")), [])
+
+    def test_update_de_columna_existente_en_un_alter_es_correcto(self):
+        self.assertEqual(self._reglas("ALTER TABLE dbo.Cliente ADD cTelefono VARCHAR(20) NULL",
+                                      _propiedad("add", "Teléfono del cliente", "cTelefono") + "\n"
+                                      + _propiedad("update", "Registra los clientes")
+                                      + "\n" + _propiedad("update", "Correo del cliente", "cCorreo")), [])
+
+    def test_update_sigue_revisando_vacios_y_ortografia(self):
+        hallazgos = verificar_diccionario_tablas(
+            "ALTER TABLE dbo.Cliente ALTER COLUMN cNombre VARCHAR(100) NULL",
+            _propiedad("update", "", "cNombre") + "\n" + _propiedad("update", "Corréo del clinete", "cCorreo"),
+        )
+        self.assertEqual({h.regla for h in hallazgos}, {"DESCRIPCION_COLUMNA_VACIA", "ERROR_ORTOGRAFICO"})
+
+
 if __name__ == "__main__":
     unittest.main()
