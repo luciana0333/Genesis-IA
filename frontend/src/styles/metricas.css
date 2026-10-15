@@ -266,8 +266,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  /* Misma altura en todas las tarjetas (caben 2 renglones): la línea de arriba queda pareja. */
-  min-height: 56px;
   margin-top: 16px;
   padding-top: 12px;
   border-top: 1px solid var(--border);
@@ -282,6 +280,7 @@
 }
 
 .resumen-tarjeta-categoria i {
+  flex-shrink: 0; /* el círculo nunca se aplasta, aunque el texto ocupe dos renglones */
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -345,6 +344,25 @@
 .resumen-severidad-boton:focus-visible {
   outline: 2px solid var(--red-main);
   outline-offset: 3px;
+}
+
+/*
+ * Las cuatro tarjetas comparten filas (subgrid): insignia, cifra, texto y pie
+ * miden lo mismo en todas, así la línea del pie queda pareja en cualquier ancho
+ * aunque un texto ocupe más renglones que otro.
+ */
+@supports (grid-template-rows: subgrid) {
+  .resumen-tarjeta {
+    display: grid;
+    grid-row: span 4;
+    grid-template-rows: subgrid;
+    row-gap: 0;
+  }
+
+  .resumen-tarjeta-insignia {
+    justify-self: start;
+    align-self: start;
+  }
 }
 
 /* «Ver» baja a los resultados sin que el menú fijo tape su título. */
