@@ -302,7 +302,6 @@ export function PanelHallazgos({
   return (
     <section className="results-panel" aria-live="polite" aria-busy={estado === 'cargando'}>
       <EncabezadoSeccion
-        nivel={3}
         etiqueta="Paso 2 · Resultados"
         titulo={titulo}
         acciones={
