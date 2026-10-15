@@ -499,9 +499,11 @@ def _validar_duplicados(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
         if clave in vistos:
             hallazgos.append(con_elemento(_hallazgo(
                 ll.linea, "DOCUMENTACION_DUPLICADA",
-                f"{objeto[0].upper()}{objeto[1:]} está documentada dos veces (la primera en la línea "
-                f"{vistos[clave]}). Retirar una de las dos sentencias, ya que SQL Server rechaza la repetida.",
-            ), f"{objeto.split(' ', 2)[2]} (la primera vez en la línea {vistos[clave]})"))
+                f"Se identificó que {objeto} se encuentra documentada dos veces, siendo la primera "
+                f"declaración en la línea {vistos[clave]}. Se recomienda retirar una de las declaraciones "
+                f"duplicadas, ya que SQL Server genera un error al intentar registrar nuevamente la misma "
+                f"propiedad.",
+            ), f"{objeto.split(' ', 1)[1]} (primera declaración en la línea {vistos[clave]})"))
         else:
             vistos[clave] = ll.linea
     return hallazgos
@@ -631,7 +633,8 @@ _PLANTILLAS_AGRUPADAS = {
     ),
     "DESCRIPCION_COLUMNA_VACIA": (
         "columnas con la descripción vacía",
-        "Añadir en @value qué información guarda cada columna, ya que la descripción es obligatoria.",
+        "Completar la descripción indicando el dato que almacena cada columna, de modo que su uso quede "
+        "claro para quien consulte la tabla.",
     ),
     "COLUMNA_NO_EXISTE": (
         "columnas documentadas que no existen en la tabla",
@@ -642,8 +645,9 @@ _PLANTILLAS_AGRUPADAS = {
         "Se recomienda corregir cada palabra por la sugerida (o revisar su escritura si no hay sugerencia), ya que el diccionario es la documentación oficial de la tabla.",
     ),
     "DOCUMENTACION_DUPLICADA": (
-        "documentaciones repetidas",
-        "Retirar las sentencias repetidas y dejar una sola por cada una, ya que SQL Server rechaza la repetida.",
+        "declaraciones duplicadas",
+        "Se recomienda retirar las declaraciones duplicadas y dejar una sola por cada una, ya que SQL Server "
+        "genera un error al intentar registrar nuevamente la misma propiedad.",
     ),
 }
 

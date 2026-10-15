@@ -162,7 +162,7 @@ REGLAS_DICCIONARIO_TABLAS = {
     ),
     "DOCUMENTACION_DUPLICADA": ReglaDiccionario(
         codigo="DOCUMENTACION_DUPLICADA",
-        nombre="Documentado dos veces",
+        nombre="Documentación duplicada",
         severidad="alto",
         descripcion="La misma tabla o columna se documenta más de una vez con sp_addextendedproperty; SQL Server rechaza la segunda.",
         alcance="tabla",
