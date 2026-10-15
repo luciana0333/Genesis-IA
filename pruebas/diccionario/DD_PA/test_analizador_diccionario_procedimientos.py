@@ -153,7 +153,8 @@ END"""
         self.assertEqual(validar[0].severidad, Severidad.BAJO)
         self.assertIn("Se encontraron 2 observaciones", validar[0].mensaje)
         self.assertIn("@cCodigo", validar[0].mensaje)
-        self.assertIn("Se recomienda validar", validar[0].mensaje)
+        self.assertIn("Verificar si ya cuenta con descripción en el diccionario", validar[0].mensaje)
+        self.assertNotIn("Es un ALTER PROCEDURE", validar[0].mensaje)
 
     def test_alter_procedure_revisa_lo_demas_igual_que_create(self):
         hallazgos = {h.regla: h for h in verificar_diccionario("ALTER" + self.CUERPO, self.DICCIONARIO)}
