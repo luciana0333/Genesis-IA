@@ -281,10 +281,10 @@ def _validar_duplicados(texto_diccionario: str) -> List[Hallazgo]:
             continue
         if "PARAMETER" in ll.texto("level2type").upper():
             nombre = ll.texto("level2name")
-            clave, objeto = ("parametro", nombre.upper()), f"El parámetro {nombre}"
+            clave, objeto = ("parametro", nombre.upper()), f"parámetro {nombre}"
         elif ll.texto("level1name") and not ll.texto("level2type"):
             nombre = ll.texto("level1name")
-            clave, objeto = ("procedimiento", nombre.upper()), f"El procedimiento {nombre}"
+            clave, objeto = ("procedimiento", nombre.upper()), f"procedimiento {nombre}"
         else:
             continue
         if clave not in vistos:
@@ -295,9 +295,11 @@ def _validar_duplicados(texto_diccionario: str) -> List[Hallazgo]:
             origen=OrigenAnalisis.DICCIONARIO,
             severidad=Severidad(REGLAS_DICCIONARIO_PROCEDIMIENTOS["DOCUMENTACION_DUPLICADA"].severidad),
             regla="DOCUMENTACION_DUPLICADA",
-            mensaje=f"{objeto} está documentado dos veces (la primera en la línea {vistos[clave]}). "
-                    f"Retirar una de las dos sentencias, ya que SQL Server rechaza la repetida.",
-        ), f"{nombre} (la primera vez en la línea {vistos[clave]})"))
+            mensaje=f"Se identificó que el {objeto} se encuentra documentado dos veces, siendo la primera "
+                    f"declaración en la línea {vistos[clave]}. Se recomienda retirar una de las declaraciones "
+                    f"duplicadas, ya que SQL Server genera un error al intentar registrar nuevamente la misma "
+                    f"propiedad.",
+        ), f"{objeto} (primera declaración en la línea {vistos[clave]})"))
     return hallazgos
 
 
@@ -584,8 +586,9 @@ _PLANTILLAS_AGRUPADAS = {
         "Corregir el nombre en @level2name o retirar esas sentencias, ya que SQL Server las rechaza.",
     ),
     "DOCUMENTACION_DUPLICADA": (
-        "documentaciones repetidas",
-        "Retirar las sentencias repetidas y dejar una sola por cada uno, ya que SQL Server rechaza la repetida.",
+        "declaraciones duplicadas",
+        "Se recomienda retirar las declaraciones duplicadas y dejar una sola por cada una, ya que SQL Server "
+        "genera un error al intentar registrar nuevamente la misma propiedad.",
     ),
 }
 
