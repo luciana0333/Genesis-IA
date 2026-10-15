@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
 import { Boton } from '../../components/Boton';
 import { EditorCodigo } from '../../components/EditorCodigo';
 import { EncabezadoSeccion } from '../../components/EncabezadoSeccion';
@@ -9,6 +9,7 @@ import {
 import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { OPCIONES_SELECTOR } from '../../config/revisiones';
+import { AvisoFaltaDiccionario } from './AvisoFaltaDiccionario';
 import { MetricasSeveridad } from './MetricasSeveridad';
 import { detectarTipoDiccionario, extraerNombreObjeto } from '../../utils/deteccionObjeto';
 import { useAuditoria } from './useAuditoria';
@@ -78,10 +79,29 @@ export function AuditoriaWorkspace({ vista }) {
   const lineasSegunda = tieneDiccionario ? lineasDiccionario : lineasIndices;
   const resumenLineas = lineasSql && lineasSegunda ? `${lineasSql} + ${lineasSegunda} líneas` : `${lineasSql || lineasSegunda} líneas`;
   const cargando = resultado.estado === 'cargando';
+  // Ventana «Falta el diccionario»: se pegó el objeto pero no su documentación.
+  const [avisoDiccionario, setAvisoDiccionario] = useState(false);
 
   const alEnviar = (evento) => {
     evento.preventDefault();
-    if (!cargando) revisar();
+    if (cargando) return;
+    if (tieneDiccionario && campos.sqlObject.trim() && !campos.dictScript.trim()) {
+      setAvisoDiccionario(true);
+      return;
+    }
+    revisar();
+  };
+
+  const cerrarAviso = useCallback(() => setAvisoDiccionario(false), []);
+  const anadirDiccionario = () => {
+    setAvisoDiccionario(false);
+    const editor = document.getElementById(`${ids}-diccionario`);
+    editor?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    editor?.focus();
+  };
+  const revisarSinDiccionario = () => {
+    setAvisoDiccionario(false);
+    revisar(campos, { sinDiccionario: true });
   };
 
   const alPresionarTecla = (evento) => {
@@ -279,6 +299,16 @@ export function AuditoriaWorkspace({ vista }) {
             </p>
           </div>
         </form>
+
+        {avisoDiccionario && (
+          <AvisoFaltaDiccionario
+            objeto={tipoRevision}
+            nombre={campos.objetoNombre.trim()}
+            onAnadir={anadirDiccionario}
+            onRevisarSinDiccionario={revisarSinDiccionario}
+            onCerrar={cerrarAviso}
+          />
+        )}
 
         <div className="panel-footer" ref={resultadosRef}>
           <PanelHallazgos

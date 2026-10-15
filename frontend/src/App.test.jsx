@@ -220,8 +220,39 @@ describe('App', () => {
     await usuario.clear(screen.getByLabelText('Código del diccionario de procedimiento'));
     await usuario.click(screen.getByRole('button', { name: 'Ejecutar revisión' }));
 
-    expect(screen.getByText('Pega el código del diccionario para iniciar la revisión.')).toBeInTheDocument();
+    const aviso = screen.getByRole('alertdialog', { name: 'Falta el diccionario' });
+    expect(aviso).toHaveTextContent('Se ha intentado revisar el procedimiento');
     expect(fetchMock).not.toHaveBeenCalled();
+
+    // «Añadir diccionario» cierra la ventana y lleva al cuadro del diccionario.
+    await usuario.click(within(aviso).getByRole('button', { name: /Añadir diccionario/ }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Código del diccionario de procedimiento')).toHaveFocus();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('en Diccionarios permite revisar sin diccionario si se confirma', async () => {
+    const usuario = userEvent.setup();
+    const fetchMock = mockRespuesta({ hallazgos: [] });
+    render(<App />);
+
+    await usuario.clear(screen.getByLabelText('Código del diccionario de procedimiento'));
+    await usuario.click(screen.getByRole('button', { name: 'Ejecutar revisión' }));
+    await usuario.click(screen.getByRole('button', { name: 'Revisar sin diccionario' }));
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).dictScript).toBe('');
+  });
+
+  it('la ventana de diccionario faltante se cierra con Escape', async () => {
+    const usuario = userEvent.setup();
+    render(<App />);
+
+    await usuario.clear(screen.getByLabelText('Código del diccionario de procedimiento'));
+    await usuario.click(screen.getByRole('button', { name: 'Ejecutar revisión' }));
+    await usuario.keyboard('{Escape}');
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 
   it('resalta lo citado en el mensaje y copia todas las observaciones', async () => {

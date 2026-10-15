@@ -62,8 +62,11 @@ export function useAuditoria(tipoInicial) {
     setResultado(RESULTADO_INICIAL);
   }, [cancelar]);
 
-  /** Revisa los campos actuales, o los indicados (p. ej. el ejemplo recién cargado). */
-  const revisar = useCallback(async (camposARevisar = campos) => {
+  /**
+   * Revisa los campos actuales, o los indicados (p. ej. el ejemplo recién cargado).
+   * `sinDiccionario`: el usuario confirmó revisar aunque no pegó el diccionario.
+   */
+  const revisar = useCallback(async (camposARevisar = campos, { sinDiccionario = false } = {}) => {
     // En Tablas basta con los índices: pueden ser de una tabla que ya existe.
     const soloIndices = REVISIONES[tipoRevision].indices && (camposARevisar.indicesScript ?? '').trim();
     if (!camposARevisar.sqlObject.trim() && !soloIndices) {
@@ -71,7 +74,7 @@ export function useAuditoria(tipoInicial) {
       return;
     }
     // En una revisión de diccionario, el diccionario es obligatorio.
-    if (REVISIONES[tipoRevision].diccionario && !camposARevisar.dictScript.trim()) {
+    if (REVISIONES[tipoRevision].diccionario && !camposARevisar.dictScript.trim() && !sinDiccionario) {
       setResultado({ estado: 'error', hallazgos: [], mensaje: 'Pega el código del diccionario para iniciar la revisión.' });
       return;
     }
