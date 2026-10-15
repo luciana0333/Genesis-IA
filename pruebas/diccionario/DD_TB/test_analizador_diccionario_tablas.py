@@ -370,7 +370,9 @@ class TestCatalogoDiccionarioTablas(unittest.TestCase):
             ),
         )
         self.assertEqual([h.regla for h in vacia], ["DESCRIPCION_TABLA_VACIA"])
-        self.assertIn("su descripción (@value) está vacía", vacia[0].mensaje)
+        self.assertIn("está documentado, pero su descripción se encuentra vacía. Incluir la descripción "
+                      "respectiva que indique la finalidad de la tabla", vacia[0].mensaje)
+        self.assertNotIn("@value", vacia[0].mensaje)
         self.assertGreater(vacia[0].linea, 0)
 
     def test_regla_desactivada_no_se_reporta(self):

@@ -22,7 +22,7 @@ REGLAS_DICCIONARIO_TABLAS = {
         codigo="DESCRIPCION_TABLA_VACIA",
         nombre="Tabla sin descripción",
         severidad="alto",
-        descripcion="Solo CREATE: la tabla está documentada, pero su descripción (@value) está vacía.",
+        descripcion="Solo CREATE: el diccionario de la tabla está documentado, pero su descripción está vacía.",
         alcance="tabla",
         activo=True,
     ),

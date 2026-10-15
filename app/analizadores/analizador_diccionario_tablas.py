@@ -281,8 +281,9 @@ def _validar_tabla_documentada(
     if sentencias_tabla:
         return [_hallazgo(
             sentencias_tabla[0].linea, "DESCRIPCION_TABLA_VACIA",
-            f"La tabla {full} está documentada, pero su descripción (@value) está vacía. Añadir para qué "
-            f"sirve la tabla, ya que la descripción es obligatoria.",
+            f"Se identificó que el diccionario de la tabla {full} está documentado, pero su descripción "
+            f"se encuentra vacía. Incluir la descripción respectiva que indique la finalidad de la tabla, "
+            f"para así contar con una documentación completa.",
         )]
     return [_hallazgo(
         1, "TABLA_SIN_DESCRIPCION",
