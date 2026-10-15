@@ -334,6 +334,9 @@ class TestCatalogoDiccionarioTablas(unittest.TestCase):
         hallazgos_caso4 = verificar_diccionario_tablas(TABLA_CASO_4, DICCIONARIO_CASO_4)
         vacia = next(h for h in hallazgos_caso4 if h.regla == "DESCRIPCION_COLUMNA_VACIA")
         self.assertEqual(vacia.severidad, Severidad.ALTO)
+        self.assertIn("figura en el diccionario, pero no cuenta con una descripción. Completar la "
+                      "descripción indicando el dato que almacena la columna", vacia.mensaje)
+        self.assertNotIn("@value", vacia.mensaje)
 
     def test_toda_regla_emitida_esta_en_el_catalogo(self):
         codigo = inspect.getsource(analizador_diccionario_tablas)

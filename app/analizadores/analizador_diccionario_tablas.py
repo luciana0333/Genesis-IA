@@ -578,8 +578,9 @@ def _validar_descripciones_vacias(llamadas: List[LlamadaPropiedad]) -> List[Hall
     return [
         con_elemento(_hallazgo(
             ll.linea, "DESCRIPCION_COLUMNA_VACIA",
-            f"La columna {ll.texto('level2name')} está documentada, pero su descripción (@value) está "
-            f"vacía. Añadir qué información guarda, ya que la descripción es obligatoria.",
+            f"Se identificó que la columna {ll.texto('level2name')} figura en el diccionario, pero no "
+            f"cuenta con una descripción. Completar la descripción indicando el dato que almacena la "
+            f"columna, de modo que su uso quede claro para quien consulte la tabla.",
         ), ll.texto('level2name'))
         for ll in llamadas
         if _es_de_columna(ll) and _es_descripcion(ll) and ll.tiene("value") and ll.texto("value") == ""

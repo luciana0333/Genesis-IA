@@ -38,7 +38,7 @@ REGLAS_DICCIONARIO_TABLAS = {
         codigo="DESCRIPCION_COLUMNA_VACIA",
         nombre="Columna sin descripción",
         severidad="alto",
-        descripcion="La columna está documentada pero su descripción en @value está vacía.",
+        descripcion="La columna figura en el diccionario, pero no cuenta con una descripción.",
         alcance="tabla",
         activo=True,
     ),
