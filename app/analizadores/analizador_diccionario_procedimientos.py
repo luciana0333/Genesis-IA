@@ -281,10 +281,10 @@ def _validar_duplicados(texto_diccionario: str) -> List[Hallazgo]:
             continue
         if "PARAMETER" in ll.texto("level2type").upper():
             nombre = ll.texto("level2name")
-            clave, objeto = ("parametro", nombre.upper()), f"El parámetro {nombre}"
+            clave, objeto = ("parametro", nombre.upper()), f"parámetro {nombre}"
         elif ll.texto("level1name") and not ll.texto("level2type"):
             nombre = ll.texto("level1name")
-            clave, objeto = ("procedimiento", nombre.upper()), f"El procedimiento {nombre}"
+            clave, objeto = ("procedimiento", nombre.upper()), f"procedimiento {nombre}"
         else:
             continue
         if clave not in vistos:
@@ -295,9 +295,11 @@ def _validar_duplicados(texto_diccionario: str) -> List[Hallazgo]:
             origen=OrigenAnalisis.DICCIONARIO,
             severidad=Severidad(REGLAS_DICCIONARIO_PROCEDIMIENTOS["DOCUMENTACION_DUPLICADA"].severidad),
             regla="DOCUMENTACION_DUPLICADA",
-            mensaje=f"{objeto} está documentado dos veces (la primera en la línea {vistos[clave]}). "
-                    f"Retirar una de las dos sentencias, ya que SQL Server rechaza la repetida.",
-        ), f"{nombre} (la primera vez en la línea {vistos[clave]})"))
+            mensaje=f"Se identificó que el {objeto} se encuentra documentado dos veces, siendo la primera "
+                    f"declaración en la línea {vistos[clave]}. Se recomienda retirar una de las declaraciones "
+                    f"duplicadas, ya que SQL Server genera un error al intentar registrar nuevamente la misma "
+                    f"propiedad.",
+        ), f"{objeto} (primera declaración en la línea {vistos[clave]})"))
     return hallazgos
 
 
@@ -332,8 +334,10 @@ def _validar_parametros_faltantes(
                 severidad=Severidad.BAJO,
                 regla="VALIDAR_DOCUMENTACION_ALTER",
                 mensaje=(
-                    f"Es un ALTER PROCEDURE y el parámetro {p} no está en el diccionario. "
-                    f"Se recomienda validar si ya estaba documentado y, si es nuevo, añadirlo con su descripción."
+                    f"Se identificó que el parámetro {p} no se encuentra en el diccionario, aunque podría estar "
+                    f"documentado previamente al tratarse de una modificación del procedimiento (ALTER PROCEDURE). "
+                    f"Verificar si ya cuenta con descripción en el diccionario y, de no tenerla, incluir la "
+                    f"descripción respectiva."
                 ),
             ), p))
             continue
@@ -372,9 +376,9 @@ def _validar_alter_sin_diccionario(
             severidad=Severidad.BAJO,
             regla="ALTER_SIN_DICCIONARIO",
             mensaje=(
-                f"Se modifica el procedimiento {_nombre_completo(esquema, nombre_proc)} (ALTER), pero no "
-                f"se pegó ningún diccionario. Se recomienda documentar los parámetros que se "
-                f"agreguen o cambien."
+                f"Se identificó que el procedimiento {_nombre_completo(esquema, nombre_proc)} se modifica "
+                f"(ALTER PROCEDURE), pero no se adjuntó su diccionario. Incluir la documentación de los "
+                f"parámetros que se agreguen o modifiquen, para mantener el diccionario actualizado."
             )
         )]
     return []
@@ -492,9 +496,10 @@ def _validar_procedimiento_documentado(
             origen=OrigenAnalisis.DICCIONARIO,
             severidad=Severidad.BAJO,
             regla="VALIDAR_DOCUMENTACION_ALTER",
-            mensaje=f"Es un ALTER PROCEDURE y el diccionario no incluye la descripción del "
-                    f"procedimiento {_nombre_completo(esquema, nombre_proc)}. Se recomienda validar que ya "
-                    f"esté documentado y, si no lo está, añadir su descripción."
+            mensaje=f"Se identificó que el diccionario no incluye la descripción del procedimiento "
+                    f"{_nombre_completo(esquema, nombre_proc)}, aunque podría estar documentado previamente al "
+                    f"tratarse de una modificación (ALTER PROCEDURE). Verificar si ya cuenta con descripción en "
+                    f"el diccionario y, de no tenerla, incluir la descripción respectiva."
         )]
 
     return [Hallazgo(
@@ -564,8 +569,9 @@ _PLANTILLAS_AGRUPADAS = {
         "con su descripción, ya que todo parámetro de un procedimiento nuevo debe estar documentado.",
     ),
     "VALIDAR_DOCUMENTACION_ALTER": (
-        "parámetros que no están en el diccionario",
-        "Se recomienda validar si ya estaban documentados y, si son nuevos, añadirlos con su descripción.",
+        "parámetros que no se encuentran en el diccionario",
+        "Verificar si ya cuentan con descripción en el diccionario, al tratarse de una modificación del "
+        "procedimiento (ALTER PROCEDURE), y, de no tenerla, incluir la descripción respectiva de cada uno.",
     ),
     "DESCRIPCION_VACIA": (
         "parámetros con la descripción vacía",
@@ -580,8 +586,9 @@ _PLANTILLAS_AGRUPADAS = {
         "Corregir el nombre en @level2name o retirar esas sentencias, ya que SQL Server las rechaza.",
     ),
     "DOCUMENTACION_DUPLICADA": (
-        "documentaciones repetidas",
-        "Retirar las sentencias repetidas y dejar una sola por cada uno, ya que SQL Server rechaza la repetida.",
+        "declaraciones duplicadas",
+        "Se recomienda retirar las declaraciones duplicadas y dejar una sola por cada una, ya que SQL Server "
+        "genera un error al intentar registrar nuevamente la misma propiedad.",
     ),
 }
 

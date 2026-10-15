@@ -195,9 +195,29 @@ class TestDiccionarioTablas(unittest.TestCase):
         hallazgos = verificar_diccionario_tablas(ALTER_TABLE_SIN_DICCIONARIO, "")
         reglas = [h.regla for h in hallazgos]
         mensajes = [h.mensaje for h in hallazgos]
-        self.assertIn("ALTER_SIN_DICCIONARIO", reglas)
-        self.assertIn("COLUMNA_FALTANTE", reglas)
+        # La columna nueva tiene su propia observación: no se repite el aviso general.
+        self.assertEqual(reglas, ["COLUMNA_FALTANTE"])
         self.assertTrue(any("ccelular" in mensaje.lower() for mensaje in mensajes))
+
+    def test_alter_column_que_no_esta_en_el_diccionario_pide_validar(self):
+        # Sin diccionario, o con solo la descripción de la tabla (actualizada, ya existía).
+        for diccionario in ("", DICCIONARIO_TABLA.replace("sp_addextendedproperty", "sp_updateextendedproperty")):
+            hallazgos = verificar_diccionario_tablas(ALTER_COLUMN, diccionario)
+            self.assertEqual([h.regla for h in hallazgos], ["VALIDAR_COLUMNA_MODIFICADA"])
+            self.assertEqual(hallazgos[0].severidad, Severidad.BAJO)
+            self.assertTrue(hallazgos[0].mensaje.startswith(
+                "Se identificó que la columna Nombre se modifica (ALTER COLUMN) y no se encuentra en el diccionario"))
+
+    def test_alter_column_documentada_no_pide_validar(self):
+        hallazgos = verificar_diccionario_tablas(ALTER_COLUMN, DICCIONARIO_ALTER_EXISTENTE.replace(
+            "sp_addextendedproperty", "sp_updateextendedproperty"))
+        self.assertEqual(hallazgos, [])
+
+    def test_alter_sin_columnas_y_sin_diccionario_da_el_aviso_general(self):
+        hallazgos = verificar_diccionario_tablas(
+            "ALTER TABLE CLICKTOPAY.Cliente DROP CONSTRAINT DF_Cliente_bActivo", "")
+        self.assertEqual([h.regla for h in hallazgos], ["ALTER_SIN_DICCIONARIO"])
+        self.assertIn("pero no se adjuntó su diccionario", hallazgos[0].mensaje)
 
     def test_alter_que_cambia_tipo_de_columna_existente_solo_pide_validar(self):
         # El diccionario vuelve a agregar la tabla y la columna, que ya existían:
@@ -334,6 +354,9 @@ class TestCatalogoDiccionarioTablas(unittest.TestCase):
         hallazgos_caso4 = verificar_diccionario_tablas(TABLA_CASO_4, DICCIONARIO_CASO_4)
         vacia = next(h for h in hallazgos_caso4 if h.regla == "DESCRIPCION_COLUMNA_VACIA")
         self.assertEqual(vacia.severidad, Severidad.ALTO)
+        self.assertIn("figura en el diccionario, pero no cuenta con una descripción. Completar la "
+                      "descripción indicando el dato que almacena la columna", vacia.mensaje)
+        self.assertNotIn("@value", vacia.mensaje)
 
     def test_toda_regla_emitida_esta_en_el_catalogo(self):
         codigo = inspect.getsource(analizador_diccionario_tablas)
@@ -370,7 +393,9 @@ class TestCatalogoDiccionarioTablas(unittest.TestCase):
             ),
         )
         self.assertEqual([h.regla for h in vacia], ["DESCRIPCION_TABLA_VACIA"])
-        self.assertIn("su descripción (@value) está vacía", vacia[0].mensaje)
+        self.assertIn("está documentado, pero su descripción se encuentra vacía. Incluir la descripción "
+                      "respectiva que indique la finalidad de la tabla", vacia[0].mensaje)
+        self.assertNotIn("@value", vacia[0].mensaje)
         self.assertGreater(vacia[0].linea, 0)
 
     def test_regla_desactivada_no_se_reporta(self):
@@ -436,6 +461,9 @@ class TestDiccionarioTablasSinDependerDeGO(unittest.TestCase):
         repetida = caso6._sentencia("cNombreArchivo", "Otra descripcion") + ";"
         hallazgos = verificar_diccionario_tablas(caso6.TABLA, base + "\n" + repetida)
         self.assertEqual([h.regla for h in hallazgos], ["DOCUMENTACION_DUPLICADA"])
+        self.assertRegex(hallazgos[0].mensaje, r"^Se identificó que la columna cNombreArchivo se encuentra "
+                         r"documentada dos veces, siendo la primera declaración en la línea \d+\. "
+                         r"Se recomienda retirar una de las declaraciones duplicadas")
 
     def test_sentencia_sin_parametros_obligatorios(self):
         diccionario = caso6.diccionario_correcto(";").replace(
@@ -444,6 +472,61 @@ class TestDiccionarioTablasSinDependerDeGO(unittest.TestCase):
         )
         reglas = {h.regla for h in verificar_diccionario_tablas(caso6.TABLA, diccionario)}
         self.assertIn("PARAMETROS_INCOMPLETOS", reglas)
+
+
+def _propiedad(operacion: str, descripcion: str, columna: str = None) -> str:
+    sentencia = (
+        f"EXEC sys.sp_{operacion}extendedproperty @name=N'MS_Description', @value=N'{descripcion}', "
+        f"@level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'Cliente'"
+    )
+    return sentencia + (f", @level2type=N'COLUMN', @level2name=N'{columna}';" if columna else ";")
+
+
+class TestActualizacionSinDescripcionPrevia(unittest.TestCase):
+    """sp_updateextendedproperty falla si el objeto es nuevo y aún no tiene descripción."""
+
+    def _reglas(self, tabla: str, diccionario: str):
+        return [h for h in verificar_diccionario_tablas(tabla, diccionario)
+                if h.regla == "ACTUALIZACION_SIN_DESCRIPCION_PREVIA"]
+
+    def test_update_en_columna_agregada_con_add(self):
+        hallazgos = self._reglas("ALTER TABLE dbo.Cliente ADD cTelefono VARCHAR(20) NULL",
+                                 _propiedad("update", "Teléfono del cliente", "cTelefono"))
+        self.assertEqual(len(hallazgos), 1)
+        self.assertEqual(hallazgos[0].severidad, Severidad.ALTO)
+        self.assertEqual(
+            hallazgos[0].mensaje,
+            "Se identificó que la columna cTelefono se documenta con sp_updateextendedproperty, pero es nueva "
+            "y aún no cuenta con una descripción. Corregir la sentencia usando sp_addextendedproperty, ya que "
+            "la actualización fallará al no existir la propiedad.",
+        )
+
+    def test_update_en_create_marca_tabla_y_columnas(self):
+        diccionario = "\n".join([
+            _propiedad("update", "Registra los clientes"),
+            _propiedad("update", "Identificador del cliente", "nClienteId"),
+        ])
+        hallazgos = self._reglas("CREATE TABLE dbo.Cliente (nClienteId INT NOT NULL)", diccionario)
+        self.assertEqual(len(hallazgos), 1)  # agrupado
+        self.assertIn("Se identificaron 2 actualizaciones sin descripción previa", hallazgos[0].mensaje)
+        self.assertIn("tabla dbo.Cliente; columna nClienteId", hallazgos[0].mensaje)
+
+    def test_update_en_alter_column_es_correcto(self):
+        self.assertEqual(self._reglas("ALTER TABLE dbo.Cliente ALTER COLUMN cNombre VARCHAR(100) NULL",
+                                      _propiedad("update", "Nombre del cliente", "cNombre")), [])
+
+    def test_update_de_columna_existente_en_un_alter_es_correcto(self):
+        self.assertEqual(self._reglas("ALTER TABLE dbo.Cliente ADD cTelefono VARCHAR(20) NULL",
+                                      _propiedad("add", "Teléfono del cliente", "cTelefono") + "\n"
+                                      + _propiedad("update", "Registra los clientes")
+                                      + "\n" + _propiedad("update", "Correo del cliente", "cCorreo")), [])
+
+    def test_update_sigue_revisando_vacios_y_ortografia(self):
+        hallazgos = verificar_diccionario_tablas(
+            "ALTER TABLE dbo.Cliente ALTER COLUMN cNombre VARCHAR(100) NULL",
+            _propiedad("update", "", "cNombre") + "\n" + _propiedad("update", "Corréo del clinete", "cCorreo"),
+        )
+        self.assertEqual({h.regla for h in hallazgos}, {"DESCRIPCION_COLUMNA_VACIA", "ERROR_ORTOGRAFICO"})
 
 
 if __name__ == "__main__":

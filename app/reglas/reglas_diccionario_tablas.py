@@ -22,7 +22,7 @@ REGLAS_DICCIONARIO_TABLAS = {
         codigo="DESCRIPCION_TABLA_VACIA",
         nombre="Tabla sin descripción",
         severidad="alto",
-        descripcion="Solo CREATE: la tabla está documentada, pero su descripción (@value) está vacía.",
+        descripcion="Solo CREATE: el diccionario de la tabla está documentado, pero su descripción está vacía.",
         alcance="tabla",
         activo=True,
     ),
@@ -38,7 +38,7 @@ REGLAS_DICCIONARIO_TABLAS = {
         codigo="DESCRIPCION_COLUMNA_VACIA",
         nombre="Columna sin descripción",
         severidad="alto",
-        descripcion="La columna está documentada pero su descripción en @value está vacía.",
+        descripcion="La columna figura en el diccionario, pero no cuenta con una descripción.",
         alcance="tabla",
         activo=True,
     ),
@@ -53,11 +53,33 @@ REGLAS_DICCIONARIO_TABLAS = {
         alcance="tabla",
         activo=True,
     ),
+    "ACTUALIZACION_SIN_DESCRIPCION_PREVIA": ReglaDiccionario(
+        codigo="ACTUALIZACION_SIN_DESCRIPCION_PREVIA",
+        nombre="Actualización sin descripción previa",
+        severidad="alto",
+        descripcion=(
+            "Se usa sp_updateextendedproperty sobre una tabla nueva (CREATE) o una columna nueva "
+            "(CREATE o ADD): aún no tiene descripción y la ejecución falla."
+        ),
+        alcance="tabla",
+        activo=True,
+    ),
+    "VALIDAR_COLUMNA_MODIFICADA": ReglaDiccionario(
+        codigo="VALIDAR_COLUMNA_MODIFICADA",
+        nombre="Validar documentación de columna modificada",
+        severidad="bajo",
+        descripcion=(
+            "Una columna modificada con ALTER COLUMN no está en el diccionario. No es error (ya existía "
+            "y puede estar documentada), pero se pide validar."
+        ),
+        alcance="tabla",
+        activo=True,
+    ),
     "ALTER_SIN_DICCIONARIO": ReglaDiccionario(
         codigo="ALTER_SIN_DICCIONARIO",
         nombre="ALTER sin diccionario",
         severidad="bajo",
-        descripcion="Se detecta un ALTER TABLE sin script de documentación válido del diccionario.",
+        descripcion="ALTER TABLE sin diccionario y sin columnas ADD ni ALTER COLUMN reconocibles.",
         alcance="tabla",
         activo=True,
     ),
@@ -162,7 +184,7 @@ REGLAS_DICCIONARIO_TABLAS = {
     ),
     "DOCUMENTACION_DUPLICADA": ReglaDiccionario(
         codigo="DOCUMENTACION_DUPLICADA",
-        nombre="Documentado dos veces",
+        nombre="Documentación duplicada",
         severidad="alto",
         descripcion="La misma tabla o columna se documenta más de una vez con sp_addextendedproperty; SQL Server rechaza la segunda.",
         alcance="tabla",

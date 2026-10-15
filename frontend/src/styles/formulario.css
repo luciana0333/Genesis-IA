@@ -823,3 +823,193 @@ select.campo-icono-tipo {
     width: 100%;
   }
 }
+
+/* Ventana «Falta el diccionario» (revisión de diccionario sin su script). */
+.aviso-capa {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(22, 22, 27, 0.55);
+  backdrop-filter: blur(2px);
+  animation: aviso-aparecer var(--dur) var(--ease);
+}
+
+.aviso-ventana {
+  position: relative;
+  width: min(460px, 100%);
+  padding: 28px 28px 24px;
+  background: var(--bg-card);
+  border-top: 4px solid var(--red-main);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg), 0 0 0 1px var(--border);
+  animation: aviso-subir var(--dur) var(--ease);
+}
+
+.aviso-cerrar {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.aviso-cerrar:hover {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+
+.aviso-cerrar svg {
+  width: 16px;
+  height: 16px;
+}
+
+.aviso-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding-right: 28px;
+}
+
+.aviso-icono {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--red-light);
+  color: var(--red-main);
+}
+
+.aviso-icono svg {
+  width: 22px;
+  height: 22px;
+}
+
+.aviso-etiqueta {
+  margin: 0 0 2px;
+  color: var(--red-main);
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.aviso-titulo {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.aviso-texto {
+  margin: 0 0 16px;
+  color: var(--text-secondary);
+  font-family: var(--font-texto);
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.aviso-texto strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.aviso-objeto {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.aviso-objeto-tipo {
+  color: var(--text-secondary);
+}
+
+.aviso-objeto-estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--red-main);
+}
+
+.aviso-objeto-estado i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--red-main);
+}
+
+.aviso-nota {
+  margin: 0 0 22px;
+  padding-left: 12px;
+  border-left: 2px solid var(--border-strong);
+  color: var(--text-muted);
+  font-family: var(--font-texto);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.aviso-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.aviso-acciones .btn {
+  height: 42px;
+  padding: 0 18px;
+}
+
+@media (max-width: 480px) {
+  .aviso-ventana {
+    padding: 24px 20px 20px;
+  }
+
+  .aviso-acciones {
+    flex-direction: column-reverse;
+  }
+
+  .aviso-acciones .btn {
+    width: 100%;
+  }
+}
+
+@keyframes aviso-aparecer {
+  from { opacity: 0; }
+}
+
+@keyframes aviso-subir {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aviso-capa,
+  .aviso-ventana {
+    animation: none;
+  }
+}

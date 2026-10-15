@@ -281,8 +281,9 @@ def _validar_tabla_documentada(
     if sentencias_tabla:
         return [_hallazgo(
             sentencias_tabla[0].linea, "DESCRIPCION_TABLA_VACIA",
-            f"La tabla {full} está documentada, pero su descripción (@value) está vacía. Añadir para qué "
-            f"sirve la tabla, ya que la descripción es obligatoria.",
+            f"Se identificó que el diccionario de la tabla {full} está documentado, pero su descripción "
+            f"se encuentra vacía. Incluir la descripción respectiva que indique la finalidad de la tabla, "
+            f"para así contar con una documentación completa.",
         )]
     return [_hallazgo(
         1, "TABLA_SIN_DESCRIPCION",
@@ -445,6 +446,39 @@ def _validar_documentacion_existente_en_alter(
     return hallazgos
 
 
+def _validar_actualizacion_sin_descripcion_previa(
+    llamadas: List[LlamadaPropiedad],
+    tipo_sentencia: str,
+    esquema: Optional[str],
+    nombre_tabla: str,
+    columnas_agregadas: Set[str],
+) -> List[Hallazgo]:
+    """
+    sp_updateextendedproperty solo modifica una descripción que ya existe: sobre
+    una tabla nueva (CREATE) o una columna nueva (CREATE o ADD) la ejecución falla.
+    En un ALTER COLUMN o al completar el diccionario de una tabla existente es lo correcto.
+    """
+    es_create = tipo_sentencia == "CREATE"
+    nuevas = {c.upper() for c in columnas_agregadas}
+    hallazgos = []
+    for ll in llamadas:
+        if ll.operacion != "update" or not _es_descripcion(ll):
+            continue
+        if _es_de_tabla(ll) and es_create:
+            objeto = f"tabla {_nombre_completo(esquema, nombre_tabla)}"
+        elif _es_de_columna(ll) and (es_create or ll.texto("level2name").upper() in nuevas):
+            objeto = f"columna {ll.texto('level2name')}"
+        else:
+            continue
+        hallazgos.append(con_elemento(_hallazgo(
+            ll.linea, "ACTUALIZACION_SIN_DESCRIPCION_PREVIA",
+            f"Se identificó que la {objeto} se documenta con sp_updateextendedproperty, pero es nueva y aún "
+            f"no cuenta con una descripción. Corregir la sentencia usando sp_addextendedproperty, ya que la "
+            f"actualización fallará al no existir la propiedad.",
+        ), objeto))
+    return hallazgos
+
+
 def _sugerencia_columna(nombre: str, columnas_reales: Set[str]) -> str:
     """' ¿Quiso decir bActivo?' si hay una columna real con nombre parecido."""
     por_clave = {c.upper(): c for c in columnas_reales}
@@ -498,9 +532,11 @@ def _validar_duplicados(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
         if clave in vistos:
             hallazgos.append(con_elemento(_hallazgo(
                 ll.linea, "DOCUMENTACION_DUPLICADA",
-                f"{objeto[0].upper()}{objeto[1:]} está documentada dos veces (la primera en la línea "
-                f"{vistos[clave]}). Retirar una de las dos sentencias, ya que SQL Server rechaza la repetida.",
-            ), f"{objeto.split(' ', 2)[2]} (la primera vez en la línea {vistos[clave]})"))
+                f"Se identificó que {objeto} se encuentra documentada dos veces, siendo la primera "
+                f"declaración en la línea {vistos[clave]}. Se recomienda retirar una de las declaraciones "
+                f"duplicadas, ya que SQL Server genera un error al intentar registrar nuevamente la misma "
+                f"propiedad.",
+            ), f"{objeto.split(' ', 1)[1]} (primera declaración en la línea {vistos[clave]})"))
         else:
             vistos[clave] = ll.linea
     return hallazgos
@@ -577,8 +613,9 @@ def _validar_descripciones_vacias(llamadas: List[LlamadaPropiedad]) -> List[Hall
     return [
         con_elemento(_hallazgo(
             ll.linea, "DESCRIPCION_COLUMNA_VACIA",
-            f"La columna {ll.texto('level2name')} está documentada, pero su descripción (@value) está "
-            f"vacía. Añadir qué información guarda, ya que la descripción es obligatoria.",
+            f"Se identificó que la columna {ll.texto('level2name')} figura en el diccionario, pero no "
+            f"cuenta con una descripción. Completar la descripción indicando el dato que almacena la "
+            f"columna, de modo que su uso quede claro para quien consulte la tabla.",
         ), ll.texto('level2name'))
         for ll in llamadas
         if _es_de_columna(ll) and _es_descripcion(ll) and ll.tiene("value") and ll.texto("value") == ""
@@ -604,16 +641,47 @@ def _validar_valores_sin_comillas(llamadas: List[LlamadaPropiedad]) -> List[Hall
 
 
 def _validar_alter_sin_diccionario(
-    tipo_sentencia: str, llamadas: List[LlamadaPropiedad], esquema: Optional[str], nombre_tabla: str
+    tipo_sentencia: str,
+    llamadas: List[LlamadaPropiedad],
+    esquema: Optional[str],
+    nombre_tabla: str,
+    columnas_alter: Set[str],
 ) -> List[Hallazgo]:
-    if tipo_sentencia == "ALTER" and not llamadas:
+    """
+    Aviso general solo si el ALTER no tiene ADD ni ALTER COLUMN reconocibles:
+    esas columnas ya tienen su propia observación.
+    """
+    if tipo_sentencia == "ALTER" and not llamadas and not columnas_alter:
         full = _nombre_completo(esquema, nombre_tabla)
         return [_hallazgo(
             1, "ALTER_SIN_DICCIONARIO",
-            f"Se modifica la tabla {full} (ALTER TABLE), pero no se pegó ningún diccionario. "
-            f"Se recomienda documentar las columnas que se agreguen o cambien.",
+            f"Se identificó que la tabla {full} se modifica (ALTER TABLE), pero no se adjuntó su diccionario. "
+            f"Incluir la documentación de las columnas que se agreguen o modifiquen, para mantener el "
+            f"diccionario actualizado.",
         )]
     return []
+
+
+def _validar_columnas_modificadas(
+    llamadas: List[LlamadaPropiedad], tipo_sentencia: str, columnas_modificadas: Set[str]
+) -> List[Hallazgo]:
+    """
+    ALTER COLUMN: la columna ya existía y puede estar documentada de antes.
+    No es error que no venga en el diccionario; se pide validar.
+    """
+    if tipo_sentencia != "ALTER":
+        return []
+    documentadas = _columnas_documentadas(llamadas)
+    return [
+        con_elemento(_hallazgo(
+            1, "VALIDAR_COLUMNA_MODIFICADA",
+            f"Se identificó que la columna {columna} se modifica (ALTER COLUMN) y no se encuentra en el "
+            f"diccionario, aunque podría estar documentada previamente. Verificar si ya cuenta con "
+            f"descripción en el diccionario y, de no tenerla, incluir la descripción respectiva.",
+        ), columna)
+        for columna in sorted(columnas_modificadas, key=str.upper)
+        if columna.upper() not in documentadas
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -629,7 +697,8 @@ _PLANTILLAS_AGRUPADAS = {
     ),
     "DESCRIPCION_COLUMNA_VACIA": (
         "columnas con la descripción vacía",
-        "Añadir en @value qué información guarda cada columna, ya que la descripción es obligatoria.",
+        "Completar la descripción indicando el dato que almacena cada columna, de modo que su uso quede "
+        "claro para quien consulte la tabla.",
     ),
     "COLUMNA_NO_EXISTE": (
         "columnas documentadas que no existen en la tabla",
@@ -639,9 +708,20 @@ _PLANTILLAS_AGRUPADAS = {
         "descripciones con errores de escritura",
         "Se recomienda corregir cada palabra por la sugerida (o revisar su escritura si no hay sugerencia), ya que el diccionario es la documentación oficial de la tabla.",
     ),
+    "VALIDAR_COLUMNA_MODIFICADA": (
+        "columnas modificadas que no se encuentran en el diccionario",
+        "Verificar si ya cuentan con descripción en el diccionario, al tratarse de columnas existentes "
+        "(ALTER COLUMN), y, de no tenerla, incluir la descripción respectiva de cada una.",
+    ),
+    "ACTUALIZACION_SIN_DESCRIPCION_PREVIA": (
+        "actualizaciones sin descripción previa",
+        "Corregir las sentencias usando sp_addextendedproperty, ya que la actualización fallará al no "
+        "existir la propiedad.",
+    ),
     "DOCUMENTACION_DUPLICADA": (
-        "documentaciones repetidas",
-        "Retirar las sentencias repetidas y dejar una sola por cada una, ya que SQL Server rechaza la repetida.",
+        "declaraciones duplicadas",
+        "Se recomienda retirar las declaraciones duplicadas y dejar una sola por cada una, ya que SQL Server "
+        "genera un error al intentar registrar nuevamente la misma propiedad.",
     ),
 }
 
@@ -654,7 +734,7 @@ def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> Li
 
     tipo_sentencia = extraer_tipo_sentencia(texto_tabla)
     columnas_reales = extraer_columnas(texto_tabla)
-    columnas_agregadas, _ = extraer_columnas_alter(texto_tabla)
+    columnas_agregadas, columnas_modificadas = extraer_columnas_alter(texto_tabla)
     llamadas = leer_propiedades_extendidas(texto_diccionario)
 
     # CREATE: la tabla es nueva y todo debe documentarse.
@@ -665,13 +745,19 @@ def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> Li
     hallazgos: List[Hallazgo] = []
     hallazgos += _validar_sintaxis(llamadas)
     hallazgos += _validar_parametros(llamadas)
-    hallazgos += _validar_alter_sin_diccionario(tipo_sentencia, llamadas, esquema, nombre_tabla)
+    hallazgos += _validar_alter_sin_diccionario(
+        tipo_sentencia, llamadas, esquema, nombre_tabla, columnas_agregadas | columnas_modificadas
+    )
+    hallazgos += _validar_columnas_modificadas(llamadas, tipo_sentencia, columnas_modificadas)
     if es_create:
         hallazgos += _validar_tabla_documentada(llamadas, esquema, nombre_tabla)
     hallazgos += _validar_descripcion_tabla(llamadas)
     hallazgos += _validar_columnas_faltantes(columnas_requeridas, llamadas, tipo_sentencia, esquema, nombre_tabla)
     hallazgos += _validar_columnas_inexistentes(columnas_reales, llamadas, tipo_sentencia, nombre_tabla)
     hallazgos += _validar_documentacion_existente_en_alter(
+        llamadas, tipo_sentencia, esquema, nombre_tabla, columnas_agregadas
+    )
+    hallazgos += _validar_actualizacion_sin_descripcion_previa(
         llamadas, tipo_sentencia, esquema, nombre_tabla, columnas_agregadas
     )
     hallazgos += _validar_duplicados(llamadas)

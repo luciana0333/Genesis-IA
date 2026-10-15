@@ -78,7 +78,7 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
     ),
     "DOCUMENTACION_DUPLICADA": ReglaDiccionario(
         codigo="DOCUMENTACION_DUPLICADA",
-        nombre="Documentado dos veces",
+        nombre="Documentación duplicada",
         severidad="alto",
         descripcion="El mismo procedimiento o parámetro se documenta más de una vez con sp_addextendedproperty; SQL Server rechaza la segunda.",
         alcance="procedimiento",
