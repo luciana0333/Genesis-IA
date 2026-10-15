@@ -1,4 +1,4 @@
-# Genesis-IA · Frontend
+# Genesis · Frontend
 
 Interfaz web del auditor SQL, construida con **React 19 + Vite**.
 Consume la API del backend Python (`server.py`).

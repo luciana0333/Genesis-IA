@@ -1,5 +1,5 @@
 /**
- * Cliente HTTP de la API de Genesis-IA.
+ * Cliente HTTP de la API de Genesis.
  *
  * Centraliza el manejo de errores: cualquier fallo (red, JSON inválido o
  * respuesta no exitosa) se convierte en un ErrorApi con un mensaje apto para

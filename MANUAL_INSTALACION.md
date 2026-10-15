@@ -1,6 +1,6 @@
-# Manual de instalación de Genesis-IA (Windows)
+# Manual de instalación de Genesis (Windows)
 
-Guía paso a paso para descargar Genesis-IA en otra computadora y levantarlo.
+Guía paso a paso para descargar Genesis en otra computadora y levantarlo.
 Todo el análisis se hace **en tu equipo**: los procedimientos y los planes no se envían a ningún servidor.
 
 ---
@@ -67,7 +67,7 @@ cd ..
 
 ---
 
-## 4. Levantar Genesis-IA
+## 4. Levantar Genesis
 
 ```
 python server.py

@@ -1,4 +1,4 @@
-# Genesis-IA
+# Genesis
 
 Auditor de objetos SQL Server: revisa diccionarios (`sp_addextendedproperty`),
 estructura de tablas, procedimientos de reportes, procedimientos normales y

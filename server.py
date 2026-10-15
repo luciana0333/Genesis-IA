@@ -271,7 +271,7 @@ class GenesisHandler(SimpleHTTPRequestHandler):
     def _send_frontend_no_compilado(self):
         body = (
             '<!DOCTYPE html><html lang="es"><meta charset="utf-8">'
-            '<title>Genesis IA</title>'
+            '<title>Genesis</title>'
             '<p>La interfaz no está compilada. Ejecuta '
             '<code>npm --prefix frontend install</code> y '
             '<code>npm --prefix frontend run build</code>, y recarga la página.</p>'
@@ -358,13 +358,13 @@ def _iniciar_servidor():
                 import time
                 time.sleep(0.3)
     if server is None:
-        print(f'El puerto {puerto} ya está en uso: Genesis IA probablemente ya está corriendo.')
+        print(f'El puerto {puerto} ya está en uso: Genesis probablemente ya está corriendo.')
         print('Cierre el otro servidor (Ctrl + C en su terminal) y vuelva a iniciar este.')
         sys.exit(_SALIDA_PUERTO_OCUPADO)
     if not ortografia.disponible():
         print('AVISO: pyspellchecker no está instalado; no se revisará la ortografía de los diccionarios.')
         print('       Instálelo con: python -m pip install -r requirements.txt')
-    print(f'Servidor Genesis IA corriendo en http://localhost:{puerto}')
+    print(f'Servidor Genesis corriendo en http://localhost:{puerto}')
     try:
         server.serve_forever()
     except KeyboardInterrupt:

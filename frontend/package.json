@@ -2,7 +2,7 @@
   "name": "genesis-ia-frontend",
   "private": true,
   "version": "1.0.0",
-  "description": "Interfaz web de Genesis-IA: auditoría de objetos SQL Server y planes de ejecución.",
+  "description": "Interfaz web de Genesis: auditoría de objetos SQL Server y planes de ejecución.",
   "type": "module",
   "scripts": {
     "dev": "vite",
