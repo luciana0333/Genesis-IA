@@ -266,6 +266,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  /* Misma altura en todas las tarjetas (caben 2 renglones): la línea de arriba queda pareja. */
+  min-height: 56px;
   margin-top: 16px;
   padding-top: 12px;
   border-top: 1px solid var(--border);
@@ -290,6 +292,8 @@
 }
 
 .resumen-tarjeta-ver {
+  flex-shrink: 0;
+  white-space: nowrap; /* «Ver →» nunca se parte en dos renglones */
   padding: 0;
   border: none;
   background: none;
