@@ -64,11 +64,22 @@ REGLAS_DICCIONARIO_TABLAS = {
         alcance="tabla",
         activo=True,
     ),
+    "VALIDAR_COLUMNA_MODIFICADA": ReglaDiccionario(
+        codigo="VALIDAR_COLUMNA_MODIFICADA",
+        nombre="Validar documentación de columna modificada",
+        severidad="bajo",
+        descripcion=(
+            "Una columna modificada con ALTER COLUMN no está en el diccionario. No es error (ya existía "
+            "y puede estar documentada), pero se pide validar."
+        ),
+        alcance="tabla",
+        activo=True,
+    ),
     "ALTER_SIN_DICCIONARIO": ReglaDiccionario(
         codigo="ALTER_SIN_DICCIONARIO",
         nombre="ALTER sin diccionario",
         severidad="bajo",
-        descripcion="Se detecta un ALTER TABLE sin script de documentación válido del diccionario.",
+        descripcion="ALTER TABLE sin diccionario y sin columnas ADD ni ALTER COLUMN reconocibles.",
         alcance="tabla",
         activo=True,
     ),

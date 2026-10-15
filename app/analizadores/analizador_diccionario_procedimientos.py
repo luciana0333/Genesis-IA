@@ -376,9 +376,9 @@ def _validar_alter_sin_diccionario(
             severidad=Severidad.BAJO,
             regla="ALTER_SIN_DICCIONARIO",
             mensaje=(
-                f"Se modifica el procedimiento {_nombre_completo(esquema, nombre_proc)} (ALTER), pero no "
-                f"se pegó ningún diccionario. Se recomienda documentar los parámetros que se "
-                f"agreguen o cambien."
+                f"Se identificó que el procedimiento {_nombre_completo(esquema, nombre_proc)} se modifica "
+                f"(ALTER PROCEDURE), pero no se adjuntó su diccionario. Incluir la documentación de los "
+                f"parámetros que se agreguen o modifiquen, para mantener el diccionario actualizado."
             )
         )]
     return []

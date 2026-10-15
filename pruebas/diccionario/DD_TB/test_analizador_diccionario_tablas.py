@@ -195,9 +195,29 @@ class TestDiccionarioTablas(unittest.TestCase):
         hallazgos = verificar_diccionario_tablas(ALTER_TABLE_SIN_DICCIONARIO, "")
         reglas = [h.regla for h in hallazgos]
         mensajes = [h.mensaje for h in hallazgos]
-        self.assertIn("ALTER_SIN_DICCIONARIO", reglas)
-        self.assertIn("COLUMNA_FALTANTE", reglas)
+        # La columna nueva tiene su propia observación: no se repite el aviso general.
+        self.assertEqual(reglas, ["COLUMNA_FALTANTE"])
         self.assertTrue(any("ccelular" in mensaje.lower() for mensaje in mensajes))
+
+    def test_alter_column_que_no_esta_en_el_diccionario_pide_validar(self):
+        # Sin diccionario, o con solo la descripción de la tabla (actualizada, ya existía).
+        for diccionario in ("", DICCIONARIO_TABLA.replace("sp_addextendedproperty", "sp_updateextendedproperty")):
+            hallazgos = verificar_diccionario_tablas(ALTER_COLUMN, diccionario)
+            self.assertEqual([h.regla for h in hallazgos], ["VALIDAR_COLUMNA_MODIFICADA"])
+            self.assertEqual(hallazgos[0].severidad, Severidad.BAJO)
+            self.assertTrue(hallazgos[0].mensaje.startswith(
+                "Se identificó que la columna Nombre se modifica (ALTER COLUMN) y no se encuentra en el diccionario"))
+
+    def test_alter_column_documentada_no_pide_validar(self):
+        hallazgos = verificar_diccionario_tablas(ALTER_COLUMN, DICCIONARIO_ALTER_EXISTENTE.replace(
+            "sp_addextendedproperty", "sp_updateextendedproperty"))
+        self.assertEqual(hallazgos, [])
+
+    def test_alter_sin_columnas_y_sin_diccionario_da_el_aviso_general(self):
+        hallazgos = verificar_diccionario_tablas(
+            "ALTER TABLE CLICKTOPAY.Cliente DROP CONSTRAINT DF_Cliente_bActivo", "")
+        self.assertEqual([h.regla for h in hallazgos], ["ALTER_SIN_DICCIONARIO"])
+        self.assertIn("pero no se adjuntó su diccionario", hallazgos[0].mensaje)
 
     def test_alter_que_cambia_tipo_de_columna_existente_solo_pide_validar(self):
         # El diccionario vuelve a agregar la tabla y la columna, que ya existían:

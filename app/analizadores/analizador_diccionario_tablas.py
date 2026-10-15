@@ -641,16 +641,47 @@ def _validar_valores_sin_comillas(llamadas: List[LlamadaPropiedad]) -> List[Hall
 
 
 def _validar_alter_sin_diccionario(
-    tipo_sentencia: str, llamadas: List[LlamadaPropiedad], esquema: Optional[str], nombre_tabla: str
+    tipo_sentencia: str,
+    llamadas: List[LlamadaPropiedad],
+    esquema: Optional[str],
+    nombre_tabla: str,
+    columnas_alter: Set[str],
 ) -> List[Hallazgo]:
-    if tipo_sentencia == "ALTER" and not llamadas:
+    """
+    Aviso general solo si el ALTER no tiene ADD ni ALTER COLUMN reconocibles:
+    esas columnas ya tienen su propia observación.
+    """
+    if tipo_sentencia == "ALTER" and not llamadas and not columnas_alter:
         full = _nombre_completo(esquema, nombre_tabla)
         return [_hallazgo(
             1, "ALTER_SIN_DICCIONARIO",
-            f"Se modifica la tabla {full} (ALTER TABLE), pero no se pegó ningún diccionario. "
-            f"Se recomienda documentar las columnas que se agreguen o cambien.",
+            f"Se identificó que la tabla {full} se modifica (ALTER TABLE), pero no se adjuntó su diccionario. "
+            f"Incluir la documentación de las columnas que se agreguen o modifiquen, para mantener el "
+            f"diccionario actualizado.",
         )]
     return []
+
+
+def _validar_columnas_modificadas(
+    llamadas: List[LlamadaPropiedad], tipo_sentencia: str, columnas_modificadas: Set[str]
+) -> List[Hallazgo]:
+    """
+    ALTER COLUMN: la columna ya existía y puede estar documentada de antes.
+    No es error que no venga en el diccionario; se pide validar.
+    """
+    if tipo_sentencia != "ALTER":
+        return []
+    documentadas = _columnas_documentadas(llamadas)
+    return [
+        con_elemento(_hallazgo(
+            1, "VALIDAR_COLUMNA_MODIFICADA",
+            f"Se identificó que la columna {columna} se modifica (ALTER COLUMN) y no se encuentra en el "
+            f"diccionario, aunque podría estar documentada previamente. Verificar si ya cuenta con "
+            f"descripción en el diccionario y, de no tenerla, incluir la descripción respectiva.",
+        ), columna)
+        for columna in sorted(columnas_modificadas, key=str.upper)
+        if columna.upper() not in documentadas
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -677,6 +708,11 @@ _PLANTILLAS_AGRUPADAS = {
         "descripciones con errores de escritura",
         "Se recomienda corregir cada palabra por la sugerida (o revisar su escritura si no hay sugerencia), ya que el diccionario es la documentación oficial de la tabla.",
     ),
+    "VALIDAR_COLUMNA_MODIFICADA": (
+        "columnas modificadas que no se encuentran en el diccionario",
+        "Verificar si ya cuentan con descripción en el diccionario, al tratarse de columnas existentes "
+        "(ALTER COLUMN), y, de no tenerla, incluir la descripción respectiva de cada una.",
+    ),
     "ACTUALIZACION_SIN_DESCRIPCION_PREVIA": (
         "actualizaciones sin descripción previa",
         "Corregir las sentencias usando sp_addextendedproperty, ya que la actualización fallará al no "
@@ -698,7 +734,7 @@ def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> Li
 
     tipo_sentencia = extraer_tipo_sentencia(texto_tabla)
     columnas_reales = extraer_columnas(texto_tabla)
-    columnas_agregadas, _ = extraer_columnas_alter(texto_tabla)
+    columnas_agregadas, columnas_modificadas = extraer_columnas_alter(texto_tabla)
     llamadas = leer_propiedades_extendidas(texto_diccionario)
 
     # CREATE: la tabla es nueva y todo debe documentarse.
@@ -709,7 +745,10 @@ def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> Li
     hallazgos: List[Hallazgo] = []
     hallazgos += _validar_sintaxis(llamadas)
     hallazgos += _validar_parametros(llamadas)
-    hallazgos += _validar_alter_sin_diccionario(tipo_sentencia, llamadas, esquema, nombre_tabla)
+    hallazgos += _validar_alter_sin_diccionario(
+        tipo_sentencia, llamadas, esquema, nombre_tabla, columnas_agregadas | columnas_modificadas
+    )
+    hallazgos += _validar_columnas_modificadas(llamadas, tipo_sentencia, columnas_modificadas)
     if es_create:
         hallazgos += _validar_tabla_documentada(llamadas, esquema, nombre_tabla)
     hallazgos += _validar_descripcion_tabla(llamadas)
