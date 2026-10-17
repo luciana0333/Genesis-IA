@@ -269,6 +269,22 @@ class TestIndices(unittest.TestCase):
         self.assertEqual([r for r, _ in reglas(con_errores, "")],
                          ["INDICE_PREFIJO_INVALIDO", "INDICE_SIN_ESQUEMA", "INDICE_TABLA_EXISTENTE"])
 
+    def test_indice_duplicado_no_sugiere_renombrarlo(self):
+        # Renombrar IXN_Cliente_cCodPersona2 como IXN_Cliente_cCodPersona chocaría con el índice que ya existe.
+        indices = (
+            "CREATE NONCLUSTERED INDEX IXN_Cliente_cCodPersona ON CLICKTOPAY.Cliente (cCodPersona);\n"
+            "CREATE NONCLUSTERED INDEX IXN_Cliente_cCodPersona2 ON CLICKTOPAY.Cliente (cCodPersona);"
+        )
+        self.assertEqual(reglas(indices), [("INDICE_DUPLICADO", 2)])
+        self.assertIn("eliminar uno de los dos", mensaje(indices))
+
+    def test_duplicado_en_la_misma_linea_conserva_las_demas_observaciones(self):
+        indices = (
+            "CREATE NONCLUSTERED INDEX IXN_Cliente_Persona ON CLICKTOPAY.Cliente (cCodPersona); "
+            "CREATE NONCLUSTERED INDEX IXN_Cliente_cCodPersona ON CLICKTOPAY.Cliente (cCodPersona);"
+        )
+        self.assertEqual({r for r, _ in reglas(indices)}, {"INDICE_NOMBRE_NO_ESTANDAR", "INDICE_DUPLICADO"})
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -220,7 +220,18 @@ def verificar_indices(texto_indices: str, texto_tabla: str = "") -> List[Hallazg
 
     for indice in indices:
         hallazgos.extend(_validar_indice(texto, indice, tabla_script))
-    hallazgos.extend(_validar_duplicados(texto, indices, tabla_script))
+    duplicados = _validar_duplicados(texto, indices, tabla_script)
+    # Un índice duplicado se elimina, no se renombra: sugerir otro nombre podría coincidir
+    # con el del índice que ya existe (IXN_Cliente_cCodigo2 -> IXN_Cliente_cCodigo).
+    lineas_duplicadas = {h.linea for h in duplicados}
+    lineas_por_indice = [texto.count("\n", 0, indice.posicion) + 1 for indice in indices]
+    # Si en esa línea hay otro índice (script en una sola línea), no se puede saber de cuál es: se conserva.
+    lineas_duplicadas = {linea for linea in lineas_duplicadas if lineas_por_indice.count(linea) == 1}
+    hallazgos = [
+        h for h in hallazgos
+        if not (h.regla in ("INDICE_NOMBRE_NO_ESTANDAR", "INDICE_PREFIJO_INVALIDO") and h.linea in lineas_duplicadas)
+    ]
+    hallazgos.extend(duplicados)
     return sorted(hallazgos, key=lambda h: h.linea)
 
 
