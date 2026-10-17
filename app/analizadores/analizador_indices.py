@@ -414,13 +414,30 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
     # Una descripción nunca identifica los registros: si un índice UNIQUE o CLUSTERED
     # la usa como clave, la tabla debe identificarse por su clave primaria identidad.
     identificadoras = [c for c in indice.claves if _texto_descriptivo(c)] if (indice.unico or indice.clustered) else []
-    for columna in identificadoras:
+    identificador = _identificador_de(indice, tabla_script)
+    clustered_descriptivo = indice.clustered and bool(identificadoras)
+    if clustered_descriptivo:
+        # Un índice CLUSTERED sobre una descripción: se retira y la tabla se ordena por su PK identidad.
+        ya_tiene_pk = bool(tabla_script and tabla_script.pk and tabla_script.pk_clustered)
+        accion = (
+            f"Se recomienda retirar dicho índice, ya que {identificador} ya es la clave primaria CLUSTERED de "
+            f"la tabla." if ya_tiene_pk else
+            f"Se recomienda retirar dicho índice y definir {identificador} como clave primaria mediante un "
+            f"CONSTRAINT PRIMARY KEY CLUSTERED."
+        )
         hallazgos.append(_hallazgo(
-            texto, indice.posicion, "INDICE_IDENTIFICA_POR_DESCRIPCION",
-            f"El índice {indice.nombre} usa la columna {columna} para identificar los registros, pero una "
-            f"descripción puede repetirse o cambiar con el tiempo. Identificar los registros por la clave "
-            f"primaria de la tabla ({_identificador_de(indice, tabla_script)}).",
+            texto, indice.posicion, "INDICE_CLUSTERED_DESCRIPTIVO",
+            f"Se identificó que el índice {indice.nombre} utiliza la columna descriptiva "
+            f"{', '.join(identificadoras)} como clave clustered. {accion}",
         ))
+    else:
+        for columna in identificadoras:
+            hallazgos.append(_hallazgo(
+                texto, indice.posicion, "INDICE_IDENTIFICA_POR_DESCRIPCION",
+                f"Se identificó que el índice {indice.nombre} utiliza la columna descriptiva {columna} como "
+                f"clave única. Se recomienda retirar dicho índice, ya que una descripción puede repetirse o "
+                f"cambiar con el tiempo y los registros se identifican por la clave primaria ({identificador}).",
+            ))
 
     # Columnas de texto descriptivo (descripción, dirección...): se busca indexar lo que sirve.
     for columna in indice.claves + indice.incluidas:
@@ -442,9 +459,10 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
 
     # La clave primaria siempre es el índice clúster (identidad): ningún otro índice
     # puede serlo. No se prohíbe tajantemente: se pide definirlo NONCLUSTERED.
-    if indice.clustered and indice.unico:
+    if clustered_descriptivo:
+        pass  # ya se pide retirar el índice (INDICE_CLUSTERED_DESCRIPTIVO)
+    elif indice.clustered and indice.unico:
         # Un UNIQUE CLUSTERED hace el papel de la clave primaria: se declara la PK directamente.
-        identificador = _identificador_de(indice, tabla_script)
         tabla_pk = _nombre_estandar_tabla(indice.tabla)
         hallazgos.append(_hallazgo(
             texto, indice.posicion, "INDICE_CLUSTERED_CON_PK",

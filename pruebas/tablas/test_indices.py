@@ -201,12 +201,18 @@ class TestIndices(unittest.TestCase):
         tabla = "CREATE TABLE dbo.TB_cliente_datos (id INT, cDescripcion VARCHAR(MAX), cDireccion VARCHAR(200));"
         unico = "CREATE UNIQUE CLUSTERED INDEX IXU_TB_cliente_datos_cDescripcion ON dbo.TB_cliente_datos (cDescripcion);"
         hallazgos = {h.regla: h for h in verificar_indices(unico, tabla)}
-        identifica = hallazgos["INDICE_IDENTIFICA_POR_DESCRIPCION"]
-        self.assertEqual(identifica.severidad.value, "alto")
-        self.assertIn("para identificar los registros", identifica.mensaje)
-        self.assertIn("Identificar los registros por la clave primaria de la tabla (nClienteDatosId)", identifica.mensaje)
+        clustered = hallazgos["INDICE_CLUSTERED_DESCRIPTIVO"]
+        self.assertEqual(clustered.severidad.value, "alto")
+        self.assertEqual(
+            clustered.mensaje,
+            "Se identificó que el índice IXU_TB_cliente_datos_cDescripcion utiliza la columna descriptiva "
+            "cDescripcion como clave clustered. Se recomienda retirar dicho índice y definir nClienteDatosId "
+            "como clave primaria mediante un CONSTRAINT PRIMARY KEY CLUSTERED.",
+        )
         self.assertIn("INDICE_COLUMNA_NO_INDEXABLE", hallazgos)  # además falla por VARCHAR(MAX)
-        self.assertNotIn("INDICE_COLUMNA_DESCRIPTIVA", hallazgos)  # no se repite como «descriptiva»
+        # Un solo mensaje para ese índice: ni «descripción como identificador», ni «descriptiva», ni el de clúster.
+        for repetida in ("INDICE_IDENTIFICA_POR_DESCRIPCION", "INDICE_COLUMNA_DESCRIPTIVA", "INDICE_CLUSTERED_CON_PK"):
+            self.assertNotIn(repetida, hallazgos)
 
         con_pk = TABLA.replace("cObservacion VARCHAR(MAX)", "cObservacion VARCHAR(200)")
         unique_nc = "CREATE UNIQUE NONCLUSTERED INDEX IXUN_Cliente_cObservacion ON CLICKTOPAY.Cliente (cObservacion);"

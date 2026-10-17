@@ -170,6 +170,11 @@ REGLAS_TABLAS = {
         "Una columna de texto descriptivo no identifica registros: un índice UNIQUE o CLUSTERED no la usa "
         "como clave; la tabla se identifica por su clave primaria identidad (nNombreTablaId).",
     ),
+    "INDICE_CLUSTERED_DESCRIPTIVO": _regla(
+        "INDICE_CLUSTERED_DESCRIPTIVO", "Índice clustered sobre columna descriptiva", "alto",
+        "Un índice CLUSTERED no usa texto descriptivo como clave: se retira y la tabla se ordena por su clave "
+        "primaria identidad (CONSTRAINT PRIMARY KEY CLUSTERED).",
+    ),
     "INDICE_COLUMNA_DESCRIPTIVA": _regla(
         "INDICE_COLUMNA_DESCRIPTIVA", "Columna descriptiva en el índice", "alto",
         "Se evita indexar texto descriptivo (descripción, dirección, observación, opinión, comentario...), "

@@ -136,6 +136,7 @@ export const NOMBRES_REGLAS = {
   INDICE_INCLUDE_EXTENSO: 'INCLUDE con muchas columnas',
   INDICE_COLUMNA_DESCRIPTIVA: 'Columna descriptiva en el índice',
   INDICE_IDENTIFICA_POR_DESCRIPCION: 'Descripción usada como identificador',
+  INDICE_CLUSTERED_DESCRIPTIVO: 'Índice clustered sobre columna descriptiva',
   COLLATE_DATABASE_DEFAULT: 'COLLATE DATABASE_DEFAULT',
   COLLATE_DISTINTO_AL_ESTANDAR: 'COLLATE distinto al de la empresa',
 };
