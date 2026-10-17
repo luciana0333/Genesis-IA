@@ -84,7 +84,13 @@ export function useAuditoria(tipoInicial) {
       const datos = await ejecutar((signal) =>
         analizarObjeto(construirSolicitud(tipoRevision, camposARevisar), { signal }),
       );
-      setResultado({ estado: 'listo', hallazgos: datos.hallazgos ?? [], mensaje: '' });
+      setResultado({
+        estado: 'listo',
+        hallazgos: datos.hallazgos ?? [],
+        mensaje: '',
+        // Diccionarios: script de lo que falta documentar («Generar diccionario faltante»).
+        diccionarioFaltante: datos.diccionarioFaltante ?? null,
+      });
     } catch (error) {
       if (esCancelacion(error)) return;
       setResultado({ estado: 'error', hallazgos: [], mensaje: error.message });

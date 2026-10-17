@@ -15,6 +15,7 @@ from app.analizadores.analizador_indices import verificar_indices
 from app.analizadores.analizador_reportes import verificar_reporte
 from app.analizadores.analizador_procedimientos_normales import verificar_procedimiento_normal
 from app.analizadores.deteccion_objeto import detectar_objeto
+from app.analizadores.diccionario_generador import diccionario_faltante_procedimiento, diccionario_faltante_tabla
 from app.analizadores import ortografia
 from app.analizadores.planes_ejecucion import (
     analizar_plan_ejecucion, analizar_plan_negocio, analizar_plan_reporte, construir_diagrama,
@@ -95,6 +96,7 @@ class GenesisHandler(SimpleHTTPRequestHandler):
                 return
             tipo = detectado
 
+        faltante = None
         try:
             if tipo == 'reporte':
                 hallazgos = verificar_reporte(sql_text)
@@ -102,12 +104,14 @@ class GenesisHandler(SimpleHTTPRequestHandler):
                 hallazgos = verificar_procedimiento_normal(sql_text, es_del_motor)
             elif tipo == 'procedimiento':
                 hallazgos = verificar_diccionario(sql_text, dict_text)
+                faltante = diccionario_faltante_procedimiento(sql_text, dict_text)
             elif tipo == 'tabla_estructura' or modo_revision == 'tabla_estructura':
                 hallazgos = verificar_tabla(sql_text, es_dbcmaica) if sql_text.strip() else []
                 if indices_text.strip():
                     hallazgos += verificar_indices(indices_text, sql_text)
             else:
                 hallazgos = verificar_diccionario_tablas(sql_text, dict_text)
+                faltante = diccionario_faltante_tabla(sql_text, dict_text)
         except Exception as exc:  # pragma: no cover - safety net for runtime errors
             self._send_json({'error': f'Error al ejecutar el analizador: {exc}'}, status=500)
             return
@@ -138,6 +142,8 @@ class GenesisHandler(SimpleHTTPRequestHandler):
             'tipoRevision': tipo,
             'resumen': resumen,
             'hallazgos': hallazgos_serializados,
+            # «Generar diccionario faltante»: script de lo que falta documentar (o None).
+            'diccionarioFaltante': faltante,
         })
 
     def _analizar_plan(self):

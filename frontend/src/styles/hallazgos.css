@@ -921,3 +921,131 @@
 .finding-code .tok-variable { color: #000000; }
 .finding-code .tok-cadena { color: #ff0000; }
 .finding-code .tok-comentario { color: #008000; font-style: normal; }
+
+/* «Generar diccionario faltante»: script sugerido al pie de la observación. */
+.generador-abrir {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  margin-top: 12px;
+  padding: 0 14px;
+  border: 1px solid var(--red-main);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--red-main);
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.generador-abrir:hover {
+  background: var(--red-main);
+  color: #ffffff;
+}
+
+.generador-abrir svg,
+.generador-boton svg {
+  width: 15px;
+  height: 15px;
+}
+
+.generador {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--red-main);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+
+.generador-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.generador-etiqueta {
+  margin: 0 0 2px;
+  color: var(--red-main);
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.generador-resumen {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.generador-acciones {
+  display: flex;
+  gap: 8px;
+}
+
+.generador-boton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.generador-boton:hover {
+  border-color: var(--red-main);
+  color: var(--red-main);
+}
+
+.generador-boton--principal {
+  border-color: var(--red-main);
+  background: var(--red-main);
+  color: #ffffff;
+}
+
+.generador-boton--principal:hover {
+  background: var(--red-dark);
+  color: #ffffff;
+}
+
+.generador-codigo {
+  max-height: 320px;
+  margin: 0;
+  overflow: auto;
+  padding: 12px 14px;
+  background: #ffffff;
+  color: #000000;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.generador-codigo .tok-clave { color: #0000ff; }
+.generador-codigo .tok-variable { color: #000000; }
+.generador-codigo .tok-cadena { color: #ff0000; }
+.generador-codigo .tok-comentario { color: #008000; }
+
+.generador-nota {
+  margin: 0;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}

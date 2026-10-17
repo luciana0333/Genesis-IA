@@ -10,10 +10,19 @@ import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { OPCIONES_SELECTOR } from '../../config/revisiones';
 import { AvisoFaltaDiccionario } from './AvisoFaltaDiccionario';
+import { GeneradorDiccionario } from './GeneradorDiccionario';
 import { MetricasSeveridad } from './MetricasSeveridad';
 import { detectarTipoDiccionario, extraerNombreObjeto } from '../../utils/deteccionObjeto';
 import { useAuditoria } from './useAuditoria';
 import { useAlPedirEjemplo } from '../../hooks/useVerEjemplo';
+
+// Observaciones de «falta documentar»: la primera presente ofrece el script del diccionario faltante.
+const REGLAS_DICCIONARIO_FALTANTE = [
+  'TABLA_SIN_DESCRIPCION',
+  'PROCEDIMIENTO_SIN_DESCRIPCION',
+  'COLUMNA_FALTANTE',
+  'PARAMETRO_FALTANTE',
+];
 
 function esAtajoEjecutar(evento) {
   return evento.key === 'Enter' && (evento.ctrlKey || evento.metaKey);
@@ -93,6 +102,14 @@ export function AuditoriaWorkspace({ vista }) {
   };
 
   const cerrarAviso = useCallback(() => setAvisoDiccionario(false), []);
+
+  // El script del diccionario faltante se ofrece una sola vez, en la primera observación de «falta documentar».
+  const faltante = resultado.diccionarioFaltante;
+  const reglaConScript = faltante
+    && REGLAS_DICCIONARIO_FALTANTE.find((regla) => resultado.hallazgos.some((hallazgo) => hallazgo.regla === regla));
+  const accionesHallazgo = reglaConScript
+    ? (hallazgo) => hallazgo.regla === reglaConScript && <GeneradorDiccionario faltante={faltante} />
+    : undefined;
   const anadirDiccionario = () => {
     setAvisoDiccionario(false);
     const editor = document.getElementById(`${ids}-diccionario`);
@@ -316,6 +333,7 @@ export function AuditoriaWorkspace({ vista }) {
             estado={resultado.estado}
             hallazgos={resultado.hallazgos}
             mensajeError={resultado.mensaje}
+            accionesHallazgo={accionesHallazgo}
             textos={{
               inicialTitulo: 'Listo para iniciar la revisión',
               pasos: [

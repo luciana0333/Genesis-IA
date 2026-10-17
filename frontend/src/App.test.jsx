@@ -245,6 +245,30 @@ describe('App', () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).dictScript).toBe('');
   });
 
+  it('ofrece el script del diccionario faltante una sola vez y lo copia', async () => {
+    const usuario = userEvent.setup();
+    const script = "-- Diccionario faltante\n\nEXEC sys.sp_addextendedproperty\n    @name = N'MS_Description', @value = N'';\nGO\n";
+    mockRespuesta({
+      hallazgos: [
+        { linea: 1, severidad: 'alto', regla: 'PROCEDIMIENTO_SIN_DESCRIPCION', mensaje: 'Falta. Añadirla.' },
+        { linea: 2, severidad: 'alto', regla: 'PARAMETRO_FALTANTE', mensaje: 'Falta. Añadirlo.' },
+      ],
+      diccionarioFaltante: { script, elementos: ['procedimiento PA_X', '@nId'] },
+    });
+    render(<App />);
+    await usuario.click(screen.getByRole('button', { name: 'Ejecutar revisión' }));
+
+    const botones = await screen.findAllByRole('button', { name: 'Generar diccionario faltante' });
+    expect(botones).toHaveLength(1);
+    await usuario.click(botones[0]);
+
+    const generador = screen.getByRole('region', { name: 'Diccionario faltante' });
+    expect(generador).toHaveTextContent('2 sentencias · procedimiento PA_X, @nId');
+    await usuario.click(within(generador).getByRole('button', { name: /Copiar script/ }));
+    expect(await navigator.clipboard.readText()).toBe(script);
+    expect(within(generador).getByRole('button', { name: /Copiado/ })).toBeInTheDocument();
+  });
+
   it('la ventana de diccionario faltante se cierra con Escape', async () => {
     const usuario = userEvent.setup();
     render(<App />);
