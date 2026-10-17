@@ -158,7 +158,8 @@ class TestReportesQA(unittest.TestCase):
 
     def test_mensaje_de_ltrim_rtrim(self):
         sql = procedimiento("    SELECT LTRIM(RTRIM(c.cNombre)) FROM dbo.Cliente c WITH(NOLOCK);")
-        self.assertIn("le da más legibilidad al código", verificar_reporte(sql)[0].mensaje)
+        self.assertIn("Se recomienda reemplazarlo por TRIM, que realiza la misma operación con una sola función",
+                      verificar_reporte(sql)[0].mensaje)
 
 
 if __name__ == "__main__":

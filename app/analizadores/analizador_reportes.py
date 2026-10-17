@@ -323,9 +323,9 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             r"\bIN\s*\(\s*(?P<valor>[^,()]+?)\s*\)",
             "IN_CON_UN_SOLO_VALOR",
             lambda m: (
-                f"Se identificó un IN con un solo valor: IN ({texto[m.start('valor'):m.end('valor')]}). Se "
-                f"recomienda usar el signo igual, ya que es más claro y directo "
-                f"(ej.: WHERE nEstado = {texto[m.start('valor'):m.end('valor')]})."
+                f"Se identificó el uso de IN para comparar un único valor. Se recomienda utilizar el operador = "
+                f"cuando se compara un solo valor (ej.: WHERE {_columna_antes(limpio, m.start())} = "
+                f"{texto[m.start('valor'):m.end('valor')]})."
             ),
         ),
         (
@@ -354,6 +354,14 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
                 hallazgo.elemento = _objeto_select_estrella(match, limpio)
             hallazgos.append(hallazgo)
     return hallazgos
+
+
+def _columna_antes(limpio: str, posicion: int) -> str:
+    """Columna que se compara con IN (c.cEstado IN (...)); nEstado si no se reconoce."""
+    columna = re.search(r"([\w\[\].@]+)\s+(?:NOT\s+)?$", limpio[:posicion], re.IGNORECASE)
+    if columna and columna.group(1).upper() not in {"WHERE", "AND", "OR", "ON", "WHEN", "NOT"}:
+        return columna.group(1)
+    return "nEstado"
 
 
 def _objeto_select_estrella(match: re.Match, limpio: str) -> str:
@@ -668,8 +676,9 @@ def _validar_funciones_reemplazables(texto: str, limpio: str) -> List[Hallazgo]:
     for match in re.finditer(r"\b(?:LTRIM\s*\(\s*RTRIM|RTRIM\s*\(\s*LTRIM)\s*\(", limpio, re.IGNORECASE):
         hallazgos.append(_hallazgo(
             texto, match.start(), "LTRIM_RTRIM_PROHIBIDO",
-            "Se identificó la combinación de LTRIM y RTRIM para quitar espacios. Se recomienda usar TRIM, "
-            "ya que hace lo mismo en una sola función y le da más legibilidad al código (ej.: TRIM(cNombre)).",
+            "Se identificó el uso de LTRIM(RTRIM(...)) para eliminar espacios al inicio y al final de una cadena. "
+            "Se recomienda reemplazarlo por TRIM, que realiza la misma operación con una sola función "
+            "(ej.: TRIM(cNombre)).",
         ))
     for match in re.finditer(r"\bFOR\s+XML\s+PATH\s*\(\s*(?:''|\"\")\s*\)", limpio, re.IGNORECASE):
         con_stuff = re.search(r"\bSTUFF\s*\(", _sentencia(limpio, match.start()), re.IGNORECASE)

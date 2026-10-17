@@ -208,7 +208,7 @@ REGLAS_REPORTES = {
     ),
     "LTRIM_RTRIM_PROHIBIDO": ReglaDiccionario(
         codigo="LTRIM_RTRIM_PROHIBIDO",
-        nombre="LTRIM y RTRIM en lugar de TRIM",
+        nombre="Uso de LTRIM y RTRIM",
         severidad="medio",
         descripcion="Reemplazar LTRIM(RTRIM(x)) por la función nativa TRIM(x).",
         alcance="reporte",

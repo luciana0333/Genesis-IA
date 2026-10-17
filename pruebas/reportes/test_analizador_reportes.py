@@ -224,6 +224,15 @@ class TestAnalizadorReportes(unittest.TestCase):
             "alternativa moderna para el manejo de errores.",
         )
 
+    def test_mensaje_de_in_con_un_solo_valor(self):
+        hallazgo = next(h for h in verificar_reporte("SELECT c.cNombre FROM dbo.Cliente c WITH(NOLOCK) WHERE c.cEstado IN ('A');")
+                        if h.regla == "IN_CON_UN_SOLO_VALOR")
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se identificó el uso de IN para comparar un único valor. Se recomienda utilizar el operador = cuando "
+            "se compara un solo valor (ej.: WHERE c.cEstado = 'A').",
+        )
+
     def test_mensaje_de_select_into(self):
         hallazgo = next(h for h in verificar_reporte("SELECT a INTO #Temp FROM dbo.Zona z WITH(NOLOCK);")
                         if h.regla == "SELECT_INTO_PROHIBIDO")
