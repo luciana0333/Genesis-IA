@@ -131,7 +131,7 @@ REGLAS_TABLAS = {
         "La cajita de índices solo lleva CREATE INDEX; un DROP INDEX u otra instrucción se señala.",
     ),
     "INDICE_PREFIJO_INVALIDO": _regla(
-        "INDICE_PREFIJO_INVALIDO", "Índice sin nomenclatura correcta", "alto",
+        "INDICE_PREFIJO_INVALIDO", "Nomenclatura incorrecta del índice", "alto",
         "El prefijo indica el tipo: IX clúster, IXN nonclustered, IXU unique clúster, IXUN unique nonclustered.",
     ),
     "INDICE_NOMBRE_NO_ESTANDAR": _regla(

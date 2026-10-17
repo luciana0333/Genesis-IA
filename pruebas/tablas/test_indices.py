@@ -42,16 +42,20 @@ class TestIndices(unittest.TestCase):
 
     def test_prefijo_segun_el_tipo(self):
         casos = {
-            "CREATE NONCLUSTERED INDEX IX_Cliente_cCodPersona ON CLICKTOPAY.Cliente (cCodPersona);": "IXN_Cliente_cCodPersona",
-            "CREATE INDEX idx1 ON CLICKTOPAY.Cliente (cCodPersona);": "IXN_Cliente_cCodPersona",
+            # Con el tipo declarado: el prefijo de ese tipo y el nombre de ejemplo.
+            "CREATE NONCLUSTERED INDEX IX_Cliente_cCodPersona ON CLICKTOPAY.Cliente (cCodPersona);":
+                "(IXN_ para índices nonclustered), por ejemplo: IXN_Cliente_cCodPersona",
+            # Sin el tipo: los prefijos posibles y que se declare el tipo.
+            "CREATE INDEX idx1 ON CLICKTOPAY.Cliente (cCodPersona);":
+                "(IX_ para índices clustered o IXN_ para nonclustered) y especificar el tipo de índice",
             "CREATE UNIQUE INDEX IXN_Cliente_cCorreoElectronico ON CLICKTOPAY.Cliente (cCorreoElectronico);":
-                "IXUN_Cliente_cCorreoElectronico",
+                "(IXU_ para índices unique clustered o IXUN_ para unique nonclustered)",
         }
-        for indices, sugerido in casos.items():
+        for indices, recomendacion in casos.items():
             with self.subTest(indices=indices):
                 self.assertEqual(reglas(indices), [("INDICE_PREFIJO_INVALIDO", 1)])
-                self.assertRegex(mensaje(indices), r"pero su nombre no empieza con|no indica su tipo")
-                self.assertIn(sugerido, mensaje(indices))
+                self.assertIn("no cumple con la nomenclatura establecida", mensaje(indices))
+                self.assertIn(recomendacion, mensaje(indices))
 
     def test_include_con_mas_de_cinco_columnas(self):
         tabla = ("CREATE TABLE dbo.Persona (nPersonaId INT IDENTITY(1,1) NOT NULL, nEstado INT NOT NULL, "
@@ -67,11 +71,14 @@ class TestIndices(unittest.TestCase):
     def test_indice_sin_tipo_pide_anadir_el_tipo(self):
         sin_tipo = "CREATE INDEX idx_persona\n    ON CLICKTOPAY.Cliente (cCodPersona);"
         texto = mensaje(sin_tipo)
-        self.assertIn("no indica su tipo", texto)
-        self.assertIn("Declarar el tipo y usar el prefijo que le corresponde", texto)
-        self.assertIn("CREATE NONCLUSTERED INDEX IXN_Cliente_cCodPersona", texto)
+        self.assertEqual(
+            texto,
+            "Se identificó que el índice idx_persona no cumple con la nomenclatura establecida. Se recomienda "
+            "utilizar el prefijo correspondiente (IX_ para índices clustered o IXN_ para nonclustered) y "
+            "especificar el tipo de índice explícitamente en su creación.",
+        )
         con_tipo = "CREATE NONCLUSTERED INDEX IX_Cliente_cCodPersona ON CLICKTOPAY.Cliente (cCodPersona);"
-        self.assertNotIn("no indica su tipo", mensaje(con_tipo))
+        self.assertNotIn("especificar el tipo de índice", mensaje(con_tipo))
 
     def test_nombre_con_tabla_campos_e_inc(self):
         campos = "CREATE NONCLUSTERED INDEX IXN_Cliente_Codigo ON CLICKTOPAY.Cliente (cCodPersona);"
@@ -291,9 +298,9 @@ class TestIndices(unittest.TestCase):
             " nombre89 VARCHAR(50) NOT NULL,\n CONSTRAINT PK_x PRIMARY KEY CLUSTERED (nClienteDatosId)\n);"
         )
         # Tabla nueva: también se le pide corregir su nombre, así que el índice usa el estándar.
-        self.assertIn("Renombrarlo como IXN_ClienteDatos_nombre89", mensaje(indice, nueva))
+        self.assertIn("por ejemplo: IXN_ClienteDatos_nombre89", mensaje(indice, nueva))
         # Tabla existente: no se va a renombrar, así que el índice usa su nombre real.
-        self.assertIn("Renombrarlo como IXN_TB_cliente_datos_nombre89", mensaje(indice, ""))
+        self.assertIn("por ejemplo: IXN_TB_cliente_datos_nombre89", mensaje(indice, ""))
         # Con el nombre real de la tabla también es válido.
         real = "CREATE NONCLUSTERED INDEX IXN_TB_cliente_datos_nombre89 ON dbo.TB_cliente_datos (nombre89);"
         self.assertEqual(reglas(real, nueva), [])

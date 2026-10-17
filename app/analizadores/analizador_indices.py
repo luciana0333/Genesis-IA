@@ -175,6 +175,13 @@ def _prefijo(unico: bool, clustered: bool) -> str:
     return {(False, True): "IX", (False, False): "IXN", (True, True): "IXU", (True, False): "IXUN"}[(unico, clustered)]
 
 
+def _prefijos_de(unico: bool) -> str:
+    """Qué prefijo lleva cada tipo, para cuando el índice no declara el suyo."""
+    if unico:
+        return "IXU_ para índices unique clustered o IXUN_ para unique nonclustered"
+    return "IX_ para índices clustered o IXN_ para nonclustered"
+
+
 def _tipo(unico: bool, clustered: bool) -> str:
     return f"{'UNIQUE ' if unico else ''}{'CLUSTERED' if clustered else 'NONCLUSTERED'}"
 
@@ -390,12 +397,12 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
     if indice.nombre.split("_")[0].upper() != prefijo:
         hallazgos.append(_hallazgo(
             texto, indice.posicion, "INDICE_PREFIJO_INVALIDO",
-            (
-                f"El índice {indice.nombre} no indica su tipo, por lo que SQL Server lo crea como {tipo}. "
-                f"Declarar el tipo y usar el prefijo que le corresponde: CREATE {tipo} INDEX {esperado}."
-            ) if not indice.tipo_explicito else (
-                f"El índice {indice.nombre} es {tipo}, pero su nombre no empieza con {prefijo}_. "
-                f"Renombrarlo como {esperado}, ya que el prefijo indica el tipo de índice."
+            f"Se identificó que el índice {indice.nombre} no cumple con la nomenclatura establecida. " + (
+                f"Se recomienda utilizar el prefijo correspondiente ({_prefijos_de(indice.unico)}) y especificar "
+                f"el tipo de índice explícitamente en su creación."
+                if not indice.tipo_explicito else
+                f"Se recomienda utilizar el prefijo correspondiente a su tipo ({prefijo}_ para índices "
+                f"{tipo.lower()}), por ejemplo: {esperado}."
             ),
         ))
     elif indice.nombre.lower() not in validos and not hay_repetidas:
