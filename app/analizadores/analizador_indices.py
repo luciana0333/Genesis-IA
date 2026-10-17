@@ -406,8 +406,9 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
     if "." not in tabla:
         hallazgos.append(_hallazgo(
             texto, indice.posicion_tabla, "INDICE_SIN_ESQUEMA",
-            f"El índice {indice.nombre} indica la tabla {tabla} sin su esquema. Colocar el esquema delante de "
-            f"la tabla, aunque sea dbo (ej.: ON dbo.{tabla}).",
+            f"El índice {indice.nombre} indica la tabla {tabla} sin su esquema. Se recomienda especificar el "
+            f"esquema de la tabla al crear el índice, incluso si pertenece a dbo (ejemplo: ON dbo.{tabla}), "
+            f"para evitar referencias incorrectas.",
         ))
 
     # Una descripción nunca identifica los registros: si un índice UNIQUE o CLUSTERED

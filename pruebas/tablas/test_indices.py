@@ -287,8 +287,9 @@ class TestIndices(unittest.TestCase):
         sin_esquema = "CREATE NONCLUSTERED INDEX IXN_Cliente_cCodPersona ON Cliente (cCodPersona);"
         self.assertEqual(
             mensaje(sin_esquema),
-            "El índice IXN_Cliente_cCodPersona indica la tabla Cliente sin su esquema. Colocar el esquema "
-            "delante de la tabla, aunque sea dbo (ej.: ON dbo.Cliente).",
+            "El índice IXN_Cliente_cCodPersona indica la tabla Cliente sin su esquema. Se recomienda especificar "
+            "el esquema de la tabla al crear el índice, incluso si pertenece a dbo (ejemplo: ON dbo.Cliente), "
+            "para evitar referencias incorrectas.",
         )
 
     def test_indice_duplicado_no_sugiere_renombrarlo(self):
