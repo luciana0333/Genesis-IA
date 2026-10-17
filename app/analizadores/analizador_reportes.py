@@ -472,9 +472,8 @@ def _validar_control_de_flujo(texto: str, limpio: str) -> List[Hallazgo]:
     for match in re.finditer(r"\bRAISERROR\b", limpio, re.IGNORECASE):
         hallazgos.append(_hallazgo(
             texto, match.start(), "RAISERROR_USAR_THROW",
-            "Se identificó el uso de RAISERROR para mostrar errores. Se recomienda usar THROW, ya que es la "
-            "forma actual de manejar errores y detiene la ejecución de forma segura "
-            "(ej.: THROW 50001, 'No existe el cliente', 1;).",
+            "Se identificó el uso de RAISERROR para gestionar excepciones. Se recomienda emplear THROW como "
+            "alternativa moderna para el manejo de errores.",
         ))
     for match in re.finditer(r"\bWAITFOR\s+(?:DELAY|TIME)\b", limpio, re.IGNORECASE):
         hallazgos.append(_hallazgo(

@@ -127,7 +127,7 @@ REGLAS_REPORTES = {
     ),
     "RAISERROR_USAR_THROW": ReglaDiccionario(
         codigo="RAISERROR_USAR_THROW",
-        nombre="Usar THROW en lugar de RAISERROR",
+        nombre="Uso de RAISERROR",
         severidad="medio",
         descripcion="Para lanzar errores se recomienda THROW en lugar de RAISERROR.",
         alcance="reporte",

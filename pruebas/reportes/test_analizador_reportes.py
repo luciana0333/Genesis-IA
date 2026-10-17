@@ -215,6 +215,15 @@ class TestAnalizadorReportes(unittest.TestCase):
                         if h.regla == "ESQUEMA_OMITIDO_ENTRE_BASES")
         self.assertIn("el uso de la tabla Agencias", hallazgo.mensaje)
 
+    def test_mensaje_de_raiserror(self):
+        hallazgo = next(h for h in verificar_reporte("RAISERROR('No existe', 16, 1);")
+                        if h.regla == "RAISERROR_USAR_THROW")
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se identificó el uso de RAISERROR para gestionar excepciones. Se recomienda emplear THROW como "
+            "alternativa moderna para el manejo de errores.",
+        )
+
     def test_mensaje_de_select_into(self):
         hallazgo = next(h for h in verificar_reporte("SELECT a INTO #Temp FROM dbo.Zona z WITH(NOLOCK);")
                         if h.regla == "SELECT_INTO_PROHIBIDO")
