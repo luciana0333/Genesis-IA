@@ -65,10 +65,10 @@ describe('App', () => {
     const pestanas = await screen.findByRole('tablist', { name: 'Origen de los hallazgos' });
     expect(within(pestanas).getByRole('tab', { name: /Tabla\s*1/ })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('Tabla sin clave primaria')).toBeInTheDocument();
-    expect(screen.queryByText('Columna no indexable')).not.toBeInTheDocument();
+    expect(screen.queryByText('Columna no válida en índice')).not.toBeInTheDocument();
 
     await usuario.click(within(pestanas).getByRole('tab', { name: /Índices\s*2/ }));
-    expect(screen.getByText('Columna no indexable')).toBeInTheDocument();
+    expect(screen.getByText('Columna no válida en índice')).toBeInTheDocument();
     expect(screen.getByText('Índices · Línea 2')).toBeInTheDocument();
     expect(screen.queryByText('Tabla sin clave primaria')).not.toBeInTheDocument();
   });
