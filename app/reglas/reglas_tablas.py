@@ -74,7 +74,7 @@ REGLAS_TABLAS = {
     # --- Columnas (CREATE y columnas nuevas de un ALTER) ----------------
     "COLUMNA_PREFIJO_TIPO_INVALIDO": _regla(
         "COLUMNA_PREFIJO_TIPO_INVALIDO", "Prefijo de columna inválido", "alto",
-        "La primera letra en minúscula indica el tipo de dato: c texto, n número, b bit, d fecha.",
+        "La primera letra en minúscula indica el tipo de dato: c texto, n número, b bit, d fecha u hora.",
     ),
     "COLUMNA_NOMBRE_NO_PASCALCASE": _regla(
         "COLUMNA_NOMBRE_NO_PASCALCASE", "Nombre de columna fuera del estándar", "alto",
@@ -93,6 +93,10 @@ REGLAS_TABLAS = {
     "COLUMNA_TIPO_LEGACY": _regla(
         "COLUMNA_TIPO_LEGACY", "Tipo de dato legacy", "alto",
         "No se permiten tipos legacy (TEXT, NTEXT, REAL): usar VARCHAR(MAX), NVARCHAR(MAX) o DECIMAL.",
+    ),
+    "COLUMNA_TIPO_APROXIMADO": _regla(
+        "COLUMNA_TIPO_APROXIMADO", "Tipo de dato aproximado", "alto",
+        "No se usa FLOAT: guarda valores aproximados. Para montos, tasas y cantidades se emplea DECIMAL(p, s).",
     ),
     "COLUMNA_SIN_COLLATE": _regla(
         "COLUMNA_SIN_COLLATE", "Columna sin COLLATE", "alto",

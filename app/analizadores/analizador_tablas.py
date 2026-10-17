@@ -28,9 +28,10 @@ _COMENTARIOS = re.compile(r"--[^\r\n]*|/\*.*?\*/", re.DOTALL)
 _PALABRAS_NO_COLUMNA = {"CONSTRAINT", "PRIMARY", "FOREIGN", "UNIQUE", "CHECK", "INDEX", "KEY", "PERIOD"}
 _PREFIJOS_TIPO = (
     ("c", r"(?:N?VARCHAR|N?CHAR|N?TEXT)\b"),
-    ("n", r"(?:BIGINT|SMALLINT|TINYINT|INT|MONEY|SMALLMONEY|DECIMAL|NUMERIC)\b"),
+    ("n", r"(?:BIGINT|SMALLINT|TINYINT|INT|MONEY|SMALLMONEY|DECIMAL|NUMERIC|FLOAT|REAL)\b"),
     ("b", r"BIT\b"),
-    ("d", r"(?:DATETIME2|DATETIME|SMALLDATETIME|DATE)\b"),
+    # Todo lo de fecha u hora lleva «d».
+    ("d", r"(?:DATETIME2|DATETIMEOFFSET|DATETIME|SMALLDATETIME|DATE|TIME)\b"),
 )
 _TIPOS_NUMERICOS = r"(?:BIGINT|SMALLINT|TINYINT|INT|DECIMAL|NUMERIC)\b"
 _PALABRAS_OMITIBLES_TABLA = {"de", "del", "la", "el", "los", "las", "mi", "mis", "su", "sus"}
@@ -105,8 +106,13 @@ def _sugerencia_tabla(tabla: str) -> Optional[str]:
 
 def _sugerencia_columna(nombre: str, prefijo: Optional[str]) -> Optional[str]:
     """Propone el nombre corregido de la columna (prefijo correcto + PascalCase)."""
+    tiene_prefijo = bool(re.match(r"^[a-z][A-Z_]", nombre))
+    if prefijo is None and not tiene_prefijo:
+        # Tipo sin prefijo en el manual (UNIQUEIDENTIFIER, XML...): no se inventa uno
+        # con la primera letra del nombre (Datos XML -> «dDatos» sería fecha).
+        return None
     # Si ya trae un prefijo de otro tipo (nPersonaNombre en un VARCHAR), se reemplaza.
-    resto = nombre[1:] if re.match(r"^[a-z][A-Z_]", nombre) else nombre
+    resto = nombre[1:] if tiene_prefijo else nombre
     if "_" not in resto and " " not in resto and resto.islower() and len(resto) > 1:
         return None  # 'cpersonanombre': no se pueden separar las palabras con certeza.
     sugerido = (prefijo or nombre[:1].lower()) + _a_pascal_case(resto.lstrip("_"))
@@ -125,7 +131,7 @@ def _tipo_de_dato(definicion: str) -> str:
     return coincidencia.group(1).upper() if coincidencia else "?"
 
 
-_DESCRIPCION_PREFIJO = {"c": "texto", "n": "número", "b": "bit", "d": "fecha"}
+_DESCRIPCION_PREFIJO = {"c": "texto", "n": "número", "b": "bit", "d": "fecha u hora"}
 
 # Tipos legacy (obsoletos) y su reemplazo actual.
 _REEMPLAZO_LEGACY = {"TEXT": "VARCHAR(MAX)", "NTEXT": "NVARCHAR(MAX)", "REAL": "DECIMAL(p, s)"}
@@ -464,6 +470,15 @@ def _validar_columna(
             f"estar soportados en SQL Server.",
         ))
 
+    if re.match(r"\s*FLOAT\b", definicion, re.IGNORECASE):
+        elementos["COLUMNA_TIPO_APROXIMADO"] = f"{columna.nombre} (FLOAT → DECIMAL)"
+        hallazgos.append(_hallazgo(
+            texto, columna.posicion, "COLUMNA_TIPO_APROXIMADO",
+            f"La columna {columna.nombre} es de tipo FLOAT, que guarda valores aproximados (por ejemplo, "
+            f"0.1 + 0.2 no da exactamente 0.3). Emplear DECIMAL(p, s) en su lugar, ya que montos, tasas y "
+            f"cantidades deben guardarse con valores exactos.",
+        ))
+
     tiene_collate = re.search(r"\bCOLLATE\s+\w+", definicion, re.IGNORECASE)
     if _es_tipo_texto(definicion) and not es_dbcmaica and not tiene_collate:
         hallazgos.append(_hallazgo(
@@ -500,8 +515,9 @@ _PLANTILLAS_AGRUPADAS = {
     ),
     "COLUMNA_NOMBRE_NO_PASCALCASE": (
         "columnas con nombre fuera del estándar",
-        "Renombrar cada columna como se sugiere: después del prefijo, cada palabra con mayúscula "
-        "inicial y sin guiones bajos, ya que es la nomenclatura del manual.",
+        "Renombrar cada columna según la nomenclatura (como se sugiere, cuando hay sugerencia): prefijo del "
+        "tipo en minúscula y cada palabra con mayúscula inicial, sin guiones bajos, ya que es la "
+        "nomenclatura del manual.",
     ),
     "COLUMNA_NOMBRE_CON_NUMERO": (
         "columnas con números en el nombre",
@@ -518,6 +534,11 @@ _PLANTILLAS_AGRUPADAS = {
         "columnas con tipos de dato legacy",
         "Reemplazar cada tipo por su equivalente actual (TEXT → VARCHAR(MAX), NTEXT → NVARCHAR(MAX), "
         "REAL → DECIMAL), ya que los tipos legacy dejarán de estar soportados en SQL Server.",
+    ),
+    "COLUMNA_TIPO_APROXIMADO": (
+        "columnas de tipo FLOAT",
+        "Emplear DECIMAL(p, s) en cada una, ya que FLOAT guarda valores aproximados y montos, tasas y "
+        "cantidades deben guardarse con valores exactos.",
     ),
     "COLUMNA_SIN_COLLATE": (
         "columnas de texto sin COLLATE",
