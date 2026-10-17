@@ -162,8 +162,13 @@ REGLAS_TABLAS = {
         "el INCLUDE); TEXT, NTEXT e IMAGE no pueden ir en un índice, ni siquiera en el INCLUDE.",
     ),
     "INDICE_CLUSTERED_CON_PK": _regla(
-        "INDICE_CLUSTERED_CON_PK", "Índice clúster con PK clúster", "medio",
-        "La clave primaria identidad siempre es el índice clúster: los demás índices se definen NONCLUSTERED.",
+        "INDICE_CLUSTERED_CON_PK", "Índice clustered innecesario", "alto",
+        "La clave primaria se declara como CONSTRAINT PRIMARY KEY CLUSTERED sobre la columna IDENTITY(1,1): "
+        "así ya es el índice clustered y no hace falta otro (ni un UNIQUE CLUSTERED sobre la identidad).",
+    ),
+    "INDICE_SEGUNDO_CLUSTERED": _regla(
+        "INDICE_SEGUNDO_CLUSTERED", "Segundo índice clustered", "critico",
+        "La tabla ya tiene su clave primaria CLUSTERED: SQL Server no crea un segundo índice clustered.",
     ),
     "INDICE_IDENTIFICA_POR_DESCRIPCION": _regla(
         "INDICE_IDENTIFICA_POR_DESCRIPCION", "Descripción usada como identificador", "alto",

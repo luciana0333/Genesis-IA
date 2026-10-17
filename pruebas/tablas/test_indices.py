@@ -129,17 +129,26 @@ class TestIndices(unittest.TestCase):
 
     def test_unique_clustered_se_pide_declarar_la_pk(self):
         indices = "CREATE UNIQUE CLUSTERED INDEX IXU_Cliente_cCodPersona ON CLICKTOPAY.Cliente (cCodPersona);"
+        # La tabla ya tiene su PK como CONSTRAINT PRIMARY KEY CLUSTERED: un segundo clustered no se crea.
         hallazgo = verificar_indices(indices, TABLA)[0]
-        self.assertEqual((hallazgo.regla, hallazgo.severidad.value), ("INDICE_CLUSTERED_CON_PK", "medio"))
-        self.assertIn("hace el papel de la clave primaria", hallazgo.mensaje)
-        self.assertIn("declarar la clave primaria directamente con un CONSTRAINT sobre una columna identidad",
+        self.assertEqual((hallazgo.regla, hallazgo.severidad.value), ("INDICE_SEGUNDO_CLUSTERED", "critico"))
+        self.assertIn("ya tiene su clave primaria nClienteId declarada como CONSTRAINT PRIMARY KEY CLUSTERED",
                       hallazgo.mensaje)
-        self.assertIn("(ej.: CONSTRAINT PK_Cliente PRIMARY KEY CLUSTERED (nClienteId))", hallazgo.mensaje)
-        # Sin PK en el script, el identificador se arma con el nombre de la tabla.
-        sin_pk = "CREATE TABLE dbo.TB_cliente_datos (id INT, cCodigo VARCHAR(10));"
-        unico = "CREATE UNIQUE CLUSTERED INDEX IXU_TB_cliente_datos_cCodigo ON dbo.TB_cliente_datos (cCodigo);"
-        mensaje_sin_pk = next(h.mensaje for h in verificar_indices(unico, sin_pk) if h.regla == "INDICE_CLUSTERED_CON_PK")
-        self.assertIn("CONSTRAINT PK_ClienteDatos PRIMARY KEY CLUSTERED (nClienteDatosId)", mensaje_sin_pk)
+        self.assertIn("Créelo como NONCLUSTERED (ej.: IXUN_Cliente_cCodPersona)", hallazgo.mensaje)
+        # Repite la PK: se retira, sin además marcarlo como duplicado.
+        repite = "CREATE UNIQUE CLUSTERED INDEX IXU_Cliente_nClienteId ON CLICKTOPAY.Cliente (nClienteId);"
+        self.assertEqual(reglas(repite), [("INDICE_CLUSTERED_CON_PK", 1)])
+        self.assertIn("repite la clave primaria nClienteId", mensaje(repite))
+        # Sin PK: si es sobre la columna IDENTITY(1,1), se retira y se declara la PK como CONSTRAINT.
+        sin_pk = "CREATE TABLE dbo.Cliente (nClienteId INT IDENTITY(1,1) NOT NULL, cCodigo VARCHAR(10));"
+        sobre_identidad = "CREATE UNIQUE CLUSTERED INDEX IXU_Cliente_nClienteId ON dbo.Cliente (nClienteId);"
+        self.assertIn(
+            "que ya tiene IDENTITY(1,1). Se recomienda retirar dicho índice y declarar nClienteId como clave primaria "
+            "mediante un CONSTRAINT PRIMARY KEY CLUSTERED", mensaje(sobre_identidad, sin_pk))
+        # Sin PK y sobre otra columna: NONCLUSTERED y PK como CONSTRAINT.
+        otra = "CREATE CLUSTERED INDEX IX_Cliente_cCodigo ON dbo.Cliente (cCodigo);"
+        self.assertIn("crearlo como NONCLUSTERED (ej.: IXN_Cliente_cCodigo) y declarar nClienteId como clave primaria",
+                      mensaje(otra, sin_pk))
 
     def test_columna_repetida_en_el_indice(self):
         repetida = "CREATE NONCLUSTERED INDEX IXN_Movimiento_nPersonaId\nON dbo.Movimiento (nPersonaId, nPersonaId);"
@@ -229,9 +238,9 @@ class TestIndices(unittest.TestCase):
                    "cDescripcion VARCHAR(300) NOT NULL, nEstado INT NOT NULL, dRegistro DATETIME NOT NULL);")
         clave = "CREATE INDEX IXN_PERSONA_CPERSCOD_CPERSDIRECCION ON DBO.PERSONA (CPERSCOD, CPERSDIRECCION);"
         self.assertEqual(reglas(clave, persona), [("INDICE_COLUMNA_DESCRIPTIVA", 1)])
-        self.assertIn("incluye la columna CPERSDIRECCION, que guarda texto descriptivo (dirección)", mensaje(clave, persona))
+        self.assertIn("utiliza la columna descriptiva CPERSDIRECCION (dirección)", mensaje(clave, persona))
         incluida = "CREATE INDEX IXN_PERSONA_nEstado_INC01 ON DBO.PERSONA (nEstado) INCLUDE (cDescripcion);"
-        self.assertIn("incluye en su INCLUDE la columna cDescripcion", mensaje(incluida, persona))
+        self.assertIn("utiliza en su INCLUDE la columna descriptiva cDescripcion", mensaje(incluida, persona))
         util = "CREATE INDEX IXN_PERSONA_nEstado_dRegistro ON DBO.PERSONA (nEstado, dRegistro);"
         self.assertEqual(reglas(util, persona), [])
 
@@ -241,7 +250,7 @@ class TestIndices(unittest.TestCase):
             with self.subTest(columna=columna):
                 indices = f"CREATE NONCLUSTERED INDEX IXN_Movimiento_{columna}\nON dbo.Movimiento ({columna} DESC);"
                 hallazgo = next(h for h in verificar_indices(indices, "") if h.regla == "INDICE_COLUMNA_DESCRIPTIVA")
-                self.assertIn(f"texto descriptivo ({que})", hallazgo.mensaje)
+                self.assertIn(f"columna descriptiva {columna} ({que})", hallazgo.mensaje)
         for columna in ("nPersonaId", "cCodPersona", "dFecha", "nEstado", "cContexto"):
             with self.subTest(columna=columna):
                 indices = f"CREATE NONCLUSTERED INDEX IXN_Movimiento_{columna} ON dbo.Movimiento ({columna});"

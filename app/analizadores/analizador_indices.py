@@ -66,6 +66,7 @@ class _Tabla:
     pk: List[str] = field(default_factory=list)
     pk_clustered: bool = False
     pk_nombre: str = ""
+    identidad: List[str] = field(default_factory=list)  # columnas con IDENTITY(1,1)
 
 
 @dataclass
@@ -161,7 +162,9 @@ def _tabla_del_script(texto_tabla: str) -> Optional[_Tabla]:
         nombre = _limpiar(columna.group(1))
         tabla.columnas[nombre.lower()] = re.sub(r"\s+", "", columna.group(2)).upper()
         tabla.nombres[nombre.lower()] = nombre
-        en_linea = re.search(r"\bPRIMARY\s+KEY\s*(NONCLUSTERED|CLUSTERED)?", definicion, re.IGNORECASE)
+        if re.search(r"\bIDENTITY\b", definicion, re.IGNORECASE):
+            tabla.identidad.append(nombre)
+        en_linea =re.search(r"\bPRIMARY\s+KEY\s*(NONCLUSTERED|CLUSTERED)?", definicion, re.IGNORECASE)
         if en_linea:
             tabla.pk = [nombre]
             tabla.pk_clustered = (en_linea.group(1) or "CLUSTERED").upper() == "CLUSTERED"
@@ -448,39 +451,20 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
         if columna in indice.claves and _TIPOS_NO_INDEXABLES.match(tipo_columna or "-"):
             continue  # ya se marca como columna no indexable (crítico)
         if que:
+            # Indexar texto descriptivo es malo para el rendimiento: no va en ningún índice.
             donde = "" if columna in indice.claves else " en su INCLUDE"
             hallazgos.append(_hallazgo(
                 texto, indice.posicion, "INDICE_COLUMNA_DESCRIPTIVA",
-                f"Se identificó que el índice {indice.nombre} incluye{donde} la columna {columna}, que guarda "
-                f"texto descriptivo ({que}). Se recomienda quitarla del índice y usar columnas por las que se "
-                f"busca o filtra (códigos, fechas, estados), ya que un texto largo hace pesado el índice y no "
-                f"acelera las búsquedas.",
+                f"Se identificó que el índice {indice.nombre} utiliza{donde} la columna descriptiva {columna} "
+                f"({que}). "
+                f"Se recomienda retirarla del índice, ya que indexar texto descriptivo afecta el rendimiento; "
+                f"emplear columnas por las que se busca o filtra (códigos, fechas, estados).",
             ))
 
-    # La clave primaria siempre es el índice clúster (identidad): ningún otro índice
-    # puede serlo. No se prohíbe tajantemente: se pide definirlo NONCLUSTERED.
-    if clustered_descriptivo:
-        pass  # ya se pide retirar el índice (INDICE_CLUSTERED_DESCRIPTIVO)
-    elif indice.clustered and indice.unico:
-        # Un UNIQUE CLUSTERED hace el papel de la clave primaria: se declara la PK directamente.
-        tabla_pk = _nombre_estandar_tabla(indice.tabla)
-        hallazgos.append(_hallazgo(
-            texto, indice.posicion, "INDICE_CLUSTERED_CON_PK",
-            f"Se identificó que el índice {indice.nombre} se crea como UNIQUE CLUSTERED, es decir, hace el "
-            f"papel de la clave primaria de la tabla. Se recomienda declarar la clave primaria directamente "
-            f"con un CONSTRAINT sobre una columna identidad, en lugar de un índice UNIQUE CLUSTERED, ya que así "
-            f"el índice clúster queda en la clave primaria y se maneja mejor "
-            f"(ej.: CONSTRAINT PK_{tabla_pk} PRIMARY KEY CLUSTERED ({identificador})).",
-        ))
-    elif indice.clustered:
-        sugerido = _nombre_esperado(_Indice(**{**indice.__dict__, "clustered": False}), estandar=tabla_nueva)
-        hallazgos.append(_hallazgo(
-            texto, indice.posicion, "INDICE_CLUSTERED_CON_PK",
-            f"Se identificó que el índice {indice.nombre} se crea como CLUSTERED, pero el índice clúster le "
-            f"corresponde a la clave primaria identidad de la tabla. Se recomienda definirlo como NONCLUSTERED, "
-            f"ya que una tabla solo puede tener un índice clúster y ese lugar es de la clave primaria "
-            f"(ej.: {sugerido}).",
-        ))
+    # La clave primaria se declara como CONSTRAINT PRIMARY KEY CLUSTERED sobre la columna
+    # IDENTITY(1,1): así ya es el índice clustered y no hace falta ningún otro.
+    if indice.clustered and not clustered_descriptivo:
+        hallazgos.extend(_validar_clustered(texto, indice, tabla_script if tabla_nueva else None, tabla_nueva))
 
     # Tabla que ya existe (no se crea en el script de la tabla): además de la estructura,
     # se pide validar si de verdad necesita el índice. Sus columnas no se pueden cruzar.
@@ -540,6 +524,53 @@ def _nombre_estandar_tabla(tabla: str) -> str:
     return "".join(parte[:1].upper() + parte[1:] for parte in re.split(r"[_\s]+", tabla) if parte)
 
 
+def _validar_clustered(texto: str, indice: _Indice, tabla: Optional[_Tabla], tabla_nueva: bool) -> List[Hallazgo]:
+    """
+    Índice CLUSTERED aparte de la clave primaria. Según el estándar, la PK se declara como
+    CONSTRAINT PRIMARY KEY CLUSTERED sobre la columna IDENTITY(1,1), así que no hace falta
+    otro índice clustered (y si la PK ya lo es, SQL Server no crea un segundo).
+    """
+    sugerido = _nombre_esperado(_Indice(**{**indice.__dict__, "clustered": False, "unico": indice.unico}), estandar=tabla_nueva)
+    identificador = _identificador_de(indice, tabla)
+    claves = [c.lower() for c in indice.claves]
+    if tabla and tabla.pk and tabla.pk_clustered:
+        if claves == [c.lower() for c in tabla.pk]:
+            return [_hallazgo(
+                texto, indice.posicion, "INDICE_CLUSTERED_CON_PK",
+                f"Se identificó que el índice {indice.nombre} repite la clave primaria {identificador}, que ya "
+                f"está declarada como CONSTRAINT PRIMARY KEY CLUSTERED. Se recomienda retirar dicho índice, ya "
+                f"que no es necesario.",
+            )]
+        return [_hallazgo(
+            texto, indice.posicion, "INDICE_SEGUNDO_CLUSTERED",
+            f"Se identificó que el índice {indice.nombre} se crea como CLUSTERED, pero la tabla ya tiene su clave "
+            f"primaria {identificador} declarada como CONSTRAINT PRIMARY KEY CLUSTERED, por lo que SQL Server no "
+            f"podrá crearlo. Créelo como NONCLUSTERED (ej.: {sugerido}), ya que una tabla admite un solo índice "
+            f"clustered.",
+        )]
+    if tabla and claves and claves == [c.lower() for c in tabla.identidad]:
+        return [_hallazgo(
+            texto, indice.posicion, "INDICE_CLUSTERED_CON_PK",
+            f"Se identificó que el índice {indice.nombre} se crea como {_tipo(indice.unico, True)} sobre "
+            f"{identificador}, que ya tiene IDENTITY(1,1). Se recomienda retirar dicho índice y declarar "
+            f"{identificador} como clave primaria mediante un CONSTRAINT PRIMARY KEY CLUSTERED, ya que así no es "
+            f"necesario un índice clustered aparte.",
+        )]
+    if tabla:
+        return [_hallazgo(
+            texto, indice.posicion, "INDICE_CLUSTERED_CON_PK",
+            f"Se identificó que el índice {indice.nombre} se crea como CLUSTERED, pero el índice clustered le "
+            f"corresponde a la clave primaria. Se recomienda crearlo como NONCLUSTERED (ej.: {sugerido}) y "
+            f"declarar {identificador} como clave primaria mediante un CONSTRAINT PRIMARY KEY CLUSTERED.",
+        )]
+    return [_hallazgo(
+        texto, indice.posicion, "INDICE_CLUSTERED_CON_PK",
+        f"Se identificó que el índice {indice.nombre} se crea como CLUSTERED. Se recomienda crearlo como "
+        f"NONCLUSTERED (ej.: {sugerido}), ya que el índice clustered le corresponde a la clave primaria de la "
+        f"tabla, declarada como CONSTRAINT PRIMARY KEY CLUSTERED.",
+    )]
+
+
 def _identificador_de(indice: _Indice, tabla_script: Optional[_Tabla]) -> str:
     """Columna identidad de la tabla: la PK del script o, si no la hay, n + NombreTabla + Id."""
     if tabla_script and tabla_script.pk:
@@ -558,6 +589,8 @@ def _validar_duplicados(texto: str, indices: List[_Indice], tabla_script: Option
         clave = (_limpiar(indice.tabla).split(".")[-1].lower(), tuple(c.lower() for c in indice.claves))
         if clave in vistos:
             es_pk = bool(tabla_script) and vistos[clave] == (tabla_script.pk_nombre or "la clave primaria")
+            if es_pk and indice.clustered:
+                continue  # un CLUSTERED que repite la PK ya se marca en INDICE_CLUSTERED_CON_PK
             accion = (f"eliminar el índice {indice.nombre}, ya que la clave primaria ya cubre esas columnas y"
                       if es_pk else "eliminar uno de los dos, ya que")
             hallazgos.append(_hallazgo(
