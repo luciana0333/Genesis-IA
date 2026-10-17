@@ -206,7 +206,7 @@ class TestDiccionarioTablas(unittest.TestCase):
             self.assertEqual([h.regla for h in hallazgos], ["VALIDAR_COLUMNA_MODIFICADA"])
             self.assertEqual(hallazgos[0].severidad, Severidad.BAJO)
             self.assertTrue(hallazgos[0].mensaje.startswith(
-                "Se identificó que la columna Nombre se modifica (ALTER COLUMN) y no se encuentra en el diccionario"))
+                "La columna Nombre se modifica (ALTER COLUMN) y no se encuentra en el diccionario"))
 
     def test_alter_column_documentada_no_pide_validar(self):
         hallazgos = verificar_diccionario_tablas(ALTER_COLUMN, DICCIONARIO_ALTER_EXISTENTE.replace(
@@ -496,8 +496,8 @@ class TestActualizacionSinDescripcionPrevia(unittest.TestCase):
         self.assertEqual(hallazgos[0].severidad, Severidad.ALTO)
         self.assertEqual(
             hallazgos[0].mensaje,
-            "Se identificó que la columna cTelefono se documenta con sp_updateextendedproperty, pero es nueva "
-            "y aún no cuenta con una descripción. Corregir la sentencia usando sp_addextendedproperty, ya que "
+            "Se detectó que la columna cTelefono se documenta con sp_updateextendedproperty, pero es nueva "
+            "y aún no cuenta con una descripción. Emplear sp_addextendedproperty en su lugar, ya que "
             "la actualización fallará al no existir la propiedad.",
         )
 

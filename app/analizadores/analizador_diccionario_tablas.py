@@ -245,7 +245,7 @@ def _validar_parametros(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
         if faltantes:
             hallazgos.append(_hallazgo(
                 llamada.linea, "PARAMETROS_INCOMPLETOS",
-                f"Se identificó que a la sentencia le faltan datos obligatorios: {', '.join(faltantes)}. Completar "
+                f"Se comprobó que a la sentencia le faltan datos obligatorios: {', '.join(faltantes)}. Completar "
                 f"los datos faltantes, ya que sin ellos la sentencia no se ejecuta.",
             ))
 
@@ -254,14 +254,14 @@ def _validar_parametros(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
         if tipo0 and tipo0 != "SCHEMA":
             hallazgos.append(_hallazgo(
                 llamada.linea, "TIPO_NIVEL_INCORRECTO",
-                f"Se identificó que la sentencia indica '{llamada.texto('level0type')}' como tipo del esquema, "
-                f"pero debe ser 'SCHEMA'. Corregir el tipo por N'SCHEMA', ya que con otro tipo la sentencia falla.",
+                f"La sentencia indica '{llamada.texto('level0type')}' como tipo del esquema, pero debe ser "
+                f"'SCHEMA'. Usar el tipo N'SCHEMA', ya que con otro tipo la sentencia falla.",
             ))
         if tipo1 and tipo1 != "TABLE":
             hallazgos.append(_hallazgo(
                 llamada.linea, "TIPO_NIVEL_INCORRECTO",
-                f"Se identificó que la sentencia indica el tipo de objeto '{llamada.texto('level1type')}', pero lo "
-                f"que se documenta es una tabla. Corregir el tipo por N'TABLE', ya que con otro tipo la sentencia falla.",
+                f"La sentencia indica el tipo de objeto '{llamada.texto('level1type')}', pero lo que se "
+                f"documenta es una tabla. Usar el tipo N'TABLE', ya que con otro tipo la sentencia falla.",
             ))
     return hallazgos
 
@@ -344,7 +344,7 @@ def _validar_nombres_vacios(
                 linea = texto_diccionario.count("\n", 0, donde.start()) + 1 if donde else ll.linea
                 hallazgos.append(_hallazgo(
                     linea, "NOMBRE_VACIO",
-                    f"Se identificó que la sentencia no indica {que}. Completar {que} (ej.: @{clave}=N'{ejemplo}'), "
+                    f"La sentencia no indica {que}. Colocar {que} (ej.: @{clave}=N'{ejemplo}'), "
                     f"ya que sin él la descripción no quedará asociada a ningún objeto.",
                 ))
     return hallazgos
@@ -436,7 +436,7 @@ def _validar_documentacion_existente_en_alter(
             continue
         hallazgos.append(con_elemento(_hallazgo(
             ll.linea, "DOCUMENTACION_EXISTENTE_EN_ALTER",
-            f"Se identificó que se agrega la descripción de la {objeto}, la cual ya existe y podría estar "
+            f"El diccionario agrega la descripción de la {objeto}, la cual ya existe y podría estar "
             f"documentada. Verificar si ya cuenta con descripción en el diccionario, ya que de ser así la "
             f"ejecución del script fallará. En ese caso, retirar la sentencia o reemplazarla por una de "
             f"actualización (sp_updateextendedproperty).",
@@ -470,8 +470,8 @@ def _validar_actualizacion_sin_descripcion_previa(
             continue
         hallazgos.append(con_elemento(_hallazgo(
             ll.linea, "ACTUALIZACION_SIN_DESCRIPCION_PREVIA",
-            f"Se identificó que la {objeto} se documenta con sp_updateextendedproperty, pero es nueva y aún "
-            f"no cuenta con una descripción. Corregir la sentencia usando sp_addextendedproperty, ya que la "
+            f"Se detectó que la {objeto} se documenta con sp_updateextendedproperty, pero es nueva y aún "
+            f"no cuenta con una descripción. Emplear sp_addextendedproperty en su lugar, ya que la "
             f"actualización fallará al no existir la propiedad.",
         ), objeto))
     return hallazgos
@@ -500,7 +500,7 @@ def _validar_columnas_inexistentes(
     return [
         con_elemento(_hallazgo(
             ll.linea, "COLUMNA_NO_EXISTE",
-            f"Se identificó que la columna {ll.texto('level2name')} está documentada, pero no existe en la "
+            f"Se verificó que la columna {ll.texto('level2name')} está documentada, pero no existe en la "
             f"tabla {nombre_tabla}{_sugerencia_columna(ll.texto('level2name'), columnas_reales)}. Corregir el "
             f"nombre de la columna en el diccionario o retirar la sentencia, ya que SQL Server no la ejecutará.",
         ), ll.texto('level2name'))
@@ -611,8 +611,8 @@ def _validar_descripciones_vacias(llamadas: List[LlamadaPropiedad]) -> List[Hall
     return [
         con_elemento(_hallazgo(
             ll.linea, "DESCRIPCION_COLUMNA_VACIA",
-            f"Se identificó que la columna {ll.texto('level2name')} figura en el diccionario, pero no "
-            f"cuenta con una descripción. Completar la descripción indicando el dato que almacena la "
+            f"La columna {ll.texto('level2name')} figura en el diccionario, pero no cuenta con una "
+            f"descripción. Completar la descripción indicando el dato que almacena la "
             f"columna, de modo que su uso quede claro para quien consulte la tabla.",
         ), ll.texto('level2name'))
         for ll in llamadas
@@ -633,8 +633,8 @@ def _validar_valores_sin_comillas(llamadas: List[LlamadaPropiedad]) -> List[Hall
             varios = len(sin_comillas) > 1
             hallazgos.append(_hallazgo(
                 ll.linea, "VALOR_SIN_COMILLAS",
-                f"Se identificó que {'los nombres' if varios else 'el nombre'} {', '.join(sin_comillas)} "
-                f"{'no están' if varios else 'no está'} entre comillas. Escribir{'los' if varios else 'lo'} entre "
+                f"Se detectó que {'los nombres' if varios else 'el nombre'} {', '.join(sin_comillas)} "
+                f"{'no están' if varios else 'no está'} entre comillas. Colocar{'los' if varios else 'lo'} entre "
                 f"comillas simples con la N delante (ej.: N'{sin_comillas[0]}'), ya que sin ellas la sentencia "
                 f"no se ejecuta.",
             ))
@@ -656,7 +656,7 @@ def _validar_alter_sin_diccionario(
         full = _nombre_completo(esquema, nombre_tabla)
         return [_hallazgo(
             1, "ALTER_SIN_DICCIONARIO",
-            f"Se identificó que la tabla {full} se modifica (ALTER TABLE), pero no se adjuntó su diccionario. "
+            f"Se detectó que la tabla {full} se modifica (ALTER TABLE), pero no se adjuntó su diccionario. "
             f"Incluir la documentación de las columnas que se agreguen o modifiquen, para mantener el "
             f"diccionario actualizado.",
         )]
@@ -676,7 +676,7 @@ def _validar_columnas_modificadas(
     return [
         con_elemento(_hallazgo(
             1, "VALIDAR_COLUMNA_MODIFICADA",
-            f"Se identificó que la columna {columna} se modifica (ALTER COLUMN) y no se encuentra en el "
+            f"La columna {columna} se modifica (ALTER COLUMN) y no se encuentra en el "
             f"diccionario, aunque podría estar documentada previamente. Verificar si ya cuenta con "
             f"descripción en el diccionario y, de no tenerla, incluir la descripción respectiva.",
         ), columna)
@@ -723,7 +723,7 @@ _PLANTILLAS_AGRUPADAS = {
     ),
     "ACTUALIZACION_SIN_DESCRIPCION_PREVIA": (
         "actualizaciones sin descripción previa",
-        "Corregir las sentencias usando sp_addextendedproperty, ya que la actualización fallará al no "
+        "Emplear sp_addextendedproperty en esas sentencias, ya que la actualización fallará al no "
         "existir la propiedad.",
     ),
     "DOCUMENTACION_DUPLICADA": (

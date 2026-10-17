@@ -128,7 +128,7 @@ END"""
     def test_parametro_documentado_sin_descripcion_tiene_mensaje_propio(self):
         hallazgos = verificar_diccionario("CREATE" + self.CUERPO, self.DICCIONARIO)
         vacia = next(h for h in hallazgos if h.regla == "DESCRIPCION_VACIA")
-        self.assertIn("Se identificó que el parámetro @nClienteId figura en el diccionario, pero no cuenta con una descripción",
+        self.assertIn("El parámetro @nClienteId figura en el diccionario, pero no cuenta con una descripción",
                       vacia.mensaje)
 
     def test_procedimiento_documentado_sin_descripcion_no_es_lo_mismo_que_no_documentado(self):
