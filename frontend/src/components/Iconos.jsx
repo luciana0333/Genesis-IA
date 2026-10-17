@@ -36,6 +36,7 @@ import {
   ShieldCheck,
   Sun,
   TriangleAlert,
+  WandSparkles,
   Workflow,
   X,
 } from 'lucide-react';
@@ -92,3 +93,4 @@ export const IconoLibro = crearIcono(BookOpen);
 export const IconoCandado = crearIcono(Lock);
 export const IconoGlobo = crearIcono(Globe);
 export const IconoBajar = crearIcono(ArrowDown);
+export const IconoGenerar = crearIcono(WandSparkles);

@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { EditorCodigo } from '../../components/EditorCodigo';
-import { IconoArchivo, IconoCerrar, IconoCopiado, IconoCopiar } from '../../components/Iconos';
+import { IconoCerrar, IconoCopiado, IconoCopiar, IconoGenerar } from '../../components/Iconos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 
 function enumerar(elementos) {
@@ -33,7 +33,7 @@ export function GeneradorDiccionario({ faltante }) {
   if (!abierto) {
     return (
       <button type="button" className="generador-abrir" onClick={() => setAbierto(true)}>
-        <IconoArchivo />
+        <IconoGenerar />
         Generar diccionario faltante
       </button>
     );
