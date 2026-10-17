@@ -66,7 +66,7 @@ class TestDiccionarioDeProcedimientoQA(unittest.TestCase):
         diccionario = COMPLETO.replace("N'@nClienteId'", "N'@nClienteID2'")
         hallazgos = {h.regla: h for h in verificar_diccionario(PROC, diccionario)}
         self.assertIn("PARAMETRO_NO_EXISTE", hallazgos)
-        self.assertIn("¿Quiso decir '@nClienteId'?", hallazgos["PARAMETRO_NO_EXISTE"].mensaje)
+        self.assertIn("(¿quiso decir '@nClienteId'?)", hallazgos["PARAMETRO_NO_EXISTE"].mensaje)
 
     def test_sentencia_incompleta(self):
         sin_nivel1 = COMPLETO.replace(

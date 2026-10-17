@@ -48,7 +48,7 @@ REGLAS_DICCIONARIO_TABLAS = {
         severidad="bajo",
         descripcion=(
             "En un ALTER TABLE se agrega la descripción de la tabla o de una columna que ya existía. "
-            "No es error, pero sp_addextendedproperty falla si ya estaba documentada: validar."
+            "No es error, pero la sentencia falla si ya estaba documentada: se pide verificar."
         ),
         alcance="tabla",
         activo=True,

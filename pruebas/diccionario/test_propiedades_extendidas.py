@@ -54,12 +54,12 @@ class TestLectorPropiedadesExtendidas(unittest.TestCase):
         self.assertEqual(len(llamada.errores), 1)
         linea, mensaje = llamada.errores[0]
         self.assertEqual(linea, 2)
-        self.assertIn("Sobra una coma", mensaje)
+        self.assertIn("una coma de más al final de la sentencia", mensaje)
 
     def test_errores_de_sintaxis(self):
         casos = {
-            "EXEC sys.sp_addextendedproperty @name N'MS_Description'": "Falta el signo '='",
-            "EXEC sys.sp_addextendedproperty @name=N'MS_Description' @value=N'x'": "Falta una coma",
+            "EXEC sys.sp_addextendedproperty @name N'MS_Description'": "falta el signo '='",
+            "EXEC sys.sp_addextendedproperty @name=N'MS_Description' @value=N'x'": "falta una coma",
             "EXEC sys.sp_addextendedproperty @name=N'MS_Description', @levelX=N'a'": "no es un dato válido",
             "EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'sin cerrar": "comilla de cierre",
             "EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'a', @value=N'b'": "aparece dos veces",

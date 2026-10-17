@@ -210,9 +210,9 @@ def _validar_descripciones_vacias(
                     origen=OrigenAnalisis.DICCIONARIO,
                     severidad=Severidad.MEDIO,
                     regla="DESCRIPCION_VACIA",
-                    mensaje=f"El parámetro {nombre_param} está documentado, pero su descripción "
-                            f"(@value) está vacía. Se recomienda indicar para qué se usa el parámetro, "
-                            f"ya que así el diccionario es útil para quien lo consulte."
+                    mensaje=f"Se identificó que el parámetro {nombre_param} figura en el diccionario, pero no "
+                            f"cuenta con una descripción. Completar la descripción indicando para qué se usa el "
+                            f"parámetro, de modo que quede claro para quien consulte el procedimiento."
                 ), nombre_param))
     return hallazgos
 
@@ -242,8 +242,8 @@ def _validar_sentencias(texto_diccionario: str) -> List[Hallazgo]:
         if faltantes:
             hallazgos.append(_hallazgo_catalogo(
                 ll.linea, "PARAMETROS_INCOMPLETOS",
-                f"A esta sentencia le faltan datos obligatorios: {', '.join(faltantes)}. Completar la "
-                f"sentencia, ya que sin esos datos no se puede ejecutar.",
+                f"Se identificó que a la sentencia le faltan datos obligatorios: {', '.join(faltantes)}. Completar "
+                f"los datos faltantes, ya que sin ellos la sentencia no se ejecuta.",
             ))
     return hallazgos
 
@@ -259,12 +259,12 @@ def _validar_parametros_inexistentes(texto_diccionario: str, parametros_reales: 
         if not nombre or nombre.upper() in reales:
             continue
         parecido = difflib.get_close_matches(nombre.upper(), list(reales), n=1, cutoff=0.75)
-        sugerencia = f" ¿Quiso decir '{reales[parecido[0]]}'?" if parecido else ""
+        sugerencia = f" (¿quiso decir '{reales[parecido[0]]}'?)" if parecido else ""
         hallazgos.append(con_elemento(_hallazgo_catalogo(
             ll.linea, "PARAMETRO_NO_EXISTE",
-            f"Se documenta el parámetro '{nombre}', pero no existe en el procedimiento {nombre_proc}."
-            f"{sugerencia} Corregir el nombre en @level2name o retirar la sentencia, ya que SQL Server "
-            f"la rechaza.",
+            f"Se identificó que el parámetro {nombre} está documentado, pero no existe en el procedimiento "
+            f"{nombre_proc}{sugerencia}. Corregir el nombre del parámetro en el diccionario o retirar la sentencia, "
+            f"ya que SQL Server no la ejecutará.",
         ), nombre))
     return hallazgos
 
@@ -437,9 +437,9 @@ def _validar_nombres_vacios(
                     origen=OrigenAnalisis.DICCIONARIO,
                     severidad=Severidad(REGLAS_DICCIONARIO_PROCEDIMIENTOS["NOMBRE_VACIO"].severidad),
                     regla="NOMBRE_VACIO",
-                    mensaje=f"Se identificó que @{clave} está vacío, es decir, el diccionario no indica {que}. Se recomienda "
-            f"añadir {que} (ej.: @{clave}=N'{ejemplo}'), ya que actualmente está vacío y la documentación no "
-            f"quedaría asociada a ningún objeto.",
+                    mensaje=f"Se identificó que la sentencia no indica {que}. Completar {que} "
+                            f"(ej.: @{clave}=N'{ejemplo}'), ya que sin él la descripción no quedará asociada a "
+                            f"ningún objeto.",
                 ))
     return hallazgos
 
@@ -460,8 +460,9 @@ def _validar_valores_sin_comillas(
                         origen=OrigenAnalisis.DICCIONARIO,
                         severidad=Severidad.CRITICO,
                         regla="VALOR_SIN_COMILLAS",
-                        mensaje=f"El nombre @{clave}={valor} no está entre comillas. "
-                                f"Escribirlo como N'...', ya que sin comillas la sentencia falla."
+                        mensaje=f"Se identificó que el nombre {valor} no está entre comillas. Escribirlo entre "
+                                f"comillas simples con la N delante (ej.: N'{valor}'), ya que sin ellas la "
+                                f"sentencia no se ejecuta."
                     ))
     return hallazgos
 
@@ -485,9 +486,9 @@ def _validar_procedimiento_documentado(
             origen=OrigenAnalisis.DICCIONARIO,
             severidad=Severidad.MEDIO,
             regla="DESCRIPCION_PROCEDIMIENTO_VACIA",
-            mensaje=f"El procedimiento {_nombre_completo(esquema, nombre_proc)} está documentado, pero no "
-                    f"tiene una descripción (@value está vacío). Se recomienda indicar para qué "
-                    f"sirve el procedimiento."
+            mensaje=f"Se identificó que el diccionario del procedimiento {_nombre_completo(esquema, nombre_proc)} "
+                    f"está documentado, pero su descripción se encuentra vacía. Incluir la descripción respectiva "
+                    f"que indique la finalidad del procedimiento, para así contar con una documentación completa."
         )]
 
     if tipo_sentencia == "ALTER":
@@ -575,7 +576,8 @@ _PLANTILLAS_AGRUPADAS = {
     ),
     "DESCRIPCION_VACIA": (
         "parámetros con la descripción vacía",
-        "Se recomienda indicar en @value para qué se usa cada parámetro.",
+        "Completar la descripción indicando para qué se usa cada parámetro, de modo que quede claro para "
+        "quien consulte el procedimiento.",
     ),
     "ERROR_ORTOGRAFICO": (
         "descripciones con errores de escritura",
@@ -583,7 +585,8 @@ _PLANTILLAS_AGRUPADAS = {
     ),
     "PARAMETRO_NO_EXISTE": (
         "parámetros documentados que no existen en el procedimiento",
-        "Corregir el nombre en @level2name o retirar esas sentencias, ya que SQL Server las rechaza.",
+        "Corregir el nombre de cada parámetro en el diccionario o retirar esas sentencias, ya que SQL Server "
+        "no las ejecutará.",
     ),
     "DOCUMENTACION_DUPLICADA": (
         "declaraciones duplicadas",

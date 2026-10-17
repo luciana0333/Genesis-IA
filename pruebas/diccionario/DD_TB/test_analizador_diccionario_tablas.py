@@ -317,7 +317,7 @@ class TestDiccionarioTablasAlter(unittest.TestCase):
         hallazgos = verificar_diccionario_tablas(self.ALTER, diccionario)
         self.assertEqual([h.regla for h in hallazgos], ["DOCUMENTACION_EXISTENTE_EN_ALTER"])
         self.assertEqual(hallazgos[0].severidad, Severidad.BAJO)
-        self.assertIn("Se recomienda validar", hallazgos[0].mensaje)
+        self.assertIn("Verificar si ya cuenta con descripción en el diccionario", hallazgos[0].mensaje)
 
     def test_create_con_alter_add_constraint_se_trata_como_create(self):
         script = (
@@ -428,7 +428,7 @@ class TestDiccionarioTablasSinDependerDeGO(unittest.TestCase):
         sintaxis = [h for h in hallazgos if h.regla == "SINTAXIS_DICCIONARIO"]
         self.assertEqual(len(sintaxis), 1)
         self.assertEqual(sintaxis[0].linea, 5)
-        self.assertIn("Sobra una coma", sintaxis[0].mensaje)
+        self.assertIn("una coma de más al final de la sentencia", sintaxis[0].mensaje)
 
         self.assertIn("DESCRIPCION_TABLA_INADECUADA", reglas)
         # SQL Server acepta nombres simples sin comillas: no se reportan.
@@ -454,7 +454,7 @@ class TestDiccionarioTablasSinDependerDeGO(unittest.TestCase):
         hallazgos = verificar_diccionario_tablas(caso6.TABLA, diccionario)
         self.assertEqual({h.regla for h in hallazgos}, {"COLUMNA_NO_EXISTE", "COLUMNA_FALTANTE"})
         no_existe = next(h for h in hallazgos if h.regla == "COLUMNA_NO_EXISTE")
-        self.assertIn("¿Quiso decir 'bActivo'?", no_existe.mensaje)
+        self.assertIn("(¿quiso decir 'bActivo'?)", no_existe.mensaje)
 
     def test_columna_documentada_dos_veces(self):
         base = caso6.diccionario_correcto(";")
