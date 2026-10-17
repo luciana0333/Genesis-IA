@@ -17,8 +17,12 @@ export function GeneradorDiccionario({ faltante }) {
   const [abierto, setAbierto] = useState(false);
   const [script, setScript] = useState(faltante.script);
   const [copiado, setCopiado] = useState(false);
-  // Mientras quede alguna descripción vacía (N''), el script está por completar.
+  // Vacía (N'') = por completar; con «-- Sugerida» = deducida del nombre, para revisar.
   const porCompletar = /@value\s*=\s*N''/i.test(script);
+  const sugerido = /--\s*Sugerida/i.test(script);
+  let estado = 'Completo';
+  if (porCompletar) estado = 'Por completar';
+  else if (sugerido) estado = 'Sugerido · revisar';
 
   const alCopiar = async () => {
     try {
@@ -46,9 +50,9 @@ export function GeneradorDiccionario({ faltante }) {
         numero={3}
         etiqueta="Diccionario faltante"
         htmlFor={id}
-        estado={porCompletar ? 'Por completar' : 'Completo'}
-        requerido={porCompletar}
-        ayuda={`Generado para ${enumerar(faltante.elementos)}. Completar las descripciones aquí mismo antes de copiarlo.`}
+        estado={estado}
+        requerido={estado !== 'Completo'}
+        ayuda={`Generado para ${enumerar(faltante.elementos)}. Las descripciones se sugieren a partir de los nombres: revisarlas y mejorarlas aquí mismo antes de copiar el script.`}
         acciones={
           <>
             <button type="button" className="generador-boton" onClick={alCopiar}>

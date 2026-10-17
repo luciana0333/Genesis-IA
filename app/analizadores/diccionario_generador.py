@@ -5,8 +5,9 @@ Genera el script del diccionario que falta («Generar diccionario faltante»).
 Arma una sentencia sp_addextendedproperty por cada elemento obligatorio que no
 está documentado: en un CREATE, la tabla o el procedimiento y todas sus
 columnas o parámetros; en un ALTER TABLE, solo las columnas nuevas (ADD).
-La descripción va vacía (N'') para que el desarrollador la complete: si se
-ejecuta sin completarla, la revisión la marca como descripción vacía.
+Cada descripción viene sugerida a partir del nombre (descripciones_sugeridas)
+y marcada «Sugerida: revisar y mejorar»; si no se puede deducir, va vacía (N'')
+con «Completar»: si se ejecuta así, la revisión la marca como descripción vacía.
 """
 
 import re
@@ -14,6 +15,7 @@ from typing import List, Optional, Set
 
 from app.analizadores import analizador_diccionario_procedimientos as procedimientos
 from app.analizadores import analizador_diccionario_tablas as tablas
+from app.analizadores import descripciones_sugeridas as sugeridas
 from app.analizadores.propiedades_extendidas import descripcion_mal_escrita, leer_propiedades_extendidas
 
 _SANGRIA = "    "
@@ -27,10 +29,16 @@ def _en_orden(nombres: Set[str], texto: str) -> List[str]:
     return sorted(nombres, key=lambda nombre: (posicion(nombre), nombre.upper()))
 
 
-def _sentencia(nota: str, esquema: str, tipo1: str, nombre1: str, tipo2: str = None, nombre2: str = None) -> str:
+def _sentencia(
+    nota: str, sugerida: Optional[str], esquema: str, tipo1: str, nombre1: str, tipo2: str = None, nombre2: str = None
+) -> str:
+    if sugerida:
+        valor = f"N'{sugerida.replace(chr(39), chr(39) * 2)}',  -- Sugerida: revisar y mejorar"
+    else:
+        valor = f"N'',  -- Completar: {nota}"
     lineas = [
         "EXEC sys.sp_addextendedproperty",
-        f"{_SANGRIA}@name = N'MS_Description', @value = N'',  -- Completar: {nota}",
+        f"{_SANGRIA}@name = N'MS_Description', @value = {valor}",
         f"{_SANGRIA}@level0type = N'SCHEMA', @level0name = N'{esquema}',",
         f"{_SANGRIA}@level1type = N'{tipo1}', @level1name = N'{nombre1}'" + ("," if tipo2 else ";"),
     ]
@@ -68,12 +76,15 @@ def diccionario_faltante_tabla(texto_tabla: str, texto_diccionario: str) -> Opti
     esquema_sql = esquema or "dbo"
     sentencias, elementos = [], []
     if es_create and not tabla_documentada:
-        sentencias.append(_sentencia("finalidad de la tabla", esquema_sql, "TABLE", nombre))
+        sentencias.append(_sentencia("finalidad de la tabla", sugeridas.sugerir_tabla(nombre), esquema_sql, "TABLE", nombre))
         elementos.append(f"tabla {nombre}")
     unicas = {c.upper(): c for c in requeridas}
     faltantes = {c for clave, c in unicas.items() if clave not in documentadas}
     for columna in _en_orden(faltantes, texto_tabla):
-        sentencias.append(_sentencia("dato que almacena la columna", esquema_sql, "TABLE", nombre, "COLUMN", columna))
+        sentencias.append(_sentencia(
+            "dato que almacena la columna", sugeridas.sugerir_columna(columna, nombre),
+            esquema_sql, "TABLE", nombre, "COLUMN", columna,
+        ))
         elementos.append(columna)
     return _armar(f"Diccionario faltante de la tabla {esquema_sql}.{nombre}", sentencias, elementos)
 
@@ -93,12 +104,20 @@ def diccionario_faltante_procedimiento(texto_procedimiento: str, texto_diccionar
     )
 
     esquema_sql = esquema or "dbo"
+    # Los parámetros se describen respecto de la tabla del nombre (PA_Cliente_Sel_PorId -> Cliente).
+    partes = [parte for parte in nombre.split("_") if parte]
+    entidad = partes[1] if len(partes) > 1 and partes[0].upper() == "PA" else nombre
     sentencias, elementos = [], []
     if not procedimiento_documentado:
-        sentencias.append(_sentencia("finalidad del procedimiento", esquema_sql, "PROCEDURE", nombre))
+        sentencias.append(_sentencia(
+            "finalidad del procedimiento", sugeridas.sugerir_procedimiento(nombre), esquema_sql, "PROCEDURE", nombre,
+        ))
         elementos.append(f"procedimiento {nombre}")
     faltantes = {p for p in procedimientos.extraer_parametros(texto_procedimiento) if p.upper() not in documentados}
     for parametro in _en_orden(faltantes, texto_procedimiento):
-        sentencias.append(_sentencia("para qué se usa el parámetro", esquema_sql, "PROCEDURE", nombre, "PARAMETER", parametro))
+        sentencias.append(_sentencia(
+            "para qué se usa el parámetro", sugeridas.sugerir_columna(parametro, entidad, es_parametro=True),
+            esquema_sql, "PROCEDURE", nombre, "PARAMETER", parametro,
+        ))
         elementos.append(parametro)
     return _armar(f"Diccionario faltante del procedimiento {esquema_sql}.{nombre}", sentencias, elementos)

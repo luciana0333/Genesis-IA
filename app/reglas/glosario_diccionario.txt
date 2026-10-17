@@ -1,0 +1,111 @@
+# Glosario para las descripciones sugeridas del diccionario («Generar diccionario faltante»).
+# Se puede ampliar: una entrada por línea. Las líneas que empiezan con # se ignoran.
+#
+# [abreviaturas]  abreviatura usada en los nombres = palabra completa
+# [femeninas]     palabras femeninas que las reglas no deducen solas
+# [masculinas]    palabras masculinas que terminan en -a (el día, el sistema...)
+# [adjetivos]     palabras que califican (no llevan «de» delante: cuenta principal)
+
+[abreviaturas]
+id = identificador
+cod = código
+nro = número
+num = número
+fec = fecha
+cant = cantidad
+usu = usuario
+reg = registro
+mod = modificación
+est = estado
+desc = descripción
+tpo = tipo
+mto = monto
+imp = importe
+porc = porcentaje
+ag = agencia
+doc = documento
+nom = nombre
+dir = dirección
+tel = teléfono
+obs = observación
+prod = producto
+cta = cuenta
+cred = crédito
+max = máximo
+min = mínimo
+ult = último
+act = actualización
+ape = apellido
+nac = nacimiento
+venc = vencimiento
+desemb = desembolso
+
+[femeninas]
+sucursal
+moneda
+tasa
+garantía
+clave
+llave
+fuente
+base
+parte
+imagen
+orden
+sede
+red
+ley
+foto
+
+[masculinas]
+día
+mapa
+sistema
+problema
+tema
+programa
+clima
+idioma
+esquema
+código
+ubigeo
+
+[adjetivos]
+principal
+activo
+inactivo
+inicial
+final
+total
+anterior
+actual
+nuevo
+mensual
+anual
+diario
+mínimo
+máximo
+neto
+bruto
+real
+vigente
+pendiente
+original
+último
+eliminado
+bloqueado
+paterno
+materno
+electrónico
+comercial
+social
+fiscal
+legal
+personal
+laboral
+móvil
+fijo
+efectivo
+anulado
+aprobado
+pendientes

@@ -60,7 +60,7 @@ npm run build
 cd ..
 ```
 
-- `pip install` instala el corrector ortográfico que usa la revisión de diccionarios.
+- `pip install` instala el corrector ortográfico que usa la revisión de diccionarios y **spaCy** con su modelo de español (unos 50 MB), que redacta las descripciones sugeridas de «Generar diccionario faltante». Todo funciona sin internet una vez instalado.
 - `npm install` (dentro de `frontend`) descarga las librerías de la pantalla; tarda unos minutos la primera vez. Si al final sugiere `npm audit fix`, puedes ignorarlo.
 - `npm run build` compila la pantalla; al final debe decir **«built in …»**.
 - `cd ..` vuelve a la carpeta principal `Genesis-IA`.
@@ -132,6 +132,8 @@ python server.py
 | El navegador muestra la página pero sin estilos o en blanco | Falta compilar la pantalla: `cd frontend`, `npm run build`, `cd ..` y recarga. |
 | «El puerto 8000 está en uso» | Otro programa lo ocupa. Usa otro puerto: en cmd `set GENESIS_PUERTO=8080` (en PowerShell `$env:GENESIS_PUERTO="8080"`) y luego `python server.py`; abre http://localhost:8080. |
 | La revisión de diccionarios marca como error una palabra correcta del negocio | Agrégala a `app/reglas/vocabulario_tecnico.txt` (una por línea). |
+| Al iniciar sale «AVISO: spaCy no está instalado» | Genesis funciona igual, pero las descripciones sugeridas usan solo reglas simples. Ejecuta `python -m pip install -r requirements.txt` (con el proxy si hace falta). |
+| Una descripción sugerida sale vacía («Completar») o con una abreviatura sin traducir | Agrega la abreviatura o la palabra del negocio en `app/reglas/glosario_diccionario.txt` (por ejemplo `cta = cuenta`) y reinicia el servidor. |
 
 ---
 

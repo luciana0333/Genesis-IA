@@ -370,6 +370,11 @@ def _iniciar_servidor():
     if not ortografia.disponible():
         print('AVISO: pyspellchecker no está instalado; no se revisará la ortografía de los diccionarios.')
         print('       Instálelo con: python -m pip install -r requirements.txt')
+    # Las descripciones sugeridas cargan spaCy y el diccionario (unos segundos): se precargan
+    # en segundo plano para que el primer «Generar diccionario faltante» responda al instante.
+    import threading
+    from app.analizadores import descripciones_sugeridas
+    threading.Thread(target=descripciones_sugeridas.precargar, daemon=True).start()
     print(f'Servidor Genesis corriendo en http://localhost:{puerto}')
     try:
         server.serve_forever()

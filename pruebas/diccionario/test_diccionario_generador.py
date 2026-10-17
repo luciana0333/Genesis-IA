@@ -44,7 +44,8 @@ class TestGeneradorTablas(unittest.TestCase):
         self.assertEqual(script.count("EXEC sys.sp_addextendedproperty"), 4)
         self.assertIn("@level1type = N'TABLE', @level1name = N'Cliente';", script)
         self.assertIn("@level2type = N'COLUMN', @level2name = N'cApellido';", script)
-        self.assertIn("-- Completar: finalidad de la tabla", script)
+        self.assertIn("@value = N'Registra la información de los clientes',  -- Sugerida: revisar y mejorar", script)
+        self.assertIn("@value = N'Apellido del cliente',  -- Sugerida: revisar y mejorar", script)
 
     def test_solo_genera_lo_que_falta(self):
         tabla = (
@@ -69,10 +70,15 @@ class TestGeneradorTablas(unittest.TestCase):
         completo = _completar(diccionario_faltante_tabla(TABLA, "")["script"])
         self.assertEqual(verificar_diccionario_tablas(TABLA, completo), [])
 
-    def test_sin_completar_la_revision_lo_marca_como_vacio(self):
-        reglas = {h.regla for h in verificar_diccionario_tablas(TABLA, diccionario_faltante_tabla(TABLA, "")["script"])}
-        self.assertIn("DESCRIPCION_COLUMNA_VACIA", reglas)
-        self.assertIn("DESCRIPCION_TABLA_VACIA", reglas)
+    def test_el_script_con_las_sugerencias_pasa_la_revision(self):
+        self.assertEqual(verificar_diccionario_tablas(TABLA, diccionario_faltante_tabla(TABLA, "")["script"]), [])
+
+    def test_columna_que_no_se_puede_deducir_queda_por_completar(self):
+        tabla = "CREATE TABLE CLICKTOPAY.Cliente (\n nClienteId INT NOT NULL,\n cXyzQwe VARCHAR(5) NULL\n)"
+        script = diccionario_faltante_tabla(tabla, "")["script"]
+        self.assertIn("@value = N'',  -- Completar: dato que almacena la columna", script)
+        reglas = {h.regla for h in verificar_diccionario_tablas(tabla, script)}
+        self.assertEqual(reglas, {"DESCRIPCION_COLUMNA_VACIA"})
 
 
 class TestGeneradorProcedimientos(unittest.TestCase):
