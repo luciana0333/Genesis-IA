@@ -205,14 +205,53 @@ def _entidad(nombre_objeto: str) -> List[str]:
     return [_singular(palabras[0])] + palabras[1:] if palabras else []
 
 
+# {el} se reemplaza por «el cliente» / «la agencia» (o «el registro» si no hay tabla).
 _AUDITORIA = {
-    ("usuario", "registro"): "Usuario que realizó el registro",
-    ("fecha", "registro"): "Fecha y hora en que se realizó el registro",
-    ("usuario", "modificación"): "Usuario que realizó la última modificación",
-    ("fecha", "modificación"): "Fecha y hora de la última modificación",
-    ("usuario", "actualización"): "Usuario que realizó la última actualización",
-    ("fecha", "actualización"): "Fecha y hora de la última actualización",
+    ("usuario", "registro"): "Usuario que registró {el}",
+    ("fecha", "registro"): "Fecha y hora en que se registró {el}",
+    ("usuario", "modificación"): "Usuario que realizó la última modificación {del}",
+    ("fecha", "modificación"): "Fecha y hora de la última modificación {del}",
+    ("usuario", "actualización"): "Usuario que realizó la última actualización {del}",
+    ("fecha", "actualización"): "Fecha y hora de la última actualización {del}",
 }
+# Para qué se recibe el identificador según la acción del procedimiento (PA_Tabla_Acción).
+_USO_PARAMETRO = {
+    "Consulta": "que se desea consultar", "Lista": "por el que se filtra la lista",
+    "Actualiza": "que se desea actualizar", "Elimina": "que se desea eliminar",
+}
+_FUNCIONES_FECHA_ACTUAL = re.compile(r"^(GETDATE|SYSDATETIME|GETUTCDATE|SYSUTCDATETIME|CURRENT_TIMESTAMP)\b", re.IGNORECASE)
+
+
+def _el(entidad: List[str]) -> str:
+    if not entidad:
+        return "el registro"
+    return f"{'la' if _es_femenina(entidad[0]) else 'el'} {_frase(entidad)}"
+
+
+def _al(entidad: List[str]) -> str:
+    return "al registro" if not entidad else ("a la" if _es_femenina(entidad[0]) else "al") + f" {_frase(entidad)}"
+
+
+def _contexto(descripcion: str, info: Optional[dict], ya_usa_default: bool = False) -> str:
+    """Agrega lo que el CREATE dice de la columna: clave primaria, IDENTITY, referencia, valor por defecto."""
+    if not info:
+        return descripcion
+    detalles = []
+    if info.get("pk") and info.get("identity"):
+        detalles.append("Clave primaria, se genera automáticamente")
+    elif info.get("pk"):
+        detalles.append("Clave primaria")
+    elif info.get("identity"):
+        detalles.append("Se genera automáticamente")
+    if info.get("referencia"):
+        detalles.append(f"Referencia a la tabla {info['referencia']}")
+    valor = info.get("default")
+    if valor and not ya_usa_default:
+        if _FUNCIONES_FECHA_ACTUAL.match(valor):
+            detalles.append("Por defecto, la fecha y hora actual")
+        else:
+            detalles.append(f"Por defecto: {valor}")
+    return ". ".join([descripcion] + detalles)
 
 
 def _reconocida(palabra: str) -> bool:
@@ -229,8 +268,14 @@ def _reconocida(palabra: str) -> bool:
     return not disponible() or es_palabra_valida(palabra)
 
 
-def sugerir_columna(columna: str, tabla: str, es_parametro: bool = False) -> Optional[str]:
-    """Descripción de una columna (o parámetro) según su nombre y el de su tabla (o procedimiento)."""
+def sugerir_columna(
+    columna: str, tabla: str, es_parametro: bool = False, info: Optional[dict] = None, accion: Optional[str] = None,
+) -> Optional[str]:
+    """
+    Descripción de una columna (o parámetro) según su nombre y el de su tabla (o procedimiento).
+    info: lo que dice el CREATE de la columna (pk, identity, referencia, default).
+    accion: en un parámetro, la acción del procedimiento («Consulta», «Actualiza»...).
+    """
     palabras = _palabras(columna)
     if not palabras or not all(_reconocida(p) for p in palabras):
         return None
@@ -238,36 +283,50 @@ def sugerir_columna(columna: str, tabla: str, es_parametro: bool = False) -> Opt
     tipo = prefijo(columna)
 
     if tuple(palabras) in _AUDITORIA:
-        return _AUDITORIA[tuple(palabras)]
+        plantilla = _AUDITORIA[tuple(palabras)]
+        texto = plantilla.format(el=_el(entidad), **{"del": _con_de(entidad) if entidad else "del registro"})
+        if info and info.get("default") and _FUNCIONES_FECHA_ACTUAL.match(info["default"]):
+            return f"{texto}. Se asigna automáticamente"
+        return _contexto(texto, info)
 
     if palabras[-1] == "identificador" and len(palabras) > 1:
         referida = palabras[:-1]
         if [_singular(p).lower() for p in referida] == [_singular(p).lower() for p in entidad]:
-            return f"Identificador {_con_de(entidad)}" if es_parametro else f"Identificador único {_con_de(entidad)}"
+            if es_parametro:
+                uso = _USO_PARAMETRO.get(accion or "")
+                return f"Identificador {_con_de(entidad)}" + (f" {uso}" if uso else "")
+            return _contexto(f"Identificador único {_con_de(entidad)}", info)
         femenina = _es_femenina(referida[0])
-        return f"Identificador {_con_de(referida)} {'asociada' if femenina else 'asociado'}"
+        asociado = "asociada" if femenina else "asociado"
+        texto = f"Identificador {_con_de(referida)} {asociado}" + (f" {_al(entidad)}" if entidad and not es_parametro else "")
+        return _contexto(texto, info)
     if palabras == ["identificador"]:
-        return f"Identificador único {_con_de(entidad)}" if entidad else "Identificador único del registro"
+        texto = f"Identificador único {_con_de(entidad)}" if entidad else "Identificador único del registro"
+        return _contexto(texto, info)
 
     if tipo == "b":
         if palabras[0] in _VERBOS_BIT:
-            return _capitalizar(f"Indica si {' '.join(['está' if palabras[0] == 'esta' else palabras[0]] + palabras[1:])}")
-        if len(palabras) == 1:
-            return f"Indica si el registro está {palabras[0]}"
-        return f"Indica si {_frase(palabras)}"
+            texto = _capitalizar(f"Indica si {' '.join(['está' if palabras[0] == 'esta' else palabras[0]] + palabras[1:])}")
+        elif len(palabras) == 1:
+            texto = f"Indica si {_el(entidad)} está {palabras[0]}"
+        else:
+            texto = f"Indica si {_frase(palabras)}"
+        texto += " (1: sí, 0: no)"
+        return _contexto(texto, info)
 
     if tipo == "d" and palabras[0] != "fecha":
-        return f"Fecha {_con_de(palabras, articulo=False)}"
+        return _contexto(f"Fecha {_con_de(palabras, articulo=False)}", info)
 
     if palabras[0] in _CABEZAS:
         cabeza, resto = palabras[0], palabras[1:]
         if resto and resto[0] in _glosario()["adjetivos"]:
-            return _capitalizar(_frase(palabras))
+            return _contexto(_capitalizar(_frase(palabras)), info)
         if resto:
-            return _capitalizar(f"{cabeza} {_con_de(resto, articulo=cabeza not in _SIN_ARTICULO)}")
-        return _capitalizar(f"{cabeza} {_con_de(entidad)}") if entidad else _capitalizar(cabeza)
+            return _contexto(_capitalizar(f"{cabeza} {_con_de(resto, articulo=cabeza not in _SIN_ARTICULO)}"), info)
+        texto = _capitalizar(f"{cabeza} {_con_de(entidad)}") if entidad else _capitalizar(cabeza)
+        return _contexto(texto, info)
 
-    return _capitalizar(_frase(palabras))
+    return _contexto(_capitalizar(_frase(palabras)), info)
 
 
 def sugerir_tabla(tabla: str) -> Optional[str]:
@@ -275,6 +334,14 @@ def sugerir_tabla(tabla: str) -> Optional[str]:
     if not entidad or not all(_reconocida(p) for p in entidad):
         return None
     return f"Registra la información {_con_de(entidad, plural=True)}"
+
+
+def accion_procedimiento(procedimiento: str) -> Optional[str]:
+    """PA_Cliente_Sel_PorId -> 'Consulta'; None si el nombre no sigue el formato."""
+    partes = [p for p in procedimiento.split("_") if p]
+    if len(partes) < 3 or partes[0].upper() != "PA":
+        return None
+    return _ACCIONES.get(partes[2].lower())
 
 
 def sugerir_procedimiento(procedimiento: str) -> Optional[str]:

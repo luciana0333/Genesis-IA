@@ -29,6 +29,80 @@ def _en_orden(nombres: Set[str], texto: str) -> List[str]:
     return sorted(nombres, key=lambda nombre: (posicion(nombre), nombre.upper()))
 
 
+_ID = tablas._IDENTIFICADOR_SQL
+_NOMBRE_OBJETO = rf"{_ID}(?:\s*\.\s*{_ID}){{0,2}}"
+_FIN_DEFAULT = r"(?=\s+(?:NOT\b|NULL\b|CONSTRAINT\b|PRIMARY\b|IDENTITY\b|COLLATE\b|CHECK\b|UNIQUE\b|REFERENCES\b)|\s*$)"
+
+
+def _ultima_parte(nombre: str) -> str:
+    """CLICKTOPAY.[Agencia] -> Agencia."""
+    return tablas._limpiar_identificador_sql(re.findall(_ID, nombre)[-1])
+
+
+def _limpiar_default(valor: str) -> str:
+    """((1)) -> 1, (getdate()) -> GETDATE(), ('A') -> 'A'."""
+    valor = valor.strip()
+    while valor.startswith("(") and valor.endswith(")"):
+        valor = valor[1:-1].strip()
+    return valor.upper() if re.match(r"^[A-Za-z_]+\(\)$", valor) else valor
+
+
+def _cuerpo_create(texto: str) -> str:
+    m = re.search(rf"\bCREATE\s+TABLE\s+{_NOMBRE_OBJETO}\s*\(", texto, re.IGNORECASE)
+    if not m:
+        return ""
+    profundidad = 0
+    for i in range(m.end(), len(texto)):
+        if texto[i] == "(":
+            profundidad += 1
+        elif texto[i] == ")":
+            if profundidad == 0:
+                return texto[m.end():i]
+            profundidad -= 1
+    return texto[m.end():]
+
+
+def definiciones_columnas(texto_tabla: str) -> dict:
+    """
+    Lo que el CREATE/ALTER dice de cada columna (clave en mayúsculas):
+    {'pk': bool, 'identity': bool, 'referencia': 'Agencia', 'default': '1'}.
+    """
+    texto = tablas._sin_comentarios(texto_tabla)
+    segmentos = tablas._separar_por_comas(_cuerpo_create(texto))
+    for sentencia in re.finditer(r"\bALTER\s+TABLE\b(.*?)(?=;|\bGO\b|\bALTER\s+TABLE\b|\bCREATE\b|\Z)", texto, re.IGNORECASE | re.DOTALL):
+        m_add = re.search(r"\bADD\b(?:\s+COLUMN\b)?", sentencia.group(1), re.IGNORECASE)
+        if m_add:
+            segmentos += tablas._separar_por_comas(sentencia.group(1)[m_add.end():])
+
+    info: dict = {}
+    for segmento in segmentos:
+        columna = tablas._primera_columna(segmento)
+        if not columna:
+            continue
+        datos = info.setdefault(columna.upper(), {})
+        if re.search(r"\bIDENTITY\b", segmento, re.IGNORECASE):
+            datos["identity"] = True
+        if re.search(r"\bPRIMARY\s+KEY\b(?!\s*(?:(?:NON)?CLUSTERED\s*)?\()", segmento, re.IGNORECASE):
+            datos["pk"] = True
+        referencia = re.search(rf"\bREFERENCES\s+({_NOMBRE_OBJETO})", segmento, re.IGNORECASE)
+        if referencia:
+            datos["referencia"] = _ultima_parte(referencia.group(1))
+        defecto = re.search(rf"\bDEFAULT\s+(.+?){_FIN_DEFAULT}", segmento, re.IGNORECASE | re.DOTALL)
+        if defecto:
+            datos["default"] = _limpiar_default(defecto.group(1))
+
+    # Restricciones aparte: PRIMARY KEY (col), FOREIGN KEY (col) REFERENCES T, DEFAULT x FOR col.
+    for m in re.finditer(r"\bPRIMARY\s+KEY\s*(?:(?:NON)?CLUSTERED\s*)?\(([^)]*)\)", texto, re.IGNORECASE):
+        for columna in re.findall(_ID, m.group(1)):
+            info.setdefault(tablas._limpiar_identificador_sql(columna).upper(), {})["pk"] = True
+    for m in re.finditer(rf"\bFOREIGN\s+KEY\s*\(([^)]*)\)\s*REFERENCES\s+({_NOMBRE_OBJETO})", texto, re.IGNORECASE):
+        for columna in re.findall(_ID, m.group(1)):
+            info.setdefault(tablas._limpiar_identificador_sql(columna).upper(), {})["referencia"] = _ultima_parte(m.group(2))
+    for m in re.finditer(rf"\bDEFAULT\s*(\(.*?\)|'[^']*'|\S+)\s+FOR\s+({_ID})", texto, re.IGNORECASE):
+        info.setdefault(tablas._limpiar_identificador_sql(m.group(2)).upper(), {})["default"] = _limpiar_default(m.group(1))
+    return info
+
+
 def _sentencia(
     nota: str, sugerida: Optional[str], esquema: str, tipo1: str, nombre1: str, tipo2: str = None, nombre2: str = None
 ) -> str:
@@ -80,9 +154,10 @@ def diccionario_faltante_tabla(texto_tabla: str, texto_diccionario: str) -> Opti
         elementos.append(f"tabla {nombre}")
     unicas = {c.upper(): c for c in requeridas}
     faltantes = {c for clave, c in unicas.items() if clave not in documentadas}
+    info = definiciones_columnas(texto_tabla)
     for columna in _en_orden(faltantes, texto_tabla):
         sentencias.append(_sentencia(
-            "dato que almacena la columna", sugeridas.sugerir_columna(columna, nombre),
+            "dato que almacena la columna", sugeridas.sugerir_columna(columna, nombre, info=info.get(columna.upper())),
             esquema_sql, "TABLE", nombre, "COLUMN", columna,
         ))
         elementos.append(columna)
@@ -107,6 +182,7 @@ def diccionario_faltante_procedimiento(texto_procedimiento: str, texto_diccionar
     # Los parámetros se describen respecto de la tabla del nombre (PA_Cliente_Sel_PorId -> Cliente).
     partes = [parte for parte in nombre.split("_") if parte]
     entidad = partes[1] if len(partes) > 1 and partes[0].upper() == "PA" else nombre
+    accion = sugeridas.accion_procedimiento(nombre)
     sentencias, elementos = [], []
     if not procedimiento_documentado:
         sentencias.append(_sentencia(
@@ -116,7 +192,7 @@ def diccionario_faltante_procedimiento(texto_procedimiento: str, texto_diccionar
     faltantes = {p for p in procedimientos.extraer_parametros(texto_procedimiento) if p.upper() not in documentados}
     for parametro in _en_orden(faltantes, texto_procedimiento):
         sentencias.append(_sentencia(
-            "para qué se usa el parámetro", sugeridas.sugerir_columna(parametro, entidad, es_parametro=True),
+            "para qué se usa el parámetro", sugeridas.sugerir_columna(parametro, entidad, es_parametro=True, accion=accion),
             esquema_sql, "PROCEDURE", nombre, "PARAMETER", parametro,
         ))
         elementos.append(parametro)
