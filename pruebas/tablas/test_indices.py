@@ -203,14 +203,19 @@ class TestIndices(unittest.TestCase):
             return next((h.mensaje for h in verificar_indices(indices, tabla) if h.regla == "INDICE_COLUMNA_NO_INDEXABLE"), None)
 
         # (N)VARCHAR(MAX), VARBINARY(MAX) y XML: no como clave, sí en el INCLUDE.
-        self.assertIn("como columna clave de un índice", aviso("CREATE INDEX IXN_Persona_cObs ON dbo.Persona (cObs);"))
-        self.assertIn("o darle una longitud fija", aviso("CREATE INDEX IXN_Persona_cObs ON dbo.Persona (cObs);"))
-        self.assertNotIn("longitud fija", aviso("CREATE INDEX IXN_Persona_xDatos ON dbo.Persona (xDatos);"))
+        self.assertEqual(
+            aviso("CREATE INDEX IXN_Persona_cObs ON dbo.Persona (cObs);"),
+            "Se identificó que la columna cObs, de tipo VARCHAR(MAX), forma parte de las claves del índice, lo cual "
+            "no está permitido en SQL Server. Se recomienda cambiar su tipo de dato a VARCHAR(n) o retirarla de las "
+            "claves del índice y agregarla mediante INCLUDE.",
+        )
+        # XML no tiene una longitud fija que proponer: solo se lleva al INCLUDE.
+        self.assertNotIn("cambiar su tipo de dato", aviso("CREATE INDEX IXN_Persona_xDatos ON dbo.Persona (xDatos);"))
         for incluida in ("cObs", "xDatos"):
             with self.subTest(incluida=incluida):
                 self.assertIsNone(aviso(f"CREATE INDEX IXN_Persona_nEstado_INC01 ON dbo.Persona (nEstado) INCLUDE ({incluida});"))
         # TEXT, NTEXT, IMAGE: ni siquiera en el INCLUDE.
-        self.assertIn("ni siquiera en el INCLUDE",
+        self.assertIn("ni siquiera mediante INCLUDE",
                       aviso("CREATE INDEX IXN_Persona_nEstado_INC01 ON dbo.Persona (nEstado) INCLUDE (cNota);"))
 
     def test_descripcion_usada_como_identificador(self):

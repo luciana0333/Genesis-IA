@@ -505,19 +505,18 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
         if es_max and en_include:
             continue  # válido: una columna MAX sí puede ir en el INCLUDE
         if es_max:
+            # VARCHAR(MAX) -> VARCHAR(n); XML no tiene longitud fija: solo puede ir al INCLUDE.
+            con_longitud = tipo_columna.replace("(MAX)", "(n)") if "(MAX)" in tipo_columna else None
+            cambio = f"cambiar su tipo de dato a {con_longitud} o " if con_longitud else ""
             mensaje = (
-                f"Se identificó que la columna {columna} es de tipo {tipo_columna} y está entre las columnas "
-                f"clave del índice {indice.nombre}. Se recomienda quitarla de esa lista (si se necesita, puede ir "
-                f"en el INCLUDE){' o darle una longitud fija' if '(MAX)' in tipo_columna else ''}, ya que SQL "
-                f"Server no permite usar una columna "
-                f"{tipo_columna} como columna clave de un índice."
+                f"Se identificó que la columna {columna}, de tipo {tipo_columna}, forma parte de las claves del "
+                f"índice, lo cual no está permitido en SQL Server. Se recomienda {cambio}retirarla de las claves "
+                f"del índice y agregarla mediante INCLUDE."
             )
         else:
-            donde = "en el INCLUDE" if en_include else "entre las columnas clave"
             mensaje = (
-                f"Se identificó que la columna {columna} es de tipo {tipo_columna} y está {donde} del índice "
-                f"{indice.nombre}. Se recomienda quitarla del índice, ya que SQL Server no permite usar una "
-                f"columna {tipo_columna} en un índice, ni siquiera en el INCLUDE."
+                f"Se identificó que la columna {columna}, de tipo {tipo_columna}, forma parte del índice, lo cual "
+                f"no está permitido en SQL Server ni siquiera mediante INCLUDE. Se recomienda retirarla del índice."
             )
         hallazgos.append(_hallazgo(texto, indice.posicion, "INDICE_COLUMNA_NO_INDEXABLE", mensaje))
 

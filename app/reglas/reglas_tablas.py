@@ -157,7 +157,7 @@ REGLAS_TABLAS = {
         "Una columna no puede repetirse en la clave del índice ni estar a la vez en la clave y en el INCLUDE.",
     ),
     "INDICE_COLUMNA_NO_INDEXABLE": _regla(
-        "INDICE_COLUMNA_NO_INDEXABLE", "Columna no indexable", "critico",
+        "INDICE_COLUMNA_NO_INDEXABLE", "Columna no válida en índice", "critico",
         "VARCHAR(MAX), NVARCHAR(MAX), VARBINARY(MAX) y XML no pueden ser columna clave de un índice (sí van en "
         "el INCLUDE); TEXT, NTEXT e IMAGE no pueden ir en un índice, ni siquiera en el INCLUDE.",
     ),

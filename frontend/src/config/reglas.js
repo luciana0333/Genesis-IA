@@ -129,7 +129,7 @@ export const NOMBRES_REGLAS = {
   INDICE_SIN_ESQUEMA: 'Índice sin esquema',
   INDICE_TABLA_EXISTENTE: 'Índice sobre tabla existente',
   INDICE_COLUMNA_NO_EXISTE: 'Columna del índice inexistente',
-  INDICE_COLUMNA_NO_INDEXABLE: 'Columna no indexable',
+  INDICE_COLUMNA_NO_INDEXABLE: 'Columna no válida en índice',
   INDICE_COLUMNA_REPETIDA: 'Columna repetida en el índice',
   INDICE_CLUSTERED_CON_PK: 'Índice clustered innecesario',
   INDICE_SEGUNDO_CLUSTERED: 'Segundo índice clustered',
