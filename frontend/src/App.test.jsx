@@ -263,9 +263,19 @@ describe('App', () => {
     await usuario.click(botones[0]);
 
     const generador = screen.getByRole('region', { name: 'Diccionario faltante' });
-    expect(generador).toHaveTextContent('2 sentencias · procedimiento PA_X, @nId');
+    expect(generador).toHaveTextContent('Generado para procedimiento PA_X y @nId.');
+    expect(generador).toHaveTextContent('Por completar');
+    const editor = within(generador).getByLabelText('Diccionario faltante');
+    expect(editor).toHaveValue(script);
+
+    // Se completa la descripción ahí mismo y se copia el script ya completo.
+    const completo = script.replace("N''", "N'Consulta un cliente'");
+    await usuario.clear(editor);
+    await usuario.click(editor);
+    await usuario.paste(completo);
+    expect(generador).toHaveTextContent('Completo');
     await usuario.click(within(generador).getByRole('button', { name: /Copiar script/ }));
-    expect(await navigator.clipboard.readText()).toBe(script);
+    expect(await navigator.clipboard.readText()).toBe(completo);
     expect(within(generador).getByRole('button', { name: /Copiado/ })).toBeInTheDocument();
   });
 
