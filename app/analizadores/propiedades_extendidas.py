@@ -221,10 +221,10 @@ def _leer_argumentos(texto: str, i: int, llamada: LlamadaPropiedad, original: st
                     valor = _siguiente_token(texto, igual.fin)
                 else:
                     # Se recupera tomando el siguiente valor como si tuviera '='.
-                    error(token.inicio, f"Falta el signo '=' después de {token.crudo}. Colocarlo (ej.: {token.crudo} = N'texto'), ya que sin él la sentencia no se ejecuta.")
+                    error(token.inicio, f"Falta el signo '=' después de {token.crudo}. Colocarlo (ej.: «{token.crudo} = N'texto'»), ya que sin él la sentencia no se ejecuta.")
                     valor = igual
                 if valor.tipo not in ("cadena", "valor") or _es_fin_de_sentencia(valor):
-                    error(token.inicio, f"{token.crudo} no tiene valor. Completar su valor (ej.: {token.crudo} = N'texto'), ya que sin él la sentencia no se ejecuta.")
+                    error(token.inicio, f"{token.crudo} no tiene valor. Completar su valor (ej.: «{token.crudo} = N'texto'»), ya que sin él la sentencia no se ejecuta.")
                     i = igual.fin if igual.tipo == "igual" else token.fin
                     esperando_argumento = False
                     ultimo = nombre
@@ -303,3 +303,17 @@ def como_llamadas_crudas(llamadas: List[LlamadaPropiedad]) -> List[Tuple[int, Di
         (llamada.posicion, {nombre: valor.crudo for nombre, valor in llamada.argumentos.items()})
         for llamada in llamadas
     ]
+
+
+def descripcion_mal_escrita(nombre: str) -> bool:
+    """
+    El nombre de la propiedad parece MS_Description pero está mal escrito
+    (MS_Descripcion, Descripcion, MSDescription, MS_Desc...). Así la
+    descripción se guarda, pero no se reconoce como la del diccionario.
+    """
+    if (nombre or "").strip().upper() == "MS_DESCRIPTION":
+        return False
+    clave = re.sub(r"[^A-Z]", "", (nombre or "").upper())
+    if not clave:
+        return False
+    return "DESCRIP" in clave or clave.startswith("MSDESC")

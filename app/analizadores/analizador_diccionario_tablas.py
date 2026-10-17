@@ -20,6 +20,7 @@ from app.analizadores.ortografia import elemento_ortografico, palabras_mal_escri
 from app.analizadores.propiedades_extendidas import (
     LlamadaPropiedad,
     como_llamadas_crudas,
+    descripcion_mal_escrita,
     leer_propiedades_extendidas,
 )
 from app.modelos.hallazgo import Hallazgo, Severidad, OrigenAnalisis
@@ -255,13 +256,13 @@ def _validar_parametros(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
             hallazgos.append(_hallazgo(
                 llamada.linea, "TIPO_NIVEL_INCORRECTO",
                 f"La sentencia indica '{llamada.texto('level0type')}' como tipo del esquema, pero debe ser "
-                f"'SCHEMA'. Usar el tipo N'SCHEMA', ya que con otro tipo la sentencia falla.",
+                f"'SCHEMA'. Usar el tipo «N'SCHEMA'», ya que con otro tipo la sentencia falla.",
             ))
         if tipo1 and tipo1 != "TABLE":
             hallazgos.append(_hallazgo(
                 llamada.linea, "TIPO_NIVEL_INCORRECTO",
                 f"La sentencia indica el tipo de objeto '{llamada.texto('level1type')}', pero lo que se "
-                f"documenta es una tabla. Usar el tipo N'TABLE', ya que con otro tipo la sentencia falla.",
+                f"documenta es una tabla. Usar el tipo «N'TABLE'», ya que con otro tipo la sentencia falla.",
             ))
     return hallazgos
 
@@ -344,7 +345,7 @@ def _validar_nombres_vacios(
                 linea = texto_diccionario.count("\n", 0, donde.start()) + 1 if donde else ll.linea
                 hallazgos.append(_hallazgo(
                     linea, "NOMBRE_VACIO",
-                    f"La sentencia no indica {que}. Colocar {que} (ej.: @{clave}=N'{ejemplo}'), "
+                    f"La sentencia no indica {que}. Colocar {que} (ej.: «@{clave}=N'{ejemplo}'»), "
                     f"ya que sin él la descripción no quedará asociada a ningún objeto.",
                 ))
     return hallazgos
@@ -572,6 +573,60 @@ def _validar_descripcion_tabla(llamadas: List[LlamadaPropiedad]) -> List[Hallazg
     return hallazgos
 
 
+def _validar_nombre_propiedad(llamadas: List[LlamadaPropiedad], esquema: Optional[str], nombre_tabla: str) -> List[Hallazgo]:
+    """
+    @name parecido a MS_Description pero mal escrito: la descripción se guarda,
+    pero no se reconoce como la del diccionario.
+    """
+    hallazgos = []
+    for ll in llamadas:
+        nombre = ll.texto("name")
+        if not descripcion_mal_escrita(nombre):
+            continue
+        if _es_de_columna(ll):
+            objeto = f"columna {ll.texto('level2name')}"
+        elif _es_de_tabla(ll):
+            objeto = f"tabla {_nombre_completo(esquema, nombre_tabla)}"
+        else:
+            continue
+        hallazgos.append(con_elemento(_hallazgo(
+            ll.linea, "NOMBRE_PROPIEDAD_INCORRECTO",
+            f"La propiedad de la {objeto} se registra como '{nombre}', por lo que no se reconocerá como su "
+            f"descripción. Usar «N'MS_Description'» como nombre de la propiedad, ya que es el nombre estándar "
+            f"de las descripciones del diccionario.",
+        ), f"{objeto} ('{nombre}')"))
+    return hallazgos
+
+
+def _enumerar_columnas(nombres: List[str]) -> str:
+    return nombres[0] if len(nombres) == 1 else f"{', '.join(nombres[:-1])} y {nombres[-1]}"
+
+
+def _validar_descripciones_repetidas(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
+    """
+    Varias columnas con la misma descripción: suele ser copiar y pegar, y así no
+    se distingue qué guarda cada una. La misma columna repetida la marca
+    DOCUMENTACION_DUPLICADA.
+    """
+    grupos: Dict[str, List[LlamadaPropiedad]] = {}
+    for ll in llamadas:
+        if _es_de_columna(ll) and _es_descripcion(ll) and ll.texto("value").strip():
+            grupos.setdefault(_normalizar_texto(ll.texto("value")), []).append(ll)
+    hallazgos = []
+    for grupo in grupos.values():
+        columnas = list(dict.fromkeys(ll.texto("level2name") for ll in grupo))
+        columnas = list({c.upper(): c for c in columnas}.values())
+        if len(columnas) < 2:
+            continue
+        hallazgos.append(_hallazgo(
+            grupo[1].linea, "DESCRIPCION_REPETIDA",
+            f"Las columnas {_enumerar_columnas(columnas)} tienen la misma descripción: "
+            f"'{grupo[0].texto('value')}'. Diferenciar la descripción de cada columna según el dato que "
+            f"almacena, ya que una descripción repetida no permite distinguirlas.",
+        ))
+    return hallazgos
+
+
 def _linea_valor(ll: LlamadaPropiedad, texto_diccionario: str) -> int:
     """Línea del @value de la llamada (donde está el texto revisado), no la del EXEC."""
     valor = re.compile(r"@value\s*=", re.IGNORECASE).search(texto_diccionario, ll.posicion)
@@ -635,7 +690,7 @@ def _validar_valores_sin_comillas(llamadas: List[LlamadaPropiedad]) -> List[Hall
                 ll.linea, "VALOR_SIN_COMILLAS",
                 f"Se detectó que {'los nombres' if varios else 'el nombre'} {', '.join(sin_comillas)} "
                 f"{'no están' if varios else 'no está'} entre comillas. Colocar{'los' if varios else 'lo'} entre "
-                f"comillas simples con la N delante (ej.: N'{sin_comillas[0]}'), ya que sin ellas la sentencia "
+                f"comillas simples con la N delante (ej.: «N'{sin_comillas[0]}'»), ya que sin ellas la sentencia "
                 f"no se ejecuta.",
             ))
     return hallazgos
@@ -726,6 +781,11 @@ _PLANTILLAS_AGRUPADAS = {
         "Emplear sp_addextendedproperty en esas sentencias, ya que la actualización fallará al no "
         "existir la propiedad.",
     ),
+    "NOMBRE_PROPIEDAD_INCORRECTO": (
+        "propiedades con el nombre mal escrito",
+        "Usar «N'MS_Description'» como nombre de la propiedad en esas sentencias, ya que es el nombre estándar "
+        "de las descripciones del diccionario.",
+    ),
     "DOCUMENTACION_DUPLICADA": (
         "declaraciones duplicadas",
         "Se recomienda retirar las declaraciones duplicadas y dejar una sola por cada una, ya que SQL Server "
@@ -787,6 +847,20 @@ def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> Li
     hallazgos += _validar_descripciones_vacias(llamadas)
     hallazgos += _validar_ortografia(llamadas, esquema, nombre_tabla, columnas_reales, texto_diccionario)
     hallazgos += _validar_valores_sin_comillas(llamadas)
+    hallazgos += _validar_descripciones_repetidas(llamadas)
+
+    # Propiedad con el nombre mal escrito: sí se documentó, así que no se marca
+    # además como «no documentada»; basta con la observación del nombre.
+    mal_escritas = _validar_nombre_propiedad(llamadas, esquema, nombre_tabla)
+    if mal_escritas:
+        objetos = {h.elemento.split(" (")[0].upper() for h in mal_escritas}
+        hallazgos = [
+            h for h in hallazgos
+            if not (h.regla in ("COLUMNA_FALTANTE", "VALIDAR_COLUMNA_MODIFICADA")
+                    and f"COLUMNA {getattr(h, 'elemento', '')}".upper() in objetos)
+            and not (h.regla == "TABLA_SIN_DESCRIPCION" and any(o.startswith("TABLA ") for o in objetos))
+        ]
+        hallazgos += mal_escritas
 
     # Las reglas desactivadas en el catálogo no se reportan.
     # Las columnas faltantes se ubican en su línea del CREATE/ALTER.

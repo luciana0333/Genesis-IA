@@ -20,7 +20,11 @@ from typing import List, Set, Tuple, Dict, Optional
 from app.analizadores.diccionario_agrupar import agrupar, con_elemento, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_procedimiento
 from app.analizadores.ortografia import elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico
-from app.analizadores.propiedades_extendidas import como_llamadas_crudas, leer_propiedades_extendidas
+from app.analizadores.propiedades_extendidas import (
+    como_llamadas_crudas,
+    descripcion_mal_escrita,
+    leer_propiedades_extendidas,
+)
 from app.modelos.hallazgo import Hallazgo, Severidad, OrigenAnalisis
 from app.reglas.reglas_diccionario_procedimientos import REGLAS_DICCIONARIO_PROCEDIMIENTOS
 
@@ -269,6 +273,29 @@ def _validar_parametros_inexistentes(texto_diccionario: str, parametros_reales: 
     return hallazgos
 
 
+def _validar_nombre_propiedad(texto_diccionario: str, esquema: Optional[str], nombre_proc: str) -> List[Hallazgo]:
+    """
+    @name parecido a MS_Description pero mal escrito: la descripción se guarda,
+    pero no se reconoce como la del diccionario.
+    """
+    hallazgos = []
+    for ll in leer_propiedades_extendidas(texto_diccionario):
+        nombre = ll.texto("name")
+        if not descripcion_mal_escrita(nombre):
+            continue
+        if "PARAMETER" in ll.texto("level2type").upper():
+            objeto = f"parámetro {ll.texto('level2name')}"
+        else:
+            objeto = f"procedimiento {_nombre_completo(esquema, nombre_proc)}"
+        hallazgos.append(con_elemento(_hallazgo_catalogo(
+            ll.linea, "NOMBRE_PROPIEDAD_INCORRECTO",
+            f"La propiedad del {objeto} se registra como '{nombre}', por lo que no se reconocerá como "
+            f"su descripción. Usar «N'MS_Description'» como nombre de la propiedad, ya que es el nombre estándar "
+            f"de las descripciones del diccionario.",
+        ), f"{objeto} ('{nombre}')"))
+    return hallazgos
+
+
 def _validar_duplicados(texto_diccionario: str) -> List[Hallazgo]:
     """
     Agregar dos veces la misma descripción falla en SQL Server ("property
@@ -438,7 +465,7 @@ def _validar_nombres_vacios(
                     severidad=Severidad(REGLAS_DICCIONARIO_PROCEDIMIENTOS["NOMBRE_VACIO"].severidad),
                     regla="NOMBRE_VACIO",
                     mensaje=f"La sentencia no indica {que}. Colocar {que} "
-                            f"(ej.: @{clave}=N'{ejemplo}'), ya que sin él la descripción no quedará asociada a "
+                            f"(ej.: «@{clave}=N'{ejemplo}'»), ya que sin él la descripción no quedará asociada a "
                             f"ningún objeto.",
                 ))
     return hallazgos
@@ -461,7 +488,7 @@ def _validar_valores_sin_comillas(
                         severidad=Severidad.CRITICO,
                         regla="VALOR_SIN_COMILLAS",
                         mensaje=f"Se detectó que el nombre {valor} no está entre comillas. Colocarlo entre "
-                                f"comillas simples con la N delante (ej.: N'{valor}'), ya que sin ellas la "
+                                f"comillas simples con la N delante (ej.: «N'{valor}'»), ya que sin ellas la "
                                 f"sentencia no se ejecuta."
                     ))
     return hallazgos
@@ -588,6 +615,11 @@ _PLANTILLAS_AGRUPADAS = {
         "Corregir el nombre de cada parámetro en el diccionario o retirar esas sentencias, ya que SQL Server "
         "no las ejecutará.",
     ),
+    "NOMBRE_PROPIEDAD_INCORRECTO": (
+        "propiedades con el nombre mal escrito",
+        "Usar «N'MS_Description'» como nombre de la propiedad en esas sentencias, ya que es el nombre estándar "
+        "de las descripciones del diccionario.",
+    ),
     "DOCUMENTACION_DUPLICADA": (
         "declaraciones duplicadas",
         "Se recomienda retirar las declaraciones duplicadas y dejar una sola por cada una, ya que SQL Server "
@@ -636,12 +668,13 @@ def verificar_diccionario(
     hallazgos += _validar_duplicados(texto_diccionario)
     hallazgos += _validar_sentencias(texto_diccionario)
     hallazgos += _validar_parametros_inexistentes(texto_diccionario, parametros_reales, nombre_proc)
+    hallazgos += _validar_nombre_propiedad(texto_diccionario, esquema, nombre_proc)
     hallazgos += _validar_ortografia(llamadas, texto_diccionario, esquema, nombre_proc, parametros_reales)
     if REGLAS_DICCIONARIO_PROCEDIMIENTOS["VALOR_SIN_COMILLAS"].activo:
         hallazgos += _validar_valores_sin_comillas(llamadas, texto_diccionario)
 
     # Los parámetros se ubican en su línea del CREATE/ALTER.
     for hallazgo in hallazgos:
-        if getattr(hallazgo, "elemento", None) and hallazgo.regla != "DESCRIPCION_VACIA":
+        if getattr(hallazgo, "elemento", None) and hallazgo.regla not in ("DESCRIPCION_VACIA", "NOMBRE_PROPIEDAD_INCORRECTO"):
             ubicar(hallazgo, texto_procedimiento)
     return agrupar(hallazgos, _PLANTILLAS_AGRUPADAS)

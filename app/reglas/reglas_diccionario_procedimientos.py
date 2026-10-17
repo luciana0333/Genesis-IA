@@ -76,6 +76,17 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
         alcance="procedimiento",
         activo=True,
     ),
+    "NOMBRE_PROPIEDAD_INCORRECTO": ReglaDiccionario(
+        codigo="NOMBRE_PROPIEDAD_INCORRECTO",
+        nombre="Nombre de propiedad mal escrito",
+        severidad="alto",
+        descripcion=(
+            "El nombre de la propiedad parece MS_Description pero está mal escrito (MS_Descripcion, "
+            "Descripcion...): la descripción no se reconoce como la del diccionario."
+        ),
+        alcance="procedimiento",
+        activo=True,
+    ),
     "DOCUMENTACION_DUPLICADA": ReglaDiccionario(
         codigo="DOCUMENTACION_DUPLICADA",
         nombre="Documentación duplicada",

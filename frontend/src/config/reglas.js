@@ -101,6 +101,8 @@ export const NOMBRES_REGLAS = {
   DOCUMENTACION_EXISTENTE_EN_ALTER: 'Validar documentación existente',
   ACTUALIZACION_SIN_DESCRIPCION_PREVIA: 'Actualización sin descripción previa',
   VALIDAR_COLUMNA_MODIFICADA: 'Validar documentación de columna modificada',
+  NOMBRE_PROPIEDAD_INCORRECTO: 'Nombre de propiedad mal escrito',
+  DESCRIPCION_REPETIDA: 'Descripción repetida',
   VALIDAR_DOCUMENTACION_ALTER: 'Validar documentación existente',
   CONVERSION_IMPLICITA: 'Conversión implícita',
   CONVERSION_IMPLICITA_DETECTADA: 'Conversión implícita detectada',

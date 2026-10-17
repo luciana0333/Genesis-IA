@@ -75,6 +75,25 @@ REGLAS_DICCIONARIO_TABLAS = {
         alcance="tabla",
         activo=True,
     ),
+    "NOMBRE_PROPIEDAD_INCORRECTO": ReglaDiccionario(
+        codigo="NOMBRE_PROPIEDAD_INCORRECTO",
+        nombre="Nombre de propiedad mal escrito",
+        severidad="alto",
+        descripcion=(
+            "El nombre de la propiedad parece MS_Description pero está mal escrito (MS_Descripcion, "
+            "Descripcion...): la descripción no se reconoce como la del diccionario."
+        ),
+        alcance="tabla",
+        activo=True,
+    ),
+    "DESCRIPCION_REPETIDA": ReglaDiccionario(
+        codigo="DESCRIPCION_REPETIDA",
+        nombre="Descripción repetida",
+        severidad="medio",
+        descripcion="Varias columnas tienen exactamente la misma descripción (copiar y pegar).",
+        alcance="tabla",
+        activo=True,
+    ),
     "ALTER_SIN_DICCIONARIO": ReglaDiccionario(
         codigo="ALTER_SIN_DICCIONARIO",
         nombre="ALTER sin diccionario",
