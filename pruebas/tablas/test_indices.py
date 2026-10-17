@@ -50,7 +50,7 @@ class TestIndices(unittest.TestCase):
         for indices, sugerido in casos.items():
             with self.subTest(indices=indices):
                 self.assertEqual(reglas(indices), [("INDICE_PREFIJO_INVALIDO", 1)])
-                self.assertIn("no sigue la nomenclatura establecida", mensaje(indices))
+                self.assertRegex(mensaje(indices), r"pero su nombre no empieza con|no indica su tipo")
                 self.assertIn(sugerido, mensaje(indices))
 
     def test_include_con_mas_de_cinco_columnas(self):
@@ -68,7 +68,7 @@ class TestIndices(unittest.TestCase):
         sin_tipo = "CREATE INDEX idx_persona\n    ON CLICKTOPAY.Cliente (cCodPersona);"
         texto = mensaje(sin_tipo)
         self.assertIn("no indica su tipo", texto)
-        self.assertIn("añadir el tipo de índice", texto)
+        self.assertIn("Declarar el tipo y usar el prefijo que le corresponde", texto)
         self.assertIn("CREATE NONCLUSTERED INDEX IXN_Cliente_cCodPersona", texto)
         con_tipo = "CREATE NONCLUSTERED INDEX IX_Cliente_cCodPersona ON CLICKTOPAY.Cliente (cCodPersona);"
         self.assertNotIn("no indica su tipo", mensaje(con_tipo))
@@ -78,7 +78,7 @@ class TestIndices(unittest.TestCase):
         self.assertEqual(reglas(campos), [("INDICE_NOMBRE_NO_ESTANDAR", 1)])
         sin_inc = ("CREATE NONCLUSTERED INDEX IXN_Cliente_cCodPersona ON CLICKTOPAY.Cliente (cCodPersona) "
                    "INCLUDE (dRegistro, cCorreoElectronico);")
-        self.assertIn("nombrarlo IXN_Cliente_cCodPersona_INC02", mensaje(sin_inc))
+        self.assertIn("Renombrarlo como IXN_Cliente_cCodPersona_INC02", mensaje(sin_inc))
 
     def test_ejemplos_del_manual(self):
         persona = """CREATE TABLE DBO.PERSONA (
@@ -99,7 +99,7 @@ class TestIndices(unittest.TestCase):
             with self.subTest(indices=indices):
                 self.assertEqual(reglas(indices, persona), [])
         inc_un_digito = con_include.replace("_INC02", "_INC2")
-        self.assertIn("nombrarlo IXN_PERSONA_CPERSCOD_NPERSCLASIFICACION_CPERSESTADO_INC02", mensaje(inc_un_digito, persona))
+        self.assertIn("Renombrarlo como IXN_PERSONA_CPERSCOD_NPERSCLASIFICACION_CPERSESTADO_INC02", mensaje(inc_un_digito, persona))
 
     def test_sintaxis(self):
         casos = {
@@ -204,7 +204,7 @@ class TestIndices(unittest.TestCase):
         identifica = hallazgos["INDICE_IDENTIFICA_POR_DESCRIPCION"]
         self.assertEqual(identifica.severidad.value, "alto")
         self.assertIn("para identificar los registros", identifica.mensaje)
-        self.assertIn("clave primaria identidad de la tabla (nClienteDatosId)", identifica.mensaje)
+        self.assertIn("Identificar los registros por la clave primaria de la tabla (nClienteDatosId)", identifica.mensaje)
         self.assertIn("INDICE_COLUMNA_NO_INDEXABLE", hallazgos)  # además falla por VARCHAR(MAX)
         self.assertNotIn("INDICE_COLUMNA_DESCRIPTIVA", hallazgos)  # no se repite como «descriptiva»
 
@@ -268,6 +268,28 @@ class TestIndices(unittest.TestCase):
         con_errores = "CREATE INDEX idx ON Cliente (cX);"
         self.assertEqual([r for r, _ in reglas(con_errores, "")],
                          ["INDICE_PREFIJO_INVALIDO", "INDICE_SIN_ESQUEMA", "INDICE_TABLA_EXISTENTE"])
+
+    def test_nombre_sugerido_segun_si_la_tabla_es_nueva(self):
+        indice = "CREATE NONCLUSTERED INDEX idx_cliente ON dbo.TB_cliente_datos (nombre89);"
+        nueva = (
+            "CREATE TABLE dbo.TB_cliente_datos (\n nClienteDatosId INT IDENTITY(1,1) NOT NULL,\n"
+            " nombre89 VARCHAR(50) NOT NULL,\n CONSTRAINT PK_x PRIMARY KEY CLUSTERED (nClienteDatosId)\n);"
+        )
+        # Tabla nueva: también se le pide corregir su nombre, así que el índice usa el estándar.
+        self.assertIn("Renombrarlo como IXN_ClienteDatos_nombre89", mensaje(indice, nueva))
+        # Tabla existente: no se va a renombrar, así que el índice usa su nombre real.
+        self.assertIn("Renombrarlo como IXN_TB_cliente_datos_nombre89", mensaje(indice, ""))
+        # Con el nombre real de la tabla también es válido.
+        real = "CREATE NONCLUSTERED INDEX IXN_TB_cliente_datos_nombre89 ON dbo.TB_cliente_datos (nombre89);"
+        self.assertEqual(reglas(real, nueva), [])
+
+    def test_mensajes_cortos_de_nombre_y_esquema(self):
+        sin_esquema = "CREATE NONCLUSTERED INDEX IXN_Cliente_cCodPersona ON Cliente (cCodPersona);"
+        self.assertEqual(
+            mensaje(sin_esquema),
+            "El índice IXN_Cliente_cCodPersona indica la tabla Cliente sin su esquema. Colocar el esquema "
+            "delante de la tabla, aunque sea dbo (ej.: ON dbo.Cliente).",
+        )
 
     def test_indice_duplicado_no_sugiere_renombrarlo(self):
         # Renombrar IXN_Cliente_cCodPersona2 como IXN_Cliente_cCodPersona chocaría con el índice que ya existe.

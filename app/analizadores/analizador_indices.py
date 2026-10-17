@@ -187,9 +187,14 @@ def _sin_repetir(columnas: List[str], excluir: List[str] = ()) -> List[str]:
     return unicas
 
 
-def _nombre_esperado(indice: _Indice) -> str:
-    """Nombre según el manual; las columnas repetidas cuentan una sola vez."""
-    tabla = _limpiar(indice.tabla).split(".")[-1]
+def _nombre_esperado(indice: _Indice, estandar: bool = False) -> str:
+    """
+    Nombre según el manual; las columnas repetidas cuentan una sola vez.
+    estandar: la tabla se crea en el script y también se le pide corregir su nombre, así que
+    el índice usa el nombre estándar (TB_cliente_datos -> ClienteDatos). En una tabla que ya
+    existe se usa su nombre real.
+    """
+    tabla = _nombre_estandar_tabla(indice.tabla) if estandar else _limpiar(indice.tabla).split(".")[-1]
     claves = _sin_repetir(indice.claves)
     incluidas = _sin_repetir(indice.incluidas, excluir=claves)
     partes = [_prefijo(indice.unico, indice.clustered), tabla] + claves
@@ -340,8 +345,11 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
     hallazgos = []
     tipo = _tipo(indice.unico, indice.clustered)
     prefijo = _prefijo(indice.unico, indice.clustered)
-    esperado = _nombre_esperado(indice)
     tabla = _limpiar(indice.tabla)
+    tabla_nueva = bool(tabla_script) and tabla.split(".")[-1].lower() == tabla_script.nombre.lower()
+    esperado = _nombre_esperado(indice, estandar=tabla_nueva)
+    # Con el nombre real de la tabla el índice también se considera correcto.
+    validos = {esperado.lower(), _nombre_esperado(indice).lower()}
 
     # Columnas repetidas en la clave, o columnas clave repetidas en el INCLUDE: SQL Server
     # no crea el índice ("Cannot use duplicate column names in index").
@@ -380,31 +388,26 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
         hallazgos.append(_hallazgo(
             texto, indice.posicion, "INDICE_PREFIJO_INVALIDO",
             (
-                f"Se ha identificado que el índice {indice.nombre} no sigue la nomenclatura establecida y no "
-                f"indica su tipo. Se recomienda añadir el tipo de índice y nombrarlo con el prefijo que le "
-                f"corresponde según el manual (ej.: CREATE {tipo} INDEX {esperado}), ya que sin el tipo SQL "
-                f"Server lo crea como {tipo} por defecto y el nombre debe indicarlo."
+                f"El índice {indice.nombre} no indica su tipo, por lo que SQL Server lo crea como {tipo}. "
+                f"Declarar el tipo y usar el prefijo que le corresponde: CREATE {tipo} INDEX {esperado}."
             ) if not indice.tipo_explicito else (
-                f"Se ha identificado que el índice {indice.nombre} no sigue la nomenclatura establecida: es "
-                f"{tipo} y su nombre no empieza con {prefijo}_. Se recomienda cambiar el nombre a {esperado}, "
-                f"ya que el prefijo permite saber de qué tipo es el índice con solo leer su nombre."
+                f"El índice {indice.nombre} es {tipo}, pero su nombre no empieza con {prefijo}_. "
+                f"Renombrarlo como {esperado}, ya que el prefijo indica el tipo de índice."
             ),
         ))
-    elif indice.nombre.lower() != esperado.lower() and not hay_repetidas:
+    elif indice.nombre.lower() not in validos and not hay_repetidas:
         hallazgos.append(_hallazgo(
             texto, indice.posicion, "INDICE_NOMBRE_NO_ESTANDAR",
-            f"Se identificó que el nombre del índice {indice.nombre} no coincide con la tabla y las columnas "
-            f"que indexa. Se recomienda nombrarlo {esperado} (formato {prefijo}_Tabla_Columnas"
-            f"{'_INC' + esperado.rsplit('_INC', 1)[1] if '_INC' in esperado else ''}), ya que así se sabe qué "
-            f"tabla y columnas cubre sin abrir su definición.",
+            f"El nombre del índice {indice.nombre} no corresponde a la tabla y las columnas que indexa. "
+            f"Renombrarlo como {esperado} (formato {prefijo}_Tabla_Columnas"
+            f"{'_INC' + esperado.rsplit('_INC', 1)[1] if '_INC' in esperado else ''}).",
         ))
 
     if "." not in tabla:
         hallazgos.append(_hallazgo(
             texto, indice.posicion_tabla, "INDICE_SIN_ESQUEMA",
-            f"Se identificó que el índice {indice.nombre} indica la tabla {tabla} sin su esquema. Se recomienda "
-            f"escribir el esquema delante de la tabla; si es dbo, definirlo explícitamente (ej.: ON dbo.{tabla}), "
-            f"ya que así se evita crear el índice sobre una tabla equivocada.",
+            f"El índice {indice.nombre} indica la tabla {tabla} sin su esquema. Colocar el esquema delante de "
+            f"la tabla, aunque sea dbo (ej.: ON dbo.{tabla}).",
         ))
 
     # Una descripción nunca identifica los registros: si un índice UNIQUE o CLUSTERED
@@ -413,11 +416,9 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
     for columna in identificadoras:
         hallazgos.append(_hallazgo(
             texto, indice.posicion, "INDICE_IDENTIFICA_POR_DESCRIPCION",
-            f"Se identificó que el índice {indice.nombre} es {_tipo(indice.unico, indice.clustered)} sobre la "
-            f"columna {columna}, que guarda texto descriptivo ({_texto_descriptivo(columna)}); es decir, usa una "
-            f"descripción para identificar los registros. Se recomienda identificar los registros por la clave "
-            f"primaria identidad de la tabla ({_identificador_de(indice, tabla_script)}), ya que una descripción "
-            f"puede repetirse o cambiar con el tiempo y vuelve pesado el índice.",
+            f"El índice {indice.nombre} usa la columna {columna} para identificar los registros, pero una "
+            f"descripción puede repetirse o cambiar con el tiempo. Identificar los registros por la clave "
+            f"primaria de la tabla ({_identificador_de(indice, tabla_script)}).",
         ))
 
     # Columnas de texto descriptivo (descripción, dirección...): se busca indexar lo que sirve.
@@ -453,7 +454,7 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
             f"(ej.: CONSTRAINT PK_{tabla_pk} PRIMARY KEY CLUSTERED ({identificador})).",
         ))
     elif indice.clustered:
-        sugerido = _nombre_esperado(_Indice(**{**indice.__dict__, "clustered": False}))
+        sugerido = _nombre_esperado(_Indice(**{**indice.__dict__, "clustered": False}), estandar=tabla_nueva)
         hallazgos.append(_hallazgo(
             texto, indice.posicion, "INDICE_CLUSTERED_CON_PK",
             f"Se identificó que el índice {indice.nombre} se crea como CLUSTERED, pero el índice clúster le "
