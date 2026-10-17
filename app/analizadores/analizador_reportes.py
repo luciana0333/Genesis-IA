@@ -2,7 +2,7 @@
 """Reglas de buenas prácticas para procedimientos almacenados de reportes."""
 
 import re
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_reportes import REGLAS_REPORTES
@@ -303,32 +303,21 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             r"\bINTO\s+(?P<tabla>[#\w\[\].]+)",
             "SELECT_INTO_PROHIBIDO",
             lambda m: (
-                f"Se ha identificado que la tabla {'temporal ' if m.group('tabla').startswith('#') else ''}"
-                f"{m.group('tabla')} se crea mediante SELECT INTO, por lo que se recomienda realizar la "
-                f"creación de la tabla y su posterior inserción."
+                f"Se identificó el uso de SELECT INTO para crear la tabla "
+                f"{'temporal ' if m.group('tabla').startswith('#') else ''}{m.group('tabla')}. Se recomienda "
+                f"definir su estructura mediante CREATE TABLE e insertar los datos posteriormente con INSERT INTO."
             ),
         ),
         (
             rf"\bSELECT\s+(?:ALL\s+|DISTINCT\s+)?(?:TOP\s*(?:\(\s*[\w@]+\s*\)|\d+)\s*(?:PERCENT\s+)?(?:WITH\s+TIES\s+)?)?"
-            rf"\*(?:\s+FROM\s+(?P<tabla>{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}))?",
+            rf"\*(?:\s+INTO\s+[#\w\[\].]+)?(?:\s+FROM\s+(?P<tabla>{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}})(?P<funcion>\s*\()?)?",
             "SELECT_ESTRELLA_PROHIBIDO",
-            lambda m: (
-                (f"Se identificó un SELECT * sobre la tabla {m.group('tabla')}, que trae todas sus columnas. "
-                 if m.group("tabla") else "Se identificó un SELECT *, que trae todas las columnas de la consulta. ")
-                + "Se recomienda escribir solo las columnas que el reporte necesita, ya que traer todas aumenta "
-                "la lectura de datos, vuelve más lento el reporte y puede fallar si la tabla cambia "
-                "(ej.: SELECT cNombre, dFecha)."
-            ),
+            lambda m: _mensaje_select_estrella(m.group("tabla"), bool(m.group("funcion"))),
         ),
         (
             r"(?<![\w.])(?P<alias>[A-Za-z_]\w*)\s*\.\s*\*(?=\s*(?:,|\bFROM\b))",
             "SELECT_ESTRELLA_PROHIBIDO",
-            lambda m: (
-                f"Se identificó un SELECT {m.group('alias')}.*, que trae todas las columnas de la tabla "
-                f"{_tabla_del_alias(limpio, m.group('alias'))}. Se recomienda escribir solo las columnas que el reporte necesita, ya que "
-                f"traer todas aumenta la lectura de datos, vuelve más lento el reporte y puede fallar si la "
-                f"tabla cambia (ej.: SELECT {m.group('alias')}.cNombre, {m.group('alias')}.dFecha)."
-            ),
+            lambda m: _mensaje_select_estrella(_tabla_del_alias(limpio, m.group("alias")), False, f"{m.group('alias')}.*"),
         ),
         (
             r"\bIN\s*\(\s*(?P<valor>[^,()]+?)\s*\)",
@@ -351,10 +340,43 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     ]
     for patron, regla, mensaje in reglas:
         for match in re.finditer(patron, limpio, re.IGNORECASE):
+            # SELECT * sobre sys.objects...: ya lo marca «Catálogo de sistema prohibido».
+            if regla == "SELECT_ESTRELLA_PROHIBIDO" and "tabla" in match.re.groupindex and match.group("tabla") \
+                    and re.match(_CATALOGOS_PROHIBIDOS, match.group("tabla"), re.IGNORECASE):
+                continue
             # Si el patrón marca con "pos" el elemento que causa el hallazgo, la línea es la suya.
             posicion = match.start("pos") if "pos" in match.re.groupindex else match.start()
-            hallazgos.append(_hallazgo(texto, posicion, regla, mensaje(match)))
+            hallazgo = _hallazgo(texto, posicion, regla, mensaje(match))
+            # Para agrupar: la tabla (o función) a la que se refiere.
+            if regla == "SELECT_INTO_PROHIBIDO":
+                hallazgo.elemento = match.group("tabla")
+            elif regla == "SELECT_ESTRELLA_PROHIBIDO":
+                hallazgo.elemento = _objeto_select_estrella(match, limpio)
+            hallazgos.append(hallazgo)
     return hallazgos
+
+
+def _objeto_select_estrella(match: re.Match, limpio: str) -> str:
+    if "alias" in match.re.groupindex:
+        return f"tabla {_tabla_del_alias(limpio, match.group('alias'))}"
+    if match.group("tabla"):
+        return f"{'función' if match.group('funcion') else 'tabla'} {match.group('tabla')}"
+    return "consulta sin tabla identificada"
+
+
+def _mensaje_select_estrella(objeto: Optional[str], es_funcion: bool, forma: str = "SELECT *") -> str:
+    """Texto de la usuaria: «Se identificó el uso de SELECT * sobre la tabla …»."""
+    if not objeto:
+        problema = (f"Se identificó el uso de {forma}, que obtiene todas las columnas de la consulta, aunque no "
+                    f"todas sean necesarias.")
+    elif es_funcion:
+        problema = (f"Se identificó el uso de {forma} sobre la función {objeto}, que obtiene todas las columnas "
+                    f"que devuelve, aunque no todas sean necesarias.")
+    else:
+        problema = (f"Se identificó el uso de {forma} sobre la tabla {objeto}, que obtiene todas las columnas de "
+                    f"la tabla, aunque no todas sean necesarias.")
+    return (f"{problema} Se recomienda especificar únicamente las columnas requeridas para evitar la lectura de "
+            f"datos innecesarios y mejorar el rendimiento de la consulta.")
 
 
 def _validar_modificaciones_fisicas(texto: str, limpio: str) -> List[Hallazgo]:
@@ -690,6 +712,41 @@ def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+# Reglas que, repetidas, se resumen por elemento (tabla, función): «dbo.Cliente (líneas 9, 12)».
+_PLANTILLAS_AGRUPADAS = {
+    "SELECT_ESTRELLA_PROHIBIDO": (
+        "usos de SELECT *",
+        "Se recomienda especificar únicamente las columnas requeridas para evitar la lectura de datos "
+        "innecesarios y mejorar el rendimiento de la consulta.",
+    ),
+    "SELECT_INTO_PROHIBIDO": (
+        "tablas creadas con SELECT INTO",
+        "Se recomienda definir su estructura mediante CREATE TABLE e insertar los datos posteriormente con "
+        "INSERT INTO.",
+    ),
+}
+
+
+def _agrupar_por_elemento(regla: str, grupo: List[Hallazgo]) -> Hallazgo:
+    sustantivo, accion = _PLANTILLAS_AGRUPADAS[regla]
+    lineas_por_elemento: Dict[str, List[int]] = {}
+    for hallazgo in sorted(grupo, key=lambda h: h.linea):
+        lineas_por_elemento.setdefault(hallazgo.elemento, []).append(hallazgo.linea)
+    elementos = [
+        f"{elemento} ({'línea' if len(set(lineas)) == 1 else 'líneas'} {', '.join(map(str, sorted(set(lineas))))})"
+        for elemento, lineas in lineas_por_elemento.items()
+    ]
+    numeros = sorted({hallazgo.linea for hallazgo in grupo})
+    lineas = ("la línea " if len(numeros) == 1 else "las líneas ") + ", ".join(map(str, numeros))
+    return Hallazgo(
+        linea=numeros[0],
+        origen=grupo[0].origen,
+        severidad=grupo[0].severidad,
+        regla=regla,
+        mensaje=f"Se identificaron {len(grupo)} {sustantivo}, en {lineas}: {'; '.join(elementos)}. {accion}",
+    )
+
+
 def _agrupar_hallazgos_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
     """Resume observaciones repetidas de cualquier regla."""
     grupos: Dict[str, List[Hallazgo]] = {}
@@ -705,6 +762,9 @@ def _agrupar_hallazgos_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
         grupo = grupos[regla]
         if len(grupo) == 1:
             resumidos.append(grupo[0])
+            continue
+        if regla in _PLANTILLAS_AGRUPADAS and all(getattr(h, "elemento", None) for h in grupo):
+            resumidos.append(_agrupar_por_elemento(regla, grupo))
             continue
 
         numeros = sorted({hallazgo.linea for hallazgo in grupo})

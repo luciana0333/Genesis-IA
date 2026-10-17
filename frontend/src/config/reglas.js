@@ -58,7 +58,7 @@ export const NOMBRES_REGLAS = {
   CODIGO_SQL_COMENTADO: 'Código SQL comentado',
   TEMPORAL_TEXTO_SIN_COLLATE: 'Columna de texto sin COLLATE en tabla temporal',
   SELECT_INTO_PROHIBIDO: 'SELECT INTO prohibido',
-  SELECT_ESTRELLA_PROHIBIDO: 'SELECT estrella prohibido',
+  SELECT_ESTRELLA_PROHIBIDO: 'Uso de SELECT *',
   IN_CON_UN_SOLO_VALOR: 'IN con un solo valor',
   CATALOGO_SISTEMA_PROHIBIDO: 'Catálogo de sistema prohibido',
   MODIFICACION_TABLA_FISICA: 'Modificación de tabla física',

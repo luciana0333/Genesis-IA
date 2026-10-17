@@ -128,7 +128,7 @@ describe('App', () => {
     const cuerpo = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(cuerpo).toMatchObject({ tipoRevision: 'tabla_estructura', modoRevision: 'tabla_estructura', esDbcmaica: false });
 
-    const lista = await screen.findByText('SELECT estrella prohibido');
+    const lista = await screen.findByText('Uso de SELECT *');
     expect(lista).toBeInTheDocument();
     expect(screen.getByText('REGLA_NUEVA')).toBeInTheDocument();
     expect(screen.getByText('Línea 3')).toBeInTheDocument();
@@ -173,10 +173,10 @@ describe('App', () => {
     await screen.findByRole('heading', { name: 'Table Scan' });
 
     const titulos = () => screen.getAllByRole('heading', { level: 4 }).map((h) => h.textContent);
-    expect(titulos()).toEqual(['Table Scan', 'SELECT estrella prohibido', 'VARBINARY identificado']);
+    expect(titulos()).toEqual(['Table Scan', 'Uso de SELECT *', 'VARBINARY identificado']);
 
     await usuario.click(screen.getByRole('button', { name: /^Alto/ }));
-    expect(titulos()).toEqual(['SELECT estrella prohibido']);
+    expect(titulos()).toEqual(['Uso de SELECT *']);
 
     await usuario.click(screen.getByRole('button', { name: /^Todos/ }));
     expect(titulos()).toHaveLength(3);

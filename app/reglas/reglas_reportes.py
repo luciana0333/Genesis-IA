@@ -63,7 +63,7 @@ REGLAS_REPORTES = {
     ),
     "SELECT_ESTRELLA_PROHIBIDO": ReglaDiccionario(
         codigo="SELECT_ESTRELLA_PROHIBIDO",
-        nombre="SELECT estrella prohibido",
+        nombre="Uso de SELECT *",
         severidad="alto",
         descripcion="Las consultas deben indicar sus columnas explícitamente.",
         alcance="reporte",

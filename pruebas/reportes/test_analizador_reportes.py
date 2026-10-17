@@ -48,7 +48,9 @@ class TestAnalizadorReportes(unittest.TestCase):
         ]
 
         self.assertEqual(len(hallazgos), 1)
-        self.assertIn("3 observaciones", hallazgos[0].mensaje)
+        self.assertIn("Se identificaron 3 usos de SELECT *", hallazgos[0].mensaje)
+        self.assertIn("tabla dbo.Cliente (línea 2); tabla dbo.Persona (línea 3); tabla dbo.Agencias (línea 4)",
+                      hallazgos[0].mensaje)
         self.assertIn("líneas 2, 3, 4", hallazgos[0].mensaje)
 
     def test_temporal_texto_con_collate_y_tabla_fisica_con_nolock(self):
@@ -218,8 +220,8 @@ class TestAnalizadorReportes(unittest.TestCase):
                         if h.regla == "SELECT_INTO_PROHIBIDO")
         self.assertEqual(
             hallazgo.mensaje,
-            "Se ha identificado que la tabla temporal #Temp se crea mediante SELECT INTO, por lo que se "
-            "recomienda realizar la creación de la tabla y su posterior inserción.",
+            "Se identificó el uso de SELECT INTO para crear la tabla temporal #Temp. Se recomienda definir su "
+            "estructura mediante CREATE TABLE e insertar los datos posteriormente con INSERT INTO.",
         )
 
     def test_referencia_completa_entre_bases_es_valida(self):
