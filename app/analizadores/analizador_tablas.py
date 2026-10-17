@@ -132,6 +132,8 @@ def _tipo_de_dato(definicion: str) -> str:
 
 
 _DESCRIPCION_PREFIJO = {"c": "texto", "n": "número", "b": "bit", "d": "fecha u hora"}
+# Valor por defecto de ejemplo según el tipo, para la columna NOT NULL agregada en un ALTER.
+_DEFAULT_POR_PREFIJO = {"c": "''", "n": "0", "b": "0", "d": "GETDATE()"}
 
 # Tipos legacy (obsoletos) y su reemplazo actual.
 _REEMPLAZO_LEGACY = {"TEXT": "VARCHAR(MAX)", "NTEXT": "NVARCHAR(MAX)", "REAL": "DECIMAL(p, s)"}
@@ -554,6 +556,11 @@ _PLANTILLAS_AGRUPADAS = {
         "Definir cada columna como NOT NULL o asignarle un valor por defecto (DEFAULT), ya que una "
         "tabla nueva no debe almacenar valores nulos.",
     ),
+    "COLUMNA_NOT_NULL_SIN_DEFAULT_EN_ALTER": (
+        "columnas nuevas NOT NULL sin valor por defecto",
+        "Agregue un DEFAULT a cada una o defínalas como NULL, ya que el ALTER TABLE fallará si la tabla ya "
+        "tiene registros: SQL Server necesita un valor para las filas existentes.",
+    ),
     "COLUMNA_NULL_EN_ALTER": (
         "columnas nuevas que aceptan valores nulos",
         "Se recomienda evaluar un valor por defecto (DEFAULT) para cada una; no es obligatorio, ya que "
@@ -641,7 +648,24 @@ def _verificar_una_tabla(texto_sql: str, es_dbcmaica: bool) -> List[Hallazgo]:
             ))
         for columna in _columnas_alter(texto):
             hallazgos += _validar_columna(texto, columna, referencia, pertenece_a_dbcmaica)
-            if not _tiene_not_null_o_default(columna.definicion):
+            definicion = columna.definicion
+            # SQL Server permite NOT NULL sin DEFAULT en IDENTITY, TIMESTAMP/ROWVERSION y columnas calculadas.
+            sin_default = not re.search(
+                r"\bDEFAULT\b|\bIDENTITY\b|^\s*(?:AS|TIMESTAMP|ROWVERSION)\b", definicion, re.IGNORECASE
+            )
+            if re.search(r"\bNOT\s+NULL\b", definicion, re.IGNORECASE) and sin_default:
+                # SQL Server no puede llenar la columna en las filas que ya existen: el ALTER falla.
+                ejemplo = (
+                    f"{columna.nombre} {_tipo_completo(definicion)} NOT NULL CONSTRAINT DF_{tabla}_{columna.nombre} "
+                    f"DEFAULT ({_DEFAULT_POR_PREFIJO.get(_prefijo_esperado(definicion), '...')})"
+                )
+                hallazgos.append(con_elemento(_hallazgo(
+                    texto, columna.posicion, "COLUMNA_NOT_NULL_SIN_DEFAULT_EN_ALTER",
+                    f"La columna nueva {columna.nombre} se agrega como NOT NULL sin un valor por defecto, por lo "
+                    f"que el ALTER TABLE fallará si la tabla ya tiene registros. Agregue un DEFAULT (ej.: "
+                    f"{ejemplo}) o defínala como NULL, ya que SQL Server necesita un valor para las filas existentes.",
+                ), columna.nombre))
+            elif not _tiene_not_null_o_default(definicion):
                 hallazgos.append(con_elemento(_hallazgo(
                     texto, columna.posicion, "COLUMNA_NULL_EN_ALTER",
                     f"La columna nueva {columna.nombre} acepta valores nulos. ¿Evaluó definir un valor por "

@@ -39,6 +39,7 @@ export const NOMBRES_REGLAS = {
   TABLA_NOMBRE_NO_ESTANDAR: 'Nombre de tabla fuera del estándar',
   COLUMNA_NOMBRE_NO_PASCALCASE: 'Nombre de columna fuera del estándar',
   COLUMNA_NULL_EN_ALTER: 'Evaluar valor por defecto',
+  COLUMNA_NOT_NULL_SIN_DEFAULT_EN_ALTER: 'Columna NOT NULL sin DEFAULT',
   COLUMNA_NOMBRE_CON_NUMERO: 'Nombre de columna con números',
   COLUMNA_VARBINARY_PROHIBIDA: 'Columna para documentos prohibida',
   COLUMNA_TIPO_LEGACY: 'Tipo de dato legacy',

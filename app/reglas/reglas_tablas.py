@@ -110,6 +110,11 @@ REGLAS_TABLAS = {
         "COLUMNA_SIN_NOT_NULL_NI_DEFAULT", "Columna sin NOT NULL ni DEFAULT", "alto",
         "Solo CREATE: toda columna debe ser NOT NULL o tener un valor DEFAULT.",
     ),
+    "COLUMNA_NOT_NULL_SIN_DEFAULT_EN_ALTER": _regla(
+        "COLUMNA_NOT_NULL_SIN_DEFAULT_EN_ALTER", "Columna NOT NULL sin DEFAULT", "critico",
+        "Solo ALTER: una columna nueva NOT NULL necesita un DEFAULT; si no, el ALTER TABLE falla cuando la "
+        "tabla ya tiene registros.",
+    ),
     "COLUMNA_NULL_EN_ALTER": _regla(
         "COLUMNA_NULL_EN_ALTER", "Evaluar valor por defecto", "bajo",
         "Solo ALTER: la columna nueva acepta NULL. No se exige NOT NULL porque la tabla ya tiene "
