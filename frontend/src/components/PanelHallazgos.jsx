@@ -125,7 +125,10 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones }) {
   const titulo = nombreRegla(hallazgo.regla);
   const mensaje = hallazgo.mensaje || 'Revisa este hallazgo.';
   const { problema, solucion } = separarMensaje(mensaje);
-  const { lineas, intro, ocurrencias } = desglosarGrupo(problema);
+  const desglose = desglosarGrupo(problema);
+  const { intro, ocurrencias } = desglose;
+  // Las líneas salen del texto agrupado o, si la observación las trae aparte, de hallazgo.lineas.
+  const lineas = desglose.lineas || (hallazgo.lineas?.length > 1 ? hallazgo.lineas.join(', ') : null);
   const seccion = SECCIONES[hallazgo.seccion];
   const etiquetaLinea = (seccion ? `${seccion} · ` : '') + (lineas
     ? `${lineas.includes(',') ? 'Líneas' : 'Línea'} ${lineas}`

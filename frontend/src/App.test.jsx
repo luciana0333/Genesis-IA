@@ -279,6 +279,23 @@ describe('App', () => {
     expect(within(generador).getByRole('button', { name: /Copiado/ })).toBeInTheDocument();
   });
 
+  it('una observación que junta varias líneas las muestra en el encabezado', async () => {
+    const usuario = userEvent.setup();
+    mockRespuesta({
+      hallazgos: [{
+        linea: 6, lineas: [6, 7], severidad: 'alto', regla: 'TABLA_FISICA_SIN_NOLOCK',
+        mensaje: 'Se identificó que las tablas dbo.Cliente y dbo.Agencia no utilizan WITH (NOLOCK). Se recomienda añadir WITH (NOLOCK).',
+      }],
+    });
+    render(<App />);
+    await irA('reportes');
+    await usuario.click(screen.getByRole('button', { name: /Ejecutar revisión/ }));
+
+    const ficha = (await screen.findByText('Tabla física sin WITH (NOLOCK)')).closest('article');
+    expect(within(ficha).getByText('Líneas 6, 7')).toBeInTheDocument();
+    expect(within(ficha).queryByRole('list')).not.toBeInTheDocument();
+  });
+
   it('la ventana de diccionario faltante se cierra con Escape', async () => {
     const usuario = userEvent.setup();
     render(<App />);

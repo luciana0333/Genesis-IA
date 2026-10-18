@@ -190,13 +190,9 @@ def _validar_nolock(texto: str, limpio: str) -> List[Hallazgo]:
                 or _esta_en_update(limpio, match.start())):
             continue
         if not tiene_nolock:
-            hallazgos.append(_hallazgo(
-                texto,
-                match.start(2),
-                "TABLA_FISICA_SIN_NOLOCK",
-                f"Se identificó que la tabla {tabla} no tiene WITH(NOLOCK). Se recomienda añadirlo, ya que en los "
-                f"reportes evita bloquear a los procesos que están registrando operaciones (ej.: {tabla} WITH(NOLOCK)).",
-            ))
+            hallazgo = _hallazgo(texto, match.start(2), "TABLA_FISICA_SIN_NOLOCK", _mensaje_sin_nolock([tabla]))
+            hallazgo.elemento = tabla
+            hallazgos.append(hallazgo)
     return hallazgos
 
 
@@ -735,6 +731,33 @@ _PLANTILLAS_AGRUPADAS = {
 }
 
 
+def _mensaje_sin_nolock(tablas: List[str]) -> str:
+    """Texto de la usuaria; con varias tablas, una sola frase: «las tablas dbo.Cliente y dbo.Agencia»."""
+    if len(tablas) == 1:
+        return (f"Se identificó que la tabla {tablas[0]} no utiliza WITH (NOLOCK). Se recomienda añadir WITH (NOLOCK) "
+                f"para reducir la posibilidad de bloqueos durante la lectura de datos mientras otros procesos "
+                f"realizan operaciones sobre la tabla.")
+    lista = f"{', '.join(tablas[:-1])} y {tablas[-1]}"
+    return (f"Se identificó que las tablas {lista} no utilizan WITH (NOLOCK). Se recomienda añadir WITH (NOLOCK) "
+            f"para reducir la posibilidad de bloqueos durante la lectura de datos mientras otros procesos "
+            f"realizan operaciones sobre las tablas.")
+
+
+def _agrupar_sin_nolock(grupo: List[Hallazgo]) -> Hallazgo:
+    """Todas las tablas sin NOLOCK en una sola observación; las líneas van en el encabezado."""
+    ordenados = sorted(grupo, key=lambda h: h.linea)
+    tablas = list({h.elemento.lower(): h.elemento for h in ordenados}.values())
+    resumen = Hallazgo(
+        linea=ordenados[0].linea,
+        origen=ordenados[0].origen,
+        severidad=ordenados[0].severidad,
+        regla="TABLA_FISICA_SIN_NOLOCK",
+        mensaje=_mensaje_sin_nolock(tablas),
+    )
+    resumen.lineas = sorted({h.linea for h in grupo})
+    return resumen
+
+
 def _agrupar_por_elemento(regla: str, grupo: List[Hallazgo]) -> Hallazgo:
     sustantivo, accion = _PLANTILLAS_AGRUPADAS[regla]
     lineas_por_elemento: Dict[str, List[int]] = {}
@@ -770,6 +793,9 @@ def _agrupar_hallazgos_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
         grupo = grupos[regla]
         if len(grupo) == 1:
             resumidos.append(grupo[0])
+            continue
+        if regla == "TABLA_FISICA_SIN_NOLOCK":
+            resumidos.append(_agrupar_sin_nolock(grupo))
             continue
         if regla in _PLANTILLAS_AGRUPADAS and all(getattr(h, "elemento", None) for h in grupo):
             resumidos.append(_agrupar_por_elemento(regla, grupo))

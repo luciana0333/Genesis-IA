@@ -6,7 +6,7 @@ from app.reglas.reglas_base import ReglaDiccionario
 REGLAS_REPORTES = {
     "TABLA_FISICA_SIN_NOLOCK": ReglaDiccionario(
         codigo="TABLA_FISICA_SIN_NOLOCK",
-        nombre="Tabla física sin NOLOCK",
+        nombre="Tabla física sin WITH (NOLOCK)",
         severidad="alto",
         descripcion="Las tablas físicas consultadas por un reporte deben usar WITH(NOLOCK).",
         alcance="reporte",

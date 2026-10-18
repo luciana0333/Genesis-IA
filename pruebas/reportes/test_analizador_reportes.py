@@ -29,11 +29,21 @@ class TestAnalizadorReportes(unittest.TestCase):
         ]
 
         self.assertEqual(len(hallazgos), 1)
-        self.assertIn("3 observaciones", hallazgos[0].mensaje)
-        self.assertIn("líneas 2, 3, 4", hallazgos[0].mensaje)
-        self.assertIn("dbo.Cliente", hallazgos[0].mensaje)
-        self.assertIn("dbo.Persona", hallazgos[0].mensaje)
-        self.assertIn("DBCMACICA.dbo.Agencias", hallazgos[0].mensaje)
+        # Texto de la usuaria: todas las tablas en una frase; las líneas van aparte (encabezado).
+        self.assertEqual(
+            hallazgos[0].mensaje,
+            "Se identificó que las tablas dbo.Cliente, dbo.Persona y DBCMACICA.dbo.Agencias no utilizan "
+            "WITH (NOLOCK). Se recomienda añadir WITH (NOLOCK) para reducir la posibilidad de bloqueos durante "
+            "la lectura de datos mientras otros procesos realizan operaciones sobre las tablas.",
+        )
+        self.assertEqual(hallazgos[0].lineas, [2, 3, 4])
+
+    def test_misma_tabla_sin_nolock_varias_veces_se_nombra_una_vez(self):
+        sql = "SELECT c.cNombre FROM dbo.Cliente c\nSELECT x.cNombre FROM dbo.Cliente x"
+        hallazgo = next(h for h in verificar_reporte(sql) if h.regla == "TABLA_FISICA_SIN_NOLOCK")
+        self.assertTrue(hallazgo.mensaje.startswith("Se identificó que la tabla dbo.Cliente no utiliza WITH (NOLOCK)."))
+        self.assertTrue(hallazgo.mensaje.endswith("realizan operaciones sobre la tabla."))
+        self.assertEqual(hallazgo.lineas, [1, 2])
 
     def test_agrupa_cualquier_regla_repetida(self):
         sql = """
@@ -262,7 +272,7 @@ class TestAnalizadorReportes(unittest.TestCase):
         sql = "SELECT c.cNombre FROM dbo.TB_Clientes c INNER JOIN dbo.TB_Cuentas a ON a.nId = c.nId WHERE c.nId = 1"
         hallazgos = [h for h in verificar_reporte(sql) if h.regla == "TABLA_FISICA_SIN_NOLOCK"]
         self.assertEqual(len(hallazgos), 1)
-        self.assertIn("2 observaciones", hallazgos[0].mensaje)
+        self.assertIn("las tablas dbo.TB_Clientes y dbo.TB_Cuentas no utilizan WITH (NOLOCK)", hallazgos[0].mensaje)
 
     def test_cte_no_exige_nolock_y_temporal_con_alias_no_debe_usarlo(self):
         cte = "WITH Base AS (SELECT a FROM dbo.T WITH(NOLOCK)) SELECT b.a FROM Base b"

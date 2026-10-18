@@ -136,6 +136,8 @@ class GenesisHandler(SimpleHTTPRequestHandler):
                 'mensaje': hallazgo.mensaje,
                 # En qué cajita está la línea (p. ej. 'indices'); None = el SQL principal.
                 'seccion': getattr(hallazgo, 'seccion', None),
+                # Líneas de una observación que junta varias (p. ej. tablas sin NOLOCK).
+                'lineas': getattr(hallazgo, 'lineas', None),
             })
 
         self._send_json({
