@@ -67,12 +67,12 @@ def _ubicacion(caso: Dict, varias_consultas: bool, mayuscula: bool = False) -> s
 
 # Recomendaciones con el estilo de la usuaria: directas y simples.
 _RECOMENDACION_CONVERSION = (
-    "Corregir la conversión implícita, verificando que los tipos de datos de la comparación "
-    "coincidan para favorecer el rendimiento de la consulta."
+    "Se recomienda revisar la alerta por conversión implícita y homologar los tipos de datos de las columnas "
+    "involucradas para evitar conversiones implícitas y mejorar el rendimiento de la consulta."
 )
 _RECOMENDACION_CONVERSIONES = (
-    "Corregir las conversiones implícitas, verificando que los tipos de datos en las comparaciones "
-    "coincidan para favorecer el rendimiento de las consultas."
+    "Se recomienda revisar las alertas por conversiones implícitas y homologar los tipos de datos de las "
+    "columnas involucradas para evitar conversiones implícitas y mejorar el rendimiento de las consultas."
 )
 
 
