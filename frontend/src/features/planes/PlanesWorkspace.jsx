@@ -9,6 +9,7 @@ import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { TarjetaMetrica } from '../../components/TarjetaMetrica';
 import { formatearKb } from '../../utils/hallazgos';
+import { CampoLimite } from './CampoLimite';
 import { CapturaHallazgo } from './CapturaHallazgo';
 import { DiagramaPlan } from './DiagramaPlan';
 import { MetricasLote, NavegacionLote, ResumenLote } from './ResumenLote';
@@ -79,6 +80,7 @@ function MetricasPlan({ analisis }) {
 export function PlanesWorkspace() {
   const idArchivo = useId();
   const idArea = useId();
+  const idLimite = useId();
   const [area, setArea] = useState('reporte');
   const { limites, cambiarLimite } = useLimitesTiempo();
   const inputArchivoRef = useRef(null);
@@ -188,6 +190,13 @@ export function PlanesWorkspace() {
                 Cada área revisa su plan con sus propias reglas.
               </p>
             </div>
+            <CampoLimite
+              key={area}
+              id={idLimite}
+              nombreArea={AREAS_PLAN.find((opcion) => opcion.id === area)?.etiqueta ?? area}
+              limiteS={limites[area] ?? null}
+              onCambiar={(valor) => alCambiarLimite(area, valor)}
+            />
           </div>
 
           <div className="plan-layout">
@@ -256,12 +265,7 @@ export function PlanesWorkspace() {
                 etiqueta="Rendimiento"
                 titulo="Tiempo de ejecución"
               />
-              <TiempoEjecucion
-                sentencias={analisis.diagrama}
-                area={area}
-                limiteS={limites[area] ?? null}
-                onCambiarLimite={alCambiarLimite}
-              />
+              <TiempoEjecucion sentencias={analisis.diagrama} area={area} limiteS={limites[area] ?? null} />
             </section>
           )}
           {!enResumenLote && (

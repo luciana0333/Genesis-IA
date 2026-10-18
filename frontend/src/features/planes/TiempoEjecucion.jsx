@@ -1,11 +1,10 @@
-import { useState } from 'react';
 import { NOMBRES_AREA_PLAN } from '../../config/planes';
 
 /*
  * Tarjeta «Tiempo de ejecución» con velocímetro de instrumento clásico: suma la
  * duración (Duration del XML, en milisegundos) de todas las consultas del plan,
  * la pasa a segundos y la compara con el límite del área (Reportes o Negocio).
- * El límite se escribe o ajusta en la tarjeta y se guarda por área en este navegador.
+ * El límite se fija en el Paso 1 (antes de analizar); aquí solo se muestra.
  */
 
 const ANCHO = 280;
@@ -91,38 +90,19 @@ function Velocimetro({ totalS, limiteS }) {
   );
 }
 
-/** Cajita del límite: − / valor / +, editable a mano. */
-function ControlLimite({ nombreArea, limiteS, onCambiar }) {
-  const [texto, setTexto] = useState(limiteS != null ? String(limiteS) : '');
-  const paso = limiteS == null ? 1 : limiteS < 1 ? 0.1 : limiteS < 10 ? 0.5 : 1;
-  const aplicar = (valor) => {
-    const limpio = valor == null || Number.isNaN(valor) || valor <= 0 ? null : Math.round(valor * 100) / 100;
-    setTexto(limpio != null ? String(limpio) : '');
-    onCambiar(limpio);
-  };
+/** Límite del área, solo para leer: se fija en el Paso 1, antes de analizar. */
+function LimiteFijo({ nombreArea, limiteS }) {
   return (
     <div className="tiempo-control">
       <span className="tiempo-etiqueta">Límite {nombreArea}</span>
-      <div className="tiempo-caja">
-        <button type="button" aria-label="Bajar el límite" onClick={() => aplicar((limiteS ?? paso * 2) - paso)}>−</button>
-        <input
-          type="text"
-          inputMode="decimal"
-          value={texto}
-          placeholder="—"
-          aria-label={`Límite de tiempo de ${nombreArea} en segundos`}
-          onChange={(evento) => setTexto(evento.target.value)}
-          onBlur={() => aplicar(texto.trim() === '' ? null : Number(texto.replace(',', '.')))}
-          onKeyDown={(evento) => { if (evento.key === 'Enter') evento.currentTarget.blur(); }}
-        />
-        <span className="tiempo-unidad">s</span>
-        <button type="button" aria-label="Subir el límite" onClick={() => aplicar((limiteS ?? 0) + paso)}>+</button>
-      </div>
+      <strong className={limiteS != null ? 'tiempo-limite-valor' : 'tiempo-limite-valor vacio'}>
+        {limiteS != null ? `${limiteS} s` : 'Sin límite definido'}
+      </strong>
     </div>
   );
 }
 
-export function TiempoEjecucion({ sentencias = [], area, limiteS = null, onCambiarLimite }) {
+export function TiempoEjecucion({ sentencias = [], area, limiteS = null }) {
   const conTiempo = sentencias.filter((s) => s.duracionMs != null);
   if (!sentencias.length) return null;
 
@@ -141,8 +121,6 @@ export function TiempoEjecucion({ sentencias = [], area, limiteS = null, onCambi
   const supera = limiteS != null && totalS > limiteS;
   const lenta = conTiempo.reduce((mayor, s) => (s.duracionMs > mayor.duracionMs ? s : mayor), conTiempo[0]);
 
-  const cambiarLimite = (valor) => onCambiarLimite?.(area, valor);
-
   let sello = null;
   if (limiteS != null) {
     sello = supera
@@ -159,9 +137,9 @@ export function TiempoEjecucion({ sentencias = [], area, limiteS = null, onCambi
         <Velocimetro totalS={totalS} limiteS={limiteS} />
       </div>
       <div className="tiempo-lado">
-        {/* Arriba manda el límite: es lo que se ajusta; a la derecha, el resultado. */}
+        {/* Arriba, el límite con el que se revisó; a la derecha, el resultado. */}
         <div className="tiempo-encabezado">
-          <ControlLimite key={area} nombreArea={nombreArea} limiteS={limiteS} onCambiar={cambiarLimite} />
+          <LimiteFijo nombreArea={nombreArea} limiteS={limiteS} />
           {sello}
         </div>
         <div className="tiempo-datos">
@@ -183,7 +161,7 @@ export function TiempoEjecucion({ sentencias = [], area, limiteS = null, onCambi
         </div>
         <p className="tiempo-nota">
           {limiteS == null
-            ? 'Escribe el límite del área para comparar el tiempo del plan.'
+            ? 'Indica el límite en el Paso 1 para comparar el tiempo del plan.'
             : `Suma la duración de ${conTiempo.length === 1 ? 'la consulta' : `las ${conTiempo.length} consultas`} y la compara con el límite del área.`}
         </p>
       </div>

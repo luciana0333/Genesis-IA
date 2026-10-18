@@ -402,6 +402,34 @@ describe('Planes', () => {
     expect(screen.getByRole('heading', { name: 'Planes del lote' })).toBeInTheDocument();
   });
 
+  it('fija el límite de tiempo en el Paso 1 y lo envía con el análisis', async () => {
+    const usuario = userEvent.setup();
+    const fetchMock = mockRespuesta({
+      archivo: 'prueba.sqlplan',
+      resumen: { critico: 0, alto: 0, medio: 0, bajo: 0 },
+      hallazgos: [],
+      operadores: [],
+      memoria: null,
+      diagrama: [{ numero: 1, duracionMs: 5000, cpuMs: 100, nodos: [] }],
+    });
+    render(<App />);
+    await irA('planes');
+
+    const limite = screen.getByLabelText('Límite de tiempo · Reportes');
+    await usuario.clear(limite);
+    await usuario.type(limite, '30{Enter}');
+    await usuario.upload(screen.getByLabelText('Planes de ejecución'), new File(['<x/>'], 'prueba.sqlplan'));
+    await usuario.click(screen.getByRole('button', { name: 'Analizar plan' }));
+
+    expect(await screen.findByText('Análisis completado.')).toBeInTheDocument();
+    expect(fetchMock.mock.calls[0][1].body.get('limite')).toBe('30');
+    // En el detalle, el límite solo se muestra.
+    const tarjeta = screen.getByRole('region', { name: 'Tiempo de ejecución' });
+    expect(within(tarjeta).getByText('30 s')).toBeInTheDocument();
+    expect(within(tarjeta).queryByRole('textbox')).not.toBeInTheDocument();
+    expect(within(tarjeta).queryByRole('button')).not.toBeInTheDocument();
+  });
+
   it('analiza un plan y muestra métricas y hallazgos', async () => {
     const usuario = userEvent.setup();
     mockRespuesta({
