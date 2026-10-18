@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { IconoReloj, IconoSeveridadMedia } from '../../components/Iconos';
 import { partesLimite } from './formatoLimite';
 
-const textoDe = (valor) => (valor == null ? '' : String(valor));
+// Dos dígitos, como un cronómetro (00 : 52); los segundos con decimales quedan tal cual.
+const textoDe = (valor) => (valor == null ? '' : Number.isInteger(valor) ? String(valor).padStart(2, '0') : String(valor));
 const numero = (texto) => (texto.trim() === '' ? 0 : Number(texto.replace(',', '.')));
 
 /**
@@ -40,30 +41,39 @@ export function CampoLimite({ id, nombreArea, limiteS, onCambiar }) {
   return (
     <div className="field-group">
       <label className="field-label" htmlFor={id}>Límite de tiempo · {nombreArea}</label>
-      <div className="limite-campo" onBlur={alSalir}>
-        <span className="limite-icono"><IconoReloj /></span>
+      <div className="limite-reloj" onBlur={alSalir}>
         <button type="button" aria-label="Bajar el límite" onClick={() => aplicar((limiteS ?? paso * 2) - paso)}>−</button>
-        <input
-          id={id}
-          type="text"
-          inputMode="numeric"
-          value={minutos}
-          placeholder="0"
-          aria-label={`Minutos del límite de ${nombreArea}`}
-          onChange={(evento) => setMinutos(evento.target.value)}
-          onKeyDown={alPresionar}
-        />
-        <span className="limite-unidad">min</span>
-        <input
-          type="text"
-          inputMode="decimal"
-          value={segundos}
-          placeholder="0"
-          aria-label={`Segundos del límite de ${nombreArea}`}
-          onChange={(evento) => setSegundos(evento.target.value)}
-          onKeyDown={alPresionar}
-        />
-        <span className="limite-unidad">s</span>
+        <div className="limite-esfera">
+          <IconoReloj className="limite-icono" />
+          <span className="limite-parte">
+            <input
+              id={id}
+              type="text"
+              inputMode="numeric"
+              value={minutos}
+              placeholder="00"
+              aria-label={`Minutos del límite de ${nombreArea}`}
+              onChange={(evento) => setMinutos(evento.target.value)}
+              onFocus={(evento) => evento.target.select()}
+              onKeyDown={alPresionar}
+            />
+            <span className="limite-unidad">MIN</span>
+          </span>
+          <span className="limite-separador" aria-hidden="true">:</span>
+          <span className="limite-parte">
+            <input
+              type="text"
+              inputMode="decimal"
+              value={segundos}
+              placeholder="00"
+              aria-label={`Segundos del límite de ${nombreArea}`}
+              onChange={(evento) => setSegundos(evento.target.value)}
+              onFocus={(evento) => evento.target.select()}
+              onKeyDown={alPresionar}
+            />
+            <span className="limite-unidad">SEG</span>
+          </span>
+        </div>
         <button type="button" aria-label="Subir el límite" onClick={() => aplicar((limiteS ?? 0) + paso)}>+</button>
       </div>
       <p className="nota-base nota-base--campo">

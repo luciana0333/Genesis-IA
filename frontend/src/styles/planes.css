@@ -1230,62 +1230,89 @@
   text-transform: uppercase;
 }
 
-/* ───────── LÍMITE DE TIEMPO (PASO 1) ───────── */
-.limite-campo {
+/* ───────── LÍMITE DE TIEMPO (PASO 1): RELOJ DIGITAL ───────── */
+.limite-reloj {
   display: flex;
-  align-items: center;
-  height: 46px;
-  padding: 4px;
-  border-radius: 10px;
-  background: var(--bg-subtle);
+  align-items: stretch;
+  height: 58px;
 }
 
-.limite-icono {
+.limite-reloj > button {
+  width: 46px;
+  border: 0;
+  border-radius: 0;
+  background: var(--red-main);
+  color: #ffffff;
+  font-size: 1.3rem;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease;
+}
+
+.limite-reloj > button:hover { background: var(--red-dark); }
+
+.limite-esfera {
+  position: relative;
   display: flex;
+  flex: 1;
   align-items: center;
-  padding: 0 8px 0 10px;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--border-strong);
+  border-right: 0;
+  border-left: 0;
+  background: var(--bg-card);
+}
+
+.limite-esfera:focus-within { border-color: var(--red-main); }
+
+.limite-icono {
+  position: absolute;
+  left: 14px;
+  width: 18px;
+  height: 18px;
   color: var(--red-main);
 }
 
-.limite-icono svg { width: 16px; height: 16px; }
+.limite-parte {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 
-.limite-campo button {
-  width: 38px;
-  height: 38px;
+.control-row .limite-parte input[type="text"] {
+  width: 64px;
+  height: 32px;
+  padding: 0;
   border: 0;
-  border-radius: 7px;
+  border-radius: 0;
   background: transparent;
+  box-shadow: none;
   color: var(--text-primary);
-  font-size: 1.05rem;
-  cursor: pointer;
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
-}
-
-.limite-campo button:hover {
-  background: var(--red-main);
-  color: #ffffff;
-}
-
-.control-row .limite-campo input[type="text"] {
-  flex: 1;
-  min-width: 0;
-  height: 38px;
-  padding: 0 10px;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  background: var(--bg-card);
-  color: var(--text-primary);
-  font-size: 0.95rem;
-  font-weight: 700;
-  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 600;
+  text-align: center;
   font-variant-numeric: tabular-nums;
   outline: none;
 }
 
+.control-row .limite-parte input[type="text"]:focus {
+  background: var(--red-light);
+  box-shadow: none;
+}
+
 .limite-unidad {
-  padding: 0 10px 0 8px;
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+}
+
+.limite-separador {
+  padding-bottom: 14px;
+  color: var(--red-main);
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
   font-weight: 600;
 }
 
@@ -1301,6 +1328,3 @@
   font-size: 0.82rem;
   font-weight: 600;
 }
-
-/* Minutos y segundos: dos casillas iguales, cada una con su unidad. */
-.limite-campo .limite-unidad + input[type="text"] { margin-left: 2px; }
