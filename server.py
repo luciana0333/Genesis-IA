@@ -286,9 +286,9 @@ class GenesisHandler(SimpleHTTPRequestHandler):
         body = (
             '<!DOCTYPE html><html lang="es"><meta charset="utf-8">'
             '<title>Genesis</title>'
-            '<p>La interfaz no está compilada. Ejecuta '
-            '<code>npm --prefix frontend install</code> y '
-            '<code>npm --prefix frontend run build</code>, y recarga la página.</p>'
+            '<p>Falta la pantalla compilada (<code>frontend\\dist</code>). '
+            'Ejecuta <code>git pull</code> en la carpeta de Genesis, '
+            'reinicia el servidor y recarga la página.</p>'
         ).encode('utf-8')
         self.send_response(503)
         self.send_header('Content-Type', 'text/html; charset=utf-8')

@@ -7,7 +7,7 @@ planes de ejecución reales (`.sqlplan`) mediante reglas estáticas.
 ## Estructura
 
 ```
-app/        Analizadores y reglas (Python, sin dependencias externas)
+app/        Analizadores y reglas (Python; pyspellchecker y spaCy son opcionales)
 frontend/   Interfaz web (React + Vite) — ver frontend/README.md
 pruebas/    Pruebas unitarias de los analizadores
 recursos/   Archivos de ejemplo (planes de ejecución)
@@ -63,6 +63,6 @@ Abrir http://localhost:5173 (recarga en caliente; `/api` se redirige al puerto 8
 ## Pruebas
 
 ```bash
-python -m unittest pruebas.tablas.test_analizador_tablas
-npm --prefix frontend test
+python -m unittest discover -s pruebas -p "test_*.py"   # todas las pruebas del motor
+npm --prefix frontend test                              # pruebas de la pantalla (solo con Node.js)
 ```
