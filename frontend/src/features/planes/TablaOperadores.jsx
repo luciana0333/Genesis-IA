@@ -42,6 +42,8 @@ export function TablaOperadores({ operadores = [] }) {
               <th scope="col" className="num">Filas est.</th>
               <th scope="col" className="num">Filas reales</th>
               <th scope="col" className="num">Lecturas lógicas</th>
+              <th scope="col" className="num">Duración (ms)</th>
+              <th scope="col" className="num">CPU (ms)</th>
               <th scope="col">Alertas</th>
             </tr>
           </thead>
@@ -59,6 +61,8 @@ export function TablaOperadores({ operadores = [] }) {
                 <td className="num">{formatearNumero(operador.estimacionFilas)}</td>
                 <td className="num">{formatearNumero(operador.filasReales)}</td>
                 <td className="num strong">{formatearNumero(operador.lecturasLogicas)}</td>
+                <td className="num">{formatearNumero(operador.duracionMs)}</td>
+                <td className="num">{formatearNumero(operador.cpuMs)}</td>
                 <td>
                   <span className="tag-list">
                     {operador.tieneSpill && <span className="tag sev-alto">Spill</span>}

@@ -151,18 +151,31 @@ def _contadores(relop: ET.Element) -> Dict[str, Optional[float]]:
     """Suma los contadores reales de todos los hilos del operador."""
     hilos = [e for e in _propios(relop) if _local(e) == "RunTimeCountersPerThread"]
     if not hilos:
-        return {"filasReales": None, "filasLeidas": None, "ejecuciones": None, "lecturas": None}
+        return {
+            "filasReales": None, "filasLeidas": None, "ejecuciones": None, "lecturas": None,
+            "lecturasFisicas": None, "duracionMs": None, "cpuMs": None,
+        }
+
+    def valores(nombre: str) -> List[float]:
+        return [v for v in (_numero(hilo, nombre) for hilo in hilos) if v is not None]
 
     def suma(nombre: str) -> Optional[float]:
-        valores = [_numero(hilo, nombre) for hilo in hilos]
-        valores = [v for v in valores if v is not None]
-        return sum(valores) if valores else None
+        encontrados = valores(nombre)
+        return sum(encontrados) if encontrados else None
+
+    def maximo(nombre: str) -> Optional[float]:
+        encontrados = valores(nombre)
+        return max(encontrados) if encontrados else None
 
     return {
         "filasReales": suma("ActualRows"),
         "filasLeidas": suma("ActualRowsRead"),
         "ejecuciones": suma("ActualExecutions"),
         "lecturas": suma("ActualLogicalReads"),
+        "lecturasFisicas": suma("ActualPhysicalReads"),
+        # Como SSMS: el tiempo transcurrido es el del hilo que más tardó; el CPU se suma entre hilos.
+        "duracionMs": maximo("ActualElapsedms"),
+        "cpuMs": suma("ActualCPUms"),
     }
 
 
@@ -389,6 +402,7 @@ def construir_diagrama(contenido: Union[str, bytes]) -> List[Dict]:
             "id": "raiz", "padre": None, "fisica": tipo, "logica": tipo, "objeto": "", "indice": "",
             "costoPct": 0.0, "filasEstimadas": _numero(sentencia, "StatementEstRows"),
             "filasReales": None, "filasLeidas": None, "ejecuciones": None, "lecturas": None,
+            "lecturasFisicas": None, "duracionMs": None, "cpuMs": None,
             "advertencias": advertencias, "predicados": [],
         }]
         for relop in superiores:

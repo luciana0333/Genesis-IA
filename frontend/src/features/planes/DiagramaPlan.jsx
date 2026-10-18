@@ -119,6 +119,10 @@ function DetalleNodo({ nodo, posicion }) {
     ['Actual Number of Rows Read', formatearFilas(nodo.filasLeidas)],
     ['Number of Executions', formatearFilas(nodo.ejecuciones)],
     ['Actual Logical Reads', formatearFilas(nodo.lecturas)],
+    ['Actual Physical Reads', formatearFilas(nodo.lecturasFisicas)],
+    // Tiempo real del operador (plan real); como en SSMS, incluye a los operadores que lo alimentan.
+    ['Actual Elapsed Time (ms)', formatearFilas(nodo.duracionMs)],
+    ['Actual Elapsed CPU Time (ms)', formatearFilas(nodo.cpuMs)],
   ].filter(([, valor]) => valor);
   return (
     <div className="plan-detalle-flotante" style={{ left: posicion.left, top: posicion.top }} role="tooltip">

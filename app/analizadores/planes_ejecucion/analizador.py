@@ -92,6 +92,16 @@ def _objeto_operador(elemento: ET.Element) -> str:
     return ""
 
 
+def _tiempo_real(relop: ET.Element, atributo: str, combinar) -> Optional[float]:
+    """Tiempo real del operador entre todos sus hilos (max para la duración, suma para el CPU)."""
+    valores = [
+        _atributo(hijo, atributo) for hijo in _elementos_del_operador(relop)
+        if _nombre_local(hijo) == "RunTimeCountersPerThread"
+    ]
+    valores = [v for v in valores if v is not None]
+    return combinar(valores) if valores else None
+
+
 def _extraer_operadores(raiz: ET.Element) -> List[OperadorPlan]:
     operadores = []
     consulta = 0
@@ -119,6 +129,8 @@ def _extraer_operadores(raiz: ET.Element) -> List[OperadorPlan]:
                 tiene_spill=_tiene_spill(elemento),
                 tiene_conversion_implicita=_tiene_conversion_implicita(elemento),
                 consulta=max(consulta, 1),
+                duracion_ms=_tiempo_real(elemento, "ActualElapsedms", max),
+                cpu_ms=_tiempo_real(elemento, "ActualCPUms", sum),
             ))
         for hijo in elemento:
             recorrer(hijo, profundidad + (1 if _nombre_local(elemento) == "RelOp" else 0))

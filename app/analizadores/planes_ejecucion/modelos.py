@@ -19,6 +19,8 @@ class OperadorPlan:
     tiene_spill: bool
     tiene_conversion_implicita: bool
     consulta: int = 1  # orden de la sentencia (StmtSimple) dentro del plan
+    duracion_ms: Optional[float] = None  # tiempo real (el hilo que más tardó)
+    cpu_ms: Optional[float] = None  # CPU real (suma de los hilos)
 
 
 @dataclass(frozen=True)

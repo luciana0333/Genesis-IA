@@ -241,6 +241,8 @@ class GenesisHandler(SimpleHTTPRequestHandler):
                 'filasReales': operador.filas_reales,
                 'filasLeidas': operador.filas_leidas,
                 'lecturasLogicas': operador.lecturas_logicas,
+                'duracionMs': operador.duracion_ms,
+                'cpuMs': operador.cpu_ms,
                 'objeto': operador.objeto,
                 'tieneSpill': operador.tiene_spill,
                 'tieneConversionImplicita': operador.tiene_conversion_implicita,
