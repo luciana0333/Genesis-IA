@@ -2,7 +2,7 @@ import { useId, useRef, useState } from 'react';
 import { Boton } from '../../components/Boton';
 import { EncabezadoSeccion } from '../../components/EncabezadoSeccion';
 import {
-  IconoBarras, IconoEjecutar, IconoHallazgo, IconoLimpiar, IconoMemoria, IconoNegocio, IconoRejilla, IconoReporte,
+  IconoBarras, IconoComprimido, IconoEjecutar, IconoHallazgo, IconoLimpiar, IconoMemoria, IconoNegocio, IconoRejilla, IconoReporte,
   IconoSeveridadMedia,
 } from '../../components/Iconos';
 import { PanelHallazgos } from '../../components/PanelHallazgos';
@@ -11,10 +11,12 @@ import { TarjetaMetrica } from '../../components/TarjetaMetrica';
 import { formatearKb } from '../../utils/hallazgos';
 import { CapturaHallazgo } from './CapturaHallazgo';
 import { DiagramaPlan } from './DiagramaPlan';
+import { MetricasLote, NavegacionLote, ResumenLote } from './ResumenLote';
+import { ORDEN_INICIAL } from './ordenLote';
 import { TiempoEjecucion } from './TiempoEjecucion';
 import { TablaOperadores } from './TablaOperadores';
 import { useLimitesTiempo } from './useLimitesTiempo';
-import { usePlanEjecucion } from './usePlanEjecucion';
+import { EXTENSIONES_ACEPTADAS, esLote, usePlanEjecucion } from './usePlanEjecucion';
 import { useAlPedirEjemplo } from '../../hooks/useVerEjemplo';
 
 // Plan real de prueba que se analiza con "Ver ejemplo".
@@ -23,6 +25,8 @@ const PLANES_EJEMPLO = {
   reporte: 'plan-ejemplo-reportes.sqlplan',
   negocio: 'plan-ejemplo-negocio.sqlplan',
 };
+// Lote de ejemplo («Ejemplo de lote»): varios planes en carpetas dentro de un .zip.
+const LOTE_EJEMPLO = 'lote-ejemplo.zip';
 import { ZonaArchivo } from './ZonaArchivo';
 
 // Cada área revisa sus planes con sus propias reglas (por ahora solo se elige en la interfaz).
@@ -78,12 +82,23 @@ export function PlanesWorkspace() {
   const [area, setArea] = useState('reporte');
   const { limites, cambiarLimite } = useLimitesTiempo();
   const inputArchivoRef = useRef(null);
-  const { archivo, analisis, aviso, cargando, seleccionarArchivo, limpiar, analizar, analizarEjemplo } = usePlanEjecucion(area, limites[area] ?? null);
+  const {
+    archivos, analisis, lote, planElegido, elegirPlan, aviso, cargando,
+    seleccionarArchivos, quitarArchivo, limpiar, analizar, analizarEjemplo,
+  } = usePlanEjecucion(area, limites[area] ?? null);
+  const [ordenLote, setOrdenLote] = useState(ORDEN_INICIAL);
+  const hayResultado = Boolean(analisis || lote);
+  const enResumenLote = Boolean(lote) && planElegido === null;
 
-  // Cambiar el límite vuelve a revisar el plan: la regla de tiempo depende de él.
+  // Cambiar el límite vuelve a revisar el plan (o el lote): la regla de tiempo depende de él.
   const alCambiarLimite = (areaLimite, valor) => {
     cambiarLimite(areaLimite, valor);
-    if (analisis && archivo) analizar(archivo, areaLimite, valor);
+    if (hayResultado && archivos.length) analizar(archivos, areaLimite, valor);
+  };
+
+  const verPlan = (id) => {
+    elegirPlan(id);
+    workspaceRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
   };
 
   const reiniciarInput = () => {
@@ -96,9 +111,9 @@ export function PlanesWorkspace() {
     limpiar();
   };
 
-  const alQuitarArchivo = () => {
+  const alQuitarArchivo = (indice) => {
     reiniciarInput();
-    seleccionarArchivo(null);
+    quitarArchivo(indice);
   };
 
   // "Ver ejemplo" del encabezado: solo responde cuando Planes está visible.
@@ -117,18 +132,32 @@ export function PlanesWorkspace() {
     }
   });
 
+  // Ejemplo de lote: los planes de ejemplo de ambas áreas, comprimidos en un .zip.
+  const verEjemploLote = async () => {
+    try {
+      const respuesta = await fetch(`${import.meta.env.BASE_URL}ejemplos/${LOTE_EJEMPLO}`);
+      if (!respuesta.ok) throw new Error();
+      const contenido = await respuesta.blob();
+      reiniciarInput();
+      analizarEjemplo([new File([contenido], LOTE_EJEMPLO)]);
+    } catch {
+      // Sin ejemplo disponible: el usuario puede cargar sus propios planes.
+    }
+  };
+
   const estadoPanel = cargando ? 'cargando' : analisis ? 'listo' : 'inicial';
+  const variosArchivos = esLote(archivos);
 
   return (
     <section className="workspace" ref={workspaceRef}>
-      <MetricasPlan analisis={analisis} />
+      {enResumenLote ? <MetricasLote lote={lote} /> : <MetricasPlan analisis={analisis} />}
 
       <section className="panel">
         <div className="panel-header">
           <EncabezadoSeccion
             etiqueta="Paso 1 · SQL Server ShowPlanXML"
             titulo="Revisión de plan de ejecución real"
-            descripcion="Carga un plan real para detectar problemas de rendimiento con evidencia del motor."
+            descripcion="Carga un plan real, o todos los del lote, para detectar problemas de rendimiento con evidencia del motor."
           />
         </div>
 
@@ -146,7 +175,7 @@ export function PlanesWorkspace() {
                       onChange={() => {
                         setArea(opcion.id);
                         // Con un plan ya analizado, se vuelve a revisar con las reglas de la nueva área.
-                        if (analisis && archivo) analizar(archivo, opcion.id, limites[opcion.id] ?? null);
+                        if (hayResultado && archivos.length) analizar(archivos, opcion.id, limites[opcion.id] ?? null);
                       }}
                     />
                     {opcion.icono}
@@ -165,17 +194,19 @@ export function PlanesWorkspace() {
             <TarjetaEditor
               className="field-card-primary"
               numero={1}
-              etiqueta="Archivo .sqlplan"
+              etiqueta="Planes de ejecución"
               htmlFor={idArchivo}
               estado="Requerido"
-              ayuda="Exporta el plan real desde SQL Server Management Studio o Plan Explorer."
+              ayuda="Sube un plan .sqlplan, varios a la vez, una carpeta o el .zip / .rar del correo. Todos se revisan con las reglas del área elegida."
             >
               <ZonaArchivo
                 id={idArchivo}
                 inputRef={inputArchivoRef}
-                archivo={archivo}
-                accept=".sqlplan,application/xml,text/xml"
-                onSeleccionar={seleccionarArchivo}
+                archivos={archivos}
+                accept={EXTENSIONES_ACEPTADAS.join(',')}
+                multiple
+                pista="Planes .sqlplan o comprimidos .zip / .rar · máximo 25 MB por plan"
+                onSeleccionar={seleccionarArchivos}
                 onQuitar={alQuitarArchivo}
               />
             </TarjetaEditor>
@@ -191,8 +222,13 @@ export function PlanesWorkspace() {
                 {(REVISIONES_PLAN[area] ?? REVISIONES_PLAN.negocio).map((revision) => <li key={revision}>{revision}</li>)}
               </ul>
               <div className="btn-group plan-actions">
-                <Boton icono={<IconoEjecutar />} cargando={cargando} onClick={analizar}>Analizar plan</Boton>
+                <Boton icono={<IconoEjecutar />} cargando={cargando} onClick={() => analizar()}>
+                  {variosArchivos ? 'Analizar planes' : 'Analizar plan'}
+                </Boton>
                 <Boton variante="secundario" icono={<IconoLimpiar />} onClick={alLimpiar}>Limpiar</Boton>
+                <Boton variante="fantasma" icono={<IconoComprimido />} onClick={verEjemploLote} disabled={cargando}>
+                  Ejemplo de lote
+                </Boton>
               </div>
               <p className={`status-line tono-${aviso.tono}`} role="status">{aviso.texto}</p>
             </TarjetaEditor>
@@ -200,6 +236,18 @@ export function PlanesWorkspace() {
         </div>
 
         <div className="panel-footer">
+          {enResumenLote && (
+            <ResumenLote lote={lote} orden={ordenLote} onOrdenar={setOrdenLote} onVerPlan={verPlan} />
+          )}
+          {lote && !enResumenLote && (
+            <NavegacionLote
+              lote={lote}
+              orden={ordenLote}
+              planElegido={planElegido}
+              onVerPlan={verPlan}
+              onVolver={() => elegirPlan(null)}
+            />
+          )}
           {/* El tiempo de ejecución va primero: es lo primero que se mira antes de las observaciones. */}
           {analisis?.diagrama?.length > 0 && (
             <section className="tiempo-seccion">
@@ -216,27 +264,29 @@ export function PlanesWorkspace() {
               />
             </section>
           )}
-          <PanelHallazgos
-            titulo="Hallazgos del plan"
-            meta={analisis?.archivo}
-            estado={estadoPanel}
-            hallazgos={analisis?.hallazgos}
-            mostrarLinea={false}
-            accionesHallazgo={(hallazgo) => (
-              <CapturaHallazgo hallazgo={hallazgo} sentencias={analisis?.diagrama} archivo={analisis?.archivo} />
-            )}
-            textos={{
-              inicialTitulo: 'Listo para analizar tu plan',
-              pasos: [
-                'Selecciona o arrastra tu archivo .sqlplan',
-                'Presiona «Analizar plan»',
-                'Revisa cada hallazgo y cómo corregirlo',
-              ],
-              cargando: 'Analizando el plan real...',
-              sinHallazgos: 'El plan terminó sin hallazgos según las reglas activas.',
-              tituloError: 'No se pudo analizar el plan',
-            }}
-          />
+          {!enResumenLote && (
+            <PanelHallazgos
+              titulo="Hallazgos del plan"
+              meta={analisis?.archivo}
+              estado={estadoPanel}
+              hallazgos={analisis?.hallazgos}
+              mostrarLinea={false}
+              accionesHallazgo={(hallazgo) => (
+                <CapturaHallazgo hallazgo={hallazgo} sentencias={analisis?.diagrama} archivo={analisis?.archivo} />
+              )}
+              textos={{
+                inicialTitulo: 'Listo para analizar tu plan',
+                pasos: [
+                  'Selecciona o arrastra tu plan .sqlplan, varios planes o un .zip / .rar',
+                  'Presiona «Analizar plan»',
+                  'Revisa cada hallazgo y cómo corregirlo',
+                ],
+                cargando: 'Analizando el plan real...',
+                sinHallazgos: 'El plan terminó sin hallazgos según las reglas activas.',
+                tituloError: 'No se pudo analizar el plan',
+              }}
+            />
+          )}
           {analisis?.diagrama?.length > 0 && <DiagramaPlan sentencias={analisis.diagrama} />}
           {analisis && <TablaOperadores operadores={analisis.operadores} />}
         </div>

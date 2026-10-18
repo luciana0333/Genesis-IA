@@ -58,6 +58,7 @@ Abrir http://localhost:5173 (recarga en caliente; `/api` se redirige al puerto 8
 | GET    | `/api/health`        | Estado del servidor                                |
 | POST   | `/api/analizar`      | Revisa un objeto SQL (JSON)                        |
 | POST   | `/api/analizar-plan` | Analiza un plan `.sqlplan` (multipart, máx. 25 MB) |
+| POST   | `/api/analizar-planes` | Lote: varios planes, `.zip` o `.rar` (multipart, máx. 200 MB) |
 
 ## Pruebas
 

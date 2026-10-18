@@ -1009,3 +1009,223 @@
   color: #8a8a96;
   font-size: 0.74rem;
 }
+
+/* ───────── SELECCIÓN DE VARIOS ARCHIVOS ───────── */
+.file-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.file-resumen {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.file-ver-todos {
+  padding: 4px 0;
+  border: none;
+  background: none;
+  color: var(--red-main);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.file-ver-todos:hover { text-decoration: underline; }
+
+/* ───────── REVISIÓN POR LOTE ───────── */
+.lote-seccion {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.lote-tabla th:has(.lote-orden) { padding: 0; }
+
+.lote-orden {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.lote-tabla th.num .lote-orden { justify-content: flex-end; }
+.lote-orden:hover { color: var(--text-primary); }
+.lote-orden.activa { color: var(--red-main); }
+.lote-orden-flecha { font-size: 0.6rem; opacity: 0.7; }
+
+.lote-tabla td { vertical-align: middle; }
+
+.lote-procedimiento {
+  display: block;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.lote-ruta {
+  display: block;
+  max-width: 420px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lote-error {
+  display: block;
+  margin-top: 4px;
+  color: var(--sev-critico-text);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.lote-fila--supera td:first-child { box-shadow: inset 3px 0 0 var(--red-main); }
+.lote-tiempo--supera { color: var(--red-main) !important; font-weight: 700; }
+
+.lote-estado {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.lote-estado--supera { background: var(--red-main); color: #fff; }
+.lote-estado--ok { background: var(--sev-bajo-bg); color: var(--sev-bajo-text); }
+.lote-estado--error { background: var(--sev-critico-bg); color: var(--sev-critico-text); }
+
+.lote-pildoras { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+
+.lote-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 7px;
+  border-left: 3px solid var(--sev);
+  border-radius: var(--radius-sm);
+  background: var(--sev-bg);
+  color: var(--sev-text);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.lote-pill.sev-critico { --sev: var(--sev-critico); --sev-bg: var(--sev-critico-bg); --sev-text: var(--sev-critico-text); }
+.lote-pill.sev-alto { --sev: var(--sev-alto); --sev-bg: var(--sev-alto-bg); --sev-text: var(--sev-alto-text); }
+.lote-pill.sev-medio { --sev: var(--sev-medio); --sev-bg: var(--sev-medio-bg); --sev-text: var(--sev-medio-text); }
+.lote-pill.sev-bajo { --sev: var(--sev-bajo); --sev-bg: var(--sev-bajo-bg); --sev-text: var(--sev-bajo-text); }
+
+.lote-limpio {
+  color: var(--sev-bajo-text);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.lote-accion { text-align: right; white-space: nowrap; }
+
+.lote-ver {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.lote-ver svg { width: 14px; height: 14px; }
+.lote-ver:hover { border-color: var(--red-main); background: var(--red-main); color: #fff; }
+
+.lote-ignorados {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+
+.lote-ignorados summary {
+  padding: 10px 14px;
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.lote-ignorados ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 4px 14px 14px;
+  list-style: none;
+}
+
+.lote-ignorados li { display: flex; flex-direction: column; gap: 2px; }
+.lote-ignorados .lote-ruta { color: var(--text-primary); font-family: var(--font-mono); max-width: none; white-space: normal; overflow-wrap: anywhere; }
+.lote-motivo { color: var(--text-muted); font-size: 0.74rem; }
+
+.lote-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--red-main);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+
+.lote-nav-actual {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 180px;
+}
+
+.lote-nav-posicion {
+  color: var(--text-muted);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}

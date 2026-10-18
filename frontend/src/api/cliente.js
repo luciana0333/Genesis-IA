@@ -72,3 +72,20 @@ export function analizarPlan(archivo, { signal, area, limite } = {}) {
     'No se pudo analizar el plan.',
   );
 }
+
+/**
+ * POST /api/analizar-planes — revisión por lote: varios .sqlplan, .zip o .rar
+ * (multipart). Cada plan vuelve con su análisis completo, igual que uno suelto.
+ */
+export function analizarPlanes(archivos, { signal, area, limite } = {}) {
+  const formulario = new FormData();
+  // La ruta dentro de una carpeta arrastrada se conserva para ubicar cada plan.
+  archivos.forEach((archivo) => formulario.append('planes', archivo, archivo.rutaRelativa || archivo.name));
+  if (area) formulario.append('area', area);
+  if (limite != null) formulario.append('limite', String(limite));
+  return solicitar(
+    '/api/analizar-planes',
+    { method: 'POST', body: formulario, signal },
+    'No se pudieron analizar los planes.',
+  );
+}
