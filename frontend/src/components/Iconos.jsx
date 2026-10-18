@@ -6,6 +6,13 @@
  */
 import {
   ArrowDown,
+  ArrowLeft,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  FolderArchive,
+  Timer,
   ChartColumn,
   Check,
   CircleCheck,
@@ -67,6 +74,13 @@ export const IconoReporte = crearIcono(ChartColumn);
 export const IconoCopiar = crearIcono(Copy);
 export const IconoCopiado = crearIcono(Check);
 export const IconoAgregar = crearIcono(Plus);
+export const IconoAnterior = crearIcono(ChevronLeft);
+export const IconoSiguiente = crearIcono(ChevronRight);
+export const IconoVolver = crearIcono(ArrowLeft);
+export const IconoComprimido = crearIcono(FolderArchive);
+export const IconoReloj = crearIcono(Timer);
+export const IconoAumentar = crearIcono(ChevronUp);
+export const IconoDisminuir = crearIcono(ChevronDown);
 
 // Estados
 export const IconoEscudoCheck = crearIcono(ShieldCheck);

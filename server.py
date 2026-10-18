@@ -16,14 +16,32 @@ from app.analizadores.analizador_reportes import verificar_reporte
 from app.analizadores.analizador_procedimientos_normales import verificar_procedimiento_normal
 from app.analizadores.deteccion_objeto import detectar_objeto
 from app.analizadores.diccionario_generador import diccionario_faltante_procedimiento, diccionario_faltante_tabla
+from app.analizadores.planes_ejecucion.servicio import analizar_plan_completo
 from app.analizadores import ortografia
-from app.analizadores.planes_ejecucion import (
-    analizar_plan_ejecucion, analizar_plan_negocio, analizar_plan_reporte, construir_diagrama,
-)
+from app.analizadores.planes_ejecucion.lote import analizar_lote
 
 
 # Compilación de producción del frontend React (cd frontend && npm run build).
 DIRECTORIO_FRONTEND = Path(__file__).resolve().parent / 'frontend' / 'dist'
+
+
+def _campo_formulario(formulario, nombre: str):
+    """Texto de un campo simple del formulario multipart (o None si no viene)."""
+    parte = next(
+        (p for p in formulario.iter_parts() if p.get_param('name', header='content-disposition') == nombre),
+        None,
+    )
+    return parte.get_content().strip() if parte is not None else None
+
+
+def _area_y_limite(formulario):
+    """Área elegida en la pantalla (reporte | negocio) y su límite de tiempo en segundos."""
+    area = _campo_formulario(formulario, 'area') or 'negocio'
+    try:
+        limite = float(_campo_formulario(formulario, 'limite'))
+    except (TypeError, ValueError):
+        limite = None
+    return area, limite
 
 
 class GenesisHandler(SimpleHTTPRequestHandler):
@@ -55,6 +73,9 @@ class GenesisHandler(SimpleHTTPRequestHandler):
         parsed = urlsplit(self.path)
         if parsed.path == '/api/analizar-plan':
             self._analizar_plan()
+            return
+        if parsed.path == '/api/analizar-planes':
+            self._analizar_planes()
             return
         if parsed.path != '/api/analizar':
             self.send_error(404, 'Ruta no encontrada')
@@ -186,27 +207,9 @@ class GenesisHandler(SimpleHTTPRequestHandler):
                 return
 
             contenido = parte_plan.get_payload(decode=True) or b''
-            # Área elegida en la pantalla: cada una revisa el plan con sus propias reglas.
-            parte_area = next(
-                (parte for parte in formulario.iter_parts() if parte.get_param('name', header='content-disposition') == 'area'),
-                None,
-            )
-            area = (parte_area.get_content().strip() if parte_area is not None else '') or 'negocio'
-            hallazgos, operadores, memoria = analizar_plan_ejecucion(contenido)
-            diagrama = construir_diagrama(contenido)
-            # Límite de tiempo del área (segundos), escrito en la tarjeta del velocímetro.
-            parte_limite = next(
-                (parte for parte in formulario.iter_parts() if parte.get_param('name', header='content-disposition') == 'limite'),
-                None,
-            )
-            try:
-                limite = float(parte_limite.get_content().strip()) if parte_limite is not None else None
-            except ValueError:
-                limite = None
-            if area == 'reporte':
-                hallazgos = analizar_plan_reporte(diagrama, limite)
-            elif area == 'negocio':
-                hallazgos = analizar_plan_negocio(diagrama, limite)
+            area, limite = _area_y_limite(formulario)
+            # Mismo análisis que cada plan de un lote (app/analizadores/planes_ejecucion/servicio.py).
+            resultado = analizar_plan_completo(nombre, contenido, area, limite)
         except ET.ParseError:
             self._send_json({'error': 'El archivo no contiene un plan XML válido de SQL Server.'}, status=400)
             return
@@ -216,52 +219,53 @@ class GenesisHandler(SimpleHTTPRequestHandler):
         except Exception as exc:  # pragma: no cover - red de seguridad del endpoint HTTP
             self._send_json({'error': f'Error interno al analizar el plan: {exc}'}, status=500)
             return
+        self._send_json(resultado)
 
-        resumen = {severidad: 0 for severidad in ('critico', 'alto', 'medio', 'bajo')}
-        hallazgos_serializados = []
-        for hallazgo in hallazgos:
-            severidad = hallazgo.severidad.value.lower()
-            resumen[severidad] += 1
-            hallazgos_serializados.append({
-                'linea': hallazgo.linea,
-                'origen': hallazgo.origen.value,
-                'severidad': severidad,
-                'regla': hallazgo.regla,
-                'mensaje': hallazgo.mensaje,
-                'nodos': getattr(hallazgo, 'nodos', []),
-                'codigo': getattr(hallazgo, 'codigo', None),
-            })
+    def _analizar_planes(self):
+        """Revisión por lote: varios .sqlplan, .zip o .rar en una sola subida (campo «planes»)."""
+        limite_bytes = 200 * 1024 * 1024
+        try:
+            longitud = int(self.headers.get('Content-Length', '0'))
+            if longitud <= 0 or longitud > limite_bytes:
+                self._send_json({'error': 'Los archivos deben sumar entre 1 byte y 200 MB.'}, status=400)
+                return
 
-        operadores_serializados = [
-            {
-                'nodoId': operador.nodo_id,
-                'operacionFisica': operador.operacion_fisica,
-                'operacionLogica': operador.operacion_logica,
-                'estimacionFilas': operador.estimacion_filas,
-                'filasReales': operador.filas_reales,
-                'filasLeidas': operador.filas_leidas,
-                'lecturasLogicas': operador.lecturas_logicas,
-                'duracionMs': operador.duracion_ms,
-                'cpuMs': operador.cpu_ms,
-                'objeto': operador.objeto,
-                'tieneSpill': operador.tiene_spill,
-                'tieneConversionImplicita': operador.tiene_conversion_implicita,
-            }
-            for operador in operadores
-        ]
-        memoria_serializada = None if memoria is None else {
-            'solicitadaKb': memoria.memoria_solicitada_kb,
-            'concedidaKb': memoria.memoria_concedida_kb,
-            'maximaUtilizadaKb': memoria.memoria_maxima_utilizada_kb,
-        }
-        self._send_json({
-            'archivo': nombre,
-            'resumen': resumen,
-            'hallazgos': hallazgos_serializados,
-            'operadores': operadores_serializados,
-            'memoria': memoria_serializada,
-            'diagrama': diagrama,
-        })
+            tipo_contenido = self.headers.get_content_type()
+            frontera = self.headers.get_boundary()
+            if tipo_contenido != 'multipart/form-data' or not frontera:
+                self._send_json({'error': 'La solicitud debe ser multipart/form-data.'}, status=400)
+                return
+
+            cuerpo = self.rfile.read(longitud)
+            encabezado = (
+                f'Content-Type: multipart/form-data; boundary={frontera}\r\n'
+                'MIME-Version: 1.0\r\n\r\n'
+            ).encode('utf-8')
+            formulario = BytesParser(policy=default).parsebytes(encabezado + cuerpo)
+            archivos = [
+                (parte.get_filename(), parte.get_payload(decode=True) or b'')
+                for parte in formulario.iter_parts()
+                if parte.get_content_disposition() == 'form-data' and parte.get_filename()
+            ]
+            if not archivos:
+                self._send_json({'error': 'Debes seleccionar al menos un plan, .zip o .rar.'}, status=400)
+                return
+
+            area, limite = _area_y_limite(formulario)
+            resultado = analizar_lote(archivos, area, limite)
+        except (TypeError, ValueError) as exc:
+            self._send_json({'error': f'No se pudieron leer los archivos: {exc}'}, status=400)
+            return
+        except Exception as exc:  # pragma: no cover - red de seguridad del endpoint HTTP
+            self._send_json({'error': f'Error interno al analizar los planes: {exc}'}, status=500)
+            return
+        if not resultado['planes']:
+            self._send_json({
+                'error': 'No se encontró ningún plan de ejecución en lo que subiste.',
+                'ignorados': resultado['ignorados'],
+            }, status=400)
+            return
+        self._send_json(resultado)
 
     def _send_json(self, payload, status=200):
         body = json.dumps(payload).encode('utf-8')

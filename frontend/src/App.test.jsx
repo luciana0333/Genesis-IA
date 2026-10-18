@@ -335,17 +335,99 @@ describe('App', () => {
 });
 
 describe('Planes', () => {
-  it('rechaza archivos sin extensión .sqlplan', async () => {
+  it('deja fuera los archivos que no son planes ni comprimidos', async () => {
     const usuario = userEvent.setup({ applyAccept: false });
     const fetchMock = vi.spyOn(globalThis, 'fetch');
     render(<App />);
     await irA('planes');
 
-    await usuario.upload(screen.getByLabelText('Archivo .sqlplan'), new File(['<x/>'], 'plan.xml', { type: 'text/xml' }));
+    await usuario.upload(screen.getByLabelText('Planes de ejecución'), new File(['hola'], 'nota.txt', { type: 'text/plain' }));
+    expect(screen.getByText(/Se dejaron fuera 1 archivo: solo se aceptan/)).toBeInTheDocument();
     await usuario.click(screen.getByRole('button', { name: 'Analizar plan' }));
 
-    expect(screen.getByText('El archivo debe tener extensión .sqlplan.')).toBeInTheDocument();
+    expect(screen.getByText('Selecciona un plan .sqlplan, varios planes o un .zip / .rar.')).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('revisa varios planes por lote y abre el detalle de cada uno', async () => {
+    const usuario = userEvent.setup();
+    const analisis = (archivo, regla) => ({
+      archivo,
+      resumen: { critico: 0, alto: 1, medio: 0, bajo: 0 },
+      hallazgos: [{ linea: 1, origen: 'plan_ejecucion', severidad: 'alto', regla, mensaje: 'Detalle.' }],
+      operadores: [{ nodoId: '1' }],
+      memoria: null,
+      diagrama: [],
+    });
+    const fetchMock = mockRespuesta({
+      area: 'reporte',
+      limite: 2,
+      planes: [
+        { id: 0, archivo: 'rapido.sqlplan', ruta: 'Planes.zip › rapido.sqlplan', procedimiento: 'dbo.PA_Rapido', duracionMs: 300, superaLimite: false, resumen: { critico: 0, alto: 1, medio: 0, bajo: 0 }, totalHallazgos: 1, analisis: analisis('rapido.sqlplan', 'SPILL_TEMPDB') },
+        { id: 1, archivo: 'lento.sqlplan', ruta: 'Planes.zip › lento.sqlplan', procedimiento: 'dbo.PA_Lento', duracionMs: 5400, superaLimite: true, resumen: { critico: 0, alto: 1, medio: 0, bajo: 0 }, totalHallazgos: 1, analisis: analisis('lento.sqlplan', 'TABLE_SCAN') },
+        { id: 2, archivo: 'roto.sqlplan', ruta: 'roto.sqlplan', procedimiento: 'roto', error: 'El plan está incompleto o dañado y no se pudo leer.' },
+      ],
+      ignorados: [{ ruta: 'Planes.zip › leeme.txt', motivo: 'No es un plan de ejecución (ShowPlanXML).' }],
+      totales: { planes: 2, conError: 1, superanLimite: 1, hallazgos: 2, sinHallazgos: 0, porSeveridad: { critico: 0, alto: 2, medio: 0, bajo: 0 } },
+    });
+    render(<App />);
+    await irA('planes');
+
+    await usuario.upload(screen.getByLabelText('Planes de ejecución'), [
+      new File(['<x/>'], 'uno.sqlplan'), new File(['<y/>'], 'dos.sqlplan'),
+    ]);
+    await usuario.click(screen.getByRole('button', { name: 'Analizar planes' }));
+
+    expect(await screen.findByRole('heading', { name: 'Planes del lote' })).toBeInTheDocument();
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/analizar-planes');
+    expect(fetchMock.mock.calls[0][1].body.getAll('planes')).toHaveLength(2);
+    const filas = screen.getAllByRole('row').slice(1);
+    // El más lento primero; el dañado al final.
+    expect(within(filas[0]).getByText('dbo.PA_Lento')).toBeInTheDocument();
+    expect(within(filas[0]).getByText('Supera el límite')).toBeInTheDocument();
+    expect(within(filas[2]).getByText('El plan está incompleto o dañado y no se pudo leer.')).toBeInTheDocument();
+    expect(screen.getByText('1 archivo no se revisó')).toBeInTheDocument();
+    const superan = screen.getByText('Superan el límite').closest('.metric-card');
+    expect(within(superan).getByText('1')).toBeInTheDocument();
+
+    await usuario.click(within(filas[0]).getByRole('button', { name: 'Ver detalle' }));
+    expect(await screen.findByRole('heading', { name: 'Table Scan' })).toBeInTheDocument();
+    expect(screen.getByText('Plan 1 de 2')).toBeInTheDocument();
+
+    await usuario.click(screen.getByRole('button', { name: 'Siguiente' }));
+    expect(await screen.findByRole('heading', { name: 'Spill hacia TempDB' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
+
+    await usuario.click(screen.getByRole('button', { name: 'Volver al resumen' }));
+    expect(screen.getByRole('heading', { name: 'Planes del lote' })).toBeInTheDocument();
+  });
+
+  it('fija el límite de tiempo en el Paso 1 y lo envía con el análisis', async () => {
+    const usuario = userEvent.setup();
+    const fetchMock = mockRespuesta({
+      archivo: 'prueba.sqlplan',
+      resumen: { critico: 0, alto: 0, medio: 0, bajo: 0 },
+      hallazgos: [],
+      operadores: [],
+      memoria: null,
+      diagrama: [{ numero: 1, duracionMs: 5000, cpuMs: 100, nodos: [] }],
+    });
+    render(<App />);
+    await irA('planes');
+
+    // 1 min 30 s = 90 s (los segundos de más se pasan a minutos: 0 min 90 s también vale).
+    await usuario.type(screen.getByLabelText('Minutos del límite de Reportes'), '1');
+    await usuario.type(screen.getByLabelText('Segundos del límite de Reportes'), '30{Enter}');
+    await usuario.upload(screen.getByLabelText('Planes de ejecución'), new File(['<x/>'], 'prueba.sqlplan'));
+    await usuario.click(screen.getByRole('button', { name: 'Analizar plan' }));
+
+    expect(await screen.findByText('Análisis completado.')).toBeInTheDocument();
+    expect(fetchMock.mock.calls[0][1].body.get('limite')).toBe('90');
+    // En el detalle, el límite solo se muestra.
+    const tarjeta = screen.getByRole('region', { name: 'Tiempo de ejecución' });
+    expect(within(tarjeta).getByText('1 min 30 s')).toBeInTheDocument();
+    expect(within(tarjeta).queryByRole('textbox')).not.toBeInTheDocument();
+    expect(within(tarjeta).queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('analiza un plan y muestra métricas y hallazgos', async () => {
@@ -360,7 +442,7 @@ describe('Planes', () => {
     render(<App />);
     await irA('planes');
 
-    await usuario.upload(screen.getByLabelText('Archivo .sqlplan'), new File(['<x/>'], 'prueba.sqlplan'));
+    await usuario.upload(screen.getByLabelText('Planes de ejecución'), new File(['<x/>'], 'prueba.sqlplan'));
     await usuario.click(screen.getByRole('button', { name: 'Analizar plan' }));
 
     expect(await screen.findByRole('heading', { name: 'Spill hacia TempDB' })).toBeInTheDocument();

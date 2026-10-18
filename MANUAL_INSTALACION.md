@@ -86,9 +86,10 @@ Cuando aparezca **«Servidor Genesis corriendo en http://localhost:8000»**, abr
 
 ### Prueba rápida
 
-1. Entra a **Planes**, deja el área en **Reportes** y pulsa **«Ver ejemplo»**: deben salir sus observaciones (escribe un límite, por ejemplo 40 s, para ver la de tiempo).
+1. Entra a **Planes**, deja el área en **Reportes** y pulsa **«Ver ejemplo»**: deben salir sus observaciones (escribe en el Paso 1 un límite, por ejemplo 0 min 40 s, para ver la de tiempo).
 2. Cambia el área a **Negocio** y pulsa **«Ver ejemplo»**: deben salir sus observaciones.
-3. Carga uno de tus planes reales (`.sqlplan`) y compáralo con Plan Explorer.
+3. Pulsa **«Ejemplo de lote»**: debe salir el resumen con 3 planes (el más lento primero) y «1 archivo no se revisó».
+4. Carga uno de tus planes reales (`.sqlplan`) y compáralo con Plan Explorer.
 
 ---
 
@@ -142,18 +143,40 @@ git pull
 | `pip` dice que no tiene permisos | Agrega `--user`: `python -m pip install --user -r requirements.txt` |
 | El navegador muestra la página en blanco o sin estilos | Falta la pantalla compilada: revisa que exista `frontend\dist\index.html`. Si no está, haz `git pull`. |
 | «El puerto 8000 está en uso» | Otro programa lo ocupa. Usa otro puerto: en cmd `set GENESIS_PUERTO=8080` (en PowerShell `$env:GENESIS_PUERTO="8080"`) y luego `python server.py`; abre http://localhost:8080. |
+| Un `.rar` sale como «No se pudo abrir el .rar» | Ábrelo con clic derecho → **«Extraer todo»** (o con WinRAR / 7-Zip) y sube los planes o la carpeta extraída. |
 | La revisión de diccionarios marca como error una palabra correcta del negocio | Agrégala a `app/reglas/vocabulario_tecnico.txt` (una por línea). |
 | Una descripción sugerida sale vacía («Completar») o con una abreviatura sin traducir | Agrega la abreviatura o la palabra del negocio en `app/reglas/glosario_diccionario.txt` (por ejemplo `cta = cuenta`) y reinicia el servidor. |
 
 ---
 
-## 8. Límites de tiempo de los planes
+## 8. Revisar varios planes a la vez (lote)
 
-El límite de cada área (Reportes y Negocio) se escribe en la tarjeta **«Tiempo de ejecución»** y se guarda **en el navegador de esa computadora**. En una computadora nueva hay que escribirlo otra vez.
+En **Planes** puedes subir, de una sola vez:
+
+- varios `.sqlplan` (en la ventana para elegir archivos, márcalos con Ctrl + clic o todos con Ctrl + A),
+- una carpeta completa (arrástrala a la zona de archivos),
+- el `.zip` o `.rar` tal como llegó en el correo (aunque traiga carpetas adentro).
+
+Antes de pulsar **«Analizar planes»**, elige el área (**Reportes** o **Negocio**) y su **límite de tiempo**: todo el lote se revisa con las reglas y el límite de esa área. Si un correo trae planes de las dos áreas, súbelos en dos tandas.
+
+- Genesis reconoce los planes por su contenido; los archivos que no son planes, los repetidos y los dañados se listan en **«archivos no se revisaron»** con el motivo, sin detener a los demás.
+- El resumen muestra el procedimiento, el tiempo total de cada plan (en rojo si supera el límite) y sus hallazgos por severidad. **«Ver detalle»** abre el plan completo (diagrama, observaciones, «Copiar imagen»), y **Anterior / Siguiente** pasa al otro sin volver a subir nada.
+- **«Copiar resumen»** copia la tabla para pegarla en Word o en el correo.
+- Si subes un solo `.sqlplan`, la revisión es la de siempre.
+- Límites: hasta 60 planes por lote, 25 MB por plan y 200 MB en total.
+- Los `.rar` se abren con la herramienta que ya trae Windows 10/11; no hace falta instalar nada.
 
 ---
 
-## 9. Solo para quien modifica Genesis (no hace falta para usarlo)
+## 9. Límites de tiempo de los planes
+
+El límite de cada área (Reportes y Negocio) se fija en el **Paso 1**, en el campo **«Límite de tiempo»** junto al área (minutos y segundos; si pones más de 59 segundos se pasan solos a minutos), **antes de analizar**; vale para un plan suelto o para todo el lote. En el detalle de cada plan, la tarjeta **«Tiempo de ejecución»** solo lo muestra. Si lo cambias con un resultado en pantalla, se vuelve a revisar solo.
+
+Se guarda **en el navegador de esa computadora**: en una computadora nueva hay que escribirlo otra vez.
+
+---
+
+## 10. Solo para quien modifica Genesis (no hace falta para usarlo)
 
 Para cambiar la pantalla se necesita además **Node.js 20 LTS** (https://nodejs.org) y una red que permita `npm install`.
 Después de cada cambio en `frontend/src` hay que volver a compilar y subir también la carpeta `frontend/dist`:
