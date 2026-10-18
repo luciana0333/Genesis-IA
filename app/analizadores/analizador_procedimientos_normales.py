@@ -1149,6 +1149,75 @@ def _validar_tabla_repetida(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _fin_de_sentencia(limpio: str, inicio: int) -> int:
+    """Donde termina la sentencia que empieza en `inicio`: ';', la siguiente instrucción o un SELECT
+    al inicio de línea fuera de paréntesis (el SET de un UPDATE sigue siendo parte de él)."""
+    profundidad = 0
+    for indice in range(inicio, len(limpio)):
+        caracter = limpio[indice]
+        if caracter == "(":
+            profundidad += 1
+        elif caracter == ")":
+            profundidad = max(profundidad - 1, 0)
+        elif profundidad == 0 and caracter == ";":
+            return indice
+        elif profundidad == 0 and caracter == "\n":
+            siguiente = re.match(
+                r"\n\s*(INSERT|UPDATE|DELETE|DECLARE|IF|ELSE|END|BEGIN|RETURN|CREATE|DROP|TRUNCATE|EXEC|"
+                r"EXECUTE|WHILE|MERGE|WITH|SELECT|GO|PRINT|THROW|RAISERROR|COMMIT|ROLLBACK)\b",
+                limpio[indice:], re.IGNORECASE,
+            )
+            if siguiente:
+                return indice
+    return len(limpio)
+
+
+def _a_nivel_cero(sentencia: str, patron: str) -> bool:
+    """El patrón aparece fuera de paréntesis (no en una subconsulta)."""
+    for match in re.finditer(patron, sentencia, re.IGNORECASE):
+        if sentencia.count("(", 0, match.start()) == sentencia.count(")", 0, match.start()):
+            return True
+    return False
+
+
+def _validar_modificacion_sin_where(texto: str, limpio: str) -> List[Hallazgo]:
+    """
+    UPDATE o DELETE sobre una tabla física sin WHERE: afecta toda la tabla. No se marcan las
+    temporales ni las variables de tabla, ni la sentencia con JOIN (el JOIN ya limita las filas).
+    """
+    hallazgos = []
+    ctes = {n.lower() for n in re.findall(r"(?:\bWITH|,)\s*([A-Za-z_]\w*)\s*(?:\([^)]*\))?\s+AS\s*\(", limpio, re.IGNORECASE)}
+    patron = re.compile(
+        rf"\b(UPDATE|DELETE)\s+(?:TOP\s*\([^)]*\)\s*)?(?:FROM\s+)?({_REFERENCIA})", re.IGNORECASE,
+    )
+    for match in patron.finditer(limpio):
+        accion = match.group(1).upper()
+        objetivo = _limpiar_nombre(match.group(2))
+        # UPDATE STATISTICS, y el UPDATE SET / DELETE de un MERGE (WHEN MATCHED THEN UPDATE SET ...).
+        if objetivo.upper() in {"STATISTICS", "SET"} or re.search(r"\bTHEN\s*$", limpio[:match.start()], re.IGNORECASE):
+            continue
+        sentencia = limpio[match.start():_fin_de_sentencia(limpio, match.end())]
+        if _a_nivel_cero(sentencia, r"\bWHERE\b") or _a_nivel_cero(sentencia, r"\bJOIN\b|\bAPPLY\b"):
+            continue
+        tabla = objetivo
+        if "." not in objetivo and not _es_temporal(objetivo):
+            # UPDATE c SET ... FROM dbo.Cliente c / DELETE c FROM dbo.Cliente c: el alias se resuelve en el FROM.
+            origen = re.search(
+                rf"\bFROM\s+({_REFERENCIA})\s+(?:AS\s+)?{re.escape(objetivo)}\b", sentencia, re.IGNORECASE)
+            if origen:
+                tabla = _limpiar_nombre(origen.group(1))
+        if _es_temporal(tabla) or tabla.lower() in ctes:
+            continue
+        verbo, efecto = ("actualizar", "se modificarán") if accion == "UPDATE" else ("eliminar", "se eliminarán")
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "MODIFICACION_SIN_WHERE",
+            f"Se identificó un {accion} sobre la tabla {tabla} sin condición WHERE, por lo que {efecto} todos "
+            f"sus registros. Se recomienda agregar la condición WHERE que limite los registros a {verbo}, ya que "
+            f"sin ella el cambio afecta a toda la tabla.",
+        ))
+    return hallazgos
+
+
 def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -> List[Hallazgo]:
     """
     Aplica exclusivamente las reglas de procedimientos normales. Si el
@@ -1166,6 +1235,7 @@ def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -
     hallazgos.extend(_validar_indice_forzado(texto_sql, limpio))
     hallazgos.extend(_validar_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_update_from_nolock(texto_sql, limpio))
+    hallazgos.extend(_validar_modificacion_sin_where(texto_sql, limpio))
     hallazgos.extend(_validar_nolock_tablas_pesadas(texto_sql, limpio))
     hallazgos.extend(_validar_order_by_numerico(texto_sql, limpio))
     hallazgos.extend(_validar_cast_en_join(texto_sql, limpio))

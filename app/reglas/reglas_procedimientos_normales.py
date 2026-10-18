@@ -289,6 +289,17 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "MODIFICACION_SIN_WHERE": ReglaDiccionario(
+        codigo="MODIFICACION_SIN_WHERE",
+        nombre="UPDATE o DELETE sin WHERE",
+        severidad="medio",
+        descripcion=(
+            "Un UPDATE o DELETE sobre una tabla física sin WHERE (ni JOIN que limite las filas) afecta toda la "
+            "tabla. No aplica a tablas temporales ni variables de tabla."
+        ),
+        alcance="procedimiento",
+        activo=True,
+    ),
     "NOLOCK_EN_TABLA_FISICA": ReglaDiccionario(
         codigo="NOLOCK_EN_TABLA_FISICA",
         nombre="Uso incorrecto de NOLOCK en UPDATE",
