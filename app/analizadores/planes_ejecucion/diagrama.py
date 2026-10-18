@@ -83,6 +83,18 @@ def _memoria(solicitada: Optional[float], concedida: Optional[float], usada: Opt
     )
 
 
+def _memoria_de(plan: ET.Element) -> Optional[Dict[str, Optional[float]]]:
+    """MemoryGrantInfo de la consulta: memoria solicitada, concedida y máxima usada (KB)."""
+    info = next((e for e in plan if _local(e) == "MemoryGrantInfo"), None)
+    if info is None:
+        return None
+    return {
+        "solicitada": _numero(info, "RequestedMemory"),
+        "concedida": _numero(info, "GrantedMemory"),
+        "usada": _numero(info, "MaxUsedMemory"),
+    }
+
+
 def _leer_advertencias(warnings: ET.Element) -> List[Dict]:
     """El bloque <Warnings> de SQL Server con los mismos textos que muestran SSMS y Plan Explorer."""
     advertencias = []
@@ -428,6 +440,8 @@ def construir_diagrama(contenido: Union[str, bytes]) -> List[Dict]:
             "filasEstimadas": _numero(sentencia, "StatementEstRows"),
             "filasReales": _filas_reales_de(superiores),
             "parametros": _parametros(plan),
+            # Memoria de la consulta (MemoryGrantInfo), en KB: para detectar reservas desproporcionadas.
+            "memoria": _memoria_de(plan),
             "indicesFaltantes": _detalle_indices_faltantes(plan),
             "nodos": nodos,
         })

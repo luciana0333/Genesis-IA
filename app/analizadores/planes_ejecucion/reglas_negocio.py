@@ -16,6 +16,7 @@ from app.analizadores.planes_ejecucion.reglas_reporte import (
     _nombre_operador,
     _tiempo_superado,
 )
+from app.analizadores.planes_ejecucion.diagrama import _kb
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 
 
@@ -145,18 +146,40 @@ def _spill(sentencias: List[Dict]) -> List[Hallazgo]:
 
 # --- Sobreestimación de memoria ------------------------------------------------
 
+# Reserva desproporcionada aunque SQL Server no ponga la alerta: se reservaron 10 MB o más y se
+# usó el 10 % o menos (ej.: 200 MB reservados y 30 KB usados).
+MEMORIA_MINIMA_KB = 10 * 1024
+PORCENTAJE_MAXIMO_USADO = 0.10
+
+
+def _reserva_desproporcionada(memoria: Optional[Dict]) -> bool:
+    if not memoria or memoria.get("concedida") is None or memoria.get("usada") is None:
+        return False
+    return memoria["concedida"] >= MEMORIA_MINIMA_KB and memoria["usada"] <= memoria["concedida"] * PORCENTAJE_MAXIMO_USADO
+
+
 def _memoria(sentencias: List[Dict]) -> List[Hallazgo]:
-    """Sentencias con la alerta Excessive Grant del XML (memoria reservada muy por encima de la usada)."""
+    """
+    Consultas con la memoria reservada muy por encima de la usada: la alerta Excessive Grant del XML
+    o, aunque no la traiga, una reserva desproporcionada (MEMORIA_MINIMA_KB y PORCENTAJE_MAXIMO_USADO).
+    """
     varias = len({s["numero"] for s in sentencias}) > 1
-    casos = [
-        {"consulta": s["numero"], "nodo": n, "datos": a.get("datos", {})}
-        for s in sentencias
-        for n in s["nodos"]
-        if n["padre"] is None
-        for a in n["advertencias"]
+    casos = []
+    for s in sentencias:
+        raiz = next((n for n in s["nodos"] if n["padre"] is None), None)
+        if raiz is None:
+            continue
         # Solo «Excessive Grant» es sobreestimación; «Grant Increase» y «Used More Than Granted» son lo contrario.
-        if a["tipo"] == "memoria" and a.get("datos", {}).get("tipo", "Excessive Grant") == "Excessive Grant"
-    ]
+        alerta = next((a for a in raiz["advertencias"] if a["tipo"] == "memoria"
+                       and a.get("datos", {}).get("tipo", "Excessive Grant") == "Excessive Grant"), None)
+        if alerta:
+            casos.append({"consulta": s["numero"], "nodo": raiz, "datos": alerta.get("datos", {})})
+        elif _reserva_desproporcionada(s.get("memoria")):
+            memoria = s["memoria"]
+            casos.append({"consulta": s["numero"], "nodo": raiz, "datos": {
+                "solicitada": _kb(memoria.get("solicitada")), "concedida": _kb(memoria["concedida"]),
+                "usada": _kb(memoria["usada"]),
+            }})
     if not casos:
         return []
 
