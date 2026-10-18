@@ -1234,6 +1234,8 @@
 .limite-reloj {
   display: flex;
   align-items: stretch;
+  width: 100%;
+  max-width: 240px;
   height: 46px;
 }
 
