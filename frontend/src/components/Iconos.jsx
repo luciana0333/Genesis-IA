@@ -7,8 +7,10 @@
 import {
   ArrowDown,
   ArrowLeft,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   FolderArchive,
   Timer,
   ChartColumn,
@@ -77,6 +79,8 @@ export const IconoSiguiente = crearIcono(ChevronRight);
 export const IconoVolver = crearIcono(ArrowLeft);
 export const IconoComprimido = crearIcono(FolderArchive);
 export const IconoReloj = crearIcono(Timer);
+export const IconoAumentar = crearIcono(ChevronUp);
+export const IconoDisminuir = crearIcono(ChevronDown);
 
 // Estados
 export const IconoEscudoCheck = crearIcono(ShieldCheck);

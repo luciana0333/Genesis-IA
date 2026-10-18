@@ -1230,60 +1230,43 @@
   text-transform: uppercase;
 }
 
-/* ───────── LÍMITE DE TIEMPO (PASO 1): RELOJ DIGITAL ───────── */
-.limite-reloj {
+/* ───────── LÍMITE DE TIEMPO (PASO 1): CAMPO CON FLECHAS ───────── */
+.limite-campo {
   display: flex;
   align-items: stretch;
   width: 100%;
-  max-width: 240px;
+  max-width: 340px;
   height: 46px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  transition: border-color var(--dur-fast) ease;
 }
 
-.limite-reloj > button {
-  width: 38px;
-  border: 0;
-  border-radius: 0;
+.limite-campo:focus-within { border-color: var(--red-main); }
+
+.limite-icono {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
   background: var(--red-main);
   color: #ffffff;
-  font-size: 1.05rem;
-  cursor: pointer;
-  transition: background-color var(--dur-fast) ease;
 }
 
-.limite-reloj > button:hover { background: var(--red-dark); }
+.limite-icono svg { width: 18px; height: 18px; }
 
-.limite-esfera {
-  position: relative;
+.limite-valores {
   display: flex;
   flex: 1;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
-  border: 1px solid var(--border-strong);
-  border-right: 0;
-  border-left: 0;
-  background: var(--bg-card);
+  gap: 6px;
+  padding: 0 14px;
 }
 
-.limite-esfera:focus-within { border-color: var(--red-main); }
-
-.limite-icono {
-  position: absolute;
-  left: 12px;
-  width: 16px;
-  height: 16px;
-  color: var(--red-main);
-}
-
-.limite-parte {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.control-row .limite-parte input[type="text"] {
-  width: 40px;
-  height: 24px;
+.control-row .limite-valores input[type="text"] {
+  width: 30px;
+  height: 30px;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -1291,33 +1274,55 @@
   box-shadow: none;
   color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 600;
   text-align: center;
   font-variant-numeric: tabular-nums;
   outline: none;
 }
 
-.control-row .limite-parte input[type="text"]:focus {
+.control-row .limite-valores input[type="text"]:focus {
   background: var(--red-light);
   box-shadow: none;
 }
 
 .limite-unidad {
   color: var(--text-muted);
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: var(--tracking-label);
-  line-height: 1;
 }
 
-.limite-separador {
-  padding-bottom: 10px;
-  color: var(--red-main);
-  font-family: var(--font-mono);
-  font-size: 1.1rem;
-  font-weight: 600;
+.limite-divisor {
+  width: 1px;
+  height: 20px;
+  margin: 0 8px;
+  background: var(--border-strong);
 }
+
+.limite-flechas {
+  display: flex;
+  flex-direction: column;
+  width: 34px;
+  border-left: 1px solid var(--border);
+}
+
+.limite-flechas button {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.limite-flechas button + button { border-top: 1px solid var(--border); }
+.limite-flechas button svg { width: 14px; height: 14px; }
+.limite-flechas button:hover { background: var(--red-main); color: #ffffff; }
 
 /* Límite en la tarjeta del velocímetro: solo lectura. */
 .tiempo-limite-valor {
