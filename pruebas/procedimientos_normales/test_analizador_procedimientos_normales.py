@@ -507,7 +507,7 @@ END CATCH"""
             with self.subTest(sql=sql):
                 hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "NOLOCK_EN_TABLA_FISICA"]
                 self.assertEqual(len(hallazgos), 1)
-                self.assertIn(f"La tabla {tabla}, que es la que se actualiza", hallazgos[0].mensaje)
+                self.assertIn(f"WITH (NOLOCK) en la tabla {tabla}, sobre la cual se realiza una actualización", hallazgos[0].mensaje)
         for sql in ("UPDATE c SET c.a = 1 FROM dbo.Cliente c JOIN dbo.Zona z WITH(NOLOCK) ON z.n = c.n",
                     "UPDATE t SET t.a = 1 FROM #T t WITH(NOLOCK)",
                     "SELECT a FROM dbo.Cliente c WITH(NOLOCK)"):

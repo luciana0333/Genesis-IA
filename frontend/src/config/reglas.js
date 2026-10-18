@@ -78,7 +78,7 @@ export const NOMBRES_REGLAS = {
   STUFF_FOR_XML_PATH_PROHIBIDO: 'STUFF con FOR XML PATH prohibido',
   FN_SPLIT_PROHIBIDO: 'FN_SPLIT prohibido',
   LTRIM_RTRIM_PROHIBIDO: 'Uso de LTRIM y RTRIM',
-  NOLOCK_EN_TABLA_FISICA: 'NOLOCK en la tabla que se actualiza',
+  NOLOCK_EN_TABLA_FISICA: 'Uso incorrecto de NOLOCK en UPDATE',
   ORDER_BY_NUMERICO_PROHIBIDO: 'ORDER BY numérico prohibido',
   CAST_EN_JOIN_PROHIBIDO: 'CAST o CONVERT en JOIN',
   TABLA_REPETIDA_EN_CONSULTA: 'Misma tabla en varios JOIN',

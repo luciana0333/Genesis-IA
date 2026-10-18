@@ -291,7 +291,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "NOLOCK_EN_TABLA_FISICA": ReglaDiccionario(
         codigo="NOLOCK_EN_TABLA_FISICA",
-        nombre="NOLOCK en la tabla que se actualiza",
+        nombre="Uso incorrecto de NOLOCK en UPDATE",
         severidad="alto",
         descripcion="La tabla física no debe usar WITH(NOLOCK) cuando forma parte del FROM de un UPDATE o un patrón equivalente.",
         alcance="procedimiento",

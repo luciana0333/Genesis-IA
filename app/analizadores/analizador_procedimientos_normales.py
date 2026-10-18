@@ -142,14 +142,12 @@ def _nombre_declarado_antes(limpio: str, posicion: int) -> str:
 
 def _validar_control_flujo(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
-    for match in re.finditer(r"\bWHILE\b\s*([^\n]*)", limpio, re.IGNORECASE):
-        condicion = re.split(r"\bBEGIN\b", match.group(1), flags=re.IGNORECASE)[0].strip()[:60]
-        cual = f" (WHILE {condicion})" if condicion else ""
+    for match in re.finditer(r"\bWHILE\b", limpio, re.IGNORECASE):
         hallazgos.append(_hallazgo(
             texto, match.start(), "WHILE_PROHIBIDO",
-            f"Se detectó un bucle WHILE{cual} en el procedimiento. Resolverlo con una sola "
-            f"consulta que trabaje con todos los registros a la vez, ya que el WHILE procesa los registros uno "
-            f"por uno, vuelve lento el procedimiento y puede quedar en un bucle infinito.",
+            "Se identificó el uso de un bucle WHILE en el procedimiento. Se recomienda evaluar otras alternativas "
+            "que permitan procesar los registros en conjunto y evitar el uso de WHILE, ya que puede generar "
+            "bucles infinitos y afectar el rendimiento del procedimiento.",
         ))
     for match in re.finditer(r"\bGOTO\b\s*(\w*)", limpio, re.IGNORECASE):
         etiqueta = f" hacia la etiqueta {match.group(1)}" if match.group(1) else ""
@@ -330,9 +328,9 @@ def _validar_update_from_nolock(texto: str, limpio: str) -> List[Hallazgo]:
         if tabla and not _es_temporal(tabla):
             hallazgos.append(_hallazgo(
                 texto, posicion_hint, "NOLOCK_EN_TABLA_FISICA",
-                f"La tabla {tabla}, que es la que se actualiza en el UPDATE, usa WITH(NOLOCK). "
-                f"Retire el WITH(NOLOCK) de esa tabla, ya que al modificar datos no se deben leer "
-                f"datos que aún no están confirmados.",
+                f"Se identificó el uso de WITH (NOLOCK) en la tabla {tabla}, sobre la cual se realiza una "
+                f"actualización. Se recomienda retirar WITH (NOLOCK), ya que SQL Server ignora esta instrucción en "
+                f"la tabla que se actualiza y su uso no es una buena práctica.",
             ))
     return hallazgos
 
@@ -351,8 +349,9 @@ def _validar_temporales(texto: str, limpio: str) -> List[Hallazgo]:
                 texto,
                 match.start(2),
                 "NOLOCK_EN_TABLA_TEMPORAL",
-                f"Se detectó que {tipo_temporal} {nombre} usa WITH(NOLOCK). Retirar el WITH(NOLOCK) de "
-                f"{tipo_temporal}, ya que no se debe emplear en tablas temporales.",
+                f"Se identificó el uso de WITH (NOLOCK) en {tipo_temporal} {nombre}. Se recomienda retirar "
+                f"WITH (NOLOCK), ya que las tablas temporales son de uso exclusivo de la sesión que las crea, por "
+                f"lo que no requieren esta instrucción para evitar bloqueos entre sesiones.",
             ))
     return hallazgos
 
@@ -897,14 +896,59 @@ def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
 def _validar_waitfor(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     for match in re.finditer(r"\bWAITFOR\s+(DELAY|TIME)\s*('[^']*')?", limpio, re.IGNORECASE):
-        espera = f" {match.group(2)}" if match.group(2) else ""
+        tipo = match.group(1).upper()
+        valor = match.group(2) or ""
+        espera = f" {valor}" if valor else ""
+        if tipo == "DELAY" and _duracion_en_palabras(valor):
+            efecto = f"que detiene la ejecución del procedimiento durante {_duracion_en_palabras(valor)}"
+        elif tipo == "TIME" and valor:
+            efecto = f"que detiene la ejecución del procedimiento hasta las {valor.strip(chr(39))}"
+        else:
+            efecto = "que detiene la ejecución del procedimiento"
         hallazgos.append(_hallazgo(
             texto, match.start(), "WAITFOR_DELAY_PROHIBIDO",
-            f"Se identificó una pausa con WAITFOR {match.group(1).upper()}{espera}, que fuerza al motor de "
-            f"base de datos a detener la ejecución. Se recomienda retirarla, ya que no está permitido forzar al "
-            f"motor y deja el procedimiento esperando sin motivo.",
+            f"Se identificó el uso de WAITFOR {tipo}{espera}, {efecto}. Se recomienda retirar esta instrucción, "
+            f"ya que obligar al motor de base de datos a esperar innecesariamente retrasa la ejecución y "
+            f"constituye una mala práctica.",
         ))
     return hallazgos
+
+
+_NUMEROS = (
+    "cero uno dos tres cuatro cinco seis siete ocho nueve diez once doce trece catorce quince dieciséis "
+    "diecisiete dieciocho diecinueve veinte veintiuno veintidós veintitrés veinticuatro veinticinco "
+    "veintiséis veintisiete veintiocho veintinueve"
+).split()
+_DECENAS = {3: "treinta", 4: "cuarenta", 5: "cincuenta"}
+
+
+def _numero_en_palabras(numero: int, femenino: bool = False) -> str:
+    if numero < 30:
+        palabra = _NUMEROS[numero]
+    else:
+        decena, unidad = divmod(numero, 10)
+        palabra = _DECENAS.get(decena, str(numero)) + (f" y {_NUMEROS[unidad]}" if unidad else "")
+    if numero % 10 == 1 and numero != 11:
+        palabra = palabra[:-3] + ("una" if femenino else "un")  # uno -> un / una; veintiuno -> veintiún
+        palabra = palabra.replace("veintiun", "veintiún")
+    return palabra
+
+
+def _duracion_en_palabras(valor: str) -> str:
+    """'00:00:05' -> 'cinco segundos'; '00:01:30' -> 'un minuto y treinta segundos'."""
+    partes = re.fullmatch(r"'(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?(?:\.\d+)?'", valor.strip())
+    if not partes:
+        return ""
+    horas, minutos, segundos = (int(p) if p else 0 for p in partes.groups())
+    trozos = []
+    for cantidad, singular, plural, femenino in (
+        (horas, "hora", "horas", True), (minutos, "minuto", "minutos", False), (segundos, "segundo", "segundos", False),
+    ):
+        if cantidad:
+            trozos.append(f"{_numero_en_palabras(cantidad, femenino)} {singular if cantidad == 1 else plural}")
+    if not trozos:
+        return ""
+    return trozos[0] if len(trozos) == 1 else f"{', '.join(trozos[:-1])} y {trozos[-1]}"
 
 
 def _validar_raiserror(texto: str, limpio: str) -> List[Hallazgo]:
