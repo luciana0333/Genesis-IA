@@ -147,7 +147,7 @@ def _validar_control_flujo(texto: str, limpio: str) -> List[Hallazgo]:
         cual = f" (WHILE {condicion})" if condicion else ""
         hallazgos.append(_hallazgo(
             texto, match.start(), "WHILE_PROHIBIDO",
-            f"Se identificó un bucle WHILE{cual} en el procedimiento. Se recomienda resolverlo con una sola "
+            f"Se detectó un bucle WHILE{cual} en el procedimiento. Resolverlo con una sola "
             f"consulta que trabaje con todos los registros a la vez, ya que el WHILE procesa los registros uno "
             f"por uno, vuelve lento el procedimiento y puede quedar en un bucle infinito.",
         ))
@@ -163,7 +163,7 @@ def _validar_control_flujo(texto: str, limpio: str) -> List[Hallazgo]:
         tabla = f" sobre la tabla {_limpiar_nombre(match.group(1))}" if match.group(1) else ""
         hallazgos.append(_hallazgo(
             texto, match.start(), "MERGE_PROHIBIDO",
-            f"Se identificó una sentencia MERGE{tabla}. Se recomienda validar si su uso está justificado y, "
+            f"Se detectó una sentencia MERGE{tabla}. Se recomienda validar si su uso está justificado y, "
             f"de ser posible, reemplazarla por sentencias INSERT, UPDATE y DELETE separadas, ya que MERGE "
             f"tiene errores conocidos en SQL Server y dificulta controlar cada operación.",
         ))
@@ -176,8 +176,8 @@ def _validar_hints(texto: str, limpio: str) -> List[Hallazgo]:
             texto,
             match.start(),
             "HINT_PLAN_PROHIBIDO",
-            f"Se identificó el uso de '{match.group(0)}', que le indica al motor de base de datos cómo "
-            f"ejecutar la consulta. Se recomienda retirarlo, ya que no está permitido forzar al motor y es el "
+            f"Se verificó el uso de '{match.group(0)}', que le indica al motor de base de datos cómo "
+            f"ejecutar la consulta. Retirarlo, ya que no está permitido forzar al motor y es el "
             f"optimizador quien decide el mejor plan de ejecución.",
         )
         for match in re.finditer(_HINTS_PROHIBIDOS, limpio, re.IGNORECASE)
@@ -223,7 +223,7 @@ def _validar_hints_bloqueo(texto: str, limpio: str) -> List[Hallazgo]:
         hint = match.group(1).upper()
         hallazgos.append(_hallazgo(
             texto, match.start(1), "HINT_BLOQUEO_PROHIBIDO",
-            f"Se identificó el uso de '{hint}', que {_HINTS_BLOQUEO[hint]}. Se recomienda retirarlo y dejar que "
+            f"Se detectó el uso de '{hint}', que {_HINTS_BLOQUEO[hint]}. Se recomienda retirarlo y dejar que "
             f"el motor gestione los bloqueos, ya que forzarlo no está permitido por las buenas prácticas y "
             f"detiene a los demás procesos que usan la tabla.",
         ))
@@ -330,8 +330,8 @@ def _validar_update_from_nolock(texto: str, limpio: str) -> List[Hallazgo]:
         if tabla and not _es_temporal(tabla):
             hallazgos.append(_hallazgo(
                 texto, posicion_hint, "NOLOCK_EN_TABLA_FISICA",
-                f"Se identificó que la tabla {tabla}, que es la que se actualiza en el UPDATE, usa WITH(NOLOCK). "
-                f"Se recomienda retirar el WITH(NOLOCK) de esa tabla, ya que al modificar datos no se deben leer "
+                f"La tabla {tabla}, que es la que se actualiza en el UPDATE, usa WITH(NOLOCK). "
+                f"Retire el WITH(NOLOCK) de esa tabla, ya que al modificar datos no se deben leer "
                 f"datos que aún no están confirmados.",
             ))
     return hallazgos
@@ -351,7 +351,7 @@ def _validar_temporales(texto: str, limpio: str) -> List[Hallazgo]:
                 texto,
                 match.start(2),
                 "NOLOCK_EN_TABLA_TEMPORAL",
-                f"Se ha identificado que {tipo_temporal} {nombre} usa WITH(NOLOCK). Retirar el WITH(NOLOCK) de "
+                f"Se detectó que {tipo_temporal} {nombre} usa WITH(NOLOCK). Retirar el WITH(NOLOCK) de "
                 f"{tipo_temporal}, ya que no se debe emplear en tablas temporales.",
             ))
     return hallazgos
@@ -363,7 +363,7 @@ def _validar_order_by_numerico(texto: str, limpio: str) -> List[Hallazgo]:
         posiciones = ", ".join(re.findall(r"\d+", match.group(1)))
         hallazgos.append(_hallazgo(
             texto, match.start(), "ORDER_BY_NUMERICO_PROHIBIDO",
-            f"Se identificó un ORDER BY por posición de columna (ORDER BY {posiciones}). Se recomienda escribir "
+            f"Se encontró un ORDER BY por posición de columna (ORDER BY {posiciones}). Escribir "
             f"el nombre de la columna, ya que si cambia el SELECT el orden cambiaría sin notarlo "
             f"(ej.: ORDER BY cNombre).",
         ))
@@ -450,7 +450,7 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
         clausula = "del JOIN" if ultima == "ON" else f"del {ultima}"
         hallazgos.append(_hallazgo(
             texto, match.start(1), "COLLATE_EN_PREDICADO",
-            f"Se identificó un COLLATE sobre {match.group(1)} en la condición {clausula}. Se recomienda definir "
+            f"Se detectó un COLLATE sobre {match.group(1)} en la condición {clausula}. Definir "
             f"el COLLATE al crear la tabla temporal y no en la condición, ya que en el WHERE o en el JOIN impide "
             f"usar los índices y vuelve lenta la consulta.",
         ))
@@ -459,7 +459,7 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
         sobre = f" sobre la tabla {tabla}" if tabla else ""
         hallazgos.append(_hallazgo(
             texto, match.start(), "STUFF_FOR_XML_PATH_PROHIBIDO",
-            f"Se identificó una concatenación con STUFF y FOR XML PATH{sobre}. Se recomienda usar STRING_AGG, "
+            f"Se identificó una concatenación con STUFF y FOR XML PATH{sobre}. Emplear STRING_AGG, "
             f"ya que es la función nativa para concatenar valores y es más simple y rápida "
             f"(ej.: STRING_AGG(cNombre, ',')).",
         ))
@@ -468,7 +468,7 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
         sobre = f" para dividir {dato}" if dato.startswith("@") else " para dividir textos"
         hallazgos.append(_hallazgo(
             texto, match.start(), "FN_SPLIT_PROHIBIDO",
-            f"Se identificó la función dbo.FN_SPLIT{sobre}. Se recomienda usar STRING_SPLIT, ya que es la "
+            f"Se verificó el uso de la función dbo.FN_SPLIT{sobre}. Se recomienda usar STRING_SPLIT, ya que es la "
             f"función nativa de SQL Server y mejora el rendimiento (ej.: SELECT value FROM "
             f"STRING_SPLIT(@cLista, ',')).",
         ))
@@ -554,8 +554,8 @@ def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
             if tipo != tipo_anterior and tabla.lower() != tabla_anterior.lower():
                 hallazgos.append(_hallazgo(
                     texto, posicion, "TIPO_DISTINTO_ENTRE_TEMPORALES",
-                    f"Se identificó que la columna {nombre} es {tipo} en {tabla}, pero {tipo_anterior} en "
-                    f"{tabla_anterior} (línea {_linea(texto, posicion_anterior)}). Se recomienda usar el mismo tipo "
+                    f"La columna {nombre} es {tipo} en {tabla}, pero {tipo_anterior} en "
+                    f"{tabla_anterior} (línea {_linea(texto, posicion_anterior)}). Usar el mismo tipo "
                     f"y longitud en ambas, ya que al pasar los datos de una tabla a otra se pueden truncar o "
                     f"generar un error.",
                 ))
@@ -578,7 +578,7 @@ def _validar_collate_usado(texto: str, limpio: str) -> List[Hallazgo]:
         if collate.upper() == "DATABASE_DEFAULT":
             hallazgos.append(_hallazgo(
                 texto, match.start(1), "COLLATE_DATABASE_DEFAULT",
-                f"Se identificó el uso de COLLATE DATABASE_DEFAULT, que toma el COLLATE de la base donde se "
+                f"Se detectó el uso de COLLATE DATABASE_DEFAULT, que toma el COLLATE de la base donde se "
                 f"ejecuta. Se recomienda definir el COLLATE explícitamente con el que usa la empresa, ya que "
                 f"DATABASE_DEFAULT puede cambiar entre bases y servidores, y las comparaciones fallarían "
                 f"(ej.: COLLATE {_COLLATE_EMPRESA}).",
@@ -586,8 +586,8 @@ def _validar_collate_usado(texto: str, limpio: str) -> List[Hallazgo]:
         else:
             hallazgos.append(_hallazgo(
                 texto, match.start(1), "COLLATE_DISTINTO_AL_ESTANDAR",
-                f"Se identificó el COLLATE {collate}, distinto al que usa la empresa ({_COLLATE_EMPRESA}). Se "
-                f"recomienda validar si el COLLATE es el correcto, ya que si no coincide con el de las demás "
+                f"Se identificó el COLLATE {collate}, distinto al que usa la empresa ({_COLLATE_EMPRESA}). "
+                f"Valide si el COLLATE es el correcto, ya que si no coincide con el de las demás "
                 f"tablas las comparaciones y los JOIN pueden fallar.",
             ))
     return hallazgos
@@ -612,8 +612,8 @@ def _validar_collate_temporales(texto: str, limpio: str) -> List[Hallazgo]:
             tipo = re.match(r"\s*\S+\s+(\w+\s*(?:\([^)]*\))?)", definicion).group(1).upper().replace(" ", "")
             hallazgos.append(_hallazgo(
                 texto, apertura + 1 + desplazamiento + columna.start(1), "TEMPORAL_TEXTO_SIN_COLLATE",
-                f"Se identificó que la columna de texto {columna.group(1)} de {tipo_tabla} {tabla} no define "
-                f"COLLATE. Se recomienda añadir el COLLATE de la empresa, ya que sin él puede fallar al compararla "
+                f"La columna de texto {columna.group(1)} de {tipo_tabla} {tabla} no define "
+                f"COLLATE. Añadir el COLLATE de la empresa, ya que sin él puede fallar al compararla "
                 f"con columnas de otras tablas "
                 f"(ej.: {columna.group(1)} {tipo} COLLATE SQL_Latin1_General_CP1_CI_AS).",
             ))
@@ -631,8 +631,8 @@ def _validar_comentarios(texto: str) -> List[Hallazgo]:
         for match in patron.finditer(texto):
             if match.start() not in vistos:
                 vistos.add(match.start())
-                hallazgos.append(_hallazgo(texto, match.start(), "CODIGO_SQL_COMENTADO", "Se identificó código SQL comentado, es decir, sentencias que ya no se ejecutan. Se recomienda "
-                "eliminarlo si ya no se usa, ya que dificulta la lectura del procedimiento y el historial de "
+                hallazgos.append(_hallazgo(texto, match.start(), "CODIGO_SQL_COMENTADO", "Se encontró código SQL comentado, es decir, sentencias que ya no se ejecutan. Elimínelo "
+                "si ya no se usa, ya que dificulta la lectura del procedimiento y el historial de "
                 "cambios ya queda guardado en el control de versiones."))
     return hallazgos
 
@@ -646,8 +646,8 @@ def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
             declaraciones[match.group(1)] = match.start(1)
     for variable, posicion in declaraciones.items():
         if not re.search(rf"(?<![\w]){re.escape(variable)}\b", limpio[posicion + len(variable):], re.IGNORECASE):
-            hallazgos.append(_hallazgo(texto, posicion, "VARIABLE_DECLARADA_SIN_USO", f"Se identificó la variable {variable}, que es declarada pero no usada. Se recomienda su "
-                f"eliminación, ya que no es usada dentro del procedimiento."))
+            hallazgos.append(_hallazgo(texto, posicion, "VARIABLE_DECLARADA_SIN_USO", f"La variable {variable} se declara, pero no se usa. Se recomienda eliminarla, "
+                f"ya que no cumple ninguna función dentro del procedimiento."))
     return hallazgos
 
 
@@ -751,7 +751,7 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
     if len(partes) == 1:
         hallazgos.append(_hallazgo(
             texto, posicion, "PROCEDIMIENTO_SIN_ESQUEMA",
-            f"Se identificó que el procedimiento {nombre} no tiene declarado un esquema. Se recomienda añadir "
+            f"El procedimiento {nombre} no tiene declarado un esquema. Se recomienda añadir "
             f"el esquema; si es dbo, definirlo explícitamente, ya que así se evita crear o modificar un objeto "
             f"equivocado (ej.: dbo.{nombre}).",
         ))
@@ -794,8 +794,8 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
         sugerido = "_".join(["PA", _en_pascal(tabla), abreviatura] + [_en_pascal(x) for x in finalidad])
         hallazgos.append(_hallazgo(
             texto, posicion, "PROCEDIMIENTO_ACCION_NO_ABREVIADA",
-            f"Se identificó que la acción del procedimiento {nombre} está escrita como '{accion}'. Se "
-            f"recomienda usar la abreviatura del manual, {abreviatura}, ya que así se nombran las acciones "
+            f"La acción del procedimiento {nombre} está escrita como '{accion}'. "
+            f"Usar la abreviatura del manual, {abreviatura}, ya que así se nombran las acciones "
             f"estándar (ej.: {sugerido}).",
         ))
     elif not es_estandar and not es_verbo:
@@ -814,7 +814,7 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
         corregidas = ", ".join(f"{parte} → {_en_pascal(parte)}" for parte in fuera_de_estandar)
         hallazgos.append(_hallazgo(
             texto, posicion, "PROCEDIMIENTO_NOMBRE_NO_PASCALCASE",
-            f"Se identificó que partes del nombre {nombre} no están en PascalCase ({corregidas}). Se "
+            f"Se verificó que partes del nombre {nombre} no están en PascalCase ({corregidas}). Se "
             f"recomienda escribir cada palabra con mayúscula inicial y el resto en minúscula, ya que es el "
             f"estándar de nomenclatura.",
         ))
@@ -887,7 +887,7 @@ def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
         sujeto = f"que {nombre} se declara como {tipo}" if nombre else f"el uso de {tipo}"
         hallazgos.append(_hallazgo(
             texto, match.start(), "VARCHAR_MAX_PROHIBIDO",
-            f"Se identificó {sujeto} y no guarda JSON ni XML. Se recomienda definir una longitud acorde al "
+            f"Se detectó {sujeto} y no guarda JSON ni XML. Definir una longitud acorde al "
             f"dato, salvo que provenga de una tabla heredada con {tipo}, ya que solo se justifica para JSON, "
             f"XML o tablas heredadas y reserva más memoria de la necesaria (ej.: {tipo.replace('MAX', '500')}).",
         ))
@@ -955,7 +955,7 @@ def _validar_left_como_like(texto: str, limpio: str) -> List[Hallazgo]:
             like = f"{col} LIKE '{val[1:-1]}%'" if val.startswith("'") else f"{col} LIKE {val} + '%'"
             hallazgos.append(_hallazgo(
                 texto, match.start(), "LEFT_REEMPLAZABLE_POR_LIKE",
-                f"Se identificó LEFT({col}, {n}) = {val} en una condición. Se recomienda usar LIKE, ya que "
+                f"Se encontró LEFT({col}, {n}) = {val} en una condición. Emplear LIKE, ya que "
                 f"aplicar LEFT a la columna impide usar sus índices y LIKE con el comodín al final sí los "
                 f"aprovecha (ej.: {like}).",
             ))
@@ -1008,7 +1008,7 @@ def _validar_replace_anidado(texto: str, limpio: str) -> List[Hallazgo]:
                 sugerencia = f" (ej.: REPLACE(TRANSLATE({base}, '{origen}', '{'|' * len(origen)}'), '|', ''))"
         hallazgos.append(_hallazgo(
             texto, match.start(), "REPLACE_ANIDADO_TRANSLATE",
-            f"Se identificaron {cantidad} REPLACE anidados. Se recomienda usar TRANSLATE, ya que cambia "
+            f"Se identificaron {cantidad} REPLACE anidados. Usar TRANSLATE, ya que cambia "
             f"varios caracteres en una sola función y le da más legibilidad al código"
             f"{sugerencia}.",
         ))
@@ -1027,7 +1027,7 @@ def _validar_transacciones(texto: str, limpio: str) -> List[Hallazgo]:
         detalle = f"pero solo {commits} COMMIT para {len(inicios)} BEGIN TRANSACTION"
     return [_hallazgo(
         texto, inicios[commits].start(), "TRANSACCION_SIN_COMMIT",
-        f"Se identificó una transacción abierta con BEGIN TRANSACTION {detalle}. Se recomienda confirmarla "
+        f"Se detectó una transacción abierta con BEGIN TRANSACTION {detalle}. Se recomienda confirmarla "
         f"con COMMIT TRANSACTION al terminar (y deshacerla con ROLLBACK en el CATCH), ya que una "
         f"transacción sin cerrar deja las tablas bloqueadas para los demás usuarios.",
     )]
@@ -1056,8 +1056,8 @@ def _validar_esquema_entre_bases(texto: str, limpio: str) -> List[Hallazgo]:
         base, tabla = match.group(1), match.group(2)
         hallazgos.append(_hallazgo(
             texto, match.start(), "ESQUEMA_OMITIDO_ENTRE_BASES",
-            f"Se identificó el uso de la tabla {tabla} de la base {base}, pero el esquema se omitió "
-            f"({base}..{tabla}). Se recomienda definir el esquema, ya que así se evita apuntar a una tabla "
+            f"Se verificó el uso de la tabla {tabla} de la base {base}, pero el esquema se omitió "
+            f"({base}..{tabla}). Defina el esquema, ya que así se evita apuntar a una tabla "
             f"equivocada (ej.: {base}.dbo.{tabla}).",
         ))
     return hallazgos
@@ -1097,8 +1097,8 @@ def _validar_tabla_repetida(texto: str, limpio: str) -> List[Hallazgo]:
             lineas = ", ".join(str(n) for n in sorted({_linea(texto, pos) for pos in posiciones}))
             hallazgos.append(_hallazgo(
                 texto, posiciones[0], "TABLA_REPETIDA_EN_CONSULTA",
-                f"Se identificó que la tabla {nombres[clave]} se consulta {len(posiciones)} veces en la misma "
-                f"consulta (líneas {lineas}). Se recomienda revisar si se puede leer una sola vez (por ejemplo, "
+                f"La tabla {nombres[clave]} se consulta {len(posiciones)} veces en la misma "
+                f"consulta ({'líneas' if ',' in lineas else 'línea'} {lineas}). Se recomienda revisar si se puede leer una sola vez (por ejemplo, "
                 f"cargándola antes en una tabla temporal o combinando las condiciones), ya que acceder "
                 f"muchas veces a la misma tabla vuelve lenta la consulta.",
             ))
@@ -1155,7 +1155,7 @@ def _validar_sintaxis_prohibida(texto: str, limpio: str) -> List[Hallazgo]:
         objeto = _limpiar_nombre(match.group(0))
         hallazgos.append(_hallazgo(
             texto, match.start(), "CATALOGO_SISTEMA_PROHIBIDO",
-            f"Se identificó una consulta a {objeto}, una tabla interna de SQL Server. Se recomienda consultar "
+            f"Se detectó una consulta a {objeto}, una tabla interna de SQL Server. Consultar "
             f"solo las tablas del negocio, ya que un procedimiento no debe depender de las tablas internas del "
             f"motor.",
         ))
