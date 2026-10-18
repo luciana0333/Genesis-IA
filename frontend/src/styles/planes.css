@@ -1301,3 +1301,6 @@
   font-size: 0.82rem;
   font-weight: 600;
 }
+
+/* Minutos y segundos: dos casillas iguales, cada una con su unidad. */
+.limite-campo .limite-unidad + input[type="text"] { margin-left: 2px; }

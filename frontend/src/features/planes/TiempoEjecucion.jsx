@@ -1,4 +1,5 @@
 import { NOMBRES_AREA_PLAN } from '../../config/planes';
+import { formatearLimite } from './formatoLimite';
 
 /*
  * Tarjeta «Tiempo de ejecución» con velocímetro de instrumento clásico: suma la
@@ -62,7 +63,7 @@ function Velocimetro({ totalS, limiteS }) {
 
   return (
     <svg viewBox={`0 0 ${ANCHO} 192`} className="tiempo-velocimetro" role="img">
-      <title>{`Tiempo de ejecución: ${seg(totalS)}${limiteS != null ? ` de ${limiteS} s permitidos` : ''}`}</title>
+      <title>{`Tiempo de ejecución: ${seg(totalS)}${limiteS != null ? ` de ${formatearLimite(limiteS)} permitidos` : ''}`}</title>
       <path d={arco(0, 1)} className="tiempo-banda" />
       {fLimite != null && fLimite < 1 && <path d={arco(fLimite, 1)} className="tiempo-banda-roja" />}
       <path d={arco(0, Math.min(fTotal, 1))} className="tiempo-avance" />
@@ -96,7 +97,7 @@ function LimiteFijo({ nombreArea, limiteS }) {
     <div className="tiempo-control">
       <span className="tiempo-etiqueta">Límite {nombreArea}</span>
       <strong className={limiteS != null ? 'tiempo-limite-valor' : 'tiempo-limite-valor vacio'}>
-        {limiteS != null ? `${limiteS} s` : 'Sin límite definido'}
+        {limiteS != null ? formatearLimite(limiteS) : 'Sin límite definido'}
       </strong>
     </div>
   );

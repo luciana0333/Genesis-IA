@@ -415,17 +415,17 @@ describe('Planes', () => {
     render(<App />);
     await irA('planes');
 
-    const limite = screen.getByLabelText('Límite de tiempo · Reportes');
-    await usuario.clear(limite);
-    await usuario.type(limite, '30{Enter}');
+    // 1 min 30 s = 90 s (los segundos de más se pasan a minutos: 0 min 90 s también vale).
+    await usuario.type(screen.getByLabelText('Minutos del límite de Reportes'), '1');
+    await usuario.type(screen.getByLabelText('Segundos del límite de Reportes'), '30{Enter}');
     await usuario.upload(screen.getByLabelText('Planes de ejecución'), new File(['<x/>'], 'prueba.sqlplan'));
     await usuario.click(screen.getByRole('button', { name: 'Analizar plan' }));
 
     expect(await screen.findByText('Análisis completado.')).toBeInTheDocument();
-    expect(fetchMock.mock.calls[0][1].body.get('limite')).toBe('30');
+    expect(fetchMock.mock.calls[0][1].body.get('limite')).toBe('90');
     // En el detalle, el límite solo se muestra.
     const tarjeta = screen.getByRole('region', { name: 'Tiempo de ejecución' });
-    expect(within(tarjeta).getByText('30 s')).toBeInTheDocument();
+    expect(within(tarjeta).getByText('1 min 30 s')).toBeInTheDocument();
     expect(within(tarjeta).queryByRole('textbox')).not.toBeInTheDocument();
     expect(within(tarjeta).queryByRole('button')).not.toBeInTheDocument();
   });

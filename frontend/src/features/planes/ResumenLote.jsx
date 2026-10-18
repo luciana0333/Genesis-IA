@@ -6,6 +6,7 @@ import {
   IconoVolver,
 } from '../../components/Iconos';
 import { TarjetaMetrica } from '../../components/TarjetaMetrica';
+import { formatearLimite } from './formatoLimite';
 import { formatearDuracion, ordenarPlanes } from './ordenLote';
 
 const SEVERIDADES = [
@@ -33,7 +34,7 @@ export function MetricasLote({ lote }) {
       <TarjetaMetrica
         titulo="Superan el límite"
         valor={totales.superanLimite}
-        subtitulo={limite != null ? `Límite de ${limite} s por plan` : 'Sin límite definido'}
+        subtitulo={limite != null ? `Límite de ${formatearLimite(limite)} por plan` : 'Sin límite definido'}
         icono={<IconoReloj />}
       />
       <TarjetaMetrica
@@ -111,7 +112,7 @@ function textoResumen(lote, planes) {
     ];
   });
   const encabezado = ['N.°', 'Procedimiento', 'Archivo', 'Tiempo', 'Estado', 'Crítico', 'Alto', 'Medio', 'Bajo'];
-  const titulo = `Revisión de planes de ejecución · ${area}${lote.limite != null ? ` · límite ${lote.limite} s` : ''}`;
+  const titulo = `Revisión de planes de ejecución · ${area}${lote.limite != null ? ` · límite ${formatearLimite(lote.limite)}` : ''}`;
   const texto = [titulo, '', encabezado.join('\t'), ...filas.map((fila) => fila.join('\t'))].join('\n');
   const escapar = (valor) => String(valor).replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const html = `<p><b>${escapar(titulo)}</b></p><table border="1" cellpadding="4" style="border-collapse:collapse">`

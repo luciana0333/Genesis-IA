@@ -86,7 +86,7 @@ Cuando aparezca **«Servidor Genesis corriendo en http://localhost:8000»**, abr
 
 ### Prueba rápida
 
-1. Entra a **Planes**, deja el área en **Reportes** y pulsa **«Ver ejemplo»**: deben salir sus observaciones (escribe en el Paso 1 un límite, por ejemplo 40 s, para ver la de tiempo).
+1. Entra a **Planes**, deja el área en **Reportes** y pulsa **«Ver ejemplo»**: deben salir sus observaciones (escribe en el Paso 1 un límite, por ejemplo 0 min 40 s, para ver la de tiempo).
 2. Cambia el área a **Negocio** y pulsa **«Ver ejemplo»**: deben salir sus observaciones.
 3. Pulsa **«Ejemplo de lote»**: debe salir el resumen con 3 planes (el más lento primero) y «1 archivo no se revisó».
 4. Carga uno de tus planes reales (`.sqlplan`) y compáralo con Plan Explorer.
@@ -170,7 +170,7 @@ Antes de pulsar **«Analizar planes»**, elige el área (**Reportes** o **Negoci
 
 ## 9. Límites de tiempo de los planes
 
-El límite de cada área (Reportes y Negocio) se fija en el **Paso 1**, en el campo **«Límite de tiempo»** junto al área, **antes de analizar**; vale para un plan suelto o para todo el lote. En el detalle de cada plan, la tarjeta **«Tiempo de ejecución»** solo lo muestra. Si lo cambias con un resultado en pantalla, se vuelve a revisar solo.
+El límite de cada área (Reportes y Negocio) se fija en el **Paso 1**, en el campo **«Límite de tiempo»** junto al área (minutos y segundos; si pones más de 59 segundos se pasan solos a minutos), **antes de analizar**; vale para un plan suelto o para todo el lote. En el detalle de cada plan, la tarjeta **«Tiempo de ejecución»** solo lo muestra. Si lo cambias con un resultado en pantalla, se vuelve a revisar solo.
 
 Se guarda **en el navegador de esa computadora**: en una computadora nueva hay que escribirlo otra vez.
 
