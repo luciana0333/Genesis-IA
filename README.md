@@ -18,16 +18,17 @@ server.py   Servidor HTTP: API + interfaz compilada
 
 > Paso a paso para instalarlo en otra computadora (Windows): ver [MANUAL_INSTALACION.md](MANUAL_INSTALACION.md).
 
-Requisitos: Python 3.10+ y Node.js 20+.
+Requisitos para usarlo: Git y Python 3.10+. La pantalla ya viene compilada en
+`frontend/dist` (con sus fuentes incluidas), así que **no hace falta Node.js ni npm**.
 
 ```bash
-python -m pip install -r requirements.txt
-cd frontend
-npm install
-npm run build
-cd ..
+python -m pip install -r requirements.txt   # opcional: corrector ortográfico y spaCy
 python server.py
 ```
+
+Para modificar la pantalla se necesita Node.js 20+; después de cada cambio en
+`frontend/src` hay que recompilar (`cd frontend`, `npm run build`) y subir también
+`frontend/dist`.
 
 `python server.py` se reinicia solo cuando cambia un archivo `.py` del backend
 (`server.py` o `app/`), así que basta con recargar la página. Para correrlo sin

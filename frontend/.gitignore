@@ -1,4 +1,4 @@
 node_modules/
-dist/
+# dist/ se sube a GitHub: la pantalla ya compilada, para levantar Genesis sin npm (red de la Caja).
 coverage/
 *.local
