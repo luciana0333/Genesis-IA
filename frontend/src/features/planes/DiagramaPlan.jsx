@@ -246,21 +246,65 @@ function porcentaje(valor, total) {
 }
 
 // Columnas de la grilla de sentencias de Plan Explorer, con sus mismos nombres.
+// `orden`: el número por el que se ordena la columna al hacer clic en su encabezado.
+const udfDuracion = (s) => s.udfDuracionMs ?? (s.duracionMs != null ? 0 : null);
+const udfCpu = (s) => s.udfCpuMs ?? (s.cpuMs != null ? 0 : null);
 const COLUMNAS_SENTENCIAS = [
-  { titulo: 'Est Cost %', valor: (s, t) => porcentaje(s.costo, t.costo) },
-  { titulo: 'Compile Time', valor: (s) => formatearNumero(s.compilacionMs) },
-  { titulo: 'Duration', valor: (s) => formatearNumero(s.duracionMs) },
+  { titulo: 'Est Cost %', valor: (s, t) => porcentaje(s.costo, t.costo), orden: (s) => s.costo },
+  { titulo: 'Compile Time', valor: (s) => formatearNumero(s.compilacionMs), orden: (s) => s.compilacionMs },
+  { titulo: 'Duration', valor: (s) => formatearNumero(s.duracionMs), orden: (s) => s.duracionMs },
   // Sin funciones en la consulta el XML no trae los tiempos de UDF: Plan Explorer muestra 0.
-  { titulo: 'UDF Duration', valor: (s) => formatearNumero(s.udfDuracionMs ?? (s.duracionMs != null ? 0 : null)) },
-  { titulo: 'CPU', valor: (s) => formatearNumero(s.cpuMs) },
-  { titulo: 'UDF CPU', valor: (s) => formatearNumero(s.udfCpuMs ?? (s.cpuMs != null ? 0 : null)) },
-  { titulo: 'Est CPU Cost %', valor: (s, t) => porcentaje(s.costoCpu, t.costoCpu) },
-  { titulo: 'Reads', valor: (s) => formatearNumero(s.lecturas) },
+  { titulo: 'UDF Duration', valor: (s) => formatearNumero(udfDuracion(s)), orden: udfDuracion },
+  { titulo: 'CPU', valor: (s) => formatearNumero(s.cpuMs), orden: (s) => s.cpuMs },
+  { titulo: 'UDF CPU', valor: (s) => formatearNumero(udfCpu(s)), orden: udfCpu },
+  { titulo: 'Est CPU Cost %', valor: (s, t) => porcentaje(s.costoCpu, t.costoCpu), orden: (s) => s.costoCpu },
+  { titulo: 'Reads', valor: (s) => formatearNumero(s.lecturas), orden: (s) => s.lecturas },
   { titulo: 'Writes', valor: () => '' },
-  { titulo: 'Est IO Cost %', valor: (s, t) => porcentaje(s.costoIo, t.costoIo) },
-  { titulo: 'Est Rows', valor: (s) => formatearNumero(s.filasEstimadas), filas: true },
-  { titulo: 'Actual Rows', valor: (s) => formatearNumero(s.filasReales), filas: true },
+  { titulo: 'Est IO Cost %', valor: (s, t) => porcentaje(s.costoIo, t.costoIo), orden: (s) => s.costoIo },
+  { titulo: 'Est Rows', valor: (s) => formatearNumero(s.filasEstimadas), filas: true, orden: (s) => s.filasEstimadas },
+  { titulo: 'Actual Rows', valor: (s) => formatearNumero(s.filasReales), filas: true, orden: (s) => s.filasReales },
 ];
+const COLUMNA_SENTENCIA = { titulo: 'Statement', orden: (s) => (s.texto || s.tipo || '').toLowerCase() };
+
+/**
+ * Ordena las sentencias por la columna elegida. Los valores vacíos van siempre al final.
+ * direccion: 'desc' (de mayor a menor) o 'asc'; sin columna se deja el orden del plan.
+ */
+function ordenarSentencias(sentencias, columna, direccion) {
+  if (!columna) return sentencias;
+  const signo = direccion === 'asc' ? 1 : -1;
+  return [...sentencias].sort((a, b) => {
+    const va = columna.orden(a);
+    const vb = columna.orden(b);
+    const vacioA = va === null || va === undefined || va === '';
+    const vacioB = vb === null || vb === undefined || vb === '';
+    if (vacioA || vacioB) return vacioA === vacioB ? a.numero - b.numero : vacioA ? 1 : -1;
+    if (va === vb) return a.numero - b.numero;
+    return (va > vb ? 1 : -1) * signo;
+  });
+}
+
+/** Encabezado que ordena: 1.er clic de mayor a menor, 2.º de menor a mayor, 3.º el orden del plan. */
+function EncabezadoOrdenable({ columna, orden, onOrdenar, className }) {
+  if (!columna.orden) return <th scope="col" className={className}>{columna.titulo}</th>;
+  const activa = orden.titulo === columna.titulo;
+  const sentido = activa ? (orden.direccion === 'desc' ? 'descending' : 'ascending') : 'none';
+  return (
+    <th scope="col" className={className} aria-sort={sentido}>
+      <button
+        type="button"
+        className={activa ? 'plan-orden activa' : 'plan-orden'}
+        onClick={() => onOrdenar(columna)}
+        title={`Ordenar por ${columna.titulo}`}
+      >
+        {columna.titulo}
+        <span className="plan-orden-flecha" aria-hidden="true">
+          {activa ? (orden.direccion === 'desc' ? '▼' : '▲') : '↕'}
+        </span>
+      </button>
+    </th>
+  );
+}
 
 /** Panel «Text Data» de Plan Explorer: el código de la sentencia tal cual viene en el XML, coloreado. */
 function TextoSentencia({ codigo }) {
@@ -281,10 +325,19 @@ function TextoSentencia({ codigo }) {
 
 /** Sentencias del plan (como la grilla de Plan Explorer) y el diagrama de la elegida. */
 export function DiagramaPlan({ sentencias = [] }) {
-  const [elegida, setElegida] = useState(0);
+  const [elegida, setElegida] = useState(null);
   const [pestana, setPestana] = useState('diagrama');
+  const [orden, setOrden] = useState({ titulo: null, direccion: null });
   if (!sentencias.length) return null;
-  const sentencia = sentencias[Math.min(elegida, sentencias.length - 1)];
+  // La sentencia elegida se recuerda por su número: al reordenar sigue siendo la misma.
+  const sentencia = sentencias.find((s) => s.numero === elegida) ?? sentencias[0];
+  const columnaOrden = [COLUMNA_SENTENCIA, ...COLUMNAS_SENTENCIAS].find((c) => c.titulo === orden.titulo);
+  const ordenadas = ordenarSentencias(sentencias, columnaOrden, orden.direccion);
+  const alOrdenar = (columna) => setOrden((actual) => {
+    if (actual.titulo !== columna.titulo) return { titulo: columna.titulo, direccion: 'desc' };
+    if (actual.direccion === 'desc') return { titulo: columna.titulo, direccion: 'asc' };
+    return { titulo: null, direccion: null };
+  });
   const totales = ['costo', 'costoCpu', 'costoIo'].reduce(
     (suma, campo) => ({ ...suma, [campo]: sentencias.reduce((t, s) => t + (s[campo] || 0), 0) }),
     {},
@@ -302,19 +355,21 @@ export function DiagramaPlan({ sentencias = [] }) {
         <table className="plan-sentencias">
           <thead>
             <tr>
-              <th scope="col">Statement</th>
-              {COLUMNAS_SENTENCIAS.map((columna) => <th key={columna.titulo} scope="col" className="num">{columna.titulo}</th>)}
+              <EncabezadoOrdenable columna={COLUMNA_SENTENCIA} orden={orden} onOrdenar={alOrdenar} />
+              {COLUMNAS_SENTENCIAS.map((columna) => (
+                <EncabezadoOrdenable key={columna.titulo} columna={columna} orden={orden} onOrdenar={alOrdenar} className="num" />
+              ))}
             </tr>
           </thead>
           <tbody>
-            {sentencias.map((item, indice) => {
+            {ordenadas.map((item) => {
               // Como Plan Explorer: filas estimadas y reales en naranja si se alejan mucho.
               const desviada = filasDesviadas(item);
               return (
                 <tr
                   key={item.numero}
                   className={item === sentencia ? 'elegida' : undefined}
-                  onClick={() => setElegida(indice)}
+                  onClick={() => setElegida(item.numero)}
                 >
                   <td className="plan-sentencia-texto" title={item.texto}>{item.texto || item.tipo}</td>
                   {COLUMNAS_SENTENCIAS.map((columna) => (

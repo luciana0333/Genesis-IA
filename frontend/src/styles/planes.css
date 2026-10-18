@@ -332,6 +332,48 @@
   text-align: left;
 }
 
+.plan-sentencias th[aria-sort] {
+  padding: 0;
+}
+
+/* Encabezado que ordena la grilla (clic: mayor a menor, menor a mayor, orden del plan). */
+.plan-orden {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 14px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.plan-sentencias th.num .plan-orden {
+  justify-content: flex-end;
+}
+
+.plan-orden:hover {
+  background: #e4e4e4;
+}
+
+.plan-orden.activa {
+  background: #e5eff9;
+  color: #0b4f8a;
+}
+
+.plan-orden-flecha {
+  color: #9a9a9a;
+  font-size: 10px;
+}
+
+.plan-orden.activa .plan-orden-flecha {
+  color: #0b4f8a;
+}
+
 .plan-sentencias td {
   padding: 5px 14px;
   border-right: 1px solid #e3e3e3;
