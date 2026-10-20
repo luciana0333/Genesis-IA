@@ -70,6 +70,15 @@ class TestReglasNegocio(unittest.TestCase):
         self.assertIn("[dbo].[Cliente]", hallazgo.mensaje)
         self.assertNotIn("fn_Split", hallazgo.mensaje)
 
+    def test_funcion_de_tabla_se_reconoce_sin_importar_su_nombre(self):
+        # No depende de «fn»: se reconoce por el operador «Table-valued function» del plan.
+        for esquema, nombre in (("dbo", "ObtenerListaClientes"), ("dbo", "Split_fn"), ("CLICKTOPAY", "uf_Separar")):
+            funcion = (f'<RelOp NodeId="2" PhysicalOp="Table-valued function" LogicalOp="Table-valued function" '
+                       f'EstimatedTotalSubtreeCost="0.1" EstimateRows="1">'
+                       f'<TableValuedFunction><Object Schema="[{esquema}]" Table="[{nombre}]"/></TableValuedFunction></RelOp>')
+            scan = _table_scan(1, nombre).replace('Schema="[dbo]"', f'Schema="[{esquema}]"')
+            self.assertNotIn("TABLE_SCAN_DETECTADO", _reglas(_plan(operadores=funcion + scan)), nombre)
+
     def test_plan_real_con_funcion_de_tabla(self):
         # Plan real de SQL Server: JOIN entre dbo.Cliente (heap) y dbo.fn_Split (función de tabla multisentencia).
         xml = (Path(__file__).parent / "recursos" / "plan-funcion-de-tabla.sqlplan").read_text(encoding="utf-8")
