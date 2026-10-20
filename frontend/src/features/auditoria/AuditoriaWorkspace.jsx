@@ -108,20 +108,21 @@ export function AuditoriaWorkspace({ vista }) {
   const faltante = resultado.diccionarioFaltante;
   const reglaConScript = faltante
     && REGLAS_DICCIONARIO_FALTANTE.find((regla) => resultado.hallazgos.some((hallazgo) => hallazgo.regla === regla));
-  // «Ver en el código» (por ahora solo en Diccionarios): cajita y líneas marcadas en rojo.
+  // «Ver en el código» (Diccionarios, Tablas y procedimientos): cajita y líneas marcadas en rojo.
   // La marca vale solo para el resultado en el que se pidió (una revisión nueva la quita).
   const [marcaPedida, setMarca] = useState(null);
   const marca = marcaPedida?.resultado === resultado ? marcaPedida : null;
-  const conVerEnCodigo = vista.id === 'diccionario';
+  // Cajita de la línea de cada observación: sin sección es el código principal; «general» no apunta a una línea.
+  const CAJITAS = { objeto: 'objeto', diccionario: 'diccionario', indices: 'indices' };
   const verEnCodigo = (seccion, lineas) => {
     // La clave cambia en cada clic, para volver a llevar a la línea aunque sea la misma.
     setMarca((anterior) => ({ seccion, lineas, resultado, clave: (anterior?.clave ?? 0) + 1 }));
   };
-  // Solo las observaciones con una línea propia del objeto o del diccionario (no las generales).
   const botonVerEnCodigo = (hallazgo) => {
-    if (!conVerEnCodigo || !['objeto', 'diccionario'].includes(hallazgo.seccion)) return null;
+    const seccion = hallazgo.seccion ? CAJITAS[hallazgo.seccion] : 'objeto';
+    if (!seccion || !hallazgo.linea) return null;
     const lineas = hallazgo.lineas?.length ? hallazgo.lineas : [hallazgo.linea];
-    return <VerEnCodigo onVer={() => verEnCodigo(hallazgo.seccion, lineas)} />;
+    return <VerEnCodigo onVer={() => verEnCodigo(seccion, lineas)} />;
   };
   const marcadasEn = (seccion) => (marca?.seccion === seccion ? marca.lineas : []);
   const enfocarEn = (seccion) => (marca?.seccion === seccion ? { linea: marca.lineas[0], clave: marca.clave } : null);
@@ -326,7 +327,12 @@ export function AuditoriaWorkspace({ vista }) {
                 <EditorCodigo
                   id={`${ids}-indices`}
                   valor={campos.indicesScript ?? ''}
-                  onCambiar={(valor) => actualizarCampo('indicesScript', valor)}
+                  onCambiar={(valor) => {
+                    setMarca(null);
+                    actualizarCampo('indicesScript', valor);
+                  }}
+                  marcadas={marcadasEn('indices')}
+                  enfocar={enfocarEn('indices')}
                   filas={5}
                   placeholder="CREATE NONCLUSTERED INDEX ..."
                 />
