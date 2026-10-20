@@ -10,6 +10,7 @@ import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { OPCIONES_SELECTOR } from '../../config/revisiones';
 import { AvisoFaltaDiccionario } from './AvisoFaltaDiccionario';
+import { FragmentoCodigo } from './FragmentoCodigo';
 import { GeneradorDiccionario } from './GeneradorDiccionario';
 import { MetricasSeveridad } from './MetricasSeveridad';
 import { detectarTipoDiccionario, extraerNombreObjeto } from '../../utils/deteccionObjeto';
@@ -107,9 +108,40 @@ export function AuditoriaWorkspace({ vista }) {
   const faltante = resultado.diccionarioFaltante;
   const reglaConScript = faltante
     && REGLAS_DICCIONARIO_FALTANTE.find((regla) => resultado.hallazgos.some((hallazgo) => hallazgo.regla === regla));
-  const accionesHallazgo = reglaConScript
-    ? (hallazgo) => hallazgo.regla === reglaConScript && <GeneradorDiccionario faltante={faltante} />
-    : undefined;
+  // «Ver en el código» (por ahora solo en Diccionarios): cajita y líneas marcadas en rojo.
+  // La marca vale solo para el resultado en el que se pidió (una revisión nueva la quita).
+  const [marcaPedida, setMarca] = useState(null);
+  const marca = marcaPedida?.resultado === resultado ? marcaPedida : null;
+  const conFragmentos = vista.id === 'diccionario' && Boolean(resultado.textos);
+  const cajitas = {
+    objeto: { texto: resultado.textos?.objeto ?? '', id: `${ids}-sql`, nombre: revision.sql.etiqueta },
+    diccionario: { texto: resultado.textos?.diccionario ?? '', id: `${ids}-diccionario`, nombre: revision.diccionario?.etiqueta },
+  };
+  const verEnCodigo = (seccion, lineas) => {
+    // La clave cambia en cada clic, para volver a llevar a la línea aunque sea la misma.
+    setMarca((anterior) => ({ seccion, lineas, resultado, clave: (anterior?.clave ?? 0) + 1 }));
+  };
+  const fragmentoDe = (hallazgo) => {
+    const cajita = cajitas[hallazgo.seccion];
+    if (!conFragmentos || !cajita?.texto) return null;
+    const lineas = hallazgo.lineas?.length ? hallazgo.lineas : [hallazgo.linea];
+    return (
+      <FragmentoCodigo
+        texto={cajita.texto}
+        lineas={lineas}
+        cajita={cajita.nombre}
+        onVer={() => verEnCodigo(hallazgo.seccion, lineas)}
+      />
+    );
+  };
+  const marcadasEn = (seccion) => (marca?.seccion === seccion ? marca.lineas : []);
+  const enfocarEn = (seccion) => (marca?.seccion === seccion ? { linea: marca.lineas[0], clave: marca.clave } : null);
+  const accionesHallazgo = (hallazgo) => (
+    <>
+      {fragmentoDe(hallazgo)}
+      {reglaConScript && hallazgo.regla === reglaConScript && <GeneradorDiccionario faltante={faltante} />}
+    </>
+  );
   const anadirDiccionario = () => {
     setAvisoDiccionario(false);
     const editor = document.getElementById(`${ids}-diccionario`);
@@ -244,7 +276,12 @@ export function AuditoriaWorkspace({ vista }) {
               <EditorCodigo
                 id={`${ids}-sql`}
                 valor={campos.sqlObject}
-                onCambiar={alCambiarSql}
+                onCambiar={(valor) => {
+                  setMarca(null);
+                  alCambiarSql(valor);
+                }}
+                marcadas={marcadasEn('objeto')}
+                enfocar={enfocarEn('objeto')}
                 placeholder="CREATE PROCEDURE ..."
               />
             </TarjetaEditor>
@@ -263,7 +300,12 @@ export function AuditoriaWorkspace({ vista }) {
                 <EditorCodigo
                   id={`${ids}-diccionario`}
                   valor={campos.dictScript}
-                  onCambiar={(valor) => actualizarCampo('dictScript', valor)}
+                  onCambiar={(valor) => {
+                    setMarca(null);
+                    actualizarCampo('dictScript', valor);
+                  }}
+                  marcadas={marcadasEn('diccionario')}
+                  enfocar={enfocarEn('diccionario')}
                   placeholder="EXEC sys.sp_addextendedproperty ..."
                 />
               </TarjetaEditor>

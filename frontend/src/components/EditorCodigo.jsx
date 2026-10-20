@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { tokenizarSql } from '../utils/resaltadoSql';
 
 function contarLineas(texto) {
@@ -15,11 +15,18 @@ function contarLineas(texto) {
  * (con el texto transparente) se dibuja el mismo código coloreado; ambos usan
  * la misma letra y medidas para quedar alineados. Las líneas no se ajustan
  * (wrap="off") para que la numeración siempre coincida.
+ *
+ * `marcadas`: líneas de una observación, pintadas en rojo. `enfocar` ({ linea, clave }):
+ * cada clave nueva desplaza el código hasta esa línea y deja el cursor ahí.
  */
-export function EditorCodigo({ id, valor, onCambiar, filas = 12, placeholder, etiquetaAccesible }) {
+export function EditorCodigo({
+  id, valor, onCambiar, filas = 12, placeholder, etiquetaAccesible, marcadas = [], enfocar = null,
+}) {
   const numeracionRef = useRef(null);
   const resaltadoRef = useRef(null);
   const lineaActivaRef = useRef(null);
+  const marcasRef = useRef(null);
+  const textareaRef = useRef(null);
   const [lineaActiva, setLineaActiva] = useState(null);
   const lineas = contarLineas(valor);
   const fragmentos = tokenizarSql(valor);
@@ -32,7 +39,41 @@ export function EditorCodigo({ id, valor, onCambiar, filas = 12, placeholder, et
       resaltadoRef.current.scrollLeft = scrollLeft;
     }
     if (lineaActivaRef.current) lineaActivaRef.current.style.transform = `translateY(${-scrollTop}px)`;
+    if (marcasRef.current) marcasRef.current.style.transform = `translateY(${-scrollTop}px)`;
   };
+
+  // Las marcas nuevas se alinean con el desplazamiento actual del código.
+  useEffect(() => {
+    if (marcasRef.current && textareaRef.current) {
+      marcasRef.current.style.transform = `translateY(${-textareaRef.current.scrollTop}px)`;
+    }
+  }, [marcadas]);
+
+  // «Ver en el código»: lleva el código hasta la línea (a un tercio de la altura) y pone el cursor al inicio.
+  useEffect(() => {
+    const area = textareaRef.current;
+    if (!enfocar || !area) return;
+    const alto = parseFloat(getComputedStyle(area).lineHeight) || 20;
+    area.scrollTop = Math.max(0, (enfocar.linea - 1) * alto - area.clientHeight / 3);
+    let inicio = 0;
+    for (let n = 1; n < enfocar.linea; n += 1) {
+      const salto = area.value.indexOf('\n', inicio);
+      if (salto < 0) break;
+      inicio = salto + 1;
+    }
+    area.focus({ preventScroll: true });
+    area.setSelectionRange(inicio, inicio);
+    sincronizarDesplazamiento({ target: area });
+    setLineaActiva(enfocar.linea);
+    // El editor crece con el código: además se desplaza la página hasta la línea marcada.
+    // (tras pintar las marcas nuevas)
+    setTimeout(() => {
+      marcasRef.current?.querySelector(`[data-linea="${enfocar.linea}"]`)
+        ?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    }, 0);
+    // Solo cuando llega un pedido nuevo (clave nueva), no en cada render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enfocar?.clave]);
 
   // Línea donde está el cursor (1, 2, ...), para resaltarla.
   const actualizarLineaActiva = (evento) => {
@@ -45,7 +86,12 @@ export function EditorCodigo({ id, valor, onCambiar, filas = 12, placeholder, et
       <div className="code-surface">
         <div className="code-gutter" ref={numeracionRef} aria-hidden="true">
           {Array.from({ length: lineas }, (_, indice) => (
-            <span key={indice} className={indice + 1 === lineaActiva ? 'activa' : undefined}>{indice + 1}</span>
+            <span
+              key={indice}
+              className={marcadas.includes(indice + 1) ? 'marcada' : indice + 1 === lineaActiva ? 'activa' : undefined}
+            >
+              {indice + 1}
+            </span>
           ))}
         </div>
         <div className="code-input">
@@ -57,6 +103,18 @@ export function EditorCodigo({ id, valor, onCambiar, filas = 12, placeholder, et
               aria-hidden="true"
             />
           )}
+          {marcadas.length > 0 && (
+            <div className="code-marcas" ref={marcasRef} aria-hidden="true">
+              {marcadas.map((linea) => (
+                <div
+                  key={linea}
+                  data-linea={linea}
+                  className="code-linea-marcada"
+                  style={{ top: `calc(var(--code-padding) + var(--code-linea) * ${linea - 1})` }}
+                />
+              ))}
+            </div>
+          )}
           <pre className="code-highlight" ref={resaltadoRef} aria-hidden="true">
             {fragmentos.map((fragmento, indice) => (
               fragmento.tipo === 'texto'
@@ -67,6 +125,7 @@ export function EditorCodigo({ id, valor, onCambiar, filas = 12, placeholder, et
             {'\n'}
           </pre>
           <textarea
+            ref={textareaRef}
             id={id}
             rows={filas}
             wrap="off"

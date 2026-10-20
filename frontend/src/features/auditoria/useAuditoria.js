@@ -90,6 +90,13 @@ export function useAuditoria(tipoInicial) {
         mensaje: '',
         // Diccionarios: script de lo que falta documentar («Generar diccionario faltante»).
         diccionarioFaltante: datos.diccionarioFaltante ?? null,
+        // El código tal como se revisó: los fragmentos de cada observación salen de aquí,
+        // aunque después se siga editando.
+        textos: {
+          objeto: camposARevisar.sqlObject ?? '',
+          diccionario: camposARevisar.dictScript ?? '',
+          indices: camposARevisar.indicesScript ?? '',
+        },
       });
     } catch (error) {
       if (esCancelacion(error)) return;

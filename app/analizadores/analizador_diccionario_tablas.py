@@ -14,7 +14,7 @@ import re
 import unicodedata
 from typing import Dict, List, Optional, Set, Tuple
 
-from app.analizadores.diccionario_agrupar import agrupar, con_elemento, ubicar
+from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_tabla
 from app.analizadores.ortografia import elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico
 from app.analizadores.propiedades_extendidas import (
@@ -744,6 +744,11 @@ def _validar_columnas_modificadas(
 # ORQUESTADOR
 # ---------------------------------------------------------------------------
 
+# En qué cajita está la línea de cada observación (las demás son del script del diccionario).
+# COLUMNA_FALTANTE pasa al CREATE/ALTER cuando se encuentra la columna (ver ubicar).
+_REGLAS_DEL_OBJETO = {"OBJETO_SIN_ESQUEMA", "TABLA_NOMBRE_NO_ESTANDAR"}
+_REGLAS_GENERALES = {"TABLA_SIN_DESCRIPCION", "ALTER_SIN_DICCIONARIO", "VALIDAR_COLUMNA_MODIFICADA", "COLUMNA_FALTANTE"}
+
 # Reglas que, repetidas, se reportan una vez con la lista de elementos.
 _PLANTILLAS_AGRUPADAS = {
     "COLUMNA_FALTANTE": (
@@ -867,5 +872,6 @@ def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> Li
     for hallazgo in hallazgos:
         if hallazgo.regla == "COLUMNA_FALTANTE" and getattr(hallazgo, "elemento", None):
             ubicar(hallazgo, texto_tabla)
-    activos = [h for h in hallazgos if REGLAS_DICCIONARIO_TABLAS[h.regla].activo]
+    asignar_secciones(hallazgos, _REGLAS_DEL_OBJETO, _REGLAS_GENERALES)
+    activos =[h for h in hallazgos if REGLAS_DICCIONARIO_TABLAS[h.regla].activo]
     return agrupar(activos, _PLANTILLAS_AGRUPADAS)

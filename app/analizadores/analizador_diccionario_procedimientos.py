@@ -17,7 +17,7 @@ import difflib
 import re
 from typing import List, Set, Tuple, Dict, Optional
 
-from app.analizadores.diccionario_agrupar import agrupar, con_elemento, ubicar
+from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_procedimiento
 from app.analizadores.ortografia import elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico
 from app.analizadores.propiedades_extendidas import (
@@ -589,6 +589,17 @@ def _validar_ortografia(
 # ORQUESTADOR PRINCIPAL
 # ---------------------------------------------------------------------------
 
+# En qué cajita está la línea de cada observación (las demás son del script del diccionario).
+# Las que nombran un parámetro pasan al CREATE/ALTER cuando se encuentra (ver ubicar).
+_REGLAS_DEL_OBJETO = {
+    "OBJETO_SIN_ESQUEMA", "PROCEDIMIENTO_SIN_PREFIJO_PA", "PROCEDIMIENTO_NOMBRE_INCOMPLETO",
+    "PROCEDIMIENTO_ACCION_SIN_SEPARAR", "PROCEDIMIENTO_ACCION_NO_ABREVIADA", "PROCEDIMIENTO_SIN_ACCION",
+}
+_REGLAS_GENERALES = {
+    "PROCEDIMIENTO_SIN_DESCRIPCION", "DESCRIPCION_PROCEDIMIENTO_VACIA", "VALIDAR_DOCUMENTACION_ALTER",
+    "ALTER_SIN_DICCIONARIO", "PARAMETRO_FALTANTE",
+}
+
 # Reglas que, repetidas, se reportan una vez con la lista de elementos.
 _PLANTILLAS_AGRUPADAS = {
     "PARAMETRO_FALTANTE": (
@@ -655,6 +666,7 @@ def verificar_diccionario(
         tipo_sentencia, llamadas, esquema, nombre_proc
     )
     if tipo_sentencia == "ALTER" and not llamadas:
+        asignar_secciones(hallazgos, _REGLAS_DEL_OBJETO, _REGLAS_GENERALES)
         return hallazgos
 
     hallazgos += _validar_procedimiento_documentado(llamadas, esquema, nombre_proc, tipo_sentencia)
@@ -677,4 +689,5 @@ def verificar_diccionario(
     for hallazgo in hallazgos:
         if getattr(hallazgo, "elemento", None) and hallazgo.regla not in ("DESCRIPCION_VACIA", "NOMBRE_PROPIEDAD_INCORRECTO"):
             ubicar(hallazgo, texto_procedimiento)
+    asignar_secciones(hallazgos, _REGLAS_DEL_OBJETO, _REGLAS_GENERALES)
     return agrupar(hallazgos, _PLANTILLAS_AGRUPADAS)

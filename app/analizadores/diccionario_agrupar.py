@@ -26,6 +26,24 @@ def ubicar(hallazgo: Hallazgo, texto: str) -> None:
     if m:
         hallazgo.linea = texto.count("\n", 0, m.start()) + 1
         hallazgo.posicion = m.start()
+        hallazgo.seccion = "objeto"  # la línea ahora es del CREATE/ALTER
+
+
+def asignar_secciones(hallazgos: List[Hallazgo], del_objeto: set, generales: set) -> None:
+    """
+    Indica en qué cajita está la línea de cada observación, para mostrar su código y llevar a ella:
+    «objeto» (el CREATE/ALTER), «diccionario» (el script de sp_addextendedproperty) o «general»
+    (se refiere a todo el objeto y no apunta a una línea concreta).
+    """
+    for hallazgo in hallazgos:
+        if getattr(hallazgo, "seccion", None):
+            continue
+        if hallazgo.regla in del_objeto:
+            hallazgo.seccion = "objeto"
+        elif hallazgo.regla in generales:
+            hallazgo.seccion = "general"
+        else:
+            hallazgo.seccion = "diccionario"
 
 
 def _lineas(numeros: List[int]) -> str:
@@ -63,11 +81,16 @@ def agrupar(hallazgos: List[Hallazgo], plantillas: Dict[str, Tuple[str, str]]) -
             else:
                 detalle = " ".join(dict.fromkeys(h.mensaje for h in grupo))
             mensaje = f"Se encontraron {len(grupo)} observaciones de este tipo, en {_lineas(numeros)}: {detalle}"
-        resumidos.append(Hallazgo(
+        resumido = Hallazgo(
             linea=numeros[0],
             origen=grupo[0].origen,
             severidad=grupo[0].severidad,
             regla=regla,
             mensaje=mensaje,
-        ))
+        )
+        # Las líneas son de una misma cajita solo si todo el grupo lo es; si no, no se señala ninguna.
+        secciones = {getattr(h, "seccion", None) for h in grupo}
+        resumido.seccion = secciones.pop() if len(secciones) == 1 else "general"
+        resumido.lineas = numeros
+        resumidos.append(resumido)
     return resumidos
