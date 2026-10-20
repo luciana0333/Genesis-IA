@@ -58,6 +58,25 @@ class TestReglasNegocio(unittest.TestCase):
         self.assertNotIn("TABLE_SCAN_DETECTADO", _reglas(_plan(operadores=_table_scan(1, "#Temporal"))))
         self.assertNotIn("TABLE_SCAN_DETECTADO", _reglas(_plan(operadores=_table_scan(1, "@Variable"))))
 
+    def test_table_scan_de_funcion_de_tabla_no_se_marca(self):
+        # Una función de tabla (ej.: dbo.fn_Split) se lee con un Table Scan con su nombre,
+        # junto al operador «Table-valued function»: no es una tabla física ni lleva PK.
+        funcion = ('<RelOp NodeId="2" PhysicalOp="Table-valued function" LogicalOp="Table-valued function" '
+                   'EstimatedTotalSubtreeCost="0.1" EstimateRows="1">'
+                   '<TableValuedFunction><Object Schema="[dbo]" Table="[fn_Split]"/></TableValuedFunction></RelOp>')
+        self.assertNotIn("TABLE_SCAN_DETECTADO", _reglas(_plan(operadores=funcion + _table_scan(1, "fn_Split"))))
+        # Si en la misma consulta también hay una tabla física con Table Scan, esa sí se marca (y solo esa).
+        hallazgo = _reglas(_plan(operadores=funcion + _table_scan(1, "fn_Split") + _table_scan(3, "Cliente")))["TABLE_SCAN_DETECTADO"]
+        self.assertIn("[dbo].[Cliente]", hallazgo.mensaje)
+        self.assertNotIn("fn_Split", hallazgo.mensaje)
+
+    def test_plan_real_con_funcion_de_tabla(self):
+        # Plan real de SQL Server: JOIN entre dbo.Cliente (heap) y dbo.fn_Split (función de tabla multisentencia).
+        xml = (Path(__file__).parent / "recursos" / "plan-funcion-de-tabla.sqlplan").read_text(encoding="utf-8")
+        hallazgo = _reglas(xml)["TABLE_SCAN_DETECTADO"]
+        self.assertIn("[dbo].[Cliente]", hallazgo.mensaje)
+        self.assertNotIn("fn_Split", hallazgo.mensaje)
+
     def test_spill_a_tempdb(self):
         hallazgo = _reglas(_plan(operadores=SPILL))["SPILL_TEMPDB_DETECTADO"]
         self.assertEqual(hallazgo.severidad.value, "alto")
