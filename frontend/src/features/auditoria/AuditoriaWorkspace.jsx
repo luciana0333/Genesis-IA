@@ -10,6 +10,7 @@ import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { OPCIONES_SELECTOR } from '../../config/revisiones';
 import { AvisoFaltaDiccionario } from './AvisoFaltaDiccionario';
+import { VerEnCodigo } from './VerEnCodigo';
 import { GeneradorDiccionario } from './GeneradorDiccionario';
 import { MetricasSeveridad } from './MetricasSeveridad';
 import { detectarTipoDiccionario, extraerNombreObjeto } from '../../utils/deteccionObjeto';
@@ -107,9 +108,30 @@ export function AuditoriaWorkspace({ vista }) {
   const faltante = resultado.diccionarioFaltante;
   const reglaConScript = faltante
     && REGLAS_DICCIONARIO_FALTANTE.find((regla) => resultado.hallazgos.some((hallazgo) => hallazgo.regla === regla));
-  const accionesHallazgo = reglaConScript
-    ? (hallazgo) => hallazgo.regla === reglaConScript && <GeneradorDiccionario faltante={faltante} />
-    : undefined;
+  // «Ver en el código» (Diccionarios, Tablas y procedimientos): cajita y líneas marcadas en rojo.
+  // La marca vale solo para el resultado en el que se pidió (una revisión nueva la quita).
+  const [marcaPedida, setMarca] = useState(null);
+  const marca = marcaPedida?.resultado === resultado ? marcaPedida : null;
+  // Cajita de la línea de cada observación: sin sección es el código principal; «general» no apunta a una línea.
+  const CAJITAS = { objeto: 'objeto', diccionario: 'diccionario', indices: 'indices' };
+  const verEnCodigo = (seccion, lineas) => {
+    // La clave cambia en cada clic, para volver a llevar a la línea aunque sea la misma.
+    setMarca((anterior) => ({ seccion, lineas, resultado, clave: (anterior?.clave ?? 0) + 1 }));
+  };
+  const botonVerEnCodigo = (hallazgo) => {
+    const seccion = hallazgo.seccion ? CAJITAS[hallazgo.seccion] : 'objeto';
+    if (!seccion || !hallazgo.linea) return null;
+    const lineas = hallazgo.lineas?.length ? hallazgo.lineas : [hallazgo.linea];
+    return <VerEnCodigo onVer={() => verEnCodigo(seccion, lineas)} />;
+  };
+  const marcadasEn = (seccion) => (marca?.seccion === seccion ? marca.lineas : []);
+  const enfocarEn = (seccion) => (marca?.seccion === seccion ? { linea: marca.lineas[0], clave: marca.clave } : null);
+  const accionesHallazgo = (hallazgo) => (
+    <>
+      {botonVerEnCodigo(hallazgo)}
+      {reglaConScript && hallazgo.regla === reglaConScript && <GeneradorDiccionario faltante={faltante} />}
+    </>
+  );
   const anadirDiccionario = () => {
     setAvisoDiccionario(false);
     const editor = document.getElementById(`${ids}-diccionario`);
@@ -244,7 +266,12 @@ export function AuditoriaWorkspace({ vista }) {
               <EditorCodigo
                 id={`${ids}-sql`}
                 valor={campos.sqlObject}
-                onCambiar={alCambiarSql}
+                onCambiar={(valor) => {
+                  setMarca(null);
+                  alCambiarSql(valor);
+                }}
+                marcadas={marcadasEn('objeto')}
+                enfocar={enfocarEn('objeto')}
                 placeholder="CREATE PROCEDURE ..."
               />
             </TarjetaEditor>
@@ -263,7 +290,12 @@ export function AuditoriaWorkspace({ vista }) {
                 <EditorCodigo
                   id={`${ids}-diccionario`}
                   valor={campos.dictScript}
-                  onCambiar={(valor) => actualizarCampo('dictScript', valor)}
+                  onCambiar={(valor) => {
+                    setMarca(null);
+                    actualizarCampo('dictScript', valor);
+                  }}
+                  marcadas={marcadasEn('diccionario')}
+                  enfocar={enfocarEn('diccionario')}
                   placeholder="EXEC sys.sp_addextendedproperty ..."
                 />
               </TarjetaEditor>
@@ -295,7 +327,12 @@ export function AuditoriaWorkspace({ vista }) {
                 <EditorCodigo
                   id={`${ids}-indices`}
                   valor={campos.indicesScript ?? ''}
-                  onCambiar={(valor) => actualizarCampo('indicesScript', valor)}
+                  onCambiar={(valor) => {
+                    setMarca(null);
+                    actualizarCampo('indicesScript', valor);
+                  }}
+                  marcadas={marcadasEn('indices')}
+                  enfocar={enfocarEn('indices')}
                   filas={5}
                   placeholder="CREATE NONCLUSTERED INDEX ..."
                 />

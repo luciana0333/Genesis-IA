@@ -112,6 +112,57 @@ describe('App', () => {
     expect(screen.getByLabelText('Código del diccionario de tabla').value).toContain("@level2name=N'cCodPersona'");
   });
 
+  it('Diccionarios: «Ver en el código» lleva a la línea de la observación y la marca', async () => {
+    const usuario = userEvent.setup();
+    mockRespuesta({
+      hallazgos: [
+        { linea: 2, origen: 'diccionario', severidad: 'medio', regla: 'DESCRIPCION_VACIA', mensaje: 'Descripción vacía. Completarla.', seccion: 'diccionario' },
+        { linea: 1, origen: 'diccionario', severidad: 'alto', regla: 'PROCEDIMIENTO_SIN_DESCRIPCION', mensaje: 'Falta la descripción. Añadirla.', seccion: 'general' },
+      ],
+    });
+    render(<App />);
+    const diccionario = screen.getByLabelText('Código del diccionario de procedimiento');
+
+    await usuario.click(screen.getByRole('button', { name: 'Ejecutar revisión' }));
+
+    // Solo la observación con línea propia trae el botón; la general, no.
+    const botones = await screen.findAllByRole('button', { name: 'Ver en el código' });
+    expect(botones).toHaveLength(1);
+    expect(document.querySelector('.fragmento')).toBeNull();
+
+    await usuario.click(botones[0]);
+    const marcadas = diccionario.closest('.code-editor').querySelectorAll('.code-gutter span.marcada');
+    expect([...marcadas].map((linea) => linea.textContent)).toEqual(['2']);
+    expect(document.activeElement).toBe(diccionario);
+  });
+
+  it('Tablas: «Ver en el código» marca la línea en la tabla o en los índices, según la observación', async () => {
+    const usuario = userEvent.setup();
+    mockRespuesta({
+      hallazgos: [
+        { linea: 3, origen: 'reglas_estaticas', severidad: 'alto', regla: 'SELECT_ESTRELLA_PROHIBIDO', mensaje: 'Detalle.' },
+        { linea: 1, origen: 'reglas_estaticas', severidad: 'medio', regla: 'INDICE_SIN_ESQUEMA', mensaje: 'Detalle.', seccion: 'indices' },
+      ],
+    });
+    render(<App />);
+    await irA('tablas');
+    // El ejemplo de Tablas ya trae sus índices: la cajita está abierta.
+    const tabla = screen.getByLabelText(/Script de tabla/);
+    const indices = screen.getByLabelText(/Índices de la tabla/);
+
+    await usuario.click(screen.getByRole('button', { name: 'Ejecutar revisión' }));
+    // La de tabla queda en la pestaña «Tabla» y la de índices en «Índices».
+    await usuario.click(await screen.findByRole('button', { name: 'Ver en el código' }));
+    const marcadas = (editor) => [...editor.closest('.code-editor').querySelectorAll('.code-gutter span.marcada')].map((n) => n.textContent);
+    expect(marcadas(tabla)).toEqual(['3']);
+    expect(document.activeElement).toBe(tabla);
+
+    await usuario.click(screen.getByRole('tab', { name: /Índices/ }));
+    await usuario.click(screen.getByRole('button', { name: 'Ver en el código' }));
+    expect(marcadas(indices)).toEqual(['1']);
+    expect(marcadas(tabla)).toEqual([]);
+  });
+
   it('ejecuta la revisión, envía el payload correcto y pinta los hallazgos', async () => {
     const usuario = userEvent.setup();
     const fetchMock = mockRespuesta({

@@ -985,3 +985,32 @@
 .generador-boton:hover {
   background: var(--red-dark);
 }
+
+/* ───────── «VER EN EL CÓDIGO» ───────── */
+.ver-en-codigo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  margin: 12px 8px 0 0;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.ver-en-codigo svg { width: 14px; height: 14px; }
+
+.ver-en-codigo:hover {
+  border-color: var(--text-secondary);
+  background: var(--bg-card);
+  color: var(--text-primary);
+}

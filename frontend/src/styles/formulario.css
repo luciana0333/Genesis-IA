@@ -1013,3 +1013,25 @@ select.campo-icono-tipo {
     animation: none;
   }
 }
+
+/* ───────── LÍNEAS DE UNA OBSERVACIÓN («Ver en el código») ───────── */
+.code-marcas {
+  position: absolute;
+  inset: 0 0 auto 0;
+  pointer-events: none;
+}
+
+.code-linea-marcada {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: var(--code-linea);
+  border-left: 3px solid var(--red-main);
+  background: rgba(227, 6, 19, 0.12);
+}
+
+.code-gutter span.marcada {
+  color: var(--red-main);
+  font-weight: 700;
+  opacity: 1;
+}
