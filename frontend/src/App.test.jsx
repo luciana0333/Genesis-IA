@@ -112,7 +112,7 @@ describe('App', () => {
     expect(screen.getByLabelText('Código del diccionario de tabla').value).toContain("@level2name=N'cCodPersona'");
   });
 
-  it('Diccionarios: muestra el código de cada observación y «Ver en el código» marca su línea', async () => {
+  it('Diccionarios: «Ver en el código» lleva a la línea de la observación y la marca', async () => {
     const usuario = userEvent.setup();
     mockRespuesta({
       hallazgos: [
@@ -122,16 +122,13 @@ describe('App', () => {
     });
     render(<App />);
     const diccionario = screen.getByLabelText('Código del diccionario de procedimiento');
-    const segundaLinea = diccionario.value.split('\n')[1];
 
     await usuario.click(screen.getByRole('button', { name: 'Ejecutar revisión' }));
 
-    // Solo la observación con línea propia trae su fragmento; la general, no.
+    // Solo la observación con línea propia trae el botón; la general, no.
     const botones = await screen.findAllByRole('button', { name: 'Ver en el código' });
     expect(botones).toHaveLength(1);
-    const ficha = botones[0].closest('.finding');
-    expect(within(ficha).getByText('Código del diccionario de procedimiento')).toBeInTheDocument();
-    expect(ficha.querySelector('.fragmento-linea.marcada').textContent).toContain(segundaLinea.trim().slice(0, 20));
+    expect(document.querySelector('.fragmento')).toBeNull();
 
     await usuario.click(botones[0]);
     const marcadas = diccionario.closest('.code-editor').querySelectorAll('.code-gutter span.marcada');

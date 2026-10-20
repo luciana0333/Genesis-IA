@@ -986,97 +986,31 @@
   background: var(--red-dark);
 }
 
-/* ───────── FRAGMENTO DE CÓDIGO DE UNA OBSERVACIÓN ───────── */
-.fragmento {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.fragmento-cajita {
-  color: var(--text-muted);
-  font-size: 0.64rem;
-  font-weight: 700;
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-}
-
-.fragmento-codigo {
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  background: var(--bg-code);
-  font-family: var(--font-mono);
-  font-size: 0.76rem;
-  line-height: 1.65;
-}
-
-.fragmento-linea {
-  display: flex;
-  white-space: pre;
-}
-
-.fragmento-numero {
-  flex-shrink: 0;
-  width: 52px;
-  padding-right: 10px;
-  border-right: 1px solid var(--border);
-  background: var(--bg-subtle);
-  color: var(--text-muted);
-  text-align: right;
-  user-select: none;
-}
-
-.fragmento-texto {
-  padding: 0 12px;
-  color: var(--text-primary);
-}
-
-.fragmento-linea.marcada {
-  background: rgba(227, 6, 19, 0.1);
-}
-
-.fragmento-linea.marcada .fragmento-numero {
-  border-left: 3px solid var(--red-main);
-  background: rgba(227, 6, 19, 0.14);
-  color: var(--red-main);
-  font-weight: 700;
-}
-
-.fragmento-salto {
-  padding: 0 0 0 20px;
-  border-top: 1px dashed var(--border);
-  border-bottom: 1px dashed var(--border);
-  color: var(--text-muted);
-  line-height: 1.2;
-}
-
-.fragmento-mas {
-  padding: 4px 12px;
-  border-top: 1px solid var(--border);
-  color: var(--text-muted);
-  font-family: var(--font-texto);
-  font-size: 0.72rem;
-}
-
-.fragmento-ver {
+/* ───────── «VER EN EL CÓDIGO» ───────── */
+.ver-en-codigo {
   display: inline-flex;
-  align-self: flex-start;
   align-items: center;
   gap: 6px;
-  padding: 7px 12px;
-  border: 1px solid var(--red-main);
+  min-height: 36px;
+  margin: 12px 8px 0 0;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--red-dark);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
   font: inherit;
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 
-.fragmento-ver svg { width: 14px; height: 14px; }
-.fragmento-ver:hover { background: var(--red-main); color: #ffffff; }
+.ver-en-codigo svg { width: 14px; height: 14px; }
+
+.ver-en-codigo:hover {
+  border-color: var(--text-secondary);
+  background: var(--bg-card);
+  color: var(--text-primary);
+}

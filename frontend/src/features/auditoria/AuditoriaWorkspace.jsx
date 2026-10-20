@@ -10,7 +10,7 @@ import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { OPCIONES_SELECTOR } from '../../config/revisiones';
 import { AvisoFaltaDiccionario } from './AvisoFaltaDiccionario';
-import { FragmentoCodigo } from './FragmentoCodigo';
+import { VerEnCodigo } from './VerEnCodigo';
 import { GeneradorDiccionario } from './GeneradorDiccionario';
 import { MetricasSeveridad } from './MetricasSeveridad';
 import { detectarTipoDiccionario, extraerNombreObjeto } from '../../utils/deteccionObjeto';
@@ -112,33 +112,22 @@ export function AuditoriaWorkspace({ vista }) {
   // La marca vale solo para el resultado en el que se pidió (una revisión nueva la quita).
   const [marcaPedida, setMarca] = useState(null);
   const marca = marcaPedida?.resultado === resultado ? marcaPedida : null;
-  const conFragmentos = vista.id === 'diccionario' && Boolean(resultado.textos);
-  const cajitas = {
-    objeto: { texto: resultado.textos?.objeto ?? '', id: `${ids}-sql`, nombre: revision.sql.etiqueta },
-    diccionario: { texto: resultado.textos?.diccionario ?? '', id: `${ids}-diccionario`, nombre: revision.diccionario?.etiqueta },
-  };
+  const conVerEnCodigo = vista.id === 'diccionario';
   const verEnCodigo = (seccion, lineas) => {
     // La clave cambia en cada clic, para volver a llevar a la línea aunque sea la misma.
     setMarca((anterior) => ({ seccion, lineas, resultado, clave: (anterior?.clave ?? 0) + 1 }));
   };
-  const fragmentoDe = (hallazgo) => {
-    const cajita = cajitas[hallazgo.seccion];
-    if (!conFragmentos || !cajita?.texto) return null;
+  // Solo las observaciones con una línea propia del objeto o del diccionario (no las generales).
+  const botonVerEnCodigo = (hallazgo) => {
+    if (!conVerEnCodigo || !['objeto', 'diccionario'].includes(hallazgo.seccion)) return null;
     const lineas = hallazgo.lineas?.length ? hallazgo.lineas : [hallazgo.linea];
-    return (
-      <FragmentoCodigo
-        texto={cajita.texto}
-        lineas={lineas}
-        cajita={cajita.nombre}
-        onVer={() => verEnCodigo(hallazgo.seccion, lineas)}
-      />
-    );
+    return <VerEnCodigo onVer={() => verEnCodigo(hallazgo.seccion, lineas)} />;
   };
   const marcadasEn = (seccion) => (marca?.seccion === seccion ? marca.lineas : []);
   const enfocarEn = (seccion) => (marca?.seccion === seccion ? { linea: marca.lineas[0], clave: marca.clave } : null);
   const accionesHallazgo = (hallazgo) => (
     <>
-      {fragmentoDe(hallazgo)}
+      {botonVerEnCodigo(hallazgo)}
       {reglaConScript && hallazgo.regla === reglaConScript && <GeneradorDiccionario faltante={faltante} />}
     </>
   );
