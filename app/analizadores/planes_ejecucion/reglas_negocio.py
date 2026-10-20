@@ -52,6 +52,15 @@ def _es_temporal(objeto: str) -> bool:
     return nombre.startswith(("#", "@"))
 
 
+def _funciones_de_tabla(sentencia: Dict) -> set:
+    """
+    Funciones de tabla (ej.: dbo.fn_Split) de la consulta. Su resultado se lee con un
+    «Table Scan» con el nombre de la función, junto al operador «Table-valued function»:
+    no es una tabla física, así que no lleva PK.
+    """
+    return {n["objeto"] for n in sentencia["nodos"] if n["fisica"] == "Table-valued function" and n.get("objeto")}
+
+
 def _table_scan(sentencias: List[Dict]) -> List[Hallazgo]:
     """Table Scan sobre tablas físicas: en un procedimiento de negocio se recorre la tabla completa."""
     varias = len({s["numero"] for s in sentencias}) > 1
@@ -60,6 +69,7 @@ def _table_scan(sentencias: List[Dict]) -> List[Hallazgo]:
         for s in sentencias
         for n in s["nodos"]
         if n["fisica"] == "Table Scan" and n.get("objeto") and not _es_temporal(n["objeto"])
+        and n["objeto"] not in _funciones_de_tabla(s)
     ]
     if not casos:
         return []
