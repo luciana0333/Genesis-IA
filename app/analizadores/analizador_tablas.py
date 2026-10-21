@@ -457,7 +457,10 @@ def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: s
 def _validar_clave_primaria(
     texto: str, tabla: str, referencia: str, columnas: List[ColumnaNueva]
 ) -> List[Hallazgo]:
-    nombre_esperado = f"n{tabla}Id"
+    # Con el nombre de la tabla ya corregido (EsquematotalizadoEjecutivos -> EsquemaTotalizadoEjecutivos):
+    # si no, se pediría renombrar una PK correcta a un nombre equivocado.
+    nombre_tabla = (_corregir_palabras_pegadas(tabla) or tabla) if _PASCAL_CASE.match(tabla) else tabla
+    nombre_esperado = f"n{nombre_tabla}Id"
     pk, es_cluster, posicion = _clave_primaria(texto, columnas)
     if not pk:
         existe = any(c.nombre == nombre_esperado for c in columnas)
@@ -975,6 +978,16 @@ def _verificar_una_tabla(texto_sql: str, es_dbcmaica: bool) -> List[Hallazgo]:
     # Las reglas desactivadas en el catálogo no se reportan. Cada observación recuerda su tabla y,
     # si no nombra una columna, a la tabla como elemento (para juntarlas entre tablas).
     activos = [h for h in hallazgos if REGLAS_TABLAS[h.regla].activo]
+    # La PK con nombre fuera del estándar ya tiene su observación (con el nombre correcto): no se
+    # repite como «Nombre de columna fuera del estándar».
+    pks_mal_nombradas = {
+        h.elemento.split(" → ")[0] for h in activos if h.regla == "PK_NOMBRE_INVALIDO" and getattr(h, "elemento", None)
+    }
+    activos = [
+        h for h in activos
+        if not (h.regla == "COLUMNA_NOMBRE_NO_PASCALCASE"
+                and (getattr(h, "elemento", "") or "").split(" → ")[0] in pks_mal_nombradas)
+    ]
     for hallazgo in activos:
         hallazgo.tabla = referencia
         if not getattr(hallazgo, "elemento", None):

@@ -175,5 +175,21 @@ class TestVariasTablas(unittest.TestCase):
             self.assertNotIn("TABLA_NOMBRE_NO_PASCALCASE", _por_regla(verificar_tabla(tabla)), nombre)
 
 
+    @unittest.skipUnless(ortografia.disponible(), "Requiere el diccionario de español (pyspellchecker)")
+    def test_pk_se_compara_con_el_nombre_corregido_de_la_tabla(self):
+        # La tabla tiene palabras pegadas, pero su PK ya está bien: no se pide renombrarla a «nEsquematotalizado…».
+        tabla = UNA_TABLA.replace("Bonificacion.MetaSaldo", "Bonificacion.EsquematotalizadoEjecutivos").replace(
+            "nMetaSaldoId", "nEsquemaTotalizadoEjecutivosId")
+        hallazgos = _por_regla(verificar_tabla(tabla))
+        self.assertIn("TABLA_NOMBRE_NO_PASCALCASE", hallazgos)
+        self.assertNotIn("PK_NOMBRE_INVALIDO", hallazgos)
+
+    def test_pk_mal_nombrada_no_se_repite_como_columna(self):
+        tabla = UNA_TABLA.replace("nMetaSaldoId", "nMetaSaldoI")
+        hallazgos = _por_regla(verificar_tabla(tabla))
+        self.assertIn("Renómbrela como nMetaSaldoId", hallazgos["PK_NOMBRE_INVALIDO"].mensaje)
+        self.assertNotIn("COLUMNA_NOMBRE_NO_PASCALCASE", hallazgos)
+
+
 if __name__ == "__main__":
     unittest.main()
