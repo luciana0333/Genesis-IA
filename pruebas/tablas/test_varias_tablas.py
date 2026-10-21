@@ -156,5 +156,24 @@ class TestVariasTablas(unittest.TestCase):
         self.assertEqual(_sugerencia_tabla("metatiendaahorros"), "MetaTiendaAhorros")
 
 
+    @unittest.skipUnless(ortografia.disponible(), "Requiere el diccionario de español (pyspellchecker)")
+    def test_palabras_pegadas_aunque_empiece_con_mayuscula(self):
+        tabla = UNA_TABLA.replace("Bonificacion.MetaSaldo", "Bonificacion.Cuentaspagadas").replace(
+            "nMetaSaldoId", "nCuentasPagadasId")
+        hallazgo = _por_regla(verificar_tabla(tabla))["TABLA_NOMBRE_NO_PASCALCASE"]
+        self.assertIn("Se sugiere ajustar el nombre de la tabla a CuentasPagadas", hallazgo.mensaje)
+        columna = UNA_TABLA.replace("nGradoSatisfaccion VARCHAR(20) COLLATE SQL_Latin1_General_CP1_CI_AS",
+                                    "nMontoaprobado DECIMAL(18,2)")
+        hallazgo = _por_regla(verificar_tabla(columna))["COLUMNA_NOMBRE_NO_PASCALCASE"]
+        self.assertIn("Renómbrela como nMontoAprobado", hallazgo.mensaje)
+
+    @unittest.skipUnless(ortografia.disponible(), "Requiere el diccionario de español (pyspellchecker)")
+    def test_nombres_correctos_no_se_parten(self):
+        for nombre in ("CuentasPagadas", "MetaSegurosSupervisor", "MetaTiendaAhorros", "SaldoAperturaPromedio"):
+            tabla = UNA_TABLA.replace("Bonificacion.MetaSaldo", f"Bonificacion.{nombre}").replace(
+                "nMetaSaldoId", f"n{nombre}Id")
+            self.assertNotIn("TABLA_NOMBRE_NO_PASCALCASE", _por_regla(verificar_tabla(tabla)), nombre)
+
+
 if __name__ == "__main__":
     unittest.main()

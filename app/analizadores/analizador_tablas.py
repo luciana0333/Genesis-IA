@@ -20,7 +20,7 @@ from typing import List, Optional, Tuple
 
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.analizadores.diccionario_agrupar import agrupar, con_elemento
-from app.analizadores.ortografia import separar_palabras
+from app.analizadores.ortografia import disponible as diccionario_disponible, es_palabra_valida, separar_palabras
 from app.reglas.reglas_tablas import REGLAS_TABLAS
 
 
@@ -159,6 +159,34 @@ def _a_pascal_case(nombre: str) -> Optional[str]:
         else:
             return None
     return "".join(resultado)
+
+
+# Palabras cortas que sí pueden ir entre dos palabras de un nombre (CuentasPorPagar).
+_CONECTORES_NOMBRE = {"a", "al", "con", "de", "del", "el", "en", "la", "las", "los", "o", "para", "por", "sin", "y"}
+
+
+def _corregir_palabras_pegadas(nombre: str) -> Optional[str]:
+    """
+    Nombre que ya parece PascalCase pero con dos palabras pegadas en un tramo
+    (Cuentaspagadas -> CuentasPagadas, nMontoaprobado -> nMontoAprobado). Solo cuando es seguro:
+    el tramo no es una palabra conocida y todas sus piezas son palabras de 4 letras o más (o
+    conectores como de, por, y). None si no hay palabras pegadas o no hay diccionario.
+    """
+    if not diccionario_disponible():
+        return None
+    salida, cambiado = "", False
+    for tramo in re.findall(r"[A-Z]+(?=[A-Z][a-z]|\d|$)|[A-Z]?[a-z]+|\d+", nombre):
+        bajo = tramo.lower()
+        if tramo.isupper() or tramo.isdigit() or len(bajo) < 8 or es_palabra_valida(bajo):
+            salida += tramo
+            continue
+        palabras = separar_palabras(bajo)
+        if palabras and len(palabras) > 1 and all(len(x) >= 4 or x in _CONECTORES_NOMBRE for x in palabras):
+            salida += "".join(x.capitalize() for x in palabras)
+            cambiado = True
+        else:
+            salida += tramo
+    return salida if cambiado else None
 
 
 def _sugerencia_tabla(tabla: str) -> Optional[str]:
@@ -394,12 +422,14 @@ def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: s
             f"esquema; si es dbo, definirlo explícitamente.",
         ))
     siglas = [] if _PASCAL_CASE.match(tabla) else _siglas_del_nombre(tabla, _PASCAL_CASE)
+    # Ya en PascalCase pero con palabras pegadas (Cuentaspagadas): también está fuera del estándar.
+    pegadas = _corregir_palabras_pegadas(tabla) if _PASCAL_CASE.match(tabla) else None
     if siglas:
         hallazgos.append(con_elemento(_hallazgo(
             texto, -1, "TABLA_NOMBRE_CON_SIGLA", _mensaje_sigla(f"la tabla {referencia}", siglas, "tabla"),
         ), f"{referencia} ({', '.join(siglas)})"))
-    elif not _PASCAL_CASE.match(tabla):
-        sugerido = _sugerencia_tabla(tabla)
+    elif not _PASCAL_CASE.match(tabla) or pegadas:
+        sugerido = pegadas or _sugerencia_tabla(tabla)
         # Texto de la usuaria: no enumera causas que quizá no tiene (guiones bajos, TB_...).
         accion = (
             f"Se sugiere ajustar el nombre de la tabla a {sugerido}, conforme a la nomenclatura PascalCase."
@@ -489,6 +519,8 @@ def _validar_columna(
     elementos = {}  # regla -> cómo se lista la columna si se agrupa
 
     sugerido = _sugerencia_columna(columna.nombre, prefijo)
+    # Ya en el estándar pero con palabras pegadas (nMontoaprobado): también está fuera del estándar.
+    pegadas = _corregir_palabras_pegadas(columna.nombre) if _NOMBRE_COLUMNA.match(columna.nombre) else None
     if prefijo and not columna.nombre.startswith(prefijo):
         accion = f"Renómbrela como {sugerido}." if sugerido else f"Agregue la '{prefijo}' al inicio del nombre."
         elementos["COLUMNA_PREFIJO_TIPO_INVALIDO"] = f"{columna.nombre} → {sugerido}" if sugerido else columna.nombre
@@ -506,7 +538,8 @@ def _validar_columna(
             texto, columna.posicion, "COLUMNA_NOMBRE_CON_SIGLA",
             _mensaje_sigla(f"la columna {columna.nombre} de la tabla {referencia}", siglas, "columna"),
         ))
-    elif not _NOMBRE_COLUMNA.match(columna.nombre):
+    elif not _NOMBRE_COLUMNA.match(columna.nombre) or pegadas:
+        sugerido = pegadas or sugerido
         accion = (
             # Texto de la usuaria.
             f"Renómbrela como {sugerido}, siguiendo PascalCase, que consiste en escribir cada palabra con "
