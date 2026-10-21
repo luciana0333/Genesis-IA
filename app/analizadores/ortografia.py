@@ -129,6 +129,38 @@ def es_palabra_valida(palabra: str) -> bool:
     return False
 
 
+_CONECTORES = {"y", "o", "e", "u", "de", "al", "el", "la", "lo", "en", "un", "mi", "su", "tu", "a"}
+
+
+def separar_palabras(texto: str) -> Optional[List[str]]:
+    """
+    Separa palabras pegadas en minúsculas con el diccionario de español
+    («esquematotalizadoejecutivos» -> ['esquema', 'totalizado', 'ejecutivos']).
+    Elige la separación con menos palabras (y, a igual cantidad, palabras más largas).
+    None si no hay diccionario o alguna parte no es una palabra conocida.
+    """
+    n = normalizar(texto)
+    if not disponible() or not n.isalpha() or len(n) > 80:
+        return None
+    # mejor[i]: (cantidad de palabras, -suma de cuadrados de longitudes, cortes) para n[:i].
+    mejor: List[Optional[Tuple[int, int, List[int]]]] = [None] * (len(n) + 1)
+    mejor[0] = (0, 0, [])
+    for fin in range(1, len(n) + 1):
+        for inicio in range(max(0, fin - 25), fin):
+            anterior = mejor[inicio]
+            pieza = n[inicio:fin]
+            # Trozos de 1 o 2 letras solo si son conectores (de, y, en...): evita «ti + enda».
+            if anterior is None or (len(pieza) <= 2 and pieza not in _CONECTORES) or not es_palabra_valida(pieza):
+                continue
+            candidato = (anterior[0] + 1, anterior[1] - len(pieza) ** 2, anterior[2] + [fin])
+            if mejor[fin] is None or candidato[:2] < mejor[fin][:2]:
+                mejor[fin] = candidato
+    if mejor[-1] is None:
+        return None
+    cortes = [0] + mejor[-1][2]
+    return [texto[cortes[i]:cortes[i + 1]].lower() for i in range(len(cortes) - 1)]
+
+
 def _parece_identificador(palabra: str) -> bool:
     """
     Nombres de columnas u objetos escritos dentro de la descripción:

@@ -20,6 +20,7 @@ from typing import List, Optional, Tuple
 
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.analizadores.diccionario_agrupar import agrupar, con_elemento
+from app.analizadores.ortografia import disponible as diccionario_disponible, es_palabra_valida, separar_palabras
 from app.reglas.reglas_tablas import REGLAS_TABLAS
 
 
@@ -40,6 +41,42 @@ _PALABRAS_OMITIBLES_TABLA = {"de", "del", "la", "el", "los", "las", "mi", "mis",
 _PASCAL_CASE = re.compile(r"^(?:[A-Z][a-z0-9]+)+$")
 # Columnas: prefijo del tipo en minúscula + PascalCase (cPersonaNombre).
 _NOMBRE_COLUMNA = re.compile(r"^[a-z](?:[A-Z][a-z0-9]+)+$")
+# Posible sigla: dos o más mayúsculas seguidas (MetaTPPP, nSaldoTCF, nSaldoRenovacionPFId).
+_SIGLA = re.compile(r"[A-Z]{2,}(?=[A-Z][a-z]|[0-9]|$)")
+# Ejemplo de nombre descriptivo en lugar de la sigla (propuesto por la usuaria).
+_EJEMPLO_SIN_SIGLA = {"tabla": "MetaTasaPromPonderada", "columna": "nMetaTasaPromPonderada"}
+
+
+def _siglas_del_nombre(nombre: str, patron: re.Pattern) -> List[str]:
+    """
+    Siglas del nombre, solo si es lo único que lo saca del estándar: con cada sigla escrita en
+    PascalCase (TPPP -> Tppp) el nombre cumpliría. Si tiene otros errores (guion bajo, TB_...), vacío.
+    """
+    siglas = _SIGLA.findall(nombre)
+    # Un nombre todo en mayúsculas (PERSONA, cPERSONA) no es una sigla: está fuera del estándar.
+    if not siglas or not re.search(r"[A-Z][a-z]", nombre):
+        return []
+    normal = _SIGLA.sub(lambda m: m.group(0)[0] + m.group(0)[1:].lower(), nombre)
+    return list(dict.fromkeys(siglas)) if patron.match(normal) else []
+
+
+def _texto_siglas(siglas: List[str], articulo: bool = True) -> str:
+    """«la sigla TPPP» / «las siglas TCF y TPPP» (sin artículo: «sigla TPPP»)."""
+    if len(siglas) == 1:
+        return f"{'la ' if articulo else ''}sigla {siglas[0]}"
+    lista = ", ".join(siglas[:-1]) + f" y {siglas[-1]}"
+    return f"{'las ' if articulo else ''}siglas {lista}"
+
+
+def _mensaje_sigla(objeto: str, siglas: List[str], tipo: str) -> str:
+    """Nombre con sigla por validar (severidad media): no es un error seguro, se pide validarlo."""
+    una = len(siglas) == 1
+    return (
+        f"Se identificó que el nombre de {objeto} contiene {_texto_siglas(siglas)}. Se recomienda validar "
+        f"{'su significado' if una else 'el significado de cada sigla'} y, de ser posible, "
+        f"{'reemplazarla' if una else 'reemplazarlas'} por palabras descriptivas (ej.: {_EJEMPLO_SIN_SIGLA[tipo]}), "
+        f"ya que las siglas dificultan identificar qué información almacena la {tipo}."
+    )
 
 
 @dataclass
@@ -88,20 +125,73 @@ def _palabras_nombre_tabla(nombre: str) -> List[str]:
     return [parte.lower() for parte in re.findall(r"[A-Z]+(?=[A-Z][a-z]|$)|[A-Z]?[a-z]+|\d+", nombre)]
 
 
-def _a_pascal_case(nombre: str) -> str:
-    """Propone el nombre en PascalCase: quita guiones bajos, espacios y el prefijo TB_."""
+def _a_pascal_case(nombre: str) -> Optional[str]:
+    """
+    Propone el nombre en PascalCase: quita guiones bajos, espacios y el prefijo TB_.
+    Las partes todo en minúsculas o mayúsculas se separan en palabras con el diccionario
+    (esquematotalizadoejecutivos -> EsquemaTotalizadoEjecutivos). Si una parte sin guiones no
+    se puede separar con certeza, no se propone nada (None) en lugar de un nombre equivocado.
+    """
     partes = [p for p in re.split(r"[_\s]+", nombre) if p]
     if len(partes) > 1 and partes[0].upper() in {"TB", "TBL"}:
         partes = partes[1:]
-    return "".join(
-        p.capitalize() if p.isupper() or p.islower() else p[0].upper() + p[1:]
-        for p in partes
-    )
+    resultado = []
+    for parte in partes:
+        if not (parte.isupper() or parte.islower()):
+            # Mayúsculas y minúsculas mezcladas: cada tramo se separa por su cuenta
+            # (esquematotalizadoSupervisores -> Esquema + Totalizado + Supervisores).
+            tramos = re.findall(r"[A-Z]+(?=[A-Z][a-z]|\d|$)|[A-Z]?[a-z]+|\d+", parte)
+            arreglado = ""
+            for tramo in tramos:
+                # Solo el tramo todo en minúsculas: si el autor ya puso la mayúscula (Supervisores), se respeta.
+                palabras = separar_palabras(tramo) if tramo.islower() else None
+                if palabras and len(palabras) > 1:
+                    arreglado += "".join(p.capitalize() for p in palabras)
+                else:
+                    arreglado += tramo[0].upper() + tramo[1:]
+            resultado.append(arreglado)
+            continue
+        palabras = separar_palabras(parte)
+        if palabras:
+            resultado.append("".join(p.capitalize() for p in palabras))
+        elif len(partes) > 1:
+            resultado.append(parte.capitalize())  # los guiones bajos ya separaban las palabras
+        else:
+            return None
+    return "".join(resultado)
+
+
+# Palabras cortas que sí pueden ir entre dos palabras de un nombre (CuentasPorPagar).
+_CONECTORES_NOMBRE = {"a", "al", "con", "de", "del", "el", "en", "la", "las", "los", "o", "para", "por", "sin", "y"}
+
+
+def _corregir_palabras_pegadas(nombre: str) -> Optional[str]:
+    """
+    Nombre que ya parece PascalCase pero con dos palabras pegadas en un tramo
+    (Cuentaspagadas -> CuentasPagadas, nMontoaprobado -> nMontoAprobado). Solo cuando es seguro:
+    el tramo no es una palabra conocida y todas sus piezas son palabras de 4 letras o más (o
+    conectores como de, por, y). None si no hay palabras pegadas o no hay diccionario.
+    """
+    if not diccionario_disponible():
+        return None
+    salida, cambiado = "", False
+    for tramo in re.findall(r"[A-Z]+(?=[A-Z][a-z]|\d|$)|[A-Z]?[a-z]+|\d+", nombre):
+        bajo = tramo.lower()
+        if tramo.isupper() or tramo.isdigit() or len(bajo) < 8 or es_palabra_valida(bajo):
+            salida += tramo
+            continue
+        palabras = separar_palabras(bajo)
+        if palabras and len(palabras) > 1 and all(len(x) >= 4 or x in _CONECTORES_NOMBRE for x in palabras):
+            salida += "".join(x.capitalize() for x in palabras)
+            cambiado = True
+        else:
+            salida += tramo
+    return salida if cambiado else None
 
 
 def _sugerencia_tabla(tabla: str) -> Optional[str]:
     sugerido = _a_pascal_case(tabla)
-    return sugerido if sugerido != tabla and _PASCAL_CASE.match(sugerido) else None
+    return sugerido if sugerido and sugerido != tabla and _PASCAL_CASE.match(sugerido) else None
 
 
 def _sugerencia_columna(nombre: str, prefijo: Optional[str]) -> Optional[str]:
@@ -115,7 +205,10 @@ def _sugerencia_columna(nombre: str, prefijo: Optional[str]) -> Optional[str]:
     resto = nombre[1:] if tiene_prefijo else nombre
     if "_" not in resto and " " not in resto and resto.islower() and len(resto) > 1:
         return None  # 'cpersonanombre': no se pueden separar las palabras con certeza.
-    sugerido = (prefijo or nombre[:1].lower()) + _a_pascal_case(resto.lstrip("_"))
+    resto_pascal = _a_pascal_case(resto.lstrip("_"))
+    if resto_pascal is None:
+        return None
+    sugerido = (prefijo or nombre[:1].lower()) + resto_pascal
     return sugerido if sugerido != nombre and _NOMBRE_COLUMNA.match(sugerido) else None
 
 
@@ -328,17 +421,29 @@ def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: s
             f"Se identificó que la tabla {tabla} no tiene declarado un esquema. Se recomienda añadir el "
             f"esquema; si es dbo, definirlo explícitamente.",
         ))
-    if not _PASCAL_CASE.match(tabla):
-        sugerido = _sugerencia_tabla(tabla)
+    siglas = [] if _PASCAL_CASE.match(tabla) else _siglas_del_nombre(tabla, _PASCAL_CASE)
+    # Ya en PascalCase pero con palabras pegadas (Cuentaspagadas): también está fuera del estándar.
+    pegadas = _corregir_palabras_pegadas(tabla) if _PASCAL_CASE.match(tabla) else None
+    if siglas:
+        hallazgos.append(con_elemento(_hallazgo(
+            texto, -1, "TABLA_NOMBRE_CON_SIGLA", _mensaje_sigla(f"la tabla {referencia}", siglas, "tabla"),
+        ), f"{referencia} ({', '.join(siglas)})"))
+    elif not _PASCAL_CASE.match(tabla) or pegadas:
+        sugerido = pegadas or _sugerencia_tabla(tabla)
+        # Texto de la usuaria: no enumera causas que quizá no tiene (guiones bajos, TB_...).
         accion = (
-            f"Renómbrela como {sugerido}." if sugerido
-            else "Use PascalCase: cada palabra con mayúscula inicial (ej.: CuentasPorPagar)."
+            f"Se sugiere ajustar el nombre de la tabla a {sugerido}, conforme a la nomenclatura PascalCase."
+            if sugerido
+            else "Ajustar el nombre de la tabla a la nomenclatura PascalCase: cada palabra con mayúscula "
+                 "inicial (ej.: CuentasPorPagar)."
         )
-        hallazgos.append(_hallazgo(
+        observacion = con_elemento(_hallazgo(
             texto, -1, "TABLA_NOMBRE_NO_PASCALCASE",
-            f"El nombre de la tabla {tabla} no cumple la nomenclatura: cada palabra va con mayúscula "
-            f"inicial, sin guiones bajos, espacios ni prefijos como TB_. {accion}",
-        ))
+            f"Se identificó que la tabla {tabla} no cumple con el estándar de nomenclatura PascalCase "
+            f"establecido en el manual. {accion}",
+        ), f"{referencia} → {sugerido}" if sugerido else referencia)
+        observacion.sugerido = sugerido
+        hallazgos.append(observacion)
     omitibles = sorted(set(_palabras_nombre_tabla(tabla)) & _PALABRAS_OMITIBLES_TABLA)
     if omitibles:
         hallazgos.append(_hallazgo(
@@ -352,7 +457,10 @@ def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: s
 def _validar_clave_primaria(
     texto: str, tabla: str, referencia: str, columnas: List[ColumnaNueva]
 ) -> List[Hallazgo]:
-    nombre_esperado = f"n{tabla}Id"
+    # Con el nombre de la tabla ya corregido (EsquematotalizadoEjecutivos -> EsquemaTotalizadoEjecutivos):
+    # si no, se pediría renombrar una PK correcta a un nombre equivocado.
+    nombre_tabla = (_corregir_palabras_pegadas(tabla) or tabla) if _PASCAL_CASE.match(tabla) else tabla
+    nombre_esperado = f"n{nombre_tabla}Id"
     pk, es_cluster, posicion = _clave_primaria(texto, columnas)
     if not pk:
         existe = any(c.nombre == nombre_esperado for c in columnas)
@@ -383,25 +491,25 @@ def _validar_clave_primaria(
     # Si el nombre de la tabla no sigue el estándar, ese error ya se reporta y
     # el nombre esperado de la PK no tendría sentido (nTB_EstadoId).
     if _PASCAL_CASE.match(tabla) and nombre_pk != nombre_esperado:
-        hallazgos.append(_hallazgo(
+        hallazgos.append(con_elemento(_hallazgo(
             texto, posicion, "PK_NOMBRE_INVALIDO",
             f"La clave primaria se llama {nombre_pk}, pero debe llamarse n + nombre de la tabla + Id. "
             f"Renómbrela como {nombre_esperado}.",
-        ))
+        ), f"{nombre_pk} → {nombre_esperado}"))
     columna_pk = next((c for c in columnas if c.nombre.upper() == nombre_pk.upper()), None)
     if columna_pk:
         if not re.search(r"\bIDENTITY\b", columna_pk.definicion, re.IGNORECASE):
-            hallazgos.append(_hallazgo(
+            hallazgos.append(con_elemento(_hallazgo(
                 texto, columna_pk.posicion, "PK_SIN_IDENTITY",
                 f"La clave primaria {nombre_pk} no es autoincremental. Defínala como identidad: "
                 f"{nombre_pk} INT IDENTITY(1,1) NOT NULL.",
-            ))
+            ), nombre_pk))
         if not re.search(rf"^\s*{_TIPOS_NUMERICOS}", columna_pk.definicion, re.IGNORECASE):
-            hallazgos.append(_hallazgo(
+            hallazgos.append(con_elemento(_hallazgo(
                 texto, columna_pk.posicion, "PK_NO_NUMERICA",
                 f"La clave primaria {nombre_pk} es de tipo {_tipo_de_dato(columna_pk.definicion)}. "
                 f"De preferencia use un tipo numérico (INT o BIGINT): ocupa menos y se busca más rápido.",
-            ))
+            ), nombre_pk))
     return hallazgos
 
 
@@ -414,17 +522,31 @@ def _validar_columna(
     elementos = {}  # regla -> cómo se lista la columna si se agrupa
 
     sugerido = _sugerencia_columna(columna.nombre, prefijo)
+    # Ya en el estándar pero con palabras pegadas (nMontoaprobado): también está fuera del estándar.
+    pegadas = _corregir_palabras_pegadas(columna.nombre) if _NOMBRE_COLUMNA.match(columna.nombre) else None
     if prefijo and not columna.nombre.startswith(prefijo):
         accion = f"Renómbrela como {sugerido}." if sugerido else f"Agregue la '{prefijo}' al inicio del nombre."
         elementos["COLUMNA_PREFIJO_TIPO_INVALIDO"] = f"{columna.nombre} → {sugerido}" if sugerido else columna.nombre
-        hallazgos.append(_hallazgo(
+        observacion = _hallazgo(
             texto, columna.posicion, "COLUMNA_PREFIJO_TIPO_INVALIDO",
             f"La columna {columna.nombre} es de tipo {_tipo_de_dato(definicion)}, así que su nombre "
             f"debe iniciar con '{prefijo}' ({_DESCRIPCION_PREFIJO[prefijo]}). {accion}",
+        )
+        observacion.cambio = (columna.nombre, sugerido, columna.nombre[:1], prefijo)
+        hallazgos.append(observacion)
+    elif not _NOMBRE_COLUMNA.match(columna.nombre) and _siglas_del_nombre(columna.nombre, _NOMBRE_COLUMNA):
+        siglas = _siglas_del_nombre(columna.nombre, _NOMBRE_COLUMNA)
+        elementos["COLUMNA_NOMBRE_CON_SIGLA"] = f"{columna.nombre} ({_texto_siglas(siglas, articulo=False)})"
+        hallazgos.append(_hallazgo(
+            texto, columna.posicion, "COLUMNA_NOMBRE_CON_SIGLA",
+            _mensaje_sigla(f"la columna {columna.nombre} de la tabla {referencia}", siglas, "columna"),
         ))
-    elif not _NOMBRE_COLUMNA.match(columna.nombre):
+    elif not _NOMBRE_COLUMNA.match(columna.nombre) or pegadas:
+        sugerido = pegadas or sugerido
         accion = (
-            f"Renómbrela como {sugerido}." if sugerido
+            # Texto de la usuaria.
+            f"Renómbrela como {sugerido}, siguiendo PascalCase, que consiste en escribir cada palabra con "
+            f"mayúscula inicial y sin guiones bajos." if sugerido
             else "Escriba cada palabra con mayúscula inicial (ej.: cPersonaNombre)."
         )
         elementos["COLUMNA_NOMBRE_NO_PASCALCASE"] = f"{columna.nombre} → {sugerido}" if sugerido else columna.nombre
@@ -436,18 +558,14 @@ def _validar_columna(
 
     numeros = re.findall(r"\d+", columna.nombre)
     if numeros:
-        sin_numeros = re.sub(r"\d+", "", columna.nombre)
-        accion = (
-            f"Quite los números (ej.: {sin_numeros}) o use una palabra que describa el dato."
-            if _NOMBRE_COLUMNA.match(sin_numeros) else "Use una palabra que describa el dato."
-        )
-        elementos["COLUMNA_NOMBRE_CON_NUMERO"] = (
-            f"{columna.nombre} → {sin_numeros}" if _NOMBRE_COLUMNA.match(sin_numeros) else columna.nombre
-        )
+        # Texto de la usuaria.
+        cuantos = "un número" if len(numeros) == 1 else "números"
         hallazgos.append(_hallazgo(
             texto, columna.posicion, "COLUMNA_NOMBRE_CON_NUMERO",
-            f"El nombre de la columna {columna.nombre} contiene números ({', '.join(numeros)}); los "
-            f"nombres de columna no pueden llevar números. {accion}",
+            f"Se identificó que la columna {columna.nombre} de la tabla {referencia} contiene {cuantos} en "
+            f"su nombre, lo cual no cumple con las buenas prácticas de nomenclatura. Renombrar la columna, "
+            f"evitando el uso de números y utilizando un nombre descriptivo que permita identificar "
+            f"claramente su finalidad.",
         ))
 
     binario = re.match(r"\s*(VARBINARY|IMAGE)\b", definicion, re.IGNORECASE)
@@ -510,6 +628,61 @@ def _tiene_not_null_o_default(definicion: str) -> bool:
 
 # Reglas de columna que, repetidas, se reportan una vez con la lista de columnas y su línea.
 _PLANTILLAS_AGRUPADAS = {
+    # --- De la tabla (cuando el script trae varias tablas) ---------------------
+    "CREATE_SIN_PARENTESIS": (
+        "CREATE TABLE sin paréntesis en sus columnas",
+        "Encerrar las columnas de cada tabla entre paréntesis, ya que sin ellos SQL Server no puede crear "
+        "las tablas.",
+    ),
+    "TABLA_SIN_ESQUEMA": (
+        "tablas sin esquema declarado",
+        "Se recomienda añadir el esquema a cada tabla; si es dbo, definirlo explícitamente.",
+    ),
+    "TABLA_NOMBRE_NO_PASCALCASE": (
+        "tablas con nombre fuera del estándar",
+        "Renombrar cada tabla en PascalCase (como se sugiere, cuando hay sugerencia): cada palabra con "
+        "mayúscula inicial, sin guiones bajos, espacios ni prefijos como TB_, ya que es la nomenclatura "
+        "del manual.",
+    ),
+    "TABLA_CON_PALABRA_OMITIBLE": (
+        "tablas con palabras de enlace en el nombre",
+        "Quitar las palabras de enlace (de, del, mi, su) del nombre de cada tabla, ya que la nomenclatura "
+        "no las usa.",
+    ),
+    "TABLA_NOMBRE_CON_SIGLA": (
+        # Texto de la usuaria.
+        "tablas cuyos nombres contienen siglas",
+        "Validar que las siglas sean comprensibles y estén estandarizadas. De ser necesario, reemplazarlas por "
+        "términos descriptivos que faciliten la comprensión del nombre de la tabla.",
+    ),
+    "PK_FALTANTE": (
+        "tablas sin clave primaria",
+        "Definir en cada una la columna n + nombre de la tabla + Id (INT IDENTITY(1,1)) como PRIMARY KEY "
+        "CLUSTERED, ya que toda tabla debe tener su clave primaria.",
+    ),
+    "PK_COMPUESTA": (
+        "tablas con clave primaria de varias columnas",
+        "Usar en cada una una sola columna identidad (n + nombre de la tabla + Id) y, si la combinación "
+        "no debe repetirse, crear un índice UNIQUE aparte.",
+    ),
+    "PK_NO_CLUSTER": (
+        "tablas con clave primaria NONCLUSTERED",
+        "Cambiarlas a PRIMARY KEY CLUSTERED, ya que la clave primaria debe ser el índice clúster de la tabla.",
+    ),
+    "PK_NOMBRE_INVALIDO": (
+        "claves primarias con nombre fuera del estándar",
+        "Renombrar cada una como n + nombre de la tabla + Id, como se sugiere.",
+    ),
+    "PK_SIN_IDENTITY": (
+        "claves primarias que no son autoincrementales",
+        "Definir cada una como identidad (INT IDENTITY(1,1) NOT NULL).",
+    ),
+    "PK_NO_NUMERICA": (
+        "claves primarias que no son numéricas",
+        "De preferencia usar un tipo numérico (INT o BIGINT) en cada una, ya que ocupa menos y se busca "
+        "más rápido.",
+    ),
+    # --- De las columnas -------------------------------------------------------
     "COLUMNA_PREFIJO_TIPO_INVALIDO": (
         "columnas con un prefijo que no corresponde a su tipo de dato",
         "Renombrar cada columna con el prefijo de su tipo, como se sugiere en cada una, ya que el "
@@ -521,10 +694,16 @@ _PLANTILLAS_AGRUPADAS = {
         "tipo en minúscula y cada palabra con mayúscula inicial, sin guiones bajos, ya que es la "
         "nomenclatura del manual.",
     ),
+    "COLUMNA_NOMBRE_CON_SIGLA": (
+        "columnas cuyo nombre contiene siglas",
+        "Se recomienda validar el significado de cada sigla y, de ser posible, reemplazarla por palabras "
+        "descriptivas (ej.: nMetaTasaPromPonderada), ya que las siglas dificultan identificar qué información "
+        "almacena cada columna.",
+    ),
     "COLUMNA_NOMBRE_CON_NUMERO": (
         "columnas con números en el nombre",
-        "Quitar los números o usar una palabra que describa el dato, ya que los nombres de columna "
-        "no pueden llevar números.",
+        "Renombrar cada columna, evitando el uso de números y utilizando un nombre descriptivo que permita "
+        "identificar claramente su finalidad.",
     ),
     "COLUMNA_VARBINARY_PROHIBIDA": (
         "columnas que almacenarían documentos (VARBINARY o IMAGE)",
@@ -598,11 +777,134 @@ def _sentencias_de_tabla(texto: str) -> List[str]:
 
 
 def verificar_tabla(texto_sql: str, es_dbcmaica: bool = False) -> List[Hallazgo]:
-    """Valida cada CREATE TABLE o ALTER TABLE del script según el manual de nomenclatura."""
+    """
+    Valida cada CREATE TABLE o ALTER TABLE del script según el manual de nomenclatura.
+    Con una sola tabla, las reglas repetidas se juntan como siempre. Con varias, cada regla se
+    reporta una sola vez para todo el script, indicando la tabla de cada caso.
+    """
+    sentencias = _sentencias_de_tabla(_sin_comentarios(texto_sql))
     hallazgos: List[Hallazgo] = []
-    for sentencia in _sentencias_de_tabla(_sin_comentarios(texto_sql)):
+    for sentencia in sentencias:
         hallazgos += _verificar_una_tabla(sentencia, es_dbcmaica)
-    return hallazgos
+    if len(sentencias) > 1:
+        return _agrupar_entre_tablas(hallazgos)
+    return agrupar(hallazgos, _PLANTILLAS_AGRUPADAS)
+
+
+# Reglas de la tabla (no de una columna): su elemento ya nombra la tabla.
+_REGLAS_DE_TABLA = {
+    "CREATE_SIN_PARENTESIS", "TABLA_SIN_ESQUEMA", "TABLA_NOMBRE_NO_PASCALCASE", "TABLA_CON_PALABRA_OMITIBLE",
+    "TABLA_NOMBRE_CON_SIGLA",
+    "PK_FALTANTE", "PK_COMPUESTA", "PK_NO_CLUSTER",
+}
+
+
+_NUMEROS_EN_LETRAS = {
+    2: "dos", 3: "tres", 4: "cuatro", 5: "cinco", 6: "seis", 7: "siete", 8: "ocho", 9: "nueve", 10: "diez",
+}
+# Para «…datos de tipo texto y no numéricos».
+_DATO_EN_PLURAL = {"c": "de texto", "n": "numéricos", "b": "de tipo bit", "d": "de fecha u hora"}
+_DATO_EN_SINGULAR = {"c": "texto", "n": "numérico", "b": "bit", "d": "fecha u hora"}
+
+
+def _mensaje_prefijo_entre_tablas(grupo: List[Hallazgo]) -> Optional[str]:
+    """
+    Prefijo de columna inválido en varias tablas (redacción de la usuaria):
+    «Se identificaron dos columnas cuyo prefijo no corresponde al tipo de dato definido:
+    Tabla : Cambiar x por y; … Corregir los nombres de ambas columnas, utilizando
+    el prefijo c en lugar de n, ya que corresponden a datos de tipo texto y no numéricos.»
+    """
+    cambios = [getattr(h, "cambio", None) for h in grupo]
+    if not all(cambio and cambio[1] for cambio in cambios):
+        return None
+    total = len(grupo)
+    cantidad = _NUMEROS_EN_LETRAS.get(total, str(total))
+    casos = [f"{h.tabla} : Cambiar {h.cambio[0]} por {h.cambio[1]}" for h in grupo]
+    cuales = "ambas columnas" if total == 2 else f"las {cantidad} columnas"
+    pares = {(c[2], c[3]) for c in cambios}
+    if len(pares) == 1:
+        actual, nuevo = pares.pop()
+        motivo = f"ya que corresponden a datos de tipo {_DATO_EN_SINGULAR[nuevo]}"
+        if actual in _DATO_EN_PLURAL:
+            motivo += f" y no {_DATO_EN_PLURAL[actual]}"
+        recomendacion = (f"Corregir los nombres de {cuales}, utilizando el prefijo {nuevo} "
+                         f"en lugar de {actual}, {motivo}.")
+    else:
+        recomendacion = (f"Corregir los nombres de {cuales}, utilizando el prefijo de su tipo de "
+                         f"dato como se indica en cada una, ya que el prefijo indica qué dato guarda la columna.")
+    return (f"Se identificaron {cantidad} columnas cuyo prefijo no corresponde al tipo de dato definido: "
+            f"{'; '.join(casos)}. {recomendacion}")
+
+
+def _mensaje_pascal_case_entre_tablas(grupo: List[Hallazgo]) -> str:
+    """
+    Tablas fuera de PascalCase en varias tablas, en el estilo del texto de la usuaria:
+    «Se identificaron dos tablas que no cumplen con el estándar de nomenclatura PascalCase establecido
+    en el manual: Tabla : Ajustar el nombre a X; … Ajustar el nombre de ambas tablas conforme a la
+    nomenclatura PascalCase, como se sugiere en cada una.»
+    """
+    total = len(grupo)
+    cantidad = _NUMEROS_EN_LETRAS.get(total, str(total))
+    casos = [
+        f"{h.tabla} : Ajustar el nombre a {h.sugerido}" if getattr(h, "sugerido", None)
+        else f"{h.tabla} : Ajustar el nombre a PascalCase (cada palabra con mayúscula inicial)"
+        for h in grupo
+    ]
+    cuales = "ambas tablas" if total == 2 else f"las {cantidad} tablas"
+    return (f"Se identificaron {cantidad} tablas que no cumplen con el estándar de nomenclatura PascalCase "
+            f"establecido en el manual: {'; '.join(casos)}. Ajustar el nombre de {cuales} conforme a la "
+            f"nomenclatura PascalCase, como se sugiere en cada una.")
+
+
+def _agrupar_entre_tablas(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
+    """
+    Script con varias tablas: una observación por regla. Si la regla aparece varias veces se listan
+    todos los casos con su tabla y línea, y el «qué hacer» va en plural; si aparece una sola vez,
+    el mensaje dice de qué tabla es.
+    """
+    grupos = {}
+    for hallazgo in hallazgos:
+        grupos.setdefault(hallazgo.regla, []).append(hallazgo)
+
+    resultado: List[Hallazgo] = []
+    for regla, grupo in grupos.items():
+        if len(grupo) == 1:
+            hallazgo = grupo[0]
+            tabla = getattr(hallazgo, "tabla", "")
+            nombre_corto = tabla.split(".")[-1]
+            if tabla and nombre_corto not in hallazgo.mensaje:
+                hallazgo.mensaje = f"En la tabla {tabla}, {hallazgo.mensaje[0].lower()}{hallazgo.mensaje[1:]}"
+            resultado.append(hallazgo)
+            continue
+
+        grupo = sorted(grupo, key=lambda h: h.linea)
+        numeros = sorted({h.linea for h in grupo})
+        # Las líneas van en el encabezado de la observación: los casos solo dicen su tabla.
+        mensaje = (
+            _mensaje_prefijo_entre_tablas(grupo) if regla == "COLUMNA_PREFIJO_TIPO_INVALIDO"
+            else _mensaje_pascal_case_entre_tablas(grupo) if regla == "TABLA_NOMBRE_NO_PASCALCASE"
+            else None
+        )
+        if mensaje is None:
+            if regla in _REGLAS_DE_TABLA:
+                casos = [h.elemento for h in grupo]
+            elif regla == "COLUMNA_NOMBRE_CON_SIGLA":
+                casos = [f"{h.tabla} : {h.elemento}" for h in grupo]
+            else:
+                casos = [f"{h.elemento} ({h.tabla})" for h in grupo]
+            sustantivo, accion = _PLANTILLAS_AGRUPADAS[regla]
+            cantidad = _NUMEROS_EN_LETRAS.get(len(grupo), str(len(grupo)))
+            mensaje = f"Se identificaron {cantidad} {sustantivo}: {'; '.join(casos)}. {accion}"
+        resumido = Hallazgo(
+            linea=numeros[0],
+            origen=grupo[0].origen,
+            severidad=grupo[0].severidad,
+            regla=regla,
+            mensaje=mensaje,
+        )
+        resumido.lineas = numeros
+        resultado.append(resumido)
+    return resultado
 
 
 def _verificar_una_tabla(texto_sql: str, es_dbcmaica: bool) -> List[Hallazgo]:
@@ -673,6 +975,21 @@ def _verificar_una_tabla(texto_sql: str, es_dbcmaica: bool) -> List[Hallazgo]:
                     f"NOT NULL.",
                 ), columna.nombre))
 
-    # Las reglas desactivadas en el catálogo no se reportan; las repetidas se reportan una vez.
+    # Las reglas desactivadas en el catálogo no se reportan. Cada observación recuerda su tabla y,
+    # si no nombra una columna, a la tabla como elemento (para juntarlas entre tablas).
     activos = [h for h in hallazgos if REGLAS_TABLAS[h.regla].activo]
-    return agrupar(activos, _PLANTILLAS_AGRUPADAS)
+    # La PK con nombre fuera del estándar ya tiene su observación (con el nombre correcto): no se
+    # repite como «Nombre de columna fuera del estándar».
+    pks_mal_nombradas = {
+        h.elemento.split(" → ")[0] for h in activos if h.regla == "PK_NOMBRE_INVALIDO" and getattr(h, "elemento", None)
+    }
+    activos = [
+        h for h in activos
+        if not (h.regla == "COLUMNA_NOMBRE_NO_PASCALCASE"
+                and (getattr(h, "elemento", "") or "").split(" → ")[0] in pks_mal_nombradas)
+    ]
+    for hallazgo in activos:
+        hallazgo.tabla = referencia
+        if not getattr(hallazgo, "elemento", None):
+            hallazgo.elemento = referencia
+    return activos

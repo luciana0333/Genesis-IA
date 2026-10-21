@@ -130,8 +130,10 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones }) {
   // Las líneas salen del texto agrupado o, si la observación las trae aparte, de hallazgo.lineas.
   const lineas = desglose.lineas || (hallazgo.lineas?.length > 1 ? hallazgo.lineas.join(', ') : null);
   const seccion = SECCIONES[hallazgo.seccion];
+  // Con muchas líneas (p. ej. varias tablas de un script) basta la cantidad: cada caso lista la suya.
+  const cantidadLineas = lineas ? lineas.split(',').length : 1;
   const etiquetaLinea = (seccion ? `${seccion} · ` : '') + (lineas
-    ? `${lineas.includes(',') ? 'Líneas' : 'Línea'} ${lineas}`
+    ? (cantidadLineas > 6 ? `${cantidadLineas} líneas` : `${lineas.includes(',') ? 'Líneas' : 'Línea'} ${lineas}`)
     : `Línea ${hallazgo.linea || 1}`);
 
   return (

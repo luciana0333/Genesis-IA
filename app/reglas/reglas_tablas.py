@@ -40,6 +40,11 @@ REGLAS_TABLAS = {
         "El nombre de la tabla va en PascalCase: cada palabra con mayúscula inicial y el resto en "
         "minúscula, sin guiones bajos ni espacios (ej.: Persona, CuentasPorPagar).",
     ),
+    "TABLA_NOMBRE_CON_SIGLA": _regla(
+        "TABLA_NOMBRE_CON_SIGLA", "Nombre de tabla con sigla por validar", "medio",
+        "El nombre de la tabla lleva varias mayúsculas seguidas (posible sigla, ej.: MetaTPPP): validar su "
+        "significado y, de ser posible, usar palabras descriptivas.",
+    ),
     "TABLA_CON_PALABRA_OMITIBLE": _regla(
         "TABLA_CON_PALABRA_OMITIBLE", "Nombre de tabla con palabra omitible", "alto",
         "El nombre de la tabla no debe incluir palabras de enlace como de, mi o su.",
@@ -80,6 +85,11 @@ REGLAS_TABLAS = {
         "COLUMNA_NOMBRE_NO_PASCALCASE", "Nombre de columna fuera del estándar", "alto",
         "Después del prefijo, el nombre de la columna va en PascalCase, sin guiones bajos "
         "(ej.: cPersonaNombre, dPersonaFechaNacimiento).",
+    ),
+    "COLUMNA_NOMBRE_CON_SIGLA": _regla(
+        "COLUMNA_NOMBRE_CON_SIGLA", "Nombre de columna con sigla por validar", "medio",
+        "El nombre de la columna lleva varias mayúsculas seguidas (posible sigla, ej.: nSaldoTCF): validar "
+        "su significado y, de ser posible, usar palabras descriptivas.",
     ),
     "COLUMNA_NOMBRE_CON_NUMERO": _regla(
         "COLUMNA_NOMBRE_CON_NUMERO", "Nombre de columna con números", "alto",

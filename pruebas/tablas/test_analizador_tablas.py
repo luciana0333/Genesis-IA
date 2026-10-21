@@ -141,8 +141,12 @@ class TestNombreSinNumeros(unittest.TestCase):
         hallazgos = [h for h in verificar_tabla(sql) if h.regla == "COLUMNA_NOMBRE_CON_NUMERO"]
         self.assertEqual(len(hallazgos), 1)
         self.assertEqual(hallazgos[0].severidad, Severidad.ALTO)
-        self.assertIn("89", hallazgos[0].mensaje)
-        self.assertIn("(ej.: cPersonaNombre)", hallazgos[0].mensaje)
+        self.assertEqual(
+            hallazgos[0].mensaje,
+            "Se identificó que la columna cPersonaNombre89 de la tabla dbo.Persona contiene un número en su "
+            "nombre, lo cual no cumple con las buenas prácticas de nomenclatura. Renombrar la columna, evitando "
+            "el uso de números y utilizando un nombre descriptivo que permita identificar claramente su finalidad.",
+        )
 
     def test_columna_con_numeros_en_alter(self):
         sql = f"ALTER TABLE dbo.Persona ADD cDireccion2 VARCHAR(100) {COLLATE} NOT NULL DEFAULT '';"
