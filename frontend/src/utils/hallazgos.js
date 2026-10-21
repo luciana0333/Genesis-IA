@@ -53,7 +53,11 @@ export function separarMensaje(texto) {
  * la introducción (si no es el resumen genérico) y cada ocurrencia por separado.
  */
 export function desglosarGrupo(problema) {
-  const grupo = problema.match(/^(Se (?:encontraron|identificaron) \d+ [^:]+?), en (?:la línea|las líneas|los nodos|la consulta|las consultas) ([\d, ]+): ([\s\S]+)$/);
+  // La cantidad puede ir en número o en letras («dos columnas…»), y las líneas pueden no ir en el texto
+  // (Tablas con varias tablas: van en el encabezado de la observación).
+  const grupo = problema.match(
+    /^(Se (?:encontraron|identificaron) (?:\d+|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez) [^:]+?)(?:, en (?:la línea|las líneas|los nodos|la consulta|las consultas) ([\d, ]+))?: ([\s\S]+)$/,
+  );
   if (!grupo) return { lineas: null, intro: null, ocurrencias: [problema] };
   // "Se identificaron 2 parámetros sin documentar" se muestra como introducción
   // de la lista; el resumen genérico ("observaciones de este tipo") no.
@@ -63,5 +67,5 @@ export function desglosarGrupo(problema) {
     .split(/;\s+/)
     // Los nombres (@nClienteId, cCodPersona) se respetan tal cual; las frases, con mayúscula.
     .map((texto) => (intro ? texto : texto.charAt(0).toUpperCase() + texto.slice(1)));
-  return { lineas: grupo[2].trim(), intro, ocurrencias };
+  return { lineas: grupo[2]?.trim() || null, intro, ocurrencias };
 }

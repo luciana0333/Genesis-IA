@@ -42,10 +42,15 @@ class TestVariasTablas(unittest.TestCase):
         prefijos = [h for h in hallazgos if h.regla == "COLUMNA_PREFIJO_TIPO_INVALIDO"]
         self.assertEqual(len(prefijos), 1)
         mensaje = prefijos[0].mensaje
-        self.assertIn("Se identificaron 2 columnas con un prefijo que no corresponde a su tipo de dato", mensaje)
-        self.assertIn("nGradoSatisfaccion → cGradoSatisfaccion (Bonificacion.EsquemaSupervisores, línea 3)", mensaje)
-        self.assertIn("nGradoSatisfaccion → cGradoSatisfaccion (Bonificacion.EsquemaEjecutivos, línea 8)", mensaje)
-        self.assertIn("Renombrar cada columna", mensaje)  # qué hacer en plural
+        # Redacción de la usuaria; las líneas van en el encabezado (hallazgo.lineas), no en el texto.
+        self.assertEqual(
+            mensaje,
+            "Se identificaron dos columnas cuyo prefijo no corresponde al tipo de dato definido: "
+            "Bonificacion.EsquemaSupervisores : Cambiar nGradoSatisfaccion por cGradoSatisfaccion; "
+            "Bonificacion.EsquemaEjecutivos : Cambiar nGradoSatisfaccion por cGradoSatisfaccion. "
+            "Se recomienda corregir los nombres de ambas columnas, utilizando el prefijo c en lugar de n, "
+            "ya que corresponden a datos de tipo texto y no numéricos.",
+        )
         self.assertEqual(prefijos[0].lineas, [3, 8])
 
     def test_un_solo_caso_dice_su_tabla(self):
@@ -59,8 +64,16 @@ class TestVariasTablas(unittest.TestCase):
                               .replace("Bonificacion.EsquemaEjecutivos", "Bonificacion.Esquema_Ejecutivos")
         hallazgo = _por_regla(verificar_tabla(script))["TABLA_NOMBRE_NO_PASCALCASE"]
         self.assertIn("Se identificaron 2 tablas con nombre fuera del estándar", hallazgo.mensaje)
-        self.assertIn("Bonificacion.Esquema_Supervisores → EsquemaSupervisores (línea 1)", hallazgo.mensaje)
+        self.assertIn("Bonificacion.Esquema_Supervisores → EsquemaSupervisores; ", hallazgo.mensaje)
+        self.assertNotIn("línea", hallazgo.mensaje)
         self.assertIn("Renombrar cada tabla en PascalCase", hallazgo.mensaje)
+
+    def test_prefijo_en_tres_tablas(self):
+        gerentes = VARIAS_TABLAS.replace("Bonificacion.EsquemaSupervisores", "Bonificacion.EsquemaGerentes")
+        script = VARIAS_TABLAS + gerentes.split("CREATE TABLE Bonificacion.EsquemaEjecutivos")[0]
+        hallazgo = _por_regla(verificar_tabla(script))["COLUMNA_PREFIJO_TIPO_INVALIDO"]
+        self.assertTrue(hallazgo.mensaje.startswith("Se identificaron tres columnas cuyo prefijo"))
+        self.assertIn("Se recomienda corregir los nombres de las tres columnas", hallazgo.mensaje)
 
 
 if __name__ == "__main__":

@@ -417,11 +417,13 @@ def _validar_columna(
     if prefijo and not columna.nombre.startswith(prefijo):
         accion = f"Renómbrela como {sugerido}." if sugerido else f"Agregue la '{prefijo}' al inicio del nombre."
         elementos["COLUMNA_PREFIJO_TIPO_INVALIDO"] = f"{columna.nombre} → {sugerido}" if sugerido else columna.nombre
-        hallazgos.append(_hallazgo(
+        observacion = _hallazgo(
             texto, columna.posicion, "COLUMNA_PREFIJO_TIPO_INVALIDO",
             f"La columna {columna.nombre} es de tipo {_tipo_de_dato(definicion)}, así que su nombre "
             f"debe iniciar con '{prefijo}' ({_DESCRIPCION_PREFIJO[prefijo]}). {accion}",
-        ))
+        )
+        observacion.cambio = (columna.nombre, sugerido, columna.nombre[:1], prefijo)
+        hallazgos.append(observacion)
     elif not _NOMBRE_COLUMNA.match(columna.nombre):
         accion = (
             f"Renómbrela como {sugerido}." if sugerido
@@ -668,6 +670,43 @@ _REGLAS_DE_TABLA = {
 }
 
 
+_NUMEROS_EN_LETRAS = {
+    2: "dos", 3: "tres", 4: "cuatro", 5: "cinco", 6: "seis", 7: "siete", 8: "ocho", 9: "nueve", 10: "diez",
+}
+# Para «…datos de tipo texto y no numéricos».
+_DATO_EN_PLURAL = {"c": "de texto", "n": "numéricos", "b": "de tipo bit", "d": "de fecha u hora"}
+_DATO_EN_SINGULAR = {"c": "texto", "n": "numérico", "b": "bit", "d": "fecha u hora"}
+
+
+def _mensaje_prefijo_entre_tablas(grupo: List[Hallazgo]) -> Optional[str]:
+    """
+    Prefijo de columna inválido en varias tablas (redacción de la usuaria):
+    «Se identificaron dos columnas cuyo prefijo no corresponde al tipo de dato definido:
+    Tabla : Cambiar x por y; … Se recomienda corregir los nombres de ambas columnas, utilizando
+    el prefijo c en lugar de n, ya que corresponden a datos de tipo texto y no numéricos.»
+    """
+    cambios = [getattr(h, "cambio", None) for h in grupo]
+    if not all(cambio and cambio[1] for cambio in cambios):
+        return None
+    total = len(grupo)
+    cantidad = _NUMEROS_EN_LETRAS.get(total, str(total))
+    casos = [f"{h.tabla} : Cambiar {h.cambio[0]} por {h.cambio[1]}" for h in grupo]
+    cuales = "ambas columnas" if total == 2 else f"las {cantidad} columnas"
+    pares = {(c[2], c[3]) for c in cambios}
+    if len(pares) == 1:
+        actual, nuevo = pares.pop()
+        motivo = f"ya que corresponden a datos de tipo {_DATO_EN_SINGULAR[nuevo]}"
+        if actual in _DATO_EN_PLURAL:
+            motivo += f" y no {_DATO_EN_PLURAL[actual]}"
+        recomendacion = (f"Se recomienda corregir los nombres de {cuales}, utilizando el prefijo {nuevo} "
+                         f"en lugar de {actual}, {motivo}.")
+    else:
+        recomendacion = (f"Se recomienda corregir los nombres de {cuales}, utilizando el prefijo de su tipo de "
+                         f"dato como se indica en cada una, ya que el prefijo indica qué dato guarda la columna.")
+    return (f"Se identificaron {cantidad} columnas cuyo prefijo no corresponde al tipo de dato definido: "
+            f"{'; '.join(casos)}. {recomendacion}")
+
+
 def _agrupar_entre_tablas(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
     """
     Script con varias tablas: una observación por regla. Si la regla aparece varias veces se listan
@@ -691,18 +730,21 @@ def _agrupar_entre_tablas(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
 
         grupo = sorted(grupo, key=lambda h: h.linea)
         numeros = sorted({h.linea for h in grupo})
-        if regla in _REGLAS_DE_TABLA:
-            casos = [f"{h.elemento} (línea {h.linea})" for h in grupo]
-        else:
-            casos = [f"{h.elemento} ({h.tabla}, línea {h.linea})" for h in grupo]
-        sustantivo, accion = _PLANTILLAS_AGRUPADAS[regla]
-        lineas = ("la línea " if len(numeros) == 1 else "las líneas ") + ", ".join(map(str, numeros))
+        # Las líneas van en el encabezado de la observación: los casos solo dicen su tabla.
+        mensaje = _mensaje_prefijo_entre_tablas(grupo) if regla == "COLUMNA_PREFIJO_TIPO_INVALIDO" else None
+        if mensaje is None:
+            if regla in _REGLAS_DE_TABLA:
+                casos = [h.elemento for h in grupo]
+            else:
+                casos = [f"{h.elemento} ({h.tabla})" for h in grupo]
+            sustantivo, accion = _PLANTILLAS_AGRUPADAS[regla]
+            mensaje = f"Se identificaron {len(grupo)} {sustantivo}: {'; '.join(casos)}. {accion}"
         resumido = Hallazgo(
             linea=numeros[0],
             origen=grupo[0].origen,
             severidad=grupo[0].severidad,
             regla=regla,
-            mensaje=f"Se identificaron {len(grupo)} {sustantivo}, en {lineas}: {'; '.join(casos)}. {accion}",
+            mensaje=mensaje,
         )
         resumido.lineas = numeros
         resultado.append(resumido)
