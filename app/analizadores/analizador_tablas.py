@@ -396,11 +396,13 @@ def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: s
             else "Ajustar el nombre de la tabla a la nomenclatura PascalCase: cada palabra con mayúscula "
                  "inicial (ej.: CuentasPorPagar)."
         )
-        hallazgos.append(con_elemento(_hallazgo(
+        observacion = con_elemento(_hallazgo(
             texto, -1, "TABLA_NOMBRE_NO_PASCALCASE",
             f"Se identificó que la tabla {tabla} no cumple con el estándar de nomenclatura PascalCase "
             f"establecido en el manual. {accion}",
-        ), f"{referencia} → {sugerido}" if sugerido else referencia))
+        ), f"{referencia} → {sugerido}" if sugerido else referencia)
+        observacion.sugerido = sugerido
+        hallazgos.append(observacion)
     omitibles = sorted(set(_palabras_nombre_tabla(tabla)) & _PALABRAS_OMITIBLES_TABLA)
     if omitibles:
         hallazgos.append(_hallazgo(
@@ -787,6 +789,26 @@ def _mensaje_prefijo_entre_tablas(grupo: List[Hallazgo]) -> Optional[str]:
             f"{'; '.join(casos)}. {recomendacion}")
 
 
+def _mensaje_pascal_case_entre_tablas(grupo: List[Hallazgo]) -> str:
+    """
+    Tablas fuera de PascalCase en varias tablas, en el estilo del texto de la usuaria:
+    «Se identificaron dos tablas que no cumplen con el estándar de nomenclatura PascalCase establecido
+    en el manual: Tabla : Ajustar el nombre a X; … Ajustar el nombre de ambas tablas conforme a la
+    nomenclatura PascalCase, como se sugiere en cada una.»
+    """
+    total = len(grupo)
+    cantidad = _NUMEROS_EN_LETRAS.get(total, str(total))
+    casos = [
+        f"{h.tabla} : Ajustar el nombre a {h.sugerido}" if getattr(h, "sugerido", None)
+        else f"{h.tabla} : Ajustar el nombre a PascalCase (cada palabra con mayúscula inicial)"
+        for h in grupo
+    ]
+    cuales = "ambas tablas" if total == 2 else f"las {cantidad} tablas"
+    return (f"Se identificaron {cantidad} tablas que no cumplen con el estándar de nomenclatura PascalCase "
+            f"establecido en el manual: {'; '.join(casos)}. Ajustar el nombre de {cuales} conforme a la "
+            f"nomenclatura PascalCase, como se sugiere en cada una.")
+
+
 def _agrupar_entre_tablas(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
     """
     Script con varias tablas: una observación por regla. Si la regla aparece varias veces se listan
@@ -811,7 +833,11 @@ def _agrupar_entre_tablas(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
         grupo = sorted(grupo, key=lambda h: h.linea)
         numeros = sorted({h.linea for h in grupo})
         # Las líneas van en el encabezado de la observación: los casos solo dicen su tabla.
-        mensaje = _mensaje_prefijo_entre_tablas(grupo) if regla == "COLUMNA_PREFIJO_TIPO_INVALIDO" else None
+        mensaje = (
+            _mensaje_prefijo_entre_tablas(grupo) if regla == "COLUMNA_PREFIJO_TIPO_INVALIDO"
+            else _mensaje_pascal_case_entre_tablas(grupo) if regla == "TABLA_NOMBRE_NO_PASCALCASE"
+            else None
+        )
         if mensaje is None:
             if regla in _REGLAS_DE_TABLA:
                 casos = [h.elemento for h in grupo]

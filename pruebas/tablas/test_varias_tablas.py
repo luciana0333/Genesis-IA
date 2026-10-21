@@ -66,10 +66,13 @@ class TestVariasTablas(unittest.TestCase):
         script = VARIAS_TABLAS.replace("Bonificacion.EsquemaSupervisores", "Bonificacion.Esquema_Supervisores") \
                               .replace("Bonificacion.EsquemaEjecutivos", "Bonificacion.Esquema_Ejecutivos")
         hallazgo = _por_regla(verificar_tabla(script))["TABLA_NOMBRE_NO_PASCALCASE"]
-        self.assertIn("Se identificaron dos tablas con nombre fuera del estándar", hallazgo.mensaje)
-        self.assertIn("Bonificacion.Esquema_Supervisores → EsquemaSupervisores; ", hallazgo.mensaje)
-        self.assertNotIn("línea", hallazgo.mensaje)
-        self.assertIn("Renombrar cada tabla en PascalCase", hallazgo.mensaje)
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se identificaron dos tablas que no cumplen con el estándar de nomenclatura PascalCase establecido "
+            "en el manual: Bonificacion.Esquema_Supervisores : Ajustar el nombre a EsquemaSupervisores; "
+            "Bonificacion.Esquema_Ejecutivos : Ajustar el nombre a EsquemaEjecutivos. Ajustar el nombre de "
+            "ambas tablas conforme a la nomenclatura PascalCase, como se sugiere en cada una.",
+        )
 
     def test_prefijo_en_tres_tablas(self):
         gerentes = VARIAS_TABLAS.replace("Bonificacion.EsquemaSupervisores", "Bonificacion.EsquemaGerentes")
