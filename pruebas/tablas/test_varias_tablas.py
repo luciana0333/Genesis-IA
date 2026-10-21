@@ -50,7 +50,7 @@ class TestVariasTablas(unittest.TestCase):
             "Se identificaron dos columnas cuyo prefijo no corresponde al tipo de dato definido: "
             "Bonificacion.EsquemaSupervisores : Cambiar nGradoSatisfaccion por cGradoSatisfaccion; "
             "Bonificacion.EsquemaEjecutivos : Cambiar nGradoSatisfaccion por cGradoSatisfaccion. "
-            "Se recomienda corregir los nombres de ambas columnas, utilizando el prefijo c en lugar de n, "
+            "Corregir los nombres de ambas columnas, utilizando el prefijo c en lugar de n, "
             "ya que corresponden a datos de tipo texto y no numéricos.",
         )
         self.assertEqual(prefijos[0].lineas, [3, 8])
@@ -76,7 +76,7 @@ class TestVariasTablas(unittest.TestCase):
         script = VARIAS_TABLAS + gerentes.split("CREATE TABLE Bonificacion.EsquemaEjecutivos")[0]
         hallazgo = _por_regla(verificar_tabla(script))["COLUMNA_PREFIJO_TIPO_INVALIDO"]
         self.assertTrue(hallazgo.mensaje.startswith("Se identificaron tres columnas cuyo prefijo"))
-        self.assertIn("Se recomienda corregir los nombres de las tres columnas", hallazgo.mensaje)
+        self.assertIn("Corregir los nombres de las tres columnas", hallazgo.mensaje)
 
 
     def test_siglas_son_por_validar_con_severidad_media(self):

@@ -757,7 +757,7 @@ def _mensaje_prefijo_entre_tablas(grupo: List[Hallazgo]) -> Optional[str]:
     """
     Prefijo de columna inválido en varias tablas (redacción de la usuaria):
     «Se identificaron dos columnas cuyo prefijo no corresponde al tipo de dato definido:
-    Tabla : Cambiar x por y; … Se recomienda corregir los nombres de ambas columnas, utilizando
+    Tabla : Cambiar x por y; … Corregir los nombres de ambas columnas, utilizando
     el prefijo c en lugar de n, ya que corresponden a datos de tipo texto y no numéricos.»
     """
     cambios = [getattr(h, "cambio", None) for h in grupo]
@@ -773,10 +773,10 @@ def _mensaje_prefijo_entre_tablas(grupo: List[Hallazgo]) -> Optional[str]:
         motivo = f"ya que corresponden a datos de tipo {_DATO_EN_SINGULAR[nuevo]}"
         if actual in _DATO_EN_PLURAL:
             motivo += f" y no {_DATO_EN_PLURAL[actual]}"
-        recomendacion = (f"Se recomienda corregir los nombres de {cuales}, utilizando el prefijo {nuevo} "
+        recomendacion = (f"Corregir los nombres de {cuales}, utilizando el prefijo {nuevo} "
                          f"en lugar de {actual}, {motivo}.")
     else:
-        recomendacion = (f"Se recomienda corregir los nombres de {cuales}, utilizando el prefijo de su tipo de "
+        recomendacion = (f"Corregir los nombres de {cuales}, utilizando el prefijo de su tipo de "
                          f"dato como se indica en cada una, ya que el prefijo indica qué dato guarda la columna.")
     return (f"Se identificaron {cantidad} columnas cuyo prefijo no corresponde al tipo de dato definido: "
             f"{'; '.join(casos)}. {recomendacion}")
