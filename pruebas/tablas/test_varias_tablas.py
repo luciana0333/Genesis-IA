@@ -111,14 +111,25 @@ class TestVariasTablas(unittest.TestCase):
     def test_nombre_todo_en_minusculas_se_separa_en_palabras(self):
         script = VARIAS_TABLAS.replace("Bonificacion.EsquemaEjecutivos", "Bonificacion.esquematotalizadoejecutivos")
         hallazgo = _por_regla(verificar_tabla(script))["TABLA_NOMBRE_NO_PASCALCASE"]
-        self.assertTrue(hallazgo.mensaje.endswith("Renómbrela como EsquemaTotalizadoEjecutivos."))
+        self.assertTrue(hallazgo.mensaje.endswith(
+            "Se sugiere ajustar el nombre de la tabla a EsquemaTotalizadoEjecutivos, conforme a la nomenclatura PascalCase."))
+
+    def test_tabla_fuera_de_pascal_case_texto_de_la_usuaria(self):
+        script = VARIAS_TABLAS.replace("Bonificacion.EsquemaEjecutivos", "Bonificacion.esquemaTotalizadoEjecutivos")
+        hallazgo = _por_regla(verificar_tabla(script))["TABLA_NOMBRE_NO_PASCALCASE"]
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se identificó que la tabla esquemaTotalizadoEjecutivos no cumple con el estándar de nomenclatura "
+            "PascalCase establecido en el manual. Se sugiere ajustar el nombre de la tabla a "
+            "EsquemaTotalizadoEjecutivos, conforme a la nomenclatura PascalCase.",
+        )
 
     @unittest.skipUnless(ortografia.disponible(), "Requiere el diccionario de español (pyspellchecker)")
     def test_si_no_se_puede_separar_no_inventa_nombre(self):
         script = VARIAS_TABLAS.replace("Bonificacion.EsquemaEjecutivos", "Bonificacion.xqzwrtplk")
         hallazgo = _por_regla(verificar_tabla(script))["TABLA_NOMBRE_NO_PASCALCASE"]
-        self.assertNotIn("Renómbrela como", hallazgo.mensaje)
-        self.assertIn("Use PascalCase", hallazgo.mensaje)
+        self.assertNotIn("Se sugiere ajustar", hallazgo.mensaje)
+        self.assertIn("Ajustar el nombre de la tabla a la nomenclatura PascalCase", hallazgo.mensaje)
 
 
     def test_tablas_con_sigla_texto_de_la_usuaria(self):

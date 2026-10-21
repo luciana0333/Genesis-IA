@@ -389,14 +389,17 @@ def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: s
         ), f"{referencia} ({', '.join(siglas)})"))
     elif not _PASCAL_CASE.match(tabla):
         sugerido = _sugerencia_tabla(tabla)
+        # Texto de la usuaria: no enumera causas que quizá no tiene (guiones bajos, TB_...).
         accion = (
-            f"Renómbrela como {sugerido}." if sugerido
-            else "Use PascalCase: cada palabra con mayúscula inicial (ej.: CuentasPorPagar)."
+            f"Se sugiere ajustar el nombre de la tabla a {sugerido}, conforme a la nomenclatura PascalCase."
+            if sugerido
+            else "Ajustar el nombre de la tabla a la nomenclatura PascalCase: cada palabra con mayúscula "
+                 "inicial (ej.: CuentasPorPagar)."
         )
         hallazgos.append(con_elemento(_hallazgo(
             texto, -1, "TABLA_NOMBRE_NO_PASCALCASE",
-            f"El nombre de la tabla {tabla} no cumple la nomenclatura: cada palabra va con mayúscula "
-            f"inicial, sin guiones bajos, espacios ni prefijos como TB_. {accion}",
+            f"Se identificó que la tabla {tabla} no cumple con el estándar de nomenclatura PascalCase "
+            f"establecido en el manual. {accion}",
         ), f"{referencia} → {sugerido}" if sugerido else referencia))
     omitibles = sorted(set(_palabras_nombre_tabla(tabla)) & _PALABRAS_OMITIBLES_TABLA)
     if omitibles:
