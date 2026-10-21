@@ -492,7 +492,9 @@ def _validar_columna(
         ))
     elif not _NOMBRE_COLUMNA.match(columna.nombre):
         accion = (
-            f"Renómbrela como {sugerido}." if sugerido
+            # Texto de la usuaria.
+            f"Renómbrela como {sugerido}, siguiendo PascalCase, que consiste en escribir cada palabra con "
+            f"mayúscula inicial y sin guiones bajos." if sugerido
             else "Escriba cada palabra con mayúscula inicial (ej.: cPersonaNombre)."
         )
         elementos["COLUMNA_NOMBRE_NO_PASCALCASE"] = f"{columna.nombre} → {sugerido}" if sugerido else columna.nombre
