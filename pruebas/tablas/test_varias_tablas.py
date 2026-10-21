@@ -121,5 +121,17 @@ class TestVariasTablas(unittest.TestCase):
         self.assertIn("Use PascalCase", hallazgo.mensaje)
 
 
+    def test_tablas_con_sigla_texto_de_la_usuaria(self):
+        script = VARIAS_TABLAS.replace("Bonificacion.EsquemaSupervisores", "Bonificacion.MetaTPPP")             .replace("Bonificacion.EsquemaEjecutivos", "Bonificacion.SaldoRenovacionPF")
+        hallazgo = _por_regla(verificar_tabla(script))["TABLA_NOMBRE_CON_SIGLA"]
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se identificaron dos tablas cuyos nombres contienen siglas: Bonificacion.MetaTPPP (TPPP); "
+            "Bonificacion.SaldoRenovacionPF (PF). Validar que las siglas sean comprensibles y estén "
+            "estandarizadas. De ser necesario, reemplazarlas por términos descriptivos que faciliten la "
+            "comprensión del nombre de la tabla.",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

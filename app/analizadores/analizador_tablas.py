@@ -386,7 +386,7 @@ def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: s
     if siglas:
         hallazgos.append(con_elemento(_hallazgo(
             texto, -1, "TABLA_NOMBRE_CON_SIGLA", _mensaje_sigla(f"la tabla {referencia}", siglas, "tabla"),
-        ), f"{referencia} : {_texto_siglas(siglas, articulo=False)}"))
+        ), f"{referencia} ({', '.join(siglas)})"))
     elif not _PASCAL_CASE.match(tabla):
         sugerido = _sugerencia_tabla(tabla)
         accion = (
@@ -598,10 +598,10 @@ _PLANTILLAS_AGRUPADAS = {
         "no las usa.",
     ),
     "TABLA_NOMBRE_CON_SIGLA": (
-        "tablas cuyo nombre contiene siglas",
-        "Se recomienda validar el significado de cada sigla y, de ser posible, reemplazarla por palabras "
-        "descriptivas (ej.: MetaTasaPromPonderada), ya que las siglas dificultan identificar qué información "
-        "almacena cada tabla.",
+        # Texto de la usuaria.
+        "tablas cuyos nombres contienen siglas",
+        "Validar que las siglas sean comprensibles y estén estandarizadas. De ser necesario, reemplazarlas por "
+        "términos descriptivos que faciliten la comprensión del nombre de la tabla.",
     ),
     "PK_FALTANTE": (
         "tablas sin clave primaria",
