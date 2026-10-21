@@ -334,11 +334,11 @@ def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: s
             f"Renómbrela como {sugerido}." if sugerido
             else "Use PascalCase: cada palabra con mayúscula inicial (ej.: CuentasPorPagar)."
         )
-        hallazgos.append(_hallazgo(
+        hallazgos.append(con_elemento(_hallazgo(
             texto, -1, "TABLA_NOMBRE_NO_PASCALCASE",
             f"El nombre de la tabla {tabla} no cumple la nomenclatura: cada palabra va con mayúscula "
             f"inicial, sin guiones bajos, espacios ni prefijos como TB_. {accion}",
-        ))
+        ), f"{referencia} → {sugerido}" if sugerido else referencia))
     omitibles = sorted(set(_palabras_nombre_tabla(tabla)) & _PALABRAS_OMITIBLES_TABLA)
     if omitibles:
         hallazgos.append(_hallazgo(
@@ -383,25 +383,25 @@ def _validar_clave_primaria(
     # Si el nombre de la tabla no sigue el estándar, ese error ya se reporta y
     # el nombre esperado de la PK no tendría sentido (nTB_EstadoId).
     if _PASCAL_CASE.match(tabla) and nombre_pk != nombre_esperado:
-        hallazgos.append(_hallazgo(
+        hallazgos.append(con_elemento(_hallazgo(
             texto, posicion, "PK_NOMBRE_INVALIDO",
             f"La clave primaria se llama {nombre_pk}, pero debe llamarse n + nombre de la tabla + Id. "
             f"Renómbrela como {nombre_esperado}.",
-        ))
+        ), f"{nombre_pk} → {nombre_esperado}"))
     columna_pk = next((c for c in columnas if c.nombre.upper() == nombre_pk.upper()), None)
     if columna_pk:
         if not re.search(r"\bIDENTITY\b", columna_pk.definicion, re.IGNORECASE):
-            hallazgos.append(_hallazgo(
+            hallazgos.append(con_elemento(_hallazgo(
                 texto, columna_pk.posicion, "PK_SIN_IDENTITY",
                 f"La clave primaria {nombre_pk} no es autoincremental. Defínala como identidad: "
                 f"{nombre_pk} INT IDENTITY(1,1) NOT NULL.",
-            ))
+            ), nombre_pk))
         if not re.search(rf"^\s*{_TIPOS_NUMERICOS}", columna_pk.definicion, re.IGNORECASE):
-            hallazgos.append(_hallazgo(
+            hallazgos.append(con_elemento(_hallazgo(
                 texto, columna_pk.posicion, "PK_NO_NUMERICA",
                 f"La clave primaria {nombre_pk} es de tipo {_tipo_de_dato(columna_pk.definicion)}. "
                 f"De preferencia use un tipo numérico (INT o BIGINT): ocupa menos y se busca más rápido.",
-            ))
+            ), nombre_pk))
     return hallazgos
 
 
@@ -510,6 +510,55 @@ def _tiene_not_null_o_default(definicion: str) -> bool:
 
 # Reglas de columna que, repetidas, se reportan una vez con la lista de columnas y su línea.
 _PLANTILLAS_AGRUPADAS = {
+    # --- De la tabla (cuando el script trae varias tablas) ---------------------
+    "CREATE_SIN_PARENTESIS": (
+        "CREATE TABLE sin paréntesis en sus columnas",
+        "Encerrar las columnas de cada tabla entre paréntesis, ya que sin ellos SQL Server no puede crear "
+        "las tablas.",
+    ),
+    "TABLA_SIN_ESQUEMA": (
+        "tablas sin esquema declarado",
+        "Se recomienda añadir el esquema a cada tabla; si es dbo, definirlo explícitamente.",
+    ),
+    "TABLA_NOMBRE_NO_PASCALCASE": (
+        "tablas con nombre fuera del estándar",
+        "Renombrar cada tabla en PascalCase (como se sugiere, cuando hay sugerencia): cada palabra con "
+        "mayúscula inicial, sin guiones bajos, espacios ni prefijos como TB_, ya que es la nomenclatura "
+        "del manual.",
+    ),
+    "TABLA_CON_PALABRA_OMITIBLE": (
+        "tablas con palabras de enlace en el nombre",
+        "Quitar las palabras de enlace (de, del, mi, su) del nombre de cada tabla, ya que la nomenclatura "
+        "no las usa.",
+    ),
+    "PK_FALTANTE": (
+        "tablas sin clave primaria",
+        "Definir en cada una la columna n + nombre de la tabla + Id (INT IDENTITY(1,1)) como PRIMARY KEY "
+        "CLUSTERED, ya que toda tabla debe tener su clave primaria.",
+    ),
+    "PK_COMPUESTA": (
+        "tablas con clave primaria de varias columnas",
+        "Usar en cada una una sola columna identidad (n + nombre de la tabla + Id) y, si la combinación "
+        "no debe repetirse, crear un índice UNIQUE aparte.",
+    ),
+    "PK_NO_CLUSTER": (
+        "tablas con clave primaria NONCLUSTERED",
+        "Cambiarlas a PRIMARY KEY CLUSTERED, ya que la clave primaria debe ser el índice clúster de la tabla.",
+    ),
+    "PK_NOMBRE_INVALIDO": (
+        "claves primarias con nombre fuera del estándar",
+        "Renombrar cada una como n + nombre de la tabla + Id, como se sugiere.",
+    ),
+    "PK_SIN_IDENTITY": (
+        "claves primarias que no son autoincrementales",
+        "Definir cada una como identidad (INT IDENTITY(1,1) NOT NULL).",
+    ),
+    "PK_NO_NUMERICA": (
+        "claves primarias que no son numéricas",
+        "De preferencia usar un tipo numérico (INT o BIGINT) en cada una, ya que ocupa menos y se busca "
+        "más rápido.",
+    ),
+    # --- De las columnas -------------------------------------------------------
     "COLUMNA_PREFIJO_TIPO_INVALIDO": (
         "columnas con un prefijo que no corresponde a su tipo de dato",
         "Renombrar cada columna con el prefijo de su tipo, como se sugiere en cada una, ya que el "
@@ -598,11 +647,66 @@ def _sentencias_de_tabla(texto: str) -> List[str]:
 
 
 def verificar_tabla(texto_sql: str, es_dbcmaica: bool = False) -> List[Hallazgo]:
-    """Valida cada CREATE TABLE o ALTER TABLE del script según el manual de nomenclatura."""
+    """
+    Valida cada CREATE TABLE o ALTER TABLE del script según el manual de nomenclatura.
+    Con una sola tabla, las reglas repetidas se juntan como siempre. Con varias, cada regla se
+    reporta una sola vez para todo el script, indicando la tabla de cada caso.
+    """
+    sentencias = _sentencias_de_tabla(_sin_comentarios(texto_sql))
     hallazgos: List[Hallazgo] = []
-    for sentencia in _sentencias_de_tabla(_sin_comentarios(texto_sql)):
+    for sentencia in sentencias:
         hallazgos += _verificar_una_tabla(sentencia, es_dbcmaica)
-    return hallazgos
+    if len(sentencias) > 1:
+        return _agrupar_entre_tablas(hallazgos)
+    return agrupar(hallazgos, _PLANTILLAS_AGRUPADAS)
+
+
+# Reglas de la tabla (no de una columna): su elemento ya nombra la tabla.
+_REGLAS_DE_TABLA = {
+    "CREATE_SIN_PARENTESIS", "TABLA_SIN_ESQUEMA", "TABLA_NOMBRE_NO_PASCALCASE", "TABLA_CON_PALABRA_OMITIBLE",
+    "PK_FALTANTE", "PK_COMPUESTA", "PK_NO_CLUSTER",
+}
+
+
+def _agrupar_entre_tablas(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
+    """
+    Script con varias tablas: una observación por regla. Si la regla aparece varias veces se listan
+    todos los casos con su tabla y línea, y el «qué hacer» va en plural; si aparece una sola vez,
+    el mensaje dice de qué tabla es.
+    """
+    grupos = {}
+    for hallazgo in hallazgos:
+        grupos.setdefault(hallazgo.regla, []).append(hallazgo)
+
+    resultado: List[Hallazgo] = []
+    for regla, grupo in grupos.items():
+        if len(grupo) == 1:
+            hallazgo = grupo[0]
+            tabla = getattr(hallazgo, "tabla", "")
+            nombre_corto = tabla.split(".")[-1]
+            if tabla and nombre_corto not in hallazgo.mensaje:
+                hallazgo.mensaje = f"En la tabla {tabla}, {hallazgo.mensaje[0].lower()}{hallazgo.mensaje[1:]}"
+            resultado.append(hallazgo)
+            continue
+
+        grupo = sorted(grupo, key=lambda h: h.linea)
+        numeros = sorted({h.linea for h in grupo})
+        if regla in _REGLAS_DE_TABLA:
+            casos = [f"{h.elemento} (línea {h.linea})" for h in grupo]
+        else:
+            casos = [f"{h.elemento} ({h.tabla}, línea {h.linea})" for h in grupo]
+        sustantivo, accion = _PLANTILLAS_AGRUPADAS[regla]
+        lineas = ("la línea " if len(numeros) == 1 else "las líneas ") + ", ".join(map(str, numeros))
+        resumido = Hallazgo(
+            linea=numeros[0],
+            origen=grupo[0].origen,
+            severidad=grupo[0].severidad,
+            regla=regla,
+            mensaje=f"Se identificaron {len(grupo)} {sustantivo}, en {lineas}: {'; '.join(casos)}. {accion}",
+        )
+        resumido.lineas = numeros
+        resultado.append(resumido)
+    return resultado
 
 
 def _verificar_una_tabla(texto_sql: str, es_dbcmaica: bool) -> List[Hallazgo]:
@@ -673,6 +777,11 @@ def _verificar_una_tabla(texto_sql: str, es_dbcmaica: bool) -> List[Hallazgo]:
                     f"NOT NULL.",
                 ), columna.nombre))
 
-    # Las reglas desactivadas en el catálogo no se reportan; las repetidas se reportan una vez.
+    # Las reglas desactivadas en el catálogo no se reportan. Cada observación recuerda su tabla y,
+    # si no nombra una columna, a la tabla como elemento (para juntarlas entre tablas).
     activos = [h for h in hallazgos if REGLAS_TABLAS[h.regla].activo]
-    return agrupar(activos, _PLANTILLAS_AGRUPADAS)
+    for hallazgo in activos:
+        hallazgo.tabla = referencia
+        if not getattr(hallazgo, "elemento", None):
+            hallazgo.elemento = referencia
+    return activos
