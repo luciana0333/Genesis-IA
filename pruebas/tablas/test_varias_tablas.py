@@ -55,8 +55,9 @@ class TestVariasTablas(unittest.TestCase):
 
     def test_un_solo_caso_dice_su_tabla(self):
         hallazgo = _por_regla(verificar_tabla(VARIAS_TABLAS))["COLUMNA_NOMBRE_CON_NUMERO"]
+        # El texto ya nombra la tabla: no se antepone «En la tabla…».
         self.assertTrue(hallazgo.mensaje.startswith(
-            "En la tabla Bonificacion.SolicitudDetalleMeta, el nombre de la columna nMeta2 contiene números"))
+            "Se identificó que la columna nMeta2 de la tabla Bonificacion.SolicitudDetalleMeta contiene un número"))
         self.assertEqual(hallazgo.linea, 13)
 
     def test_reglas_de_tabla_en_varias_tablas(self):

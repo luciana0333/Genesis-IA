@@ -438,18 +438,14 @@ def _validar_columna(
 
     numeros = re.findall(r"\d+", columna.nombre)
     if numeros:
-        sin_numeros = re.sub(r"\d+", "", columna.nombre)
-        accion = (
-            f"Quite los números (ej.: {sin_numeros}) o use una palabra que describa el dato."
-            if _NOMBRE_COLUMNA.match(sin_numeros) else "Use una palabra que describa el dato."
-        )
-        elementos["COLUMNA_NOMBRE_CON_NUMERO"] = (
-            f"{columna.nombre} → {sin_numeros}" if _NOMBRE_COLUMNA.match(sin_numeros) else columna.nombre
-        )
+        # Texto de la usuaria.
+        cuantos = "un número" if len(numeros) == 1 else "números"
         hallazgos.append(_hallazgo(
             texto, columna.posicion, "COLUMNA_NOMBRE_CON_NUMERO",
-            f"El nombre de la columna {columna.nombre} contiene números ({', '.join(numeros)}); los "
-            f"nombres de columna no pueden llevar números. {accion}",
+            f"Se identificó que la columna {columna.nombre} de la tabla {referencia} contiene {cuantos} en "
+            f"su nombre, lo cual no cumple con las buenas prácticas de nomenclatura. Renombrar la columna, "
+            f"evitando el uso de números y utilizando un nombre descriptivo que permita identificar "
+            f"claramente su finalidad.",
         ))
 
     binario = re.match(r"\s*(VARBINARY|IMAGE)\b", definicion, re.IGNORECASE)
@@ -574,8 +570,8 @@ _PLANTILLAS_AGRUPADAS = {
     ),
     "COLUMNA_NOMBRE_CON_NUMERO": (
         "columnas con números en el nombre",
-        "Quitar los números o usar una palabra que describa el dato, ya que los nombres de columna "
-        "no pueden llevar números.",
+        "Renombrar cada columna, evitando el uso de números y utilizando un nombre descriptivo que permita "
+        "identificar claramente su finalidad.",
     ),
     "COLUMNA_VARBINARY_PROHIBIDA": (
         "columnas que almacenarían documentos (VARBINARY o IMAGE)",
