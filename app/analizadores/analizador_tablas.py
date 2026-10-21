@@ -40,6 +40,42 @@ _PALABRAS_OMITIBLES_TABLA = {"de", "del", "la", "el", "los", "las", "mi", "mis",
 _PASCAL_CASE = re.compile(r"^(?:[A-Z][a-z0-9]+)+$")
 # Columnas: prefijo del tipo en minúscula + PascalCase (cPersonaNombre).
 _NOMBRE_COLUMNA = re.compile(r"^[a-z](?:[A-Z][a-z0-9]+)+$")
+# Posible sigla: dos o más mayúsculas seguidas (MetaTPPP, nSaldoTCF, nSaldoRenovacionPFId).
+_SIGLA = re.compile(r"[A-Z]{2,}(?=[A-Z][a-z]|[0-9]|$)")
+# Ejemplo de nombre descriptivo en lugar de la sigla (propuesto por la usuaria).
+_EJEMPLO_SIN_SIGLA = {"tabla": "MetaTasaPromPonderada", "columna": "nMetaTasaPromPonderada"}
+
+
+def _siglas_del_nombre(nombre: str, patron: re.Pattern) -> List[str]:
+    """
+    Siglas del nombre, solo si es lo único que lo saca del estándar: con cada sigla escrita en
+    PascalCase (TPPP -> Tppp) el nombre cumpliría. Si tiene otros errores (guion bajo, TB_...), vacío.
+    """
+    siglas = _SIGLA.findall(nombre)
+    # Un nombre todo en mayúsculas (PERSONA, cPERSONA) no es una sigla: está fuera del estándar.
+    if not siglas or not re.search(r"[A-Z][a-z]", nombre):
+        return []
+    normal = _SIGLA.sub(lambda m: m.group(0)[0] + m.group(0)[1:].lower(), nombre)
+    return list(dict.fromkeys(siglas)) if patron.match(normal) else []
+
+
+def _texto_siglas(siglas: List[str], articulo: bool = True) -> str:
+    """«la sigla TPPP» / «las siglas TCF y TPPP» (sin artículo: «sigla TPPP»)."""
+    if len(siglas) == 1:
+        return f"{'la ' if articulo else ''}sigla {siglas[0]}"
+    lista = ", ".join(siglas[:-1]) + f" y {siglas[-1]}"
+    return f"{'las ' if articulo else ''}siglas {lista}"
+
+
+def _mensaje_sigla(objeto: str, siglas: List[str], tipo: str) -> str:
+    """Nombre con sigla por validar (severidad media): no es un error seguro, se pide validarlo."""
+    una = len(siglas) == 1
+    return (
+        f"Se identificó que el nombre de {objeto} contiene {_texto_siglas(siglas)}. Se recomienda validar "
+        f"{'su significado' if una else 'el significado de cada sigla'} y, de ser posible, "
+        f"{'reemplazarla' if una else 'reemplazarlas'} por palabras descriptivas (ej.: {_EJEMPLO_SIN_SIGLA[tipo]}), "
+        f"ya que las siglas dificultan identificar qué información almacena la {tipo}."
+    )
 
 
 @dataclass
@@ -328,7 +364,12 @@ def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: s
             f"Se identificó que la tabla {tabla} no tiene declarado un esquema. Se recomienda añadir el "
             f"esquema; si es dbo, definirlo explícitamente.",
         ))
-    if not _PASCAL_CASE.match(tabla):
+    siglas = [] if _PASCAL_CASE.match(tabla) else _siglas_del_nombre(tabla, _PASCAL_CASE)
+    if siglas:
+        hallazgos.append(con_elemento(_hallazgo(
+            texto, -1, "TABLA_NOMBRE_CON_SIGLA", _mensaje_sigla(f"la tabla {referencia}", siglas, "tabla"),
+        ), f"{referencia} : {_texto_siglas(siglas, articulo=False)}"))
+    elif not _PASCAL_CASE.match(tabla):
         sugerido = _sugerencia_tabla(tabla)
         accion = (
             f"Renómbrela como {sugerido}." if sugerido
@@ -424,6 +465,13 @@ def _validar_columna(
         )
         observacion.cambio = (columna.nombre, sugerido, columna.nombre[:1], prefijo)
         hallazgos.append(observacion)
+    elif not _NOMBRE_COLUMNA.match(columna.nombre) and _siglas_del_nombre(columna.nombre, _NOMBRE_COLUMNA):
+        siglas = _siglas_del_nombre(columna.nombre, _NOMBRE_COLUMNA)
+        elementos["COLUMNA_NOMBRE_CON_SIGLA"] = f"{columna.nombre} ({_texto_siglas(siglas, articulo=False)})"
+        hallazgos.append(_hallazgo(
+            texto, columna.posicion, "COLUMNA_NOMBRE_CON_SIGLA",
+            _mensaje_sigla(f"la columna {columna.nombre} de la tabla {referencia}", siglas, "columna"),
+        ))
     elif not _NOMBRE_COLUMNA.match(columna.nombre):
         accion = (
             f"Renómbrela como {sugerido}." if sugerido
@@ -529,6 +577,12 @@ _PLANTILLAS_AGRUPADAS = {
         "Quitar las palabras de enlace (de, del, mi, su) del nombre de cada tabla, ya que la nomenclatura "
         "no las usa.",
     ),
+    "TABLA_NOMBRE_CON_SIGLA": (
+        "tablas cuyo nombre contiene siglas",
+        "Se recomienda validar el significado de cada sigla y, de ser posible, reemplazarla por palabras "
+        "descriptivas (ej.: MetaTasaPromPonderada), ya que las siglas dificultan identificar qué información "
+        "almacena cada tabla.",
+    ),
     "PK_FALTANTE": (
         "tablas sin clave primaria",
         "Definir en cada una la columna n + nombre de la tabla + Id (INT IDENTITY(1,1)) como PRIMARY KEY "
@@ -567,6 +621,12 @@ _PLANTILLAS_AGRUPADAS = {
         "Renombrar cada columna según la nomenclatura (como se sugiere, cuando hay sugerencia): prefijo del "
         "tipo en minúscula y cada palabra con mayúscula inicial, sin guiones bajos, ya que es la "
         "nomenclatura del manual.",
+    ),
+    "COLUMNA_NOMBRE_CON_SIGLA": (
+        "columnas cuyo nombre contiene siglas",
+        "Se recomienda validar el significado de cada sigla y, de ser posible, reemplazarla por palabras "
+        "descriptivas (ej.: nMetaTasaPromPonderada), ya que las siglas dificultan identificar qué información "
+        "almacena cada columna.",
     ),
     "COLUMNA_NOMBRE_CON_NUMERO": (
         "columnas con números en el nombre",
@@ -662,6 +722,7 @@ def verificar_tabla(texto_sql: str, es_dbcmaica: bool = False) -> List[Hallazgo]
 # Reglas de la tabla (no de una columna): su elemento ya nombra la tabla.
 _REGLAS_DE_TABLA = {
     "CREATE_SIN_PARENTESIS", "TABLA_SIN_ESQUEMA", "TABLA_NOMBRE_NO_PASCALCASE", "TABLA_CON_PALABRA_OMITIBLE",
+    "TABLA_NOMBRE_CON_SIGLA",
     "PK_FALTANTE", "PK_COMPUESTA", "PK_NO_CLUSTER",
 }
 
@@ -731,10 +792,13 @@ def _agrupar_entre_tablas(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
         if mensaje is None:
             if regla in _REGLAS_DE_TABLA:
                 casos = [h.elemento for h in grupo]
+            elif regla == "COLUMNA_NOMBRE_CON_SIGLA":
+                casos = [f"{h.tabla} : {h.elemento}" for h in grupo]
             else:
                 casos = [f"{h.elemento} ({h.tabla})" for h in grupo]
             sustantivo, accion = _PLANTILLAS_AGRUPADAS[regla]
-            mensaje = f"Se identificaron {len(grupo)} {sustantivo}: {'; '.join(casos)}. {accion}"
+            cantidad = _NUMEROS_EN_LETRAS.get(len(grupo), str(len(grupo)))
+            mensaje = f"Se identificaron {cantidad} {sustantivo}: {'; '.join(casos)}. {accion}"
         resumido = Hallazgo(
             linea=numeros[0],
             origen=grupo[0].origen,

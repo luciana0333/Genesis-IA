@@ -64,7 +64,7 @@ class TestVariasTablas(unittest.TestCase):
         script = VARIAS_TABLAS.replace("Bonificacion.EsquemaSupervisores", "Bonificacion.Esquema_Supervisores") \
                               .replace("Bonificacion.EsquemaEjecutivos", "Bonificacion.Esquema_Ejecutivos")
         hallazgo = _por_regla(verificar_tabla(script))["TABLA_NOMBRE_NO_PASCALCASE"]
-        self.assertIn("Se identificaron 2 tablas con nombre fuera del estándar", hallazgo.mensaje)
+        self.assertIn("Se identificaron dos tablas con nombre fuera del estándar", hallazgo.mensaje)
         self.assertIn("Bonificacion.Esquema_Supervisores → EsquemaSupervisores; ", hallazgo.mensaje)
         self.assertNotIn("línea", hallazgo.mensaje)
         self.assertIn("Renombrar cada tabla en PascalCase", hallazgo.mensaje)
@@ -75,6 +75,34 @@ class TestVariasTablas(unittest.TestCase):
         hallazgo = _por_regla(verificar_tabla(script))["COLUMNA_PREFIJO_TIPO_INVALIDO"]
         self.assertTrue(hallazgo.mensaje.startswith("Se identificaron tres columnas cuyo prefijo"))
         self.assertIn("Se recomienda corregir los nombres de las tres columnas", hallazgo.mensaje)
+
+
+    def test_siglas_son_por_validar_con_severidad_media(self):
+        script = VARIAS_TABLAS.replace("nGradoSatisfaccion VARCHAR(20) COLLATE SQL_Latin1_General_CP1_CI_AS",
+                                       "nSaldoTCF DECIMAL(18,2)").replace(
+            "Bonificacion.SolicitudDetalleMeta", "Bonificacion.MetaTPPP").replace("nSolicitudDetalleMetaId", "nMetaTPPPId")
+        hallazgos = _por_regla(verificar_tabla(script))
+        columnas = hallazgos["COLUMNA_NOMBRE_CON_SIGLA"]
+        self.assertEqual(columnas.severidad.value, "medio")
+        self.assertIn("Se identificaron tres columnas cuyo nombre contiene siglas: "
+                      "Bonificacion.EsquemaSupervisores : nSaldoTCF (sigla TCF); "
+                      "Bonificacion.EsquemaEjecutivos : nSaldoTCF (sigla TCF); "
+                      "Bonificacion.MetaTPPP : nMetaTPPPId (sigla TPPP).", columnas.mensaje)
+        tabla = hallazgos["TABLA_NOMBRE_CON_SIGLA"]
+        self.assertEqual(tabla.mensaje,
+                         "Se identificó que el nombre de la tabla Bonificacion.MetaTPPP contiene la sigla TPPP. "
+                         "Se recomienda validar su significado y, de ser posible, reemplazarla por palabras "
+                         "descriptivas (ej.: MetaTasaPromPonderada), ya que las siglas dificultan identificar qué "
+                         "información almacena la tabla.")
+        self.assertNotIn("COLUMNA_NOMBRE_NO_PASCALCASE", hallazgos)
+        self.assertNotIn("TABLA_NOMBRE_NO_PASCALCASE", hallazgos)
+
+    def test_sigla_con_otro_error_es_fuera_del_estandar(self):
+        script = VARIAS_TABLAS.replace("nGradoSatisfaccion VARCHAR(20) COLLATE SQL_Latin1_General_CP1_CI_AS",
+                                       "nSaldo_TCF DECIMAL(18,2)")
+        hallazgos = _por_regla(verificar_tabla(script))
+        self.assertIn("COLUMNA_NOMBRE_NO_PASCALCASE", hallazgos)
+        self.assertNotIn("COLUMNA_NOMBRE_CON_SIGLA", hallazgos)
 
 
 if __name__ == "__main__":
