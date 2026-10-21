@@ -20,6 +20,7 @@ from typing import List, Optional, Tuple
 
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.analizadores.diccionario_agrupar import agrupar, con_elemento
+from app.analizadores.ortografia import separar_palabras
 from app.reglas.reglas_tablas import REGLAS_TABLAS
 
 
@@ -124,20 +125,34 @@ def _palabras_nombre_tabla(nombre: str) -> List[str]:
     return [parte.lower() for parte in re.findall(r"[A-Z]+(?=[A-Z][a-z]|$)|[A-Z]?[a-z]+|\d+", nombre)]
 
 
-def _a_pascal_case(nombre: str) -> str:
-    """Propone el nombre en PascalCase: quita guiones bajos, espacios y el prefijo TB_."""
+def _a_pascal_case(nombre: str) -> Optional[str]:
+    """
+    Propone el nombre en PascalCase: quita guiones bajos, espacios y el prefijo TB_.
+    Las partes todo en minúsculas o mayúsculas se separan en palabras con el diccionario
+    (esquematotalizadoejecutivos -> EsquemaTotalizadoEjecutivos). Si una parte sin guiones no
+    se puede separar con certeza, no se propone nada (None) en lugar de un nombre equivocado.
+    """
     partes = [p for p in re.split(r"[_\s]+", nombre) if p]
     if len(partes) > 1 and partes[0].upper() in {"TB", "TBL"}:
         partes = partes[1:]
-    return "".join(
-        p.capitalize() if p.isupper() or p.islower() else p[0].upper() + p[1:]
-        for p in partes
-    )
+    resultado = []
+    for parte in partes:
+        if not (parte.isupper() or parte.islower()):
+            resultado.append(parte[0].upper() + parte[1:])
+            continue
+        palabras = separar_palabras(parte)
+        if palabras:
+            resultado.append("".join(p.capitalize() for p in palabras))
+        elif len(partes) > 1:
+            resultado.append(parte.capitalize())  # los guiones bajos ya separaban las palabras
+        else:
+            return None
+    return "".join(resultado)
 
 
 def _sugerencia_tabla(tabla: str) -> Optional[str]:
     sugerido = _a_pascal_case(tabla)
-    return sugerido if sugerido != tabla and _PASCAL_CASE.match(sugerido) else None
+    return sugerido if sugerido and sugerido != tabla and _PASCAL_CASE.match(sugerido) else None
 
 
 def _sugerencia_columna(nombre: str, prefijo: Optional[str]) -> Optional[str]:
@@ -151,7 +166,10 @@ def _sugerencia_columna(nombre: str, prefijo: Optional[str]) -> Optional[str]:
     resto = nombre[1:] if tiene_prefijo else nombre
     if "_" not in resto and " " not in resto and resto.islower() and len(resto) > 1:
         return None  # 'cpersonanombre': no se pueden separar las palabras con certeza.
-    sugerido = (prefijo or nombre[:1].lower()) + _a_pascal_case(resto.lstrip("_"))
+    resto_pascal = _a_pascal_case(resto.lstrip("_"))
+    if resto_pascal is None:
+        return None
+    sugerido = (prefijo or nombre[:1].lower()) + resto_pascal
     return sugerido if sugerido != nombre and _NOMBRE_COLUMNA.match(sugerido) else None
 
 

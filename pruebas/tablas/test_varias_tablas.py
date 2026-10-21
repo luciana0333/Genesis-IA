@@ -3,6 +3,8 @@
 
 import unittest
 
+from app.analizadores import ortografia
+
 from app.analizadores.analizador_tablas import verificar_tabla
 
 UNA_TABLA = """CREATE TABLE Bonificacion.MetaSaldo(
@@ -103,6 +105,20 @@ class TestVariasTablas(unittest.TestCase):
         hallazgos = _por_regla(verificar_tabla(script))
         self.assertIn("COLUMNA_NOMBRE_NO_PASCALCASE", hallazgos)
         self.assertNotIn("COLUMNA_NOMBRE_CON_SIGLA", hallazgos)
+
+
+    @unittest.skipUnless(ortografia.disponible(), "Requiere el diccionario de español (pyspellchecker)")
+    def test_nombre_todo_en_minusculas_se_separa_en_palabras(self):
+        script = VARIAS_TABLAS.replace("Bonificacion.EsquemaEjecutivos", "Bonificacion.esquematotalizadoejecutivos")
+        hallazgo = _por_regla(verificar_tabla(script))["TABLA_NOMBRE_NO_PASCALCASE"]
+        self.assertTrue(hallazgo.mensaje.endswith("Renómbrela como EsquemaTotalizadoEjecutivos."))
+
+    @unittest.skipUnless(ortografia.disponible(), "Requiere el diccionario de español (pyspellchecker)")
+    def test_si_no_se_puede_separar_no_inventa_nombre(self):
+        script = VARIAS_TABLAS.replace("Bonificacion.EsquemaEjecutivos", "Bonificacion.xqzwrtplk")
+        hallazgo = _por_regla(verificar_tabla(script))["TABLA_NOMBRE_NO_PASCALCASE"]
+        self.assertNotIn("Renómbrela como", hallazgo.mensaje)
+        self.assertIn("Use PascalCase", hallazgo.mensaje)
 
 
 if __name__ == "__main__":
