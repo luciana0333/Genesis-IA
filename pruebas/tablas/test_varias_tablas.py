@@ -147,5 +147,14 @@ class TestVariasTablas(unittest.TestCase):
         )
 
 
+    @unittest.skipUnless(ortografia.disponible(), "Requiere el diccionario de español (pyspellchecker)")
+    def test_tramo_en_minusculas_dentro_de_un_nombre_mixto(self):
+        from app.analizadores.analizador_tablas import _sugerencia_tabla
+        # La mayúscula que puso el autor (Supervisores) se respeta; solo se separa el tramo en minúsculas.
+        self.assertEqual(_sugerencia_tabla("esquematotalizadoSupervisores"), "EsquemaTotalizadoSupervisores")
+        self.assertEqual(_sugerencia_tabla("metasegurossupervisor"), "MetaSegurosSupervisor")
+        self.assertEqual(_sugerencia_tabla("metatiendaahorros"), "MetaTiendaAhorros")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -138,7 +138,18 @@ def _a_pascal_case(nombre: str) -> Optional[str]:
     resultado = []
     for parte in partes:
         if not (parte.isupper() or parte.islower()):
-            resultado.append(parte[0].upper() + parte[1:])
+            # Mayúsculas y minúsculas mezcladas: cada tramo se separa por su cuenta
+            # (esquematotalizadoSupervisores -> Esquema + Totalizado + Supervisores).
+            tramos = re.findall(r"[A-Z]+(?=[A-Z][a-z]|\d|$)|[A-Z]?[a-z]+|\d+", parte)
+            arreglado = ""
+            for tramo in tramos:
+                # Solo el tramo todo en minúsculas: si el autor ya puso la mayúscula (Supervisores), se respeta.
+                palabras = separar_palabras(tramo) if tramo.islower() else None
+                if palabras and len(palabras) > 1:
+                    arreglado += "".join(p.capitalize() for p in palabras)
+                else:
+                    arreglado += tramo[0].upper() + tramo[1:]
+            resultado.append(arreglado)
             continue
         palabras = separar_palabras(parte)
         if palabras:

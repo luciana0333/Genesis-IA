@@ -69,3 +69,7 @@ kardex
 microfinanzas
 cmac
 caja
+supervisor
+supervisores
+tienda
+tiendas

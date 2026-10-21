@@ -129,6 +129,9 @@ def es_palabra_valida(palabra: str) -> bool:
     return False
 
 
+_CONECTORES = {"y", "o", "e", "u", "de", "al", "el", "la", "lo", "en", "un", "mi", "su", "tu", "a"}
+
+
 def separar_palabras(texto: str) -> Optional[List[str]]:
     """
     Separa palabras pegadas en minúsculas con el diccionario de español
@@ -146,8 +149,8 @@ def separar_palabras(texto: str) -> Optional[List[str]]:
         for inicio in range(max(0, fin - 25), fin):
             anterior = mejor[inicio]
             pieza = n[inicio:fin]
-            # Una sola letra solo como conjunción (y, o); el resto, palabras conocidas de 2+ letras.
-            if anterior is None or (len(pieza) == 1 and pieza not in ("y", "o")) or not es_palabra_valida(pieza):
+            # Trozos de 1 o 2 letras solo si son conectores (de, y, en...): evita «ti + enda».
+            if anterior is None or (len(pieza) <= 2 and pieza not in _CONECTORES) or not es_palabra_valida(pieza):
                 continue
             candidato = (anterior[0] + 1, anterior[1] - len(pieza) ** 2, anterior[2] + [fin])
             if mejor[fin] is None or candidato[:2] < mejor[fin][:2]:
