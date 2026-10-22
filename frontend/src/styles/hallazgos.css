@@ -1015,7 +1015,7 @@
   color: var(--text-primary);
 }
 
-/* ───────── RECORRIDO DE LÍNEAS («4 / 20 ‹ ›»): rojo institucional ───────── */
+/* ───────── RECORRIDO DE LÍNEAS («4 de 20 ‹ ›»): beige arena ───────── */
 .barra-recorrido {
   position: fixed;
   bottom: 24px;
@@ -1025,19 +1025,20 @@
   align-items: center;
   gap: 6px;
   padding: 6px 6px 6px 16px;
-  background: var(--red-main);
-  color: #ffffff;
+  border: 1px solid #d9cbb1;
+  background: #efe6d6;
+  color: #4a4a55;
   font-size: 0.8rem;
-  box-shadow: 0 14px 30px -14px rgba(184, 0, 15, 0.6);
+  box-shadow: 0 14px 30px -14px rgba(90, 70, 40, 0.45);
   transform: translateX(-50%);
 }
 
-.barra-recorrido-titulo { margin-right: 6px; font-weight: 600; white-space: nowrap; }
+.barra-recorrido-titulo { margin-right: 6px; color: #3d3d46; font-weight: 600; white-space: nowrap; }
 
 .barra-recorrido-linea {
   padding: 0 10px;
-  border-left: 1px solid rgba(255, 255, 255, 0.35);
-  color: #ffe3e5;
+  border-left: 1px solid #d9cbb1;
+  color: #6e6e78;
   font-family: var(--font-mono);
   font-size: 0.74rem;
   white-space: nowrap;
@@ -1046,8 +1047,8 @@
 .barra-recorrido-posicion {
   margin-right: 4px;
   padding: 3px 8px;
-  background: #ffffff;
-  color: var(--red-dark);
+  background: var(--red-dark);
+  color: #ffffff;
   font-family: var(--font-mono);
   font-size: 0.74rem;
   font-weight: 700;
@@ -1060,27 +1061,27 @@
   justify-content: center;
   width: 30px;
   height: 30px;
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  border: 1px solid #cdbd9f;
   border-radius: 0;
   background: transparent;
-  color: #ffffff;
+  color: #4a4a55;
   cursor: pointer;
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 
 .barra-recorrido button svg { width: 16px; height: 16px; }
-.barra-recorrido button:hover { background: rgba(255, 255, 255, 0.18); }
+.barra-recorrido button:hover { background: #e4d8c3; }
 
 .barra-recorrido .barra-recorrido-siguiente {
-  border-color: #ffffff;
-  background: #ffffff;
-  color: var(--red-dark);
+  border-color: var(--red-dark);
+  background: var(--red-dark);
+  color: #ffffff;
 }
 
-.barra-recorrido .barra-recorrido-siguiente:hover { background: #ffe3e5; }
+.barra-recorrido .barra-recorrido-siguiente:hover { background: var(--red-deep); }
 
 .barra-recorrido .barra-recorrido-cerrar {
   margin-left: 2px;
   border-color: transparent;
-  color: #ffd0d3;
+  color: #8a8a96;
 }
