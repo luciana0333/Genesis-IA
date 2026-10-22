@@ -88,7 +88,8 @@ class TestVariasTablas(unittest.TestCase):
             "Bonificacion.SolicitudDetalleMeta", "Bonificacion.MetaTPPP").replace("nSolicitudDetalleMetaId", "nMetaTPPPId")
         hallazgos = _por_regla(verificar_tabla(script))
         columnas = hallazgos["COLUMNA_NOMBRE_CON_SIGLA"]
-        self.assertEqual(columnas.severidad.value, "medio")
+        self.assertEqual(columnas.severidad.value, "bajo")
+        self.assertEqual(hallazgos["TABLA_NOMBRE_CON_SIGLA"].severidad.value, "medio")
         self.assertIn("Se identificaron tres columnas cuyo nombre contiene siglas: "
                       "Bonificacion.EsquemaSupervisores : nSaldoTCF (sigla TCF); "
                       "Bonificacion.EsquemaEjecutivos : nSaldoTCF (sigla TCF); "
@@ -208,6 +209,16 @@ class TestVariasTablas(unittest.TestCase):
             lineas = script.splitlines()
             prefijo = _por_regla(hallazgos)["COLUMNA_PREFIJO_TIPO_INVALIDO"]
             self.assertTrue(all("nGradoSatisfaccion" in lineas[n - 1] for n in prefijo.lineas), antes)
+
+
+    def test_columnas_con_sigla_nombran_la_tabla_una_vez(self):
+        script = VARIAS_TABLAS.replace(
+            "nGradoSatisfaccion VARCHAR(20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL",
+            "nMetaTPPP DECIMAL(18,2) NOT NULL,\n    nFactorINS INT NOT NULL")
+        mensaje = _por_regla(verificar_tabla(script))["COLUMNA_NOMBRE_CON_SIGLA"].mensaje
+        self.assertIn("Bonificacion.EsquemaSupervisores : nMetaTPPP, nFactorINS (siglas TPPP y INS); "
+                      "Bonificacion.EsquemaEjecutivos : nMetaTPPP, nFactorINS (siglas TPPP y INS).", mensaje)
+        self.assertEqual(mensaje.count("Bonificacion.EsquemaSupervisores"), 1)
 
 
 if __name__ == "__main__":

@@ -10,7 +10,8 @@ import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { OPCIONES_SELECTOR } from '../../config/revisiones';
 import { AvisoFaltaDiccionario } from './AvisoFaltaDiccionario';
-import { VerEnCodigo } from './VerEnCodigo';
+import { BarraRecorrido, VerEnCodigo } from './VerEnCodigo';
+import { nombreRegla } from '../../config/reglas';
 import { GeneradorDiccionario } from './GeneradorDiccionario';
 import { MetricasSeveridad } from './MetricasSeveridad';
 import { detectarTipoDiccionario, extraerNombreObjeto } from '../../utils/deteccionObjeto';
@@ -114,18 +115,30 @@ export function AuditoriaWorkspace({ vista }) {
   const marca = marcaPedida?.resultado === resultado ? marcaPedida : null;
   // Cajita de la línea de cada observación: sin sección es el código principal; «general» no apunta a una línea.
   const CAJITAS = { objeto: 'objeto', diccionario: 'diccionario', indices: 'indices' };
-  const verEnCodigo = (seccion, lineas) => {
+  const verEnCodigo = (seccion, lineas, recorrido = null) => {
     // La clave cambia en cada clic, para volver a llevar a la línea aunque sea la misma.
-    setMarca((anterior) => ({ seccion, lineas, resultado, clave: (anterior?.clave ?? 0) + 1 }));
+    setMarca((anterior) => ({ seccion, lineas, resultado, recorrido, indice: 0, clave: (anterior?.clave ?? 0) + 1 }));
+  };
+  // Recorrer una a una las líneas de la observación (barra flotante «4 de 20 ‹ ›»).
+  const irALinea = (paso) => {
+    setMarca((anterior) => anterior && ({
+      ...anterior,
+      indice: (anterior.indice + paso + anterior.lineas.length) % anterior.lineas.length,
+      clave: anterior.clave + 1,
+    }));
   };
   const botonVerEnCodigo = (hallazgo) => {
     const seccion = hallazgo.seccion ? CAJITAS[hallazgo.seccion] : 'objeto';
     if (!seccion || !hallazgo.linea) return null;
     const lineas = hallazgo.lineas?.length ? hallazgo.lineas : [hallazgo.linea];
-    return <VerEnCodigo onVer={() => verEnCodigo(seccion, lineas)} />;
+    // Con varias líneas, la barra «1 de N ‹ ›» permite ir de un error al otro.
+    const recorrido = lineas.length > 1 ? nombreRegla(hallazgo.regla) : null;
+    return <VerEnCodigo onVer={() => verEnCodigo(seccion, lineas, recorrido)} />;
   };
   const marcadasEn = (seccion) => (marca?.seccion === seccion ? marca.lineas : []);
-  const enfocarEn = (seccion) => (marca?.seccion === seccion ? { linea: marca.lineas[0], clave: marca.clave } : null);
+  const enfocarEn = (seccion) => (
+    marca?.seccion === seccion ? { linea: marca.lineas[marca.indice], clave: marca.clave } : null
+  );
   const accionesHallazgo = (hallazgo) => (
     <>
       {botonVerEnCodigo(hallazgo)}
@@ -353,6 +366,18 @@ export function AuditoriaWorkspace({ vista }) {
             </p>
           </div>
         </form>
+
+        {marca?.recorrido && (
+          <BarraRecorrido
+            titulo={marca.recorrido}
+            linea={marca.lineas[marca.indice]}
+            posicion={marca.indice + 1}
+            total={marca.lineas.length}
+            onAnterior={() => irALinea(-1)}
+            onSiguiente={() => irALinea(1)}
+            onCerrar={() => setMarca(null)}
+          />
+        )}
 
         {avisoDiccionario && (
           <AvisoFaltaDiccionario

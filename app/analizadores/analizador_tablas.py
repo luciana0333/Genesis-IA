@@ -537,10 +537,12 @@ def _validar_columna(
     elif not _NOMBRE_COLUMNA.match(columna.nombre) and _siglas_del_nombre(columna.nombre, _NOMBRE_COLUMNA):
         siglas = _siglas_del_nombre(columna.nombre, _NOMBRE_COLUMNA)
         elementos["COLUMNA_NOMBRE_CON_SIGLA"] = f"{columna.nombre} ({_texto_siglas(siglas, articulo=False)})"
-        hallazgos.append(_hallazgo(
+        observacion = _hallazgo(
             texto, columna.posicion, "COLUMNA_NOMBRE_CON_SIGLA",
             _mensaje_sigla(f"la columna {columna.nombre} de la tabla {referencia}", siglas, "columna"),
-        ))
+        )
+        observacion.columna, observacion.siglas = columna.nombre, siglas
+        hallazgos.append(observacion)
     elif not _NOMBRE_COLUMNA.match(columna.nombre) or pegadas:
         sugerido = pegadas or sugerido
         accion = (
@@ -889,7 +891,15 @@ def _agrupar_entre_tablas(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
             if regla in _REGLAS_DE_TABLA:
                 casos = [h.elemento for h in grupo]
             elif regla == "COLUMNA_NOMBRE_CON_SIGLA":
-                casos = [f"{h.tabla} : {h.elemento}" for h in grupo]
+                # La tabla se nombra una sola vez, con sus columnas al costado y las siglas al final.
+                por_tabla = {}
+                for h in grupo:
+                    por_tabla.setdefault(h.tabla, []).append(h)
+                casos = []
+                for tabla, de_la_tabla in por_tabla.items():
+                    siglas = list(dict.fromkeys(s for h in de_la_tabla for s in h.siglas))
+                    columnas = ", ".join(h.columna for h in de_la_tabla)
+                    casos.append(f"{tabla} : {columnas} ({_texto_siglas(siglas, articulo=False)})")
             else:
                 casos = [f"{h.elemento} ({h.tabla})" for h in grupo]
             sustantivo, accion = _PLANTILLAS_AGRUPADAS[regla]
