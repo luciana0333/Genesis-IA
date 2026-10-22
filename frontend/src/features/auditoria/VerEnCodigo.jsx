@@ -21,7 +21,7 @@ export function BarraRecorrido({ titulo, linea, posicion, total, onAnterior, onS
       <span className="barra-recorrido-linea">Línea {linea}</span>
       <span className="barra-recorrido-posicion" aria-live="polite">{posicion} de {total}</span>
       <button type="button" onClick={onAnterior} aria-label="Línea anterior"><IconoAnterior /></button>
-      <button type="button" onClick={onSiguiente} aria-label="Línea siguiente"><IconoSiguiente /></button>
+      <button type="button" className="barra-recorrido-siguiente" onClick={onSiguiente} aria-label="Línea siguiente"><IconoSiguiente /></button>
       <button type="button" className="barra-recorrido-cerrar" onClick={onCerrar} aria-label="Cerrar recorrido">
         <IconoCerrar />
       </button>

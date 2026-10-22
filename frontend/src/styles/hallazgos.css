@@ -1015,7 +1015,7 @@
   color: var(--text-primary);
 }
 
-/* ───────── RECORRIDO DE LÍNEAS («4 de 20 ‹ ›») ───────── */
+/* ───────── RECORRIDO DE LÍNEAS («4 / 20 ‹ ›»): rojo institucional ───────── */
 .barra-recorrido {
   position: fixed;
   bottom: 24px;
@@ -1023,25 +1023,34 @@
   z-index: 50;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   padding: 6px 6px 6px 16px;
-  border-left: 3px solid var(--red-main);
-  background: #16161b;
+  background: var(--red-main);
   color: #ffffff;
-  font-size: 0.78rem;
-  box-shadow: var(--shadow-lg);
+  font-size: 0.8rem;
+  box-shadow: 0 14px 30px -14px rgba(184, 0, 15, 0.6);
   transform: translateX(-50%);
 }
 
-.barra-recorrido-titulo { margin-right: 8px; font-weight: 600; }
+.barra-recorrido-titulo { margin-right: 6px; font-weight: 600; white-space: nowrap; }
 
-.barra-recorrido-linea,
-.barra-recorrido-posicion {
-  padding: 0 8px;
-  border-left: 1px solid rgba(255, 255, 255, 0.2);
-  color: #c9c9d2;
+.barra-recorrido-linea {
+  padding: 0 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.35);
+  color: #ffe3e5;
   font-family: var(--font-mono);
   font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+.barra-recorrido-posicion {
+  margin-right: 4px;
+  padding: 3px 8px;
+  background: #ffffff;
+  color: var(--red-dark);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -1051,13 +1060,27 @@
   justify-content: center;
   width: 30px;
   height: 30px;
-  border: 0;
-  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 0;
   background: transparent;
   color: #ffffff;
   cursor: pointer;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 
 .barra-recorrido button svg { width: 16px; height: 16px; }
-.barra-recorrido button:hover { background: var(--red-main); }
-.barra-recorrido .barra-recorrido-cerrar { margin-left: 4px; color: #c9c9d2; }
+.barra-recorrido button:hover { background: rgba(255, 255, 255, 0.18); }
+
+.barra-recorrido .barra-recorrido-siguiente {
+  border-color: #ffffff;
+  background: #ffffff;
+  color: var(--red-dark);
+}
+
+.barra-recorrido .barra-recorrido-siguiente:hover { background: #ffe3e5; }
+
+.barra-recorrido .barra-recorrido-cerrar {
+  margin-left: 2px;
+  border-color: transparent;
+  color: #ffd0d3;
+}
