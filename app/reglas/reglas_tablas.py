@@ -87,7 +87,7 @@ REGLAS_TABLAS = {
         "(ej.: cPersonaNombre, dPersonaFechaNacimiento).",
     ),
     "COLUMNA_NOMBRE_CON_SIGLA": _regla(
-        "COLUMNA_NOMBRE_CON_SIGLA", "Nombre de columna con sigla por validar", "medio",
+        "COLUMNA_NOMBRE_CON_SIGLA", "Nombre de columna con sigla por validar", "bajo",
         "El nombre de la columna lleva varias mayúsculas seguidas (posible sigla, ej.: nSaldoTCF): validar "
         "su significado y, de ser posible, usar palabras descriptivas.",
     ),

@@ -88,7 +88,8 @@ class TestVariasTablas(unittest.TestCase):
             "Bonificacion.SolicitudDetalleMeta", "Bonificacion.MetaTPPP").replace("nSolicitudDetalleMetaId", "nMetaTPPPId")
         hallazgos = _por_regla(verificar_tabla(script))
         columnas = hallazgos["COLUMNA_NOMBRE_CON_SIGLA"]
-        self.assertEqual(columnas.severidad.value, "medio")
+        self.assertEqual(columnas.severidad.value, "bajo")
+        self.assertEqual(hallazgos["TABLA_NOMBRE_CON_SIGLA"].severidad.value, "medio")
         self.assertIn("Se identificaron tres columnas cuyo nombre contiene siglas: "
                       "Bonificacion.EsquemaSupervisores : nSaldoTCF (sigla TCF); "
                       "Bonificacion.EsquemaEjecutivos : nSaldoTCF (sigla TCF); "
