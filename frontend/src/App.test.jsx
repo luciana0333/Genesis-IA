@@ -136,6 +136,38 @@ describe('App', () => {
     expect(document.activeElement).toBe(diccionario);
   });
 
+  it('Tablas: columnas con sigla se recorren una a una con la barra «1 de 3 ‹ ›»', async () => {
+    const usuario = userEvent.setup();
+    mockRespuesta({
+      hallazgos: [
+        { linea: 2, lineas: [2, 4, 6], origen: 'reglas_estaticas', severidad: 'bajo', regla: 'COLUMNA_NOMBRE_CON_SIGLA', mensaje: 'Detalle.' },
+      ],
+    });
+    render(<App />);
+    await irA('tablas');
+    const tabla = screen.getByLabelText(/Script de tabla/);
+
+    await usuario.click(screen.getByRole('button', { name: 'Ejecutar revisión' }));
+    await usuario.click(await screen.findByRole('button', { name: 'Ver en el código' }));
+
+    const barra = screen.getByRole('toolbar', { name: /Recorrer las líneas/ });
+    expect(within(barra).getByText('1 de 3')).toBeInTheDocument();
+    expect(within(barra).getByText('Línea 2')).toBeInTheDocument();
+    const marcadas = () => [...tabla.closest('.code-editor').querySelectorAll('.code-gutter span.marcada')].map((n) => n.textContent);
+    expect(marcadas()).toEqual(['2', '4', '6']);
+
+    await usuario.click(within(barra).getByRole('button', { name: 'Línea siguiente' }));
+    expect(within(barra).getByText('2 de 3')).toBeInTheDocument();
+    expect(within(barra).getByText('Línea 4')).toBeInTheDocument();
+    await usuario.click(within(barra).getByRole('button', { name: 'Línea anterior' }));
+    await usuario.click(within(barra).getByRole('button', { name: 'Línea anterior' }));
+    expect(within(barra).getByText('3 de 3')).toBeInTheDocument();
+
+    await usuario.click(within(barra).getByRole('button', { name: 'Cerrar recorrido' }));
+    expect(screen.queryByRole('toolbar', { name: /Recorrer las líneas/ })).not.toBeInTheDocument();
+    expect(marcadas()).toEqual([]);
+  });
+
   it('Tablas: «Ver en el código» marca la línea en la tabla o en los índices, según la observación', async () => {
     const usuario = userEvent.setup();
     mockRespuesta({

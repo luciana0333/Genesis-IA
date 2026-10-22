@@ -1014,3 +1014,50 @@
   background: var(--bg-card);
   color: var(--text-primary);
 }
+
+/* ───────── RECORRIDO DE LÍNEAS («4 de 20 ‹ ›») ───────── */
+.barra-recorrido {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 6px 6px 16px;
+  border-left: 3px solid var(--red-main);
+  background: #16161b;
+  color: #ffffff;
+  font-size: 0.78rem;
+  box-shadow: var(--shadow-lg);
+  transform: translateX(-50%);
+}
+
+.barra-recorrido-titulo { margin-right: 8px; font-weight: 600; }
+
+.barra-recorrido-linea,
+.barra-recorrido-posicion {
+  padding: 0 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  color: #c9c9d2;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+.barra-recorrido button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.barra-recorrido button svg { width: 16px; height: 16px; }
+.barra-recorrido button:hover { background: var(--red-main); }
+.barra-recorrido .barra-recorrido-cerrar { margin-left: 4px; color: #c9c9d2; }
