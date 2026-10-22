@@ -195,29 +195,10 @@ class TestVariasTablas(unittest.TestCase):
         # Scripts protegidos con transacción (TRY/CATCH, COMMIT/ROLLBACK, GO): mismas observaciones y
         # las líneas siguen apuntando al código.
         envolturas = (
-            ("BEGIN TRY
-	BEGIN TRANSACTION
-", "
-	COMMIT TRANSACTION
-END TRY
-BEGIN CATCH
-"
-             "	IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-	THROW;
-END CATCH
-"),
-            ("SET XACT_ABORT ON;
-BEGIN TRAN;
-", "
-IF @@ERROR <> 0 ROLLBACK TRAN; ELSE COMMIT TRAN;
-"),
-            ("BEGIN TRANSACTION
-GO
-", "
-GO
-COMMIT
-GO
-"),
+            ("BEGIN TRY\n\tBEGIN TRANSACTION\n",
+             "\n\tCOMMIT TRANSACTION\nEND TRY\nBEGIN CATCH\n\tIF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;\n\tTHROW;\nEND CATCH\n"),
+            ("SET XACT_ABORT ON;\nBEGIN TRAN;\n", "\nIF @@ERROR <> 0 ROLLBACK TRAN; ELSE COMMIT TRAN;\n"),
+            ("BEGIN TRANSACTION\nGO\n", "\nGO\nCOMMIT\nGO\n"),
         )
         sin_transaccion = sorted(h.regla for h in verificar_tabla(VARIAS_TABLAS))
         for antes, despues in envolturas:
