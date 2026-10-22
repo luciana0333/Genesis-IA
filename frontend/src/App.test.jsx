@@ -168,6 +168,26 @@ describe('App', () => {
     expect(marcadas()).toEqual([]);
   });
 
+  it('con más de 4 líneas el encabezado muestra los casos y la barra recorre cualquier observación', async () => {
+    const usuario = userEvent.setup();
+    mockRespuesta({
+      hallazgos: [
+        { linea: 1, lineas: [1, 2, 3, 4, 5], origen: 'reglas_estaticas', severidad: 'alto', regla: 'TABLA_FISICA_SIN_NOLOCK', mensaje: 'Detalle.' },
+        { linea: 2, lineas: [2, 3], origen: 'reglas_estaticas', severidad: 'bajo', regla: 'USO_LTRIM_RTRIM', mensaje: 'Detalle.' },
+      ],
+    });
+    render(<App />);
+    await irA('reportes');
+
+    await usuario.click(screen.getByRole('button', { name: 'Ejecutar revisión' }));
+    expect(await screen.findByText('5 casos')).toBeInTheDocument();
+    expect(screen.getByText('Líneas 2, 3')).toBeInTheDocument();
+
+    await usuario.click(screen.getAllByRole('button', { name: 'Ver en el código' })[0]);
+    const barra = screen.getByRole('toolbar', { name: /Recorrer las líneas/ });
+    expect(within(barra).getByText('1 de 5')).toBeInTheDocument();
+  });
+
   it('Tablas: «Ver en el código» marca la línea en la tabla o en los índices, según la observación', async () => {
     const usuario = userEvent.setup();
     mockRespuesta({

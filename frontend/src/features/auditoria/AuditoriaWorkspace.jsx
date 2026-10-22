@@ -19,9 +19,6 @@ import { useAuditoria } from './useAuditoria';
 import { useAlPedirEjemplo } from '../../hooks/useVerEjemplo';
 
 // Observaciones de «falta documentar»: la primera presente ofrece el script del diccionario faltante.
-// Observaciones con varias líneas que se pueden recorrer una a una desde «Ver en el código».
-const REGLAS_CON_RECORRIDO = new Set(['COLUMNA_NOMBRE_CON_SIGLA']);
-
 const REGLAS_DICCIONARIO_FALTANTE = [
   'TABLA_SIN_DESCRIPCION',
   'PROCEDIMIENTO_SIN_DESCRIPCION',
@@ -134,8 +131,8 @@ export function AuditoriaWorkspace({ vista }) {
     const seccion = hallazgo.seccion ? CAJITAS[hallazgo.seccion] : 'objeto';
     if (!seccion || !hallazgo.linea) return null;
     const lineas = hallazgo.lineas?.length ? hallazgo.lineas : [hallazgo.linea];
-    // Por ahora solo esta observación ofrece recorrer sus líneas una a una.
-    const recorrido = REGLAS_CON_RECORRIDO.has(hallazgo.regla) && lineas.length > 1 ? nombreRegla(hallazgo.regla) : null;
+    // Con varias líneas, la barra «1 de N ‹ ›» permite ir de un error al otro.
+    const recorrido = lineas.length > 1 ? nombreRegla(hallazgo.regla) : null;
     return <VerEnCodigo onVer={() => verEnCodigo(seccion, lineas, recorrido)} />;
   };
   const marcadasEn = (seccion) => (marca?.seccion === seccion ? marca.lineas : []);
