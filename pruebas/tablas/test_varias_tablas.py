@@ -211,5 +211,15 @@ class TestVariasTablas(unittest.TestCase):
             self.assertTrue(all("nGradoSatisfaccion" in lineas[n - 1] for n in prefijo.lineas), antes)
 
 
+    def test_columnas_con_sigla_nombran_la_tabla_una_vez(self):
+        script = VARIAS_TABLAS.replace(
+            "nGradoSatisfaccion VARCHAR(20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL",
+            "nMetaTPPP DECIMAL(18,2) NOT NULL,\n    nFactorINS INT NOT NULL")
+        mensaje = _por_regla(verificar_tabla(script))["COLUMNA_NOMBRE_CON_SIGLA"].mensaje
+        self.assertIn("Bonificacion.EsquemaSupervisores : nMetaTPPP, nFactorINS (siglas TPPP y INS); "
+                      "Bonificacion.EsquemaEjecutivos : nMetaTPPP, nFactorINS (siglas TPPP y INS).", mensaje)
+        self.assertEqual(mensaje.count("Bonificacion.EsquemaSupervisores"), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
