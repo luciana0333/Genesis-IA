@@ -191,5 +191,43 @@ class TestVariasTablas(unittest.TestCase):
         self.assertNotIn("COLUMNA_NOMBRE_NO_PASCALCASE", hallazgos)
 
 
+    def test_tablas_dentro_de_una_transaccion(self):
+        # Scripts protegidos con transacción (TRY/CATCH, COMMIT/ROLLBACK, GO): mismas observaciones y
+        # las líneas siguen apuntando al código.
+        envolturas = (
+            ("BEGIN TRY
+	BEGIN TRANSACTION
+", "
+	COMMIT TRANSACTION
+END TRY
+BEGIN CATCH
+"
+             "	IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+	THROW;
+END CATCH
+"),
+            ("SET XACT_ABORT ON;
+BEGIN TRAN;
+", "
+IF @@ERROR <> 0 ROLLBACK TRAN; ELSE COMMIT TRAN;
+"),
+            ("BEGIN TRANSACTION
+GO
+", "
+GO
+COMMIT
+GO
+"),
+        )
+        sin_transaccion = sorted(h.regla for h in verificar_tabla(VARIAS_TABLAS))
+        for antes, despues in envolturas:
+            script = antes + VARIAS_TABLAS + despues
+            hallazgos = verificar_tabla(script)
+            self.assertEqual(sorted(h.regla for h in hallazgos), sin_transaccion, antes)
+            lineas = script.splitlines()
+            prefijo = _por_regla(hallazgos)["COLUMNA_PREFIJO_TIPO_INVALIDO"]
+            self.assertTrue(all("nGradoSatisfaccion" in lineas[n - 1] for n in prefijo.lineas), antes)
+
+
 if __name__ == "__main__":
     unittest.main()
