@@ -69,6 +69,8 @@ kardex
 microfinanzas
 cmac
 caja
+comercial
+comerciales
 supervisor
 supervisores
 tienda

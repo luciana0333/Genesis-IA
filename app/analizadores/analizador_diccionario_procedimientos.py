@@ -19,6 +19,8 @@ from typing import List, Set, Tuple, Dict, Optional
 
 from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_procedimiento
+from app.analizadores.diccionario_varios import agrupar_varios, por_objeto
+from app.analizadores.objetos_repetidos import hallazgo_repetidos, quitar_creaciones_repetidas
 from app.analizadores.ortografia import elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico
 from app.analizadores.propiedades_extendidas import (
     como_llamadas_crudas,
@@ -639,6 +641,10 @@ _PLANTILLAS_AGRUPADAS = {
 }
 
 
+def _nombre_del_encabezado(m: re.Match) -> str:
+    return m.group(0).split(".")[-1].split()[-1].strip().strip("[]")
+
+
 def verificar_diccionario(
     texto_procedimiento: str,
     texto_diccionario: str
@@ -646,7 +652,40 @@ def verificar_diccionario(
     """
     Funcion principal: compara el procedimiento (realidad) contra el
     script del diccionario (documentacion) y devuelve los hallazgos.
+    Con varios procedimientos en el script (por ejemplo, solo el encabezado
+    de cada uno con sus parámetros), cada uno se revisa con su parte del
+    diccionario y las observaciones se juntan por regla.
     """
+    # Un procedimiento creado dos veces se avisa una vez y se revisa solo su primera copia.
+    texto_procedimiento, repetidos = quitar_creaciones_repetidas(texto_procedimiento, "procedimiento")
+    duplicado = hallazgo_repetidos(
+        repetidos, "procedimiento", "PROCEDIMIENTO_DUPLICADO",
+        REGLAS_DICCIONARIO_PROCEDIMIENTOS["PROCEDIMIENTO_DUPLICADO"].severidad, OrigenAnalisis.DICCIONARIO,
+    )
+    if duplicado:
+        duplicado.seccion = "objeto"
+    varios = por_objeto(texto_procedimiento, texto_diccionario, _ENCABEZADO, _nombre_del_encabezado)
+    if varios is None:
+        hallazgos = agrupar(_revisar_procedimiento(texto_procedimiento, texto_diccionario), _PLANTILLAS_AGRUPADAS)
+    else:
+        hallazgos = []
+        for nombre, texto, diccionario in varios:
+            for hallazgo in _revisar_procedimiento(texto, diccionario):
+                hallazgo.objeto = nombre
+                hallazgos.append(hallazgo)
+        hallazgos = agrupar_varios(hallazgos, _PLANTILLAS_AGRUPADAS, "el procedimiento")
+    return ([duplicado] if duplicado else []) + hallazgos
+
+
+def diccionario_por_procedimiento(texto_procedimiento: str, texto_diccionario: str):
+    """[(texto del procedimiento, su diccionario)] — una sola entrada si el script tiene uno."""
+    texto_procedimiento, _ = quitar_creaciones_repetidas(texto_procedimiento, "procedimiento")
+    varios = por_objeto(texto_procedimiento, texto_diccionario, _ENCABEZADO, _nombre_del_encabezado)
+    return [(texto_procedimiento, texto_diccionario)] if varios is None else [(t, d) for _, t, d in varios]
+
+
+def _revisar_procedimiento(texto_procedimiento: str, texto_diccionario: str) -> List[Hallazgo]:
+    """Observaciones (sin agrupar) de un procedimiento y su diccionario."""
     hallazgos: List[Hallazgo] = []
 
     esquema, nombre_proc = extraer_esquema_y_nombre(texto_procedimiento)
@@ -690,4 +729,4 @@ def verificar_diccionario(
         if getattr(hallazgo, "elemento", None) and hallazgo.regla not in ("DESCRIPCION_VACIA", "NOMBRE_PROPIEDAD_INCORRECTO"):
             ubicar(hallazgo, texto_procedimiento)
     asignar_secciones(hallazgos, _REGLAS_DEL_OBJETO, _REGLAS_GENERALES)
-    return agrupar(hallazgos, _PLANTILLAS_AGRUPADAS)
+    return hallazgos

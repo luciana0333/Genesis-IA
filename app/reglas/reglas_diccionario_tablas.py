@@ -9,6 +9,14 @@ toma de aquí la severidad de cada regla y omite las que tengan activo=False.
 from app.reglas.reglas_base import ReglaDiccionario
 
 REGLAS_DICCIONARIO_TABLAS = {
+    "TABLA_DUPLICADA": ReglaDiccionario(
+        codigo="TABLA_DUPLICADA",
+        nombre="Tabla duplicada en el script",
+        severidad="critico",
+        descripcion="La misma tabla se crea dos veces (dos CREATE TABLE); SQL Server falla en la segunda (error 2714).",
+        alcance="tabla",
+        activo=True,
+    ),
     # --- Qué debe estar documentado -------------------------------------
     "TABLA_SIN_DESCRIPCION": ReglaDiccionario(
         codigo="TABLA_SIN_DESCRIPCION",

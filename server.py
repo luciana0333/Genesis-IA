@@ -8,14 +8,15 @@ from pathlib import Path
 from urllib.parse import urlsplit
 import xml.etree.ElementTree as ET
 
-from app.analizadores.analizador_diccionario_procedimientos import verificar_diccionario
-from app.analizadores.analizador_diccionario_tablas import verificar_diccionario_tablas
+from app.analizadores.analizador_diccionario_procedimientos import diccionario_por_procedimiento, verificar_diccionario
+from app.analizadores.analizador_diccionario_tablas import diccionario_por_tabla, verificar_diccionario_tablas
 from app.analizadores.analizador_tablas import verificar_tabla
 from app.analizadores.analizador_indices import verificar_indices
 from app.analizadores.analizador_reportes import verificar_reporte
 from app.analizadores.analizador_procedimientos_normales import verificar_procedimiento_normal
 from app.analizadores.deteccion_objeto import detectar_objeto
 from app.analizadores.diccionario_generador import diccionario_faltante_procedimiento, diccionario_faltante_tabla
+from app.analizadores.diccionario_varios import unir_faltantes
 from app.analizadores.planes_ejecucion.servicio import analizar_plan_completo
 from app.analizadores import ortografia
 from app.analizadores.siglas import aprobar_sigla, significado as significado_sigla
@@ -129,14 +130,21 @@ class GenesisHandler(SimpleHTTPRequestHandler):
                 hallazgos = verificar_procedimiento_normal(sql_text, es_del_motor)
             elif tipo == 'procedimiento':
                 hallazgos = verificar_diccionario(sql_text, dict_text)
-                faltante = diccionario_faltante_procedimiento(sql_text, dict_text)
+                # Con varios procedimientos en el script, el faltante se arma uno por uno.
+                faltante = unir_faltantes([
+                    diccionario_faltante_procedimiento(texto, diccionario)
+                    for texto, diccionario in diccionario_por_procedimiento(sql_text, dict_text)
+                ])
             elif tipo == 'tabla_estructura' or modo_revision == 'tabla_estructura':
                 hallazgos = verificar_tabla(sql_text, es_dbcmaica) if sql_text.strip() else []
                 if indices_text.strip():
                     hallazgos += verificar_indices(indices_text, sql_text)
             else:
                 hallazgos = verificar_diccionario_tablas(sql_text, dict_text)
-                faltante = diccionario_faltante_tabla(sql_text, dict_text)
+                faltante = unir_faltantes([
+                    diccionario_faltante_tabla(texto, diccionario)
+                    for texto, diccionario in diccionario_por_tabla(sql_text, dict_text)
+                ])
         except Exception as exc:  # pragma: no cover - safety net for runtime errors
             self._send_json({'error': f'Error al ejecutar el analizador: {exc}'}, status=500)
             return

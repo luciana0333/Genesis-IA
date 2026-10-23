@@ -16,6 +16,8 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_tabla
+from app.analizadores.diccionario_varios import agrupar_varios, por_objeto
+from app.analizadores.objetos_repetidos import hallazgo_repetidos, quitar_creaciones_repetidas
 from app.analizadores.ortografia import elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico
 from app.analizadores.propiedades_extendidas import (
     LlamadaPropiedad,
@@ -799,8 +801,52 @@ _PLANTILLAS_AGRUPADAS = {
 }
 
 
+# Encabezado de cada tabla del script (CREATE/ALTER TABLE Esquema.Tabla).
+_ENCABEZADO_TABLA = re.compile(
+    rf"\b(?:CREATE|ALTER)\s+TABLE\s+({_IDENTIFICADOR_SQL}(?:\s*\.\s*{_IDENTIFICADOR_SQL}){{0,2}})",
+    re.IGNORECASE,
+)
+
+
+def _nombre_del_encabezado(m: re.Match) -> str:
+    return _limpiar_identificador_sql(re.findall(_IDENTIFICADOR_SQL, m.group(1))[-1])
+
+
 def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> List[Hallazgo]:
-    """Compara CREATE/ALTER TABLE con el diccionario de datos."""
+    """
+    Compara CREATE/ALTER TABLE con el diccionario de datos. Con varias tablas en el script,
+    cada una se revisa con su parte del diccionario y las observaciones se juntan por regla.
+    """
+    # Una tabla creada dos veces se avisa una vez y se revisa solo su primera copia.
+    texto_tabla, repetidas = quitar_creaciones_repetidas(texto_tabla, "tabla")
+    duplicada = hallazgo_repetidos(
+        repetidas, "tabla", "TABLA_DUPLICADA", REGLAS_DICCIONARIO_TABLAS["TABLA_DUPLICADA"].severidad,
+        OrigenAnalisis.DICCIONARIO,
+    )
+    if duplicada:
+        duplicada.seccion = "objeto"
+    varias = por_objeto(texto_tabla, texto_diccionario, _ENCABEZADO_TABLA, _nombre_del_encabezado)
+    if varias is None:
+        hallazgos = agrupar(_revisar_tabla(texto_tabla, texto_diccionario), _PLANTILLAS_AGRUPADAS)
+    else:
+        hallazgos = []
+        for nombre, texto, diccionario in varias:
+            for hallazgo in _revisar_tabla(texto, diccionario):
+                hallazgo.objeto = nombre
+                hallazgos.append(hallazgo)
+        hallazgos = agrupar_varios(hallazgos, _PLANTILLAS_AGRUPADAS, "la tabla")
+    return ([duplicada] if duplicada else []) + hallazgos
+
+
+def diccionario_por_tabla(texto_tabla: str, texto_diccionario: str):
+    """[(texto de la tabla, su diccionario)] — una sola entrada si el script tiene una tabla."""
+    texto_tabla, _ = quitar_creaciones_repetidas(texto_tabla, "tabla")
+    varias = por_objeto(texto_tabla, texto_diccionario, _ENCABEZADO_TABLA, _nombre_del_encabezado)
+    return [(texto_tabla, texto_diccionario)] if varias is None else [(t, d) for _, t, d in varias]
+
+
+def _revisar_tabla(texto_tabla: str, texto_diccionario: str) -> List[Hallazgo]:
+    """Observaciones (sin agrupar) de una tabla y su diccionario."""
     esquema, nombre_tabla = extraer_esquema_y_nombre(texto_tabla)
     if nombre_tabla is None:
         return []
@@ -873,5 +919,4 @@ def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> Li
         if hallazgo.regla == "COLUMNA_FALTANTE" and getattr(hallazgo, "elemento", None):
             ubicar(hallazgo, texto_tabla)
     asignar_secciones(hallazgos, _REGLAS_DEL_OBJETO, _REGLAS_GENERALES)
-    activos =[h for h in hallazgos if REGLAS_DICCIONARIO_TABLAS[h.regla].activo]
-    return agrupar(activos, _PLANTILLAS_AGRUPADAS)
+    return [h for h in hallazgos if REGLAS_DICCIONARIO_TABLAS[h.regla].activo]

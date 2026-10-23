@@ -27,6 +27,10 @@ def _regla(codigo, nombre, severidad, descripcion):
 
 REGLAS_TABLAS = {
     # --- Tabla (solo CREATE) --------------------------------------------
+    "TABLA_DUPLICADA": _regla(
+        "TABLA_DUPLICADA", "Tabla duplicada en el script", "critico",
+        "La misma tabla se crea dos veces (dos CREATE TABLE); SQL Server falla en la segunda (error 2714).",
+    ),
     "CREATE_SIN_PARENTESIS": _regla(
         "CREATE_SIN_PARENTESIS", "Columnas sin paréntesis", "critico",
         "En un CREATE TABLE las columnas van entre paréntesis; sin ellos SQL Server no puede crear la tabla.",
