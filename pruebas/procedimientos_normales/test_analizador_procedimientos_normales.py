@@ -355,6 +355,26 @@ END"""
         self.assertIn("PA_Cliente_Sel_Completo", hallazgos["PROCEDIMIENTO_SIN_ACCION"])
         self.assertIn("CLIENTE → Cliente", hallazgos["PROCEDIMIENTO_NOMBRE_NO_PASCALCASE"])
 
+    def test_sigla_pegada_en_el_nombre_es_por_validar(self):
+        hallazgos = {h.regla: h for h in verificar_procedimiento_normal(
+            "CREATE PROCEDURE dbo.PA_SaldoRenovacionPF_Ins AS SELECT 1")}
+        self.assertNotIn("PROCEDIMIENTO_NOMBRE_NO_PASCALCASE", hallazgos)
+        sigla = hallazgos["PROCEDIMIENTO_NOMBRE_CON_SIGLA"]
+        self.assertEqual(sigla.severidad.value, "medio")
+        self.assertEqual(
+            sigla.mensaje,
+            "Se identificó que el nombre del procedimiento PA_SaldoRenovacionPF_Ins contiene la sigla PF. Validar "
+            "que la sigla sea comprensible y esté estandarizada. De ser necesario, reemplazarla por términos "
+            "descriptivos que faciliten la comprensión del nombre del procedimiento.",
+        )
+
+    def test_pascal_case_no_sugiere_el_mismo_nombre(self):
+        hallazgos = {h.regla: h.mensaje for h in verificar_procedimiento_normal(
+            "CREATE PROCEDURE dbo.PA_saldorenovacion_Ins AS SELECT 1")}
+        mensaje = hallazgos["PROCEDIMIENTO_NOMBRE_NO_PASCALCASE"]
+        self.assertNotIn("saldorenovacion → saldorenovacion", mensaje)
+        self.assertNotIn("PROCEDIMIENTO_NOMBRE_CON_SIGLA", hallazgos)
+
     def test_verbo_personalizado_y_siglas_son_validos(self):
         for nombre in ("dbo.PA_Credito_Calcular_Interes", "dbo.PA_BI_Sel_Resumen", "dbo.PA_TipoCambio_Upd"):
             with self.subTest(nombre=nombre):

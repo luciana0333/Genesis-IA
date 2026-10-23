@@ -6,6 +6,7 @@ from typing import Dict, List, Set, Tuple
 
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_procedimientos_normales import REGLAS_PROCEDIMIENTOS_NORMALES
+from app.analizadores.analizador_tablas import _PASCAL_CASE, _a_pascal_case, _siglas_del_nombre, _texto_siglas
 
 
 _IDENTIFICADOR = r"(?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)"
@@ -809,11 +810,28 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
 
     partes = [tabla] + ([accion] if accion and not abreviatura else []) + finalidad
     fuera_de_estandar = [parte for parte in partes if not _es_pascal(parte)]
-    if fuera_de_estandar:
-        corregidas = ", ".join(f"{parte} → {_en_pascal(parte)}" for parte in fuera_de_estandar)
+    # Una sigla pegada a otras palabras (SaldoRenovacionPF) no es un error seguro: se pide validarla.
+    siglas = {parte: _siglas_del_nombre(parte, _PASCAL_CASE) for parte in fuera_de_estandar}
+    con_sigla = [s for parte in fuera_de_estandar for s in siglas[parte]]
+    errores = [parte for parte in fuera_de_estandar if not siglas[parte]]
+    if con_sigla:
+        hallazgos.append(_hallazgo(
+            texto, posicion, "PROCEDIMIENTO_NOMBRE_CON_SIGLA",
+            f"Se identificó que el nombre del procedimiento {nombre} contiene "
+            f"{_texto_siglas(list(dict.fromkeys(con_sigla)))}. Validar que "
+            f"{'la sigla sea comprensible y esté estandarizada' if len(set(con_sigla)) == 1 else 'las siglas sean comprensibles y estén estandarizadas'}. "
+            f"De ser necesario, reemplazar{'la' if len(set(con_sigla)) == 1 else 'las'} por términos descriptivos "
+            f"que faciliten la comprensión del nombre del procedimiento.",
+        ))
+    if errores:
+        # Solo se sugiere un nombre si es distinto y correcto; si no, se indica la parte sin inventar.
+        casos = []
+        for parte in errores:
+            sugerida = _a_pascal_case(parte)
+            casos.append(f"{parte} → {sugerida}" if sugerida and sugerida != parte and _es_pascal(sugerida) else parte)
         hallazgos.append(_hallazgo(
             texto, posicion, "PROCEDIMIENTO_NOMBRE_NO_PASCALCASE",
-            f"Se verificó que partes del nombre {nombre} no están en PascalCase ({corregidas}). Se "
+            f"Se verificó que partes del nombre {nombre} no están en PascalCase ({', '.join(casos)}). Se "
             f"recomienda escribir cada palabra con mayúscula inicial y el resto en minúscula, ya que es el "
             f"estándar de nomenclatura.",
         ))

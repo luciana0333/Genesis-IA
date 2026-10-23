@@ -73,6 +73,7 @@ export const NOMBRES_REGLAS = {
   PROCEDIMIENTO_ACCION_SIN_SEPARAR: 'Acción sin separar',
   PROCEDIMIENTO_SIN_ACCION: 'Nombre sin acción',
   PROCEDIMIENTO_NOMBRE_NO_PASCALCASE: 'Nombre de procedimiento fuera del estándar',
+  PROCEDIMIENTO_NOMBRE_CON_SIGLA: 'Nombre de procedimiento con sigla por validar',
   WHILE_PROHIBIDO: 'WHILE prohibido',
   GOTO_PROHIBIDO: 'Uso de GOTO',
   MERGE_PROHIBIDO: 'Uso de MERGE',

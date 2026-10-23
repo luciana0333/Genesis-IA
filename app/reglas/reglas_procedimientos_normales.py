@@ -153,6 +153,15 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "PROCEDIMIENTO_NOMBRE_CON_SIGLA": ReglaDiccionario(
+        codigo="PROCEDIMIENTO_NOMBRE_CON_SIGLA",
+        nombre="Nombre de procedimiento con sigla por validar",
+        severidad="medio",
+        descripcion="El nombre lleva una sigla pegada a otras palabras (ej.: SaldoRenovacionPF): validar que sea "
+                    "comprensible y esté estandarizada.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "WAITFOR_DELAY_PROHIBIDO": ReglaDiccionario(
         codigo="WAITFOR_DELAY_PROHIBIDO",
         nombre="WAITFOR prohibido",
