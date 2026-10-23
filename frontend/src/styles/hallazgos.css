@@ -1008,8 +1008,12 @@
 .ver-en-codigo svg,
 .aprobar-siglas-boton svg { width: 15px; height: 15px; }
 
-.ver-en-codigo { background: #3a3a44; }
-.ver-en-codigo:hover { background: #24242b; }
+.ver-en-codigo {
+  border: 1px solid var(--border-strong);
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+.ver-en-codigo:hover { border-color: var(--text-secondary); }
 
 .aprobar-siglas-boton { background: var(--red-main); }
 .aprobar-siglas-boton:hover,
