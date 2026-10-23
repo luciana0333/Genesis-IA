@@ -46,6 +46,8 @@ export const NOMBRES_REGLAS = {
   COLUMNA_VARBINARY_PROHIBIDA: 'Columna para documentos prohibida',
   COLUMNA_TIPO_LEGACY: 'Tipo de dato legacy',
   COLUMNA_TIPO_APROXIMADO: 'Tipo de dato aproximado',
+  TABLA_DUPLICADA: 'Tabla duplicada en el script',
+  PROCEDIMIENTO_DUPLICADO: 'Procedimiento duplicado en el script',
   PK_FALTANTE: 'Tabla sin clave primaria',
   PK_COMPUESTA: 'Clave primaria compuesta',
   PK_NO_CLUSTER: 'Clave primaria no clúster',

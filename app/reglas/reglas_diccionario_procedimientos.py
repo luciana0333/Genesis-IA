@@ -4,6 +4,14 @@
 from app.reglas.reglas_base import ReglaDiccionario
 
 REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
+    "PROCEDIMIENTO_DUPLICADO": ReglaDiccionario(
+        codigo="PROCEDIMIENTO_DUPLICADO",
+        nombre="Procedimiento duplicado en el script",
+        severidad="critico",
+        descripcion="El mismo procedimiento se crea dos veces (dos CREATE PROCEDURE); SQL Server falla en el segundo (error 2714).",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "OBJETO_SIN_ESQUEMA": ReglaDiccionario(
         codigo="OBJETO_SIN_ESQUEMA",
         nombre="Procedimiento sin esquema",

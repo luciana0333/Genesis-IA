@@ -21,6 +21,7 @@ from typing import List, Optional, Tuple
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.analizadores.diccionario_agrupar import agrupar, con_elemento
 from app.analizadores.ortografia import disponible as diccionario_disponible, es_palabra_valida, separar_palabras
+from app.analizadores.objetos_repetidos import hallazgo_repetidos, quitar_creaciones_repetidas
 from app.analizadores.siglas import es_sigla_aprobada, uso_de_siglas
 from app.reglas.reglas_tablas import REGLAS_TABLAS
 
@@ -811,13 +812,21 @@ def verificar_tabla(texto_sql: str, es_dbcmaica: bool = False) -> List[Hallazgo]
     Con una sola tabla, las reglas repetidas se juntan como siempre. Con varias, cada regla se
     reporta una sola vez para todo el script, indicando la tabla de cada caso.
     """
+    # Una tabla creada dos veces se avisa una vez y se revisa solo su primera copia.
+    texto_sql, repetidas = quitar_creaciones_repetidas(texto_sql, "tabla")
+    duplicada = hallazgo_repetidos(
+        repetidas, "tabla", "TABLA_DUPLICADA", REGLAS_TABLAS["TABLA_DUPLICADA"].severidad,
+        OrigenAnalisis.REGLAS_ESTATICAS,
+    )
     sentencias = _sentencias_de_tabla(_sin_comentarios(texto_sql))
     hallazgos: List[Hallazgo] = []
     for sentencia in sentencias:
         hallazgos += _verificar_una_tabla(sentencia, es_dbcmaica)
     if len(sentencias) > 1:
-        return _agrupar_entre_tablas(hallazgos)
-    return agrupar(hallazgos, _PLANTILLAS_AGRUPADAS)
+        hallazgos = _agrupar_entre_tablas(hallazgos)
+    else:
+        hallazgos = agrupar(hallazgos, _PLANTILLAS_AGRUPADAS)
+    return ([duplicada] if duplicada else []) + hallazgos
 
 
 # Reglas de la tabla (no de una columna): su elemento ya nombra la tabla.
