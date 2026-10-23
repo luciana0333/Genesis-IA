@@ -355,8 +355,57 @@ END"""
         self.assertIn("PA_Cliente_Sel_Completo", hallazgos["PROCEDIMIENTO_SIN_ACCION"])
         self.assertIn("CLIENTE → Cliente", hallazgos["PROCEDIMIENTO_NOMBRE_NO_PASCALCASE"])
 
+    def test_sigla_pegada_en_el_nombre_es_por_validar(self):
+        hallazgos = {h.regla: h for h in verificar_procedimiento_normal(
+            "CREATE PROCEDURE dbo.PA_SaldoRenovacionTPPP_Ins_PorCliente AS SELECT 1")}
+        self.assertNotIn("PROCEDIMIENTO_NOMBRE_NO_PASCALCASE", hallazgos)
+        sigla = hallazgos["PROCEDIMIENTO_NOMBRE_CON_SIGLA"]
+        self.assertEqual(sigla.severidad.value, "medio")
+        self.assertEqual(
+            sigla.mensaje,
+            "Se identificó que el nombre del procedimiento PA_SaldoRenovacionTPPP_Ins_PorCliente contiene la sigla TPPP. "
+            "Validar "
+            "que la sigla sea comprensible y esté estandarizada. De ser necesario, reemplazarla por términos "
+            "descriptivos que faciliten la comprensión del nombre del procedimiento.",
+        )
+
+    def test_siglas_del_glosario_se_aceptan(self):
+        for nombre in ("dbo.PA_RRHH_Sel_ObtenerEmpleados", "dbo.PA_SaldoRenovacionPF_Ins_PorCliente", "dbo.PA_BI_Sel_Resumen"):
+            reglas = {h.regla for h in verificar_procedimiento_normal(f"CREATE PROCEDURE {nombre} AS SELECT 1")}
+            self.assertFalse({r for r in reglas if r.startswith("PROCEDIMIENTO_")}, nombre)
+        # Una palabra en mayúsculas no es una sigla: es un error de PascalCase.
+        reglas = {h.regla for h in verificar_procedimiento_normal("CREATE PROCEDURE dbo.PA_CLIENTE_Sel_Datos AS SELECT 1")}
+        self.assertIn("PROCEDIMIENTO_NOMBRE_NO_PASCALCASE", reglas)
+
+    def test_pascal_case_no_sugiere_el_mismo_nombre(self):
+        hallazgos = {h.regla: h.mensaje for h in verificar_procedimiento_normal(
+            "CREATE PROCEDURE dbo.PA_saldorenovacion_Ins AS SELECT 1")}
+        mensaje = hallazgos["PROCEDIMIENTO_NOMBRE_NO_PASCALCASE"]
+        self.assertNotIn("saldorenovacion → saldorenovacion", mensaje)
+        self.assertNotIn("PROCEDIMIENTO_NOMBRE_CON_SIGLA", hallazgos)
+
+    def test_la_finalidad_es_obligatoria(self):
+        hallazgos = {h.regla: h for h in verificar_procedimiento_normal(
+            "CREATE PROCEDURE dbo.PA_SaldoRenovacion_Ins AS SELECT 1")}
+        observacion = hallazgos["PROCEDIMIENTO_SIN_FINALIDAD"]
+        self.assertEqual(observacion.severidad.value, "alto")
+        self.assertEqual(
+            observacion.mensaje,
+            "Se identificó que el nombre del procedimiento PA_SaldoRenovacion_Ins no indica su finalidad, por lo "
+            "que no cumple con la nomenclatura PA_Tabla_Acción_Finalidad. Añadir la finalidad después de la "
+            "acción, ya que permite identificar claramente el propósito del procedimiento (ej.: "
+            "PA_Cliente_Sel_PorDocumento).",
+        )
+        # En un ALTER el procedimiento ya existe: su nombre no se revisa.
+        reglas = {h.regla for h in verificar_procedimiento_normal("ALTER PROCEDURE dbo.PA_SaldoRenovacionPF_Ins AS SELECT 1")}
+        self.assertFalse({r for r in reglas if r.startswith("PROCEDIMIENTO_")})
+        # Con finalidad, no se marca; y si la acción no se reconoce, no se repite (ya sale «sin acción»).
+        for nombre in ("dbo.PA_SaldoRenovacion_Ins_PorCliente", "dbo.pa_CLIENTE_completo"):
+            reglas = {h.regla for h in verificar_procedimiento_normal(f"CREATE PROCEDURE {nombre} AS SELECT 1")}
+            self.assertNotIn("PROCEDIMIENTO_SIN_FINALIDAD", reglas, nombre)
+
     def test_verbo_personalizado_y_siglas_son_validos(self):
-        for nombre in ("dbo.PA_Credito_Calcular_Interes", "dbo.PA_BI_Sel_Resumen", "dbo.PA_TipoCambio_Upd"):
+        for nombre in ("dbo.PA_Credito_Calcular_Interes", "dbo.PA_BI_Sel_Resumen", "dbo.PA_TipoCambio_Upd_PorFecha"):
             with self.subTest(nombre=nombre):
                 reglas = {h.regla for h in verificar_procedimiento_normal(f"CREATE PROCEDURE {nombre} AS SELECT 1")}
                 self.assertFalse({r for r in reglas if r.startswith("PROCEDIMIENTO_")})

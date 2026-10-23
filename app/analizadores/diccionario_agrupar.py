@@ -92,5 +92,11 @@ def agrupar(hallazgos: List[Hallazgo], plantillas: Dict[str, Tuple[str, str]]) -
         secciones = {getattr(h, "seccion", None) for h in grupo}
         resumido.seccion = secciones.pop() if len(secciones) == 1 else "general"
         resumido.lineas = numeros
+        siglas = list(dict.fromkeys(s for h in grupo for s in (getattr(h, "siglas", None) or [])))
+        if siglas:
+            resumido.siglas = siglas
+            resumido.uso_siglas = {
+                sigla: sum(sigla in (getattr(h, "siglas", None) or []) for h in grupo) for sigla in siglas
+            }
         resumidos.append(resumido)
     return resumidos

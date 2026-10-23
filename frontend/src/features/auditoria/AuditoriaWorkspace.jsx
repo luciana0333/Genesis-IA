@@ -10,6 +10,7 @@ import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { OPCIONES_SELECTOR } from '../../config/revisiones';
 import { AvisoFaltaDiccionario } from './AvisoFaltaDiccionario';
+import { AprobarSiglas } from './AprobarSiglas';
 import { BarraRecorrido, VerEnCodigo } from './VerEnCodigo';
 import { nombreRegla } from '../../config/reglas';
 import { GeneradorDiccionario } from './GeneradorDiccionario';
@@ -19,6 +20,13 @@ import { useAuditoria } from './useAuditoria';
 import { useAlPedirEjemplo } from '../../hooks/useVerEjemplo';
 
 // Observaciones de «falta documentar»: la primera presente ofrece el script del diccionario faltante.
+// A qué tipo de nombre pertenece cada observación de «sigla por validar».
+const TIPO_DE_SIGLA = {
+  TABLA_NOMBRE_CON_SIGLA: 'tabla',
+  COLUMNA_NOMBRE_CON_SIGLA: 'columna',
+  PROCEDIMIENTO_NOMBRE_CON_SIGLA: 'procedimiento',
+};
+
 const REGLAS_DICCIONARIO_FALTANTE = [
   'TABLA_SIN_DESCRIPCION',
   'PROCEDIMIENTO_SIN_DESCRIPCION',
@@ -139,9 +147,21 @@ export function AuditoriaWorkspace({ vista }) {
   const enfocarEn = (seccion) => (
     marca?.seccion === seccion ? { linea: marca.lineas[marca.indice], clave: marca.clave } : null
   );
+  // Dónde aparece cada sigla en toda la revisión: { TPPP: { tabla: 2, columna: 12 } }.
+  const usosDeSiglas = {};
+  for (const hallazgo of resultado.hallazgos ?? []) {
+    const tipo = TIPO_DE_SIGLA[hallazgo.regla];
+    if (!tipo) continue;
+    for (const [sigla, cantidad] of Object.entries(hallazgo.usoSiglas ?? {})) {
+      usosDeSiglas[sigla] = { ...usosDeSiglas[sigla], [tipo]: (usosDeSiglas[sigla]?.[tipo] ?? 0) + cantidad };
+    }
+  }
   const accionesHallazgo = (hallazgo) => (
     <>
       {botonVerEnCodigo(hallazgo)}
+      {hallazgo.siglas?.length > 0 && (
+        <AprobarSiglas siglas={hallazgo.siglas} usos={usosDeSiglas} onActualizar={() => revisar()} />
+      )}
       {reglaConScript && hallazgo.regla === reglaConScript && <GeneradorDiccionario faltante={faltante} />}
     </>
   );

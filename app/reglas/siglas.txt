@@ -1,0 +1,170 @@
+# Glosario de siglas aprobadas.
+#
+# Una sigla de esta lista se acepta en los nombres de tablas, columnas y procedimientos
+# (ej.: PA_RRHH_Sel_ObtenerEmpleados, nTasaTEA). Las que no están aquí se marcan como
+# «sigla por validar» hasta que alguien las confirme y las agregue.
+#
+# Formato: SIGLA = significado (una por línea; las líneas con # se ignoran).
+# Para aprobar una sigla nueva, agréguela aquí y reinicie el servidor.
+
+# --- Reguladores, entidades y gremios ------------------------------------------------
+SBS = Superintendencia de Banca, Seguros y AFP
+SMV = Superintendencia del Mercado de Valores
+BCRP = Banco Central de Reserva del Perú
+BCR = Banco Central de Reserva
+SUNAT = Superintendencia Nacional de Aduanas y de Administración Tributaria
+SUNARP = Superintendencia Nacional de los Registros Públicos
+SUNAFIL = Superintendencia Nacional de Fiscalización Laboral
+RENIEC = Registro Nacional de Identificación y Estado Civil
+INDECOPI = Instituto Nacional de Defensa de la Competencia y de la Protección de la Propiedad Intelectual
+INEI = Instituto Nacional de Estadística e Informática
+MEF = Ministerio de Economía y Finanzas
+MTPE = Ministerio de Trabajo y Promoción del Empleo
+UIF = Unidad de Inteligencia Financiera
+FSD = Fondo de Seguro de Depósitos
+FEPCMAC = Federación Peruana de Cajas Municipales de Ahorro y Crédito
+CMAC = Caja Municipal de Ahorro y Crédito
+CRAC = Caja Rural de Ahorro y Crédito
+EDPYME = Entidad de Desarrollo de la Pequeña y Microempresa
+COOPAC = Cooperativa de Ahorro y Crédito
+COFIDE = Corporación Financiera de Desarrollo
+BN = Banco de la Nación
+IFI = Institución Financiera Intermediaria
+ONP = Oficina de Normalización Previsional
+AFP = Administradora de Fondos de Pensiones
+ESSALUD = Seguro Social de Salud
+EPS = Entidad Prestadora de Salud
+SIS = Seguro Integral de Salud
+PNP = Policía Nacional del Perú
+OCI = Órgano de Control Institucional
+ONG = Organización No Gubernamental
+
+# --- Documentos e identificación ------------------------------------------------------
+DNI = Documento Nacional de Identidad
+RUC = Registro Único de Contribuyentes
+CE = Carné de Extranjería
+PTP = Permiso Temporal de Permanencia
+CPP = Carné de Permiso Temporal de Permanencia
+CCI = Código de Cuenta Interbancario
+IBAN = International Bank Account Number
+SWIFT = Society for Worldwide Interbank Financial Telecommunication
+BIC = Bank Identifier Code
+CPE = Comprobante de Pago Electrónico
+PDT = Programa de Declaración Telemática
+PLE = Programa de Libros Electrónicos
+RUS = Nuevo Régimen Único Simplificado
+RER = Régimen Especial del Impuesto a la Renta
+RMT = Régimen MYPE Tributario
+
+# --- Empresas y segmentos -------------------------------------------------------------
+MYPE = Micro y Pequeña Empresa
+MIPYME = Micro, Pequeña y Mediana Empresa
+PYME = Pequeña y Mediana Empresa
+PN = Persona Natural
+PJ = Persona Jurídica
+
+# --- Productos, tasas y monedas -------------------------------------------------------
+PF = Plazo Fijo
+DPF = Depósito a Plazo Fijo
+CTS = Compensación por Tiempo de Servicios
+TEA = Tasa Efectiva Anual
+TEM = Tasa Efectiva Mensual
+TED = Tasa Efectiva Diaria
+TNA = Tasa Nominal Anual
+TCEA = Tasa de Costo Efectivo Anual
+TREA = Tasa de Rendimiento Efectivo Anual
+TIR = Tasa Interna de Retorno
+VAN = Valor Actual Neto
+TC = Tipo de Cambio
+MN = Moneda Nacional
+ME = Moneda Extranjera
+PEN = Sol peruano (código ISO)
+USD = Dólar estadounidense (código ISO)
+EUR = Euro (código ISO)
+SOAT = Seguro Obligatorio de Accidentes de Tránsito
+SCTR = Seguro Complementario de Trabajo de Riesgo
+FMV = Fondo MiVivienda
+
+# --- Impuestos, remuneraciones y referencias ------------------------------------------
+IGV = Impuesto General a las Ventas
+ISC = Impuesto Selectivo al Consumo
+IR = Impuesto a la Renta
+ITF = Impuesto a las Transacciones Financieras
+UIT = Unidad Impositiva Tributaria
+RMV = Remuneración Mínima Vital
+
+# --- Riesgos, créditos e indicadores --------------------------------------------------
+RCC = Reporte Crediticio Consolidado
+RCD = Reporte Crediticio de Deudores
+PAR = Portafolio en Riesgo
+PD = Probabilidad de Incumplimiento
+LGD = Pérdida dado el Incumplimiento
+EAD = Exposición al Incumplimiento
+ALM = Gestión de Activos y Pasivos
+ROE = Rentabilidad sobre el Patrimonio
+ROA = Rentabilidad sobre los Activos
+EEFF = Estados Financieros
+KPI = Indicador Clave de Desempeño
+
+# --- Prevención de lavado de activos y cumplimiento -----------------------------------
+LAFT = Lavado de Activos y Financiamiento del Terrorismo
+PLAFT = Prevención del Lavado de Activos y Financiamiento del Terrorismo
+ROS = Reporte de Operación Sospechosa
+PEP = Persona Expuesta Políticamente
+KYC = Conozca a su Cliente
+LPDP = Ley de Protección de Datos Personales
+
+# --- Canales y medios de pago ---------------------------------------------------------
+ATM = Cajero Automático
+POS = Terminal Punto de Venta
+CCE = Cámara de Compensación Electrónica
+LBTR = Sistema de Liquidación Bruta en Tiempo Real
+IVR = Respuesta de Voz Interactiva
+QR = Código QR
+NFC = Comunicación de Campo Cercano
+SMS = Mensaje de Texto
+OTP = Contraseña de un Solo Uso
+PIN = Número de Identificación Personal
+CVV = Código de Verificación de la Tarjeta
+
+# --- Gestión y organización -----------------------------------------------------------
+RRHH = Recursos Humanos
+TI = Tecnología de la Información
+TIC = Tecnologías de la Información y Comunicación
+BI = Inteligencia de Negocios
+CRM = Gestión de la Relación con el Cliente
+ERP = Planificación de Recursos Empresariales
+SLA = Acuerdo de Nivel de Servicio
+POA = Plan Operativo Anual
+PEI = Plan Estratégico Institucional
+MOF = Manual de Organización y Funciones
+ROF = Reglamento de Organización y Funciones
+CAS = Contratación Administrativa de Servicios
+IA = Inteligencia Artificial
+RPA = Automatización Robótica de Procesos
+
+# --- Tecnología -----------------------------------------------------------------------
+SQL = Lenguaje de Consulta Estructurado
+API = Interfaz de Programación de Aplicaciones
+XML = Lenguaje de Marcado Extensible
+JSON = Notación de Objetos de JavaScript
+CSV = Valores Separados por Comas
+PDF = Formato de Documento Portátil
+URL = Localizador Uniforme de Recursos
+HTTP = Protocolo de Transferencia de Hipertexto
+HTTPS = Protocolo Seguro de Transferencia de Hipertexto
+FTP = Protocolo de Transferencia de Archivos
+SFTP = Protocolo Seguro de Transferencia de Archivos
+SMTP = Protocolo Simple de Transferencia de Correo
+VPN = Red Privada Virtual
+IP = Protocolo de Internet
+DNS = Sistema de Nombres de Dominio
+SSO = Inicio de Sesión Único
+LDAP = Protocolo Ligero de Acceso a Directorios
+UUID = Identificador Único Universal
+GUID = Identificador Único Global
+ETL = Extracción, Transformación y Carga
+DWH = Almacén de Datos
+OLAP = Procesamiento Analítico en Línea
+OLTP = Procesamiento de Transacciones en Línea
+DBA = Administrador de Base de Datos

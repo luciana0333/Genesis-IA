@@ -137,12 +137,12 @@ class TestVariasTablas(unittest.TestCase):
 
 
     def test_tablas_con_sigla_texto_de_la_usuaria(self):
-        script = VARIAS_TABLAS.replace("Bonificacion.EsquemaSupervisores", "Bonificacion.MetaTPPP")             .replace("Bonificacion.EsquemaEjecutivos", "Bonificacion.SaldoRenovacionPF")
+        script = VARIAS_TABLAS.replace("Bonificacion.EsquemaSupervisores", "Bonificacion.MetaTPPP")             .replace("Bonificacion.EsquemaEjecutivos", "Bonificacion.SaldoRenovacionXYZ")
         hallazgo = _por_regla(verificar_tabla(script))["TABLA_NOMBRE_CON_SIGLA"]
         self.assertEqual(
             hallazgo.mensaje,
             "Se identificaron dos tablas cuyos nombres contienen siglas: Bonificacion.MetaTPPP (TPPP); "
-            "Bonificacion.SaldoRenovacionPF (PF). Validar que las siglas sean comprensibles y estén "
+            "Bonificacion.SaldoRenovacionXYZ (XYZ). Validar que las siglas sean comprensibles y estén "
             "estandarizadas. De ser necesario, reemplazarlas por términos descriptivos que faciliten la "
             "comprensión del nombre de la tabla.",
         )
@@ -219,6 +219,15 @@ class TestVariasTablas(unittest.TestCase):
         self.assertIn("Bonificacion.EsquemaSupervisores : nMetaTPPP, nFactorINS (siglas TPPP y INS); "
                       "Bonificacion.EsquemaEjecutivos : nMetaTPPP, nFactorINS (siglas TPPP y INS).", mensaje)
         self.assertEqual(mensaje.count("Bonificacion.EsquemaSupervisores"), 1)
+
+
+    def test_siglas_del_glosario_no_se_marcan(self):
+        script = UNA_TABLA.replace("Bonificacion.MetaSaldo", "Bonificacion.EmpleadoRRHH").replace(
+            "nMetaSaldoId", "nEmpleadoRRHHId").replace(
+            "nGradoSatisfaccion VARCHAR(20) COLLATE SQL_Latin1_General_CP1_CI_AS",
+            "nTasaTEA DECIMAL(10,2)")
+        reglas = set(_por_regla(verificar_tabla(script)))
+        self.assertFalse({r for r in reglas if "SIGLA" in r or "PASCALCASE" in r}, reglas)
 
 
 if __name__ == "__main__":

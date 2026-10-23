@@ -136,6 +136,42 @@ describe('App', () => {
     expect(document.activeElement).toBe(diccionario);
   });
 
+  it('Tablas: «Aprobar siglas» guarda el significado y la marca como aprobada', async () => {
+    const usuario = userEvent.setup();
+    // Cada llamada recibe su propia respuesta (revisar y luego aprobar la sigla).
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (ruta) => new Response(
+      JSON.stringify(ruta === '/api/siglas'
+        ? { sigla: 'TPPP', significado: 'Tasa Promedio Ponderada Pasiva' }
+        : { hallazgos: [
+          { linea: 1, origen: 'reglas_estaticas', severidad: 'medio', regla: 'TABLA_NOMBRE_CON_SIGLA', mensaje: 'Detalle.', siglas: ['TPPP', 'TCF'], usoSiglas: { TPPP: 2, TCF: 1 } },
+          { linea: 3, origen: 'reglas_estaticas', severidad: 'bajo', regla: 'COLUMNA_NOMBRE_CON_SIGLA', mensaje: 'Detalle.', siglas: ['TPPP'], usoSiglas: { TPPP: 12 } },
+        ] }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    ));
+    render(<App />);
+    await irA('tablas');
+    await usuario.click(screen.getByRole('button', { name: 'Ejecutar revisión' }));
+
+    await usuario.click(await screen.findByRole('button', { name: 'Aprobar siglas' }));
+    const panel = screen.getByRole('region', { name: 'Aprobar siglas' });
+    expect(within(panel).getByText('0 de 2')).toBeInTheDocument();
+    // Dónde aparece cada sigla en toda la revisión (tablas y columnas).
+    expect(within(panel).getByText('En 2 tablas · 12 columnas')).toBeInTheDocument();
+    expect(within(panel).getByText('En 1 tabla')).toBeInTheDocument();
+
+    // Sin significado no se aprueba.
+    await usuario.click(within(panel).getAllByRole('button', { name: 'Aprobar' })[0]);
+    expect(within(panel).getByRole('alert')).toHaveTextContent('Escribe el significado');
+
+    await usuario.type(within(panel).getByLabelText('TPPP'), 'Tasa Promedio Ponderada Pasiva{Enter}');
+    expect(await within(panel).findByText('Aprobada')).toBeInTheDocument();
+    expect(within(panel).getByText('1 de 2')).toBeInTheDocument();
+    const [ruta, opciones] = fetchMock.mock.calls.at(-1);
+    expect(ruta).toBe('/api/siglas');
+    expect(JSON.parse(opciones.body)).toEqual({ sigla: 'TPPP', significado: 'Tasa Promedio Ponderada Pasiva' });
+    expect(within(panel).getByRole('button', { name: 'Actualizar revisión' })).toBeInTheDocument();
+  });
+
   it('Tablas: columnas con sigla se recorren una a una con la barra «1 de 3 ‹ ›»', async () => {
     const usuario = userEvent.setup();
     mockRespuesta({

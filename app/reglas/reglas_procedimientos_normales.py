@@ -28,6 +28,14 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "PROCEDIMIENTO_SIN_FINALIDAD": ReglaDiccionario(
+        codigo="PROCEDIMIENTO_SIN_FINALIDAD",
+        nombre="Error de nomenclatura: procedimiento sin finalidad",
+        severidad="alto",
+        descripcion="El nombre siempre indica la finalidad después de la acción: PA_Tabla_Acción_Finalidad.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "PROCEDIMIENTO_ACCION_NO_ABREVIADA": ReglaDiccionario(
         codigo="PROCEDIMIENTO_ACCION_NO_ABREVIADA",
         nombre="Acción sin abreviar",
@@ -150,6 +158,15 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         nombre="Nombre de procedimiento fuera del estándar",
         severidad="alto",
         descripcion="Tabla, acción y finalidad van en PascalCase (ej.: PA_Cliente_Sel_PorDocumento).",
+        alcance="procedimiento",
+        activo=True,
+    ),
+    "PROCEDIMIENTO_NOMBRE_CON_SIGLA": ReglaDiccionario(
+        codigo="PROCEDIMIENTO_NOMBRE_CON_SIGLA",
+        nombre="Nombre de procedimiento con sigla por validar",
+        severidad="medio",
+        descripcion="El nombre lleva una sigla pegada a otras palabras (ej.: SaldoRenovacionPF): validar que sea "
+                    "comprensible y esté estandarizada.",
         alcance="procedimiento",
         activo=True,
     ),

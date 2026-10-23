@@ -931,11 +931,11 @@
   margin-top: 12px;
   padding: 0 16px;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: 2px;
   background: var(--red-main);
   color: #ffffff;
   font-family: var(--font-sans);
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   font-weight: 600;
   cursor: pointer;
   transition: background var(--dur-fast) ease, transform var(--dur-fast) ease;
@@ -943,7 +943,6 @@
 
 .generador-abrir:hover {
   background: var(--red-dark);
-  transform: translateY(-1px);
 }
 
 .generador-abrir:focus-visible {
@@ -986,34 +985,52 @@
   background: var(--red-dark);
 }
 
-/* ───────── «VER EN EL CÓDIGO» ───────── */
-.ver-en-codigo {
+/* ───────── BOTONES DE LA OBSERVACIÓN: sólidos, texto normal ───────── */
+/* «Ver en el código» en gris oscuro; «Aprobar siglas» y «Generar diccionario» en rojo. */
+.ver-en-codigo,
+.aprobar-siglas-boton {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 36px;
+  gap: 8px;
+  height: 34px;
   margin: 12px 8px 0 0;
-  padding: 0 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--bg-subtle);
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  padding: 0 16px;
+  border: none;
+  border-radius: 2px;
+  color: #ffffff;
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) ease;
 }
 
-.ver-en-codigo svg { width: 14px; height: 14px; }
+.ver-en-codigo svg,
+.aprobar-siglas-boton svg { width: 14px; height: 14px; }
 
-.ver-en-codigo:hover {
-  border-color: var(--text-secondary);
-  background: var(--bg-card);
+.ver-en-codigo {
+  border: 1px solid var(--border-strong);
+  background: var(--bg-subtle);
   color: var(--text-primary);
 }
+.ver-en-codigo:hover { border-color: var(--text-secondary); }
+
+.aprobar-siglas-boton { background: var(--red-main); }
+.aprobar-siglas-boton:hover,
+.aprobar-siglas-boton.activo { background: var(--red-dark); }
+
+.aprobar-siglas-cantidad {
+  min-width: 20px;
+  padding: 1px 6px;
+  background: #ffffff;
+  color: var(--red-dark);
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.ver-en-codigo:focus-visible,
+.aprobar-siglas-boton:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 /* ───────── RECORRIDO DE LÍNEAS («4 / 20 ‹ ›»): rojo institucional ───────── */
 .barra-recorrido {
@@ -1083,4 +1100,224 @@
   margin-left: 2px;
   border-color: transparent;
   color: #ffd0d3;
+}
+
+/* ───────── APROBAR SIGLAS (dentro de la observación): panel ejecutivo ───────── */
+.aprobar-siglas {
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  box-shadow: 0 18px 40px -28px rgba(17, 17, 26, 0.45);
+  animation: aprobar-siglas-entrada var(--dur) var(--ease);
+}
+
+@keyframes aprobar-siglas-entrada {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.aprobar-siglas-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.aprobar-siglas-icono {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--red-light);
+  color: var(--red-main);
+}
+
+.aprobar-siglas-icono svg { width: 19px; height: 19px; }
+.aprobar-siglas-textos { flex: 1; min-width: 0; }
+
+.aprobar-siglas-etiqueta {
+  margin: 0 0 2px;
+  color: var(--red-main);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.aprobar-siglas-titulo { margin: 0; color: var(--text-primary); font-size: 0.95rem; font-weight: 700; }
+.aprobar-siglas-ayuda { margin: 2px 0 0; color: var(--text-muted); font-size: 0.76rem; }
+
+.aprobar-siglas-avance { flex-shrink: 0; width: 170px; }
+
+.aprobar-siglas-avance-texto {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.aprobar-siglas-avance-texto strong {
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.aprobar-siglas-barra { display: block; height: 4px; margin-top: 7px; background: var(--bg-subtle); }
+.aprobar-siglas-barra i { display: block; height: 100%; background: var(--red-main); transition: width var(--dur) var(--ease); }
+
+.aprobar-siglas-lista { margin: 0; padding: 0; list-style: none; }
+
+.aprobar-siglas-fila {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.aprobar-siglas-nombre { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.aprobar-siglas-sigla {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.aprobar-siglas-uso { color: var(--text-muted); font-size: 0.7rem; }
+
+.aprobar-siglas-campo { display: flex; flex-direction: column; gap: 4px; }
+
+.aprobar-siglas-campo input {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 0;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.84rem;
+  outline: none;
+  transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
+}
+
+.aprobar-siglas-campo input:focus { border-color: var(--red-main); box-shadow: var(--focus-ring); }
+.aprobar-siglas-campo input[aria-invalid="true"] { border-color: var(--red-main); }
+.aprobar-siglas-error { color: var(--sev-critico-text); font-size: 0.72rem; font-weight: 600; }
+
+.aprobar-siglas-aprobar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--red-main);
+  border-radius: 0;
+  background: transparent;
+  color: var(--red-dark);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.aprobar-siglas-aprobar svg { width: 14px; height: 14px; }
+.aprobar-siglas-aprobar:hover { background: var(--red-main); color: #ffffff; }
+.aprobar-siglas-aprobar:disabled { opacity: 0.7; cursor: wait; }
+
+.aprobar-siglas-fila.aprobada { background: color-mix(in srgb, #1f6b45 4%, var(--bg-card)); }
+.aprobar-siglas-fila.aprobada .aprobar-siglas-sigla { color: #1f6b45; }
+
+.aprobar-siglas-significado {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+}
+
+.aprobar-siglas-check {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: #1f6b45;
+  color: #ffffff;
+}
+
+.aprobar-siglas-check svg { width: 13px; height: 13px; }
+
+.aprobar-siglas-estado {
+  color: #1f6b45;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.aprobar-siglas-pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 20px;
+  background: var(--bg-subtle);
+}
+
+.aprobar-siglas-pie p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.aprobar-siglas-pie p svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+.aprobar-siglas-actualizar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--red-main);
+  border-radius: 0;
+  background: var(--red-main);
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease;
+}
+
+.aprobar-siglas-actualizar svg { width: 14px; height: 14px; }
+.aprobar-siglas-actualizar:hover { background: var(--red-dark); }
+
+@media (max-width: 720px) {
+  .aprobar-siglas-cabecera { flex-wrap: wrap; }
+  .aprobar-siglas-avance { width: 100%; }
+  .aprobar-siglas-fila { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .aprobar-siglas-aprobar { justify-self: start; }
 }

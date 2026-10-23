@@ -6,6 +6,7 @@ from typing import Dict, List, Set, Tuple
 
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_procedimientos_normales import REGLAS_PROCEDIMIENTOS_NORMALES
+from app.analizadores.analizador_tablas import _PASCAL_CASE, _a_pascal_case, _revisar_siglas, _texto_siglas
 
 
 _IDENTIFICADOR = r"(?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)"
@@ -693,9 +694,8 @@ def _nombre_sugerido(nombre: str) -> str:
 
 
 def _es_pascal(parte: str) -> bool:
-    """PascalCase: mayúscula inicial (Cliente, TipoCambio). Se aceptan siglas cortas (BI, IGV)."""
-    return bool(re.fullmatch(r"(?:[A-Z][a-z0-9]+)+", parte)) or bool(re.fullmatch(r"[A-Z]{2,3}", parte)) \
-        or parte in {"Sel", "Upd", "Ins", "Del"}
+    """PascalCase: mayúscula inicial (Cliente, TipoCambio). Las siglas (RRHH, BI) se revisan con el glosario."""
+    return bool(re.fullmatch(r"(?:[A-Z][a-z0-9]+)+", parte)) or parte in {"Sel", "Upd", "Ins", "Del"}
 
 
 def _en_pascal(parte: str) -> str:
@@ -807,13 +807,44 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
         ))
         accion = None  # su mayúscula ya se corrige en la sugerencia anterior
 
+    # La finalidad es obligatoria (PA_Tabla_Acción_Finalidad). Si la acción no se reconoció, el
+    # tercer tramo ya se trata como finalidad en la observación de «sin acción».
+    if not finalidad and accion is not None:
+        hallazgos.append(_hallazgo(
+            texto, posicion, "PROCEDIMIENTO_SIN_FINALIDAD",
+            f"Se identificó que el nombre del procedimiento {nombre} no indica su finalidad, por lo que no "
+            f"cumple con la nomenclatura PA_Tabla_Acción_Finalidad. Añadir la finalidad después de la acción, "
+            f"ya que permite identificar claramente el propósito del procedimiento (ej.: "
+            f"PA_Cliente_Sel_PorDocumento).",
+        ))
+
     partes = [tabla] + ([accion] if accion and not abreviatura else []) + finalidad
     fuera_de_estandar = [parte for parte in partes if not _es_pascal(parte)]
-    if fuera_de_estandar:
-        corregidas = ", ".join(f"{parte} → {_en_pascal(parte)}" for parte in fuera_de_estandar)
+    # Una sigla pegada a otras palabras (SaldoRenovacionPF) no es un error seguro: se pide validarla.
+    # Según el glosario: aprobadas ([]) no se marcan; desconocidas se piden validar; None = error real.
+    siglas = {parte: _revisar_siglas(parte, _PASCAL_CASE) for parte in fuera_de_estandar}
+    con_sigla = [s for parte in fuera_de_estandar for s in (siglas[parte] or [])]
+    errores = [parte for parte in fuera_de_estandar if siglas[parte] is None]
+    if con_sigla:
+        observacion_sigla = _hallazgo(
+            texto, posicion, "PROCEDIMIENTO_NOMBRE_CON_SIGLA",
+            f"Se identificó que el nombre del procedimiento {nombre} contiene "
+            f"{_texto_siglas(list(dict.fromkeys(con_sigla)))}. Validar que "
+            f"{'la sigla sea comprensible y esté estandarizada' if len(set(con_sigla)) == 1 else 'las siglas sean comprensibles y estén estandarizadas'}. "
+            f"De ser necesario, reemplazar{'la' if len(set(con_sigla)) == 1 else 'las'} por términos descriptivos "
+            f"que faciliten la comprensión del nombre del procedimiento.",
+        )
+        observacion_sigla.siglas = list(dict.fromkeys(con_sigla))
+        hallazgos.append(observacion_sigla)
+    if errores:
+        # Solo se sugiere un nombre si es distinto y correcto; si no, se indica la parte sin inventar.
+        casos = []
+        for parte in errores:
+            sugerida = _a_pascal_case(parte)
+            casos.append(f"{parte} → {sugerida}" if sugerida and sugerida != parte and _es_pascal(sugerida) else parte)
         hallazgos.append(_hallazgo(
             texto, posicion, "PROCEDIMIENTO_NOMBRE_NO_PASCALCASE",
-            f"Se verificó que partes del nombre {nombre} no están en PascalCase ({corregidas}). Se "
+            f"Se verificó que partes del nombre {nombre} no están en PascalCase ({', '.join(casos)}). Se "
             f"recomienda escribir cada palabra con mayúscula inicial y el resto en minúscula, ya que es el "
             f"estándar de nomenclatura.",
         ))
