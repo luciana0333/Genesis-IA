@@ -21,6 +21,7 @@ from typing import List, Optional, Tuple
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.analizadores.diccionario_agrupar import agrupar, con_elemento
 from app.analizadores.ortografia import disponible as diccionario_disponible, es_palabra_valida, separar_palabras
+from app.analizadores.siglas import es_sigla_aprobada
 from app.reglas.reglas_tablas import REGLAS_TABLAS
 
 
@@ -58,6 +59,29 @@ def _siglas_del_nombre(nombre: str, patron: re.Pattern) -> List[str]:
         return []
     normal = _SIGLA.sub(lambda m: m.group(0)[0] + m.group(0)[1:].lower(), nombre)
     return list(dict.fromkeys(siglas)) if patron.match(normal) else []
+
+
+def _revisar_siglas(nombre: str, patron: re.Pattern) -> Optional[List[str]]:
+    """
+    Siglas del nombre según el glosario (app/reglas/siglas.txt):
+    - None: no es un caso de siglas (tiene otros errores, o es una palabra en mayúsculas como PERSONA).
+    - []: solo lleva siglas aprobadas (RRHH, TEA...): el nombre es válido.
+    - [TPPP, ...]: siglas que no están en el glosario: «por validar».
+    """
+    siglas = list(dict.fromkeys(_SIGLA.findall(nombre)))
+    if not siglas:
+        return None
+    normal = _SIGLA.sub(lambda m: m.group(0)[0] + m.group(0)[1:].lower(), nombre)
+    if not patron.match(normal):
+        return None
+    desconocidas = [sigla for sigla in siglas if not es_sigla_aprobada(sigla)]
+    # Una palabra en mayúsculas (PERSONA, CLIENTE) no es una sigla: está fuera del estándar.
+    if any(es_palabra_valida(sigla.lower()) and len(sigla) > 3 for sigla in desconocidas):
+        return None
+    # Todo en mayúsculas y largo (CLIENTEDATOS): tampoco es una sigla.
+    if not re.search(r"[A-Z][a-z]", nombre) and any(len(sigla) > 5 for sigla in desconocidas):
+        return None
+    return desconocidas
 
 
 def _texto_siglas(siglas: List[str], articulo: bool = True) -> str:
@@ -421,14 +445,14 @@ def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: s
             f"Se identificó que la tabla {tabla} no tiene declarado un esquema. Se recomienda añadir el "
             f"esquema; si es dbo, definirlo explícitamente.",
         ))
-    siglas = [] if _PASCAL_CASE.match(tabla) else _siglas_del_nombre(tabla, _PASCAL_CASE)
+    siglas = None if _PASCAL_CASE.match(tabla) else _revisar_siglas(tabla, _PASCAL_CASE)
     # Ya en PascalCase pero con palabras pegadas (Cuentaspagadas): también está fuera del estándar.
     pegadas = _corregir_palabras_pegadas(tabla) if _PASCAL_CASE.match(tabla) else None
     if siglas:
         hallazgos.append(con_elemento(_hallazgo(
             texto, -1, "TABLA_NOMBRE_CON_SIGLA", _mensaje_sigla(f"la tabla {referencia}", siglas, "tabla"),
         ), f"{referencia} ({', '.join(siglas)})"))
-    elif not _PASCAL_CASE.match(tabla) or pegadas:
+    elif siglas is None and (not _PASCAL_CASE.match(tabla) or pegadas):
         sugerido = pegadas or _sugerencia_tabla(tabla)
         # Texto de la usuaria: no enumera causas que quizá no tiene (guiones bajos, TB_...).
         accion = (
@@ -534,8 +558,8 @@ def _validar_columna(
         )
         observacion.cambio = (columna.nombre, sugerido, columna.nombre[:1], prefijo)
         hallazgos.append(observacion)
-    elif not _NOMBRE_COLUMNA.match(columna.nombre) and _siglas_del_nombre(columna.nombre, _NOMBRE_COLUMNA):
-        siglas = _siglas_del_nombre(columna.nombre, _NOMBRE_COLUMNA)
+    elif not _NOMBRE_COLUMNA.match(columna.nombre) and _revisar_siglas(columna.nombre, _NOMBRE_COLUMNA):
+        siglas = _revisar_siglas(columna.nombre, _NOMBRE_COLUMNA)
         elementos["COLUMNA_NOMBRE_CON_SIGLA"] = f"{columna.nombre} ({_texto_siglas(siglas, articulo=False)})"
         observacion = _hallazgo(
             texto, columna.posicion, "COLUMNA_NOMBRE_CON_SIGLA",
@@ -543,7 +567,8 @@ def _validar_columna(
         )
         observacion.columna, observacion.siglas = columna.nombre, siglas
         hallazgos.append(observacion)
-    elif not _NOMBRE_COLUMNA.match(columna.nombre) or pegadas:
+    elif (not _NOMBRE_COLUMNA.match(columna.nombre) and _revisar_siglas(columna.nombre, _NOMBRE_COLUMNA) is None) \
+            or pegadas:
         sugerido = pegadas or sugerido
         accion = (
             # Texto de la usuaria.

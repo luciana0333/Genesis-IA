@@ -6,7 +6,7 @@ from typing import Dict, List, Set, Tuple
 
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_procedimientos_normales import REGLAS_PROCEDIMIENTOS_NORMALES
-from app.analizadores.analizador_tablas import _PASCAL_CASE, _a_pascal_case, _siglas_del_nombre, _texto_siglas
+from app.analizadores.analizador_tablas import _PASCAL_CASE, _a_pascal_case, _revisar_siglas, _texto_siglas
 
 
 _IDENTIFICADOR = r"(?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)"
@@ -694,9 +694,8 @@ def _nombre_sugerido(nombre: str) -> str:
 
 
 def _es_pascal(parte: str) -> bool:
-    """PascalCase: mayúscula inicial (Cliente, TipoCambio). Se aceptan siglas cortas (BI, IGV)."""
-    return bool(re.fullmatch(r"(?:[A-Z][a-z0-9]+)+", parte)) or bool(re.fullmatch(r"[A-Z]{2,3}", parte)) \
-        or parte in {"Sel", "Upd", "Ins", "Del"}
+    """PascalCase: mayúscula inicial (Cliente, TipoCambio). Las siglas (RRHH, BI) se revisan con el glosario."""
+    return bool(re.fullmatch(r"(?:[A-Z][a-z0-9]+)+", parte)) or parte in {"Sel", "Upd", "Ins", "Del"}
 
 
 def _en_pascal(parte: str) -> str:
@@ -822,9 +821,10 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
     partes = [tabla] + ([accion] if accion and not abreviatura else []) + finalidad
     fuera_de_estandar = [parte for parte in partes if not _es_pascal(parte)]
     # Una sigla pegada a otras palabras (SaldoRenovacionPF) no es un error seguro: se pide validarla.
-    siglas = {parte: _siglas_del_nombre(parte, _PASCAL_CASE) for parte in fuera_de_estandar}
-    con_sigla = [s for parte in fuera_de_estandar for s in siglas[parte]]
-    errores = [parte for parte in fuera_de_estandar if not siglas[parte]]
+    # Según el glosario: aprobadas ([]) no se marcan; desconocidas se piden validar; None = error real.
+    siglas = {parte: _revisar_siglas(parte, _PASCAL_CASE) for parte in fuera_de_estandar}
+    con_sigla = [s for parte in fuera_de_estandar for s in (siglas[parte] or [])]
+    errores = [parte for parte in fuera_de_estandar if siglas[parte] is None]
     if con_sigla:
         hallazgos.append(_hallazgo(
             texto, posicion, "PROCEDIMIENTO_NOMBRE_CON_SIGLA",
