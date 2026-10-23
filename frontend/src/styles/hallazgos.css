@@ -931,7 +931,7 @@
   margin-top: 12px;
   padding: 0 16px;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: 2px;
   background: var(--red-main);
   color: #ffffff;
   font-family: var(--font-sans);
@@ -943,7 +943,6 @@
 
 .generador-abrir:hover {
   background: var(--red-dark);
-  transform: translateY(-1px);
 }
 
 .generador-abrir:focus-visible {
@@ -986,34 +985,48 @@
   background: var(--red-dark);
 }
 
-/* ───────── «VER EN EL CÓDIGO» ───────── */
-.ver-en-codigo {
+/* ───────── BOTONES DE LA OBSERVACIÓN: sólidos, texto normal ───────── */
+/* «Ver en el código» en gris oscuro; «Aprobar siglas» y «Generar diccionario» en rojo. */
+.ver-en-codigo,
+.aprobar-siglas-boton {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 36px;
+  gap: 8px;
+  height: 36px;
   margin: 12px 8px 0 0;
-  padding: 0 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--bg-subtle);
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  padding: 0 16px;
+  border: none;
+  border-radius: 2px;
+  color: #ffffff;
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) ease;
 }
 
-.ver-en-codigo svg { width: 14px; height: 14px; }
+.ver-en-codigo svg,
+.aprobar-siglas-boton svg { width: 15px; height: 15px; }
 
-.ver-en-codigo:hover {
-  border-color: var(--text-secondary);
-  background: var(--bg-card);
-  color: var(--text-primary);
+.ver-en-codigo { background: #3a3a44; }
+.ver-en-codigo:hover { background: #24242b; }
+
+.aprobar-siglas-boton { background: var(--red-main); }
+.aprobar-siglas-boton:hover,
+.aprobar-siglas-boton.activo { background: var(--red-dark); }
+
+.aprobar-siglas-cantidad {
+  min-width: 20px;
+  padding: 1px 6px;
+  background: #ffffff;
+  color: var(--red-dark);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-align: center;
 }
+
+.ver-en-codigo:focus-visible,
+.aprobar-siglas-boton:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 /* ───────── RECORRIDO DE LÍNEAS («4 / 20 ‹ ›»): rojo institucional ───────── */
 .barra-recorrido {
@@ -1086,30 +1099,6 @@
 }
 
 /* ───────── APROBAR SIGLAS (dentro de la observación): panel ejecutivo ───────── */
-.aprobar-siglas-boton {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 36px;
-  margin: 12px 8px 0 0;
-  padding: 0 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  font: inherit;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease;
-}
-
-.aprobar-siglas-boton svg { width: 14px; height: 14px; color: var(--red-main); }
-.aprobar-siglas-boton:hover,
-.aprobar-siglas-boton.activo { border-color: var(--red-main); color: var(--red-dark); }
-
 .aprobar-siglas {
   margin-top: 14px;
   border: 1px solid var(--border);

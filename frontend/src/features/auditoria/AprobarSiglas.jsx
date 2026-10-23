@@ -61,6 +61,7 @@ export function AprobarSiglas({ siglas, usos = {}, onActualizar }) {
       >
         <IconoLibro />
         {abierto ? 'Ocultar siglas' : `Aprobar sigla${siglas.length === 1 ? '' : 's'}`}
+        <span className="aprobar-siglas-cantidad" aria-hidden="true">{siglas.length}</span>
       </button>
 
       {abierto && (
