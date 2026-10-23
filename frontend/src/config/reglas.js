@@ -69,6 +69,7 @@ export const NOMBRES_REGLAS = {
   PROCEDIMIENTO_SIN_ESQUEMA: 'Procedimiento sin esquema',
   PROCEDIMIENTO_SIN_PREFIJO_PA: 'Nombre sin prefijo PA_',
   PROCEDIMIENTO_NOMBRE_INCOMPLETO: 'Nombre de procedimiento incompleto',
+  PROCEDIMIENTO_SIN_FINALIDAD: 'Error de nomenclatura: procedimiento sin finalidad',
   PROCEDIMIENTO_ACCION_NO_ABREVIADA: 'Acción sin abreviar',
   PROCEDIMIENTO_ACCION_SIN_SEPARAR: 'Acción sin separar',
   PROCEDIMIENTO_SIN_ACCION: 'Nombre sin acción',

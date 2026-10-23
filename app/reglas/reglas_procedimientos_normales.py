@@ -28,6 +28,14 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "PROCEDIMIENTO_SIN_FINALIDAD": ReglaDiccionario(
+        codigo="PROCEDIMIENTO_SIN_FINALIDAD",
+        nombre="Error de nomenclatura: procedimiento sin finalidad",
+        severidad="alto",
+        descripcion="El nombre siempre indica la finalidad después de la acción: PA_Tabla_Acción_Finalidad.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "PROCEDIMIENTO_ACCION_NO_ABREVIADA": ReglaDiccionario(
         codigo="PROCEDIMIENTO_ACCION_NO_ABREVIADA",
         nombre="Acción sin abreviar",
