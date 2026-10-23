@@ -935,7 +935,7 @@
   background: var(--red-main);
   color: #ffffff;
   font-family: var(--font-sans);
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   font-weight: 600;
   cursor: pointer;
   transition: background var(--dur-fast) ease, transform var(--dur-fast) ease;
@@ -992,21 +992,21 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 36px;
+  height: 34px;
   margin: 12px 8px 0 0;
   padding: 0 16px;
   border: none;
   border-radius: 2px;
   color: #ffffff;
   font-family: var(--font-sans);
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   font-weight: 600;
   cursor: pointer;
   transition: background-color var(--dur-fast) ease;
 }
 
 .ver-en-codigo svg,
-.aprobar-siglas-boton svg { width: 15px; height: 15px; }
+.aprobar-siglas-boton svg { width: 14px; height: 14px; }
 
 .ver-en-codigo {
   border: 1px solid var(--border-strong);
@@ -1024,7 +1024,7 @@
   padding: 1px 6px;
   background: #ffffff;
   color: var(--red-dark);
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   font-weight: 700;
   text-align: center;
 }
