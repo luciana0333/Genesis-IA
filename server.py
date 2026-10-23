@@ -165,6 +165,9 @@ class GenesisHandler(SimpleHTTPRequestHandler):
                 'lineas': getattr(hallazgo, 'lineas', None),
                 # Siglas por validar de la observación («Aprobar siglas»).
                 'siglas': getattr(hallazgo, 'siglas', None),
+                # En cuántos nombres aparece cada sigla («En 2 tablas · 11 columnas»).
+                'usoSiglas': getattr(hallazgo, 'uso_siglas', None)
+                or ({sigla: 1 for sigla in hallazgo.siglas} if getattr(hallazgo, 'siglas', None) else None),
             })
 
         self._send_json({

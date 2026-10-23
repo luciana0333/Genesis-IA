@@ -142,7 +142,10 @@ describe('App', () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (ruta) => new Response(
       JSON.stringify(ruta === '/api/siglas'
         ? { sigla: 'TPPP', significado: 'Tasa Promedio Ponderada Pasiva' }
-        : { hallazgos: [{ linea: 1, origen: 'reglas_estaticas', severidad: 'medio', regla: 'TABLA_NOMBRE_CON_SIGLA', mensaje: 'Detalle.', siglas: ['TPPP', 'TCF'] }] }),
+        : { hallazgos: [
+          { linea: 1, origen: 'reglas_estaticas', severidad: 'medio', regla: 'TABLA_NOMBRE_CON_SIGLA', mensaje: 'Detalle.', siglas: ['TPPP', 'TCF'], usoSiglas: { TPPP: 2, TCF: 1 } },
+          { linea: 3, origen: 'reglas_estaticas', severidad: 'bajo', regla: 'COLUMNA_NOMBRE_CON_SIGLA', mensaje: 'Detalle.', siglas: ['TPPP'], usoSiglas: { TPPP: 12 } },
+        ] }),
       { status: 200, headers: { 'Content-Type': 'application/json' } },
     ));
     render(<App />);
@@ -151,7 +154,10 @@ describe('App', () => {
 
     await usuario.click(await screen.findByRole('button', { name: 'Aprobar siglas' }));
     const panel = screen.getByRole('region', { name: 'Aprobar siglas' });
-    expect(within(panel).getByText('de 2 aprobadas', { exact: false })).toBeInTheDocument();
+    expect(within(panel).getByText('0 de 2')).toBeInTheDocument();
+    // Dónde aparece cada sigla en toda la revisión (tablas y columnas).
+    expect(within(panel).getByText('En 2 tablas · 12 columnas')).toBeInTheDocument();
+    expect(within(panel).getByText('En 1 tabla')).toBeInTheDocument();
 
     // Sin significado no se aprueba.
     await usuario.click(within(panel).getAllByRole('button', { name: 'Aprobar' })[0]);
@@ -159,6 +165,7 @@ describe('App', () => {
 
     await usuario.type(within(panel).getByLabelText('TPPP'), 'Tasa Promedio Ponderada Pasiva{Enter}');
     expect(await within(panel).findByText('Aprobada')).toBeInTheDocument();
+    expect(within(panel).getByText('1 de 2')).toBeInTheDocument();
     const [ruta, opciones] = fetchMock.mock.calls.at(-1);
     expect(ruta).toBe('/api/siglas');
     expect(JSON.parse(opciones.body)).toEqual({ sigla: 'TPPP', significado: 'Tasa Promedio Ponderada Pasiva' });

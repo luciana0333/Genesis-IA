@@ -21,7 +21,7 @@ from typing import List, Optional, Tuple
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.analizadores.diccionario_agrupar import agrupar, con_elemento
 from app.analizadores.ortografia import disponible as diccionario_disponible, es_palabra_valida, separar_palabras
-from app.analizadores.siglas import es_sigla_aprobada
+from app.analizadores.siglas import es_sigla_aprobada, uso_de_siglas
 from app.reglas.reglas_tablas import REGLAS_TABLAS
 
 
@@ -944,6 +944,7 @@ def _agrupar_entre_tablas(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
         siglas = list(dict.fromkeys(s for h in grupo for s in (getattr(h, "siglas", None) or [])))
         if siglas:
             resumido.siglas = siglas
+            resumido.uso_siglas = uso_de_siglas(grupo)
         resultado.append(resumido)
     return resultado
 

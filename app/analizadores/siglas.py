@@ -51,6 +51,15 @@ def significado(sigla: str) -> Optional[str]:
     return siglas_aprobadas().get(sigla.upper()) or None
 
 
+def uso_de_siglas(hallazgos) -> Dict[str, int]:
+    """En cuántas observaciones originales (tablas, columnas, procedimientos) aparece cada sigla."""
+    uso: Dict[str, int] = {}
+    for hallazgo in hallazgos:
+        for sigla in getattr(hallazgo, "siglas", None) or []:
+            uso[sigla] = uso.get(sigla, 0) + 1
+    return uso
+
+
 def aprobar_sigla(sigla: str, significado_sigla: str) -> str:
     """
     Guarda la sigla en el glosario de esta PC y la deja aprobada al instante.
