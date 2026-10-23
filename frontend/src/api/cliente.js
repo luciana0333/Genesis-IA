@@ -44,6 +44,19 @@ async function solicitar(ruta, opciones, mensajeFallo) {
   return datos;
 }
 
+/** POST /api/siglas — aprueba una sigla y la guarda en el glosario de esta PC. */
+export function aprobarSigla(sigla, significado) {
+  return solicitar(
+    '/api/siglas',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sigla, significado }),
+    },
+    'No se pudo aprobar la sigla.',
+  );
+}
+
 /** POST /api/analizar — revisa un objeto SQL con las reglas estáticas. */
 export function analizarObjeto(solicitud, { signal } = {}) {
   return solicitar(

@@ -18,6 +18,7 @@ from app.analizadores.deteccion_objeto import detectar_objeto
 from app.analizadores.diccionario_generador import diccionario_faltante_procedimiento, diccionario_faltante_tabla
 from app.analizadores.planes_ejecucion.servicio import analizar_plan_completo
 from app.analizadores import ortografia
+from app.analizadores.siglas import aprobar_sigla, significado as significado_sigla
 from app.analizadores.planes_ejecucion.lote import analizar_lote
 
 
@@ -76,6 +77,9 @@ class GenesisHandler(SimpleHTTPRequestHandler):
             return
         if parsed.path == '/api/analizar-planes':
             self._analizar_planes()
+            return
+        if parsed.path == '/api/siglas':
+            self._aprobar_sigla()
             return
         if parsed.path != '/api/analizar':
             self.send_error(404, 'Ruta no encontrada')
@@ -159,6 +163,8 @@ class GenesisHandler(SimpleHTTPRequestHandler):
                 'seccion': getattr(hallazgo, 'seccion', None),
                 # Líneas de una observación que junta varias (p. ej. tablas sin NOLOCK).
                 'lineas': getattr(hallazgo, 'lineas', None),
+                # Siglas por validar de la observación («Aprobar siglas»).
+                'siglas': getattr(hallazgo, 'siglas', None),
             })
 
         self._send_json({
@@ -168,6 +174,22 @@ class GenesisHandler(SimpleHTTPRequestHandler):
             # «Generar diccionario faltante»: script de lo que falta documentar (o None).
             'diccionarioFaltante': faltante,
         })
+
+    def _aprobar_sigla(self):
+        """Guarda una sigla aprobada desde la pantalla en el glosario de esta PC."""
+        try:
+            longitud = int(self.headers.get('Content-Length', '0'))
+            if longitud <= 0 or longitud > 10_000:
+                raise ValueError('Solicitud inválida.')
+            datos = json.loads(self.rfile.read(longitud).decode('utf-8') or '{}')
+            sigla = aprobar_sigla(datos.get('sigla', ''), datos.get('significado', ''))
+        except (ValueError, json.JSONDecodeError) as exc:
+            self._send_json({'error': str(exc)}, status=400)
+            return
+        except OSError:
+            self._send_json({'error': 'No se pudo guardar la sigla en el glosario.'}, status=500)
+            return
+        self._send_json({'sigla': sigla, 'significado': significado_sigla(sigla)})
 
     def _analizar_plan(self):
         limite_bytes = 25 * 1024 * 1024

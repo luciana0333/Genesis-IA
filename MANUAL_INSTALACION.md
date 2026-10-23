@@ -145,7 +145,7 @@ git pull
 | «El puerto 8000 está en uso» | Otro programa lo ocupa. Usa otro puerto: en cmd `set GENESIS_PUERTO=8080` (en PowerShell `$env:GENESIS_PUERTO="8080"`) y luego `python server.py`; abre http://localhost:8080. |
 | Un `.rar` sale como «No se pudo abrir el .rar» | Ábrelo con clic derecho → **«Extraer todo»** (o con WinRAR / 7-Zip) y sube los planes o la carpeta extraída. |
 | La revisión de diccionarios marca como error una palabra correcta del negocio | Agrégala a `app/reglas/vocabulario_tecnico.txt` (una por línea). |
-| Genesis pide validar una sigla que sí es correcta (ej.: «sigla por validar: TPPP») | Agrégala con su significado a `app/reglas/siglas.txt` (ej.: `TPPP = Tasa Promedio Ponderada Pasiva`) y reinicia el servidor. Desde entonces se acepta en tablas, columnas y procedimientos. |
+| Genesis pide validar una sigla que sí es correcta (ej.: «sigla por validar: TPPP») | En la observación, presiona **«Aprobar siglas»**, escribe su significado y **«Aprobar»**; luego **«Actualizar revisión»**. Se guarda en `app/reglas/siglas_locales.txt` (solo en esa PC, no choca con `git pull`). Para que sirva a todo el equipo, agrégala también a `app/reglas/siglas.txt`. |
 | Una descripción sugerida sale vacía («Completar») o con una abreviatura sin traducir | Agrega la abreviatura o la palabra del negocio en `app/reglas/glosario_diccionario.txt` (por ejemplo `cta = cuenta`) y reinicia el servidor. |
 
 ---

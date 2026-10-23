@@ -10,6 +10,7 @@ import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { OPCIONES_SELECTOR } from '../../config/revisiones';
 import { AvisoFaltaDiccionario } from './AvisoFaltaDiccionario';
+import { AprobarSiglas } from './AprobarSiglas';
 import { BarraRecorrido, VerEnCodigo } from './VerEnCodigo';
 import { nombreRegla } from '../../config/reglas';
 import { GeneradorDiccionario } from './GeneradorDiccionario';
@@ -142,6 +143,7 @@ export function AuditoriaWorkspace({ vista }) {
   const accionesHallazgo = (hallazgo) => (
     <>
       {botonVerEnCodigo(hallazgo)}
+      {hallazgo.siglas?.length > 0 && <AprobarSiglas siglas={hallazgo.siglas} onActualizar={() => revisar()} />}
       {reglaConScript && hallazgo.regla === reglaConScript && <GeneradorDiccionario faltante={faltante} />}
     </>
   );

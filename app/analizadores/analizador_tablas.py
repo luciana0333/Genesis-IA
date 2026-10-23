@@ -449,9 +449,11 @@ def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: s
     # Ya en PascalCase pero con palabras pegadas (Cuentaspagadas): también está fuera del estándar.
     pegadas = _corregir_palabras_pegadas(tabla) if _PASCAL_CASE.match(tabla) else None
     if siglas:
-        hallazgos.append(con_elemento(_hallazgo(
+        observacion = con_elemento(_hallazgo(
             texto, -1, "TABLA_NOMBRE_CON_SIGLA", _mensaje_sigla(f"la tabla {referencia}", siglas, "tabla"),
-        ), f"{referencia} ({', '.join(siglas)})"))
+        ), f"{referencia} ({', '.join(siglas)})")
+        observacion.siglas = siglas
+        hallazgos.append(observacion)
     elif siglas is None and (not _PASCAL_CASE.match(tabla) or pegadas):
         sugerido = pegadas or _sugerencia_tabla(tabla)
         # Texto de la usuaria: no enumera causas que quizá no tiene (guiones bajos, TB_...).
@@ -938,6 +940,10 @@ def _agrupar_entre_tablas(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
             mensaje=mensaje,
         )
         resumido.lineas = numeros
+        # Siglas por validar de todo el grupo («Aprobar siglas» en la pantalla).
+        siglas = list(dict.fromkeys(s for h in grupo for s in (getattr(h, "siglas", None) or [])))
+        if siglas:
+            resumido.siglas = siglas
         resultado.append(resumido)
     return resultado
 

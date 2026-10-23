@@ -826,14 +826,16 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
     con_sigla = [s for parte in fuera_de_estandar for s in (siglas[parte] or [])]
     errores = [parte for parte in fuera_de_estandar if siglas[parte] is None]
     if con_sigla:
-        hallazgos.append(_hallazgo(
+        observacion_sigla = _hallazgo(
             texto, posicion, "PROCEDIMIENTO_NOMBRE_CON_SIGLA",
             f"Se identificó que el nombre del procedimiento {nombre} contiene "
             f"{_texto_siglas(list(dict.fromkeys(con_sigla)))}. Validar que "
             f"{'la sigla sea comprensible y esté estandarizada' if len(set(con_sigla)) == 1 else 'las siglas sean comprensibles y estén estandarizadas'}. "
             f"De ser necesario, reemplazar{'la' if len(set(con_sigla)) == 1 else 'las'} por términos descriptivos "
             f"que faciliten la comprensión del nombre del procedimiento.",
-        ))
+        )
+        observacion_sigla.siglas = list(dict.fromkeys(con_sigla))
+        hallazgos.append(observacion_sigla)
     if errores:
         # Solo se sugiere un nombre si es distinto y correcto; si no, se indica la parte sin inventar.
         casos = []

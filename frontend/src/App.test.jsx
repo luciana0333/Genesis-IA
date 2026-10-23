@@ -136,6 +136,35 @@ describe('App', () => {
     expect(document.activeElement).toBe(diccionario);
   });
 
+  it('Tablas: «Aprobar siglas» guarda el significado y la marca como aprobada', async () => {
+    const usuario = userEvent.setup();
+    // Cada llamada recibe su propia respuesta (revisar y luego aprobar la sigla).
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (ruta) => new Response(
+      JSON.stringify(ruta === '/api/siglas'
+        ? { sigla: 'TPPP', significado: 'Tasa Promedio Ponderada Pasiva' }
+        : { hallazgos: [{ linea: 1, origen: 'reglas_estaticas', severidad: 'medio', regla: 'TABLA_NOMBRE_CON_SIGLA', mensaje: 'Detalle.', siglas: ['TPPP', 'TCF'] }] }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    ));
+    render(<App />);
+    await irA('tablas');
+    await usuario.click(screen.getByRole('button', { name: 'Ejecutar revisión' }));
+
+    await usuario.click(await screen.findByRole('button', { name: 'Aprobar siglas' }));
+    const panel = screen.getByRole('region', { name: 'Aprobar siglas' });
+    expect(within(panel).getByText('de 2 aprobadas', { exact: false })).toBeInTheDocument();
+
+    // Sin significado no se aprueba.
+    await usuario.click(within(panel).getAllByRole('button', { name: 'Aprobar' })[0]);
+    expect(within(panel).getByRole('alert')).toHaveTextContent('Escribe el significado');
+
+    await usuario.type(within(panel).getByLabelText('TPPP'), 'Tasa Promedio Ponderada Pasiva{Enter}');
+    expect(await within(panel).findByText('Aprobada')).toBeInTheDocument();
+    const [ruta, opciones] = fetchMock.mock.calls.at(-1);
+    expect(ruta).toBe('/api/siglas');
+    expect(JSON.parse(opciones.body)).toEqual({ sigla: 'TPPP', significado: 'Tasa Promedio Ponderada Pasiva' });
+    expect(within(panel).getByRole('button', { name: 'Actualizar revisión' })).toBeInTheDocument();
+  });
+
   it('Tablas: columnas con sigla se recorren una a una con la barra «1 de 3 ‹ ›»', async () => {
     const usuario = userEvent.setup();
     mockRespuesta({

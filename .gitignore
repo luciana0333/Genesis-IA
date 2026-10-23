@@ -11,3 +11,5 @@ htmlcov/
 .vscode/
 *.log
 pruebas/temp_inspect.py
+# Siglas aprobadas desde la pantalla en cada PC (no se suben al repositorio)
+app/reglas/siglas_locales.txt
