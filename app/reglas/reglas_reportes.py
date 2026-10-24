@@ -72,7 +72,7 @@ REGLAS_REPORTES = {
     "IN_CON_UN_SOLO_VALOR": ReglaDiccionario(
         codigo="IN_CON_UN_SOLO_VALOR",
         nombre="IN con un solo valor",
-        severidad="medio",
+        severidad="bajo",
         descripcion="Use igualdad cuando IN contiene un único valor.",
         alcance="reporte",
         activo=True,

@@ -4,6 +4,8 @@
 import re
 from typing import Dict, List, Set, Tuple
 
+from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
+from app.analizadores.sql_order_by import order_by_por_posicion
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_procedimientos_normales import REGLAS_PROCEDIMIENTOS_NORMALES
 from app.analizadores.analizador_tablas import _PASCAL_CASE, _a_pascal_case, _revisar_siglas, _texto_siglas
@@ -359,10 +361,10 @@ def _validar_temporales(texto: str, limpio: str) -> List[Hallazgo]:
 
 def _validar_order_by_numerico(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
-    for match in re.finditer(r"\bORDER\s+BY\s+(\d+(?:\s*,\s*\d+)*)", limpio, re.IGNORECASE):
-        posiciones = ", ".join(re.findall(r"\d+", match.group(1)))
+    for inicio, numeros in order_by_por_posicion(limpio):
+        posiciones = ", ".join(numeros)
         hallazgos.append(_hallazgo(
-            texto, match.start(), "ORDER_BY_NUMERICO_PROHIBIDO",
+            texto, inicio, "ORDER_BY_NUMERICO_PROHIBIDO",
             f"Se encontró un ORDER BY por posición de columna (ORDER BY {posiciones}). Escribir "
             f"el nombre de la columna, ya que si cambia el SELECT el orden cambiaría sin notarlo "
             f"(ej.: ORDER BY cNombre).",
@@ -627,9 +629,11 @@ def _validar_comentarios(texto: str) -> List[Hallazgo]:
     )
     hallazgos = []
     vistos: Set[int] = set()
+    procedimiento = nombre_del_procedimiento(texto)
     for patron in patrones:
         for match in patron.finditer(texto):
-            if match.start() not in vistos:
+            # Variables de prueba comentadas (--DECLARE @dFecha DATE = '...') o el EXEC de ejemplo.
+            if match.start() not in vistos and not es_bloque_de_prueba(texto, match.start(), procedimiento):
                 vistos.add(match.start())
                 hallazgos.append(_hallazgo(texto, match.start(), "CODIGO_SQL_COMENTADO", "Se encontró código SQL comentado, es decir, sentencias que ya no se ejecutan. Elimínelo "
                 "si ya no se usa, ya que dificulta la lectura del procedimiento y el historial de "
@@ -874,13 +878,15 @@ def _agrupar_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
             detalle = "; ".join(hechos) + ". " + partes[0][1]
         else:
             detalle = " ".join(dict.fromkeys(h.mensaje for h in grupo))
-        resumidos.append(Hallazgo(
+        resumen = Hallazgo(
             linea=numeros[0],
             origen=grupo[0].origen,
             severidad=grupo[0].severidad,
             regla=regla,
             mensaje=f"Se encontraron {len(grupo)} observaciones de este tipo, en {lineas}: {detalle}",
-        ))
+        )
+        resumen.lineas = numeros  # para recorrer los casos uno a uno desde «Ver en el código»
+        resumidos.append(resumen)
     return resumidos
 
 
@@ -1008,9 +1014,10 @@ def _validar_in_un_valor(texto: str, limpio: str) -> List[Hallazgo]:
         operador = "<>" if negado else "="
         hallazgos.append(_hallazgo(
             texto, match.start(), "IN_CON_UN_SOLO_VALOR",
-            f"Se identificó {columna} {operador_in} ({valor}) con un solo valor. Se recomienda usar {operador}, "
-            f"ya que {operador_in} está pensado para dos o más valores y con uno solo es más claro y directo "
-            f"(ej.: {columna} {operador} {valor}).",
+            f"Se identificó el uso del operador {operador_in} para comparar un único valor en "
+            f"{columna} {operador_in} ({valor}). Se recomienda reemplazar {operador_in} por {operador}, ya que se "
+            f"está comparando un solo valor. El operador {operador_in} es más apropiado para comparar múltiples "
+            f"valores (ej.: {columna} {operador} {valor}).",
         ))
     return hallazgos
 
