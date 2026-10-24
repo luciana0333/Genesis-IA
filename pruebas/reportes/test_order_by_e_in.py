@@ -102,6 +102,15 @@ class TestInConUnSoloValor(unittest.TestCase):
                         if h.regla == "IN_CON_UN_SOLO_VALOR")
         self.assertEqual(hallazgo.severidad.value, "bajo")
 
+    def test_texto_de_la_usuaria_en_negocio(self):
+        mensajes = self.mensajes(verificar_procedimiento_normal,
+                                 "UPDATE c SET c.cEstado = 'I' FROM dbo.Cliente c WHERE c.nClienteId IN (@nClienteId);")
+        self.assertEqual(mensajes, [
+            "Se identificó el uso del operador IN para comparar un único valor en c.nClienteId IN (@nClienteId). "
+            "Se recomienda reemplazar IN por =, ya que se está comparando un solo valor. El operador IN es más "
+            "apropiado para comparar múltiples valores (ej.: c.nClienteId = @nClienteId)."
+        ])
+
     def test_varios_valores_no_se_marca(self):
         for verificar in (verificar_reporte, verificar_procedimiento_normal):
             self.assertEqual(self.mensajes(verificar, "SELECT a FROM T WITH (NOLOCK) WHERE cEstado IN ('A', 'B')"), [])

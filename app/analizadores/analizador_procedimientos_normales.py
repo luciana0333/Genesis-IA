@@ -1009,9 +1009,10 @@ def _validar_in_un_valor(texto: str, limpio: str) -> List[Hallazgo]:
         operador = "<>" if negado else "="
         hallazgos.append(_hallazgo(
             texto, match.start(), "IN_CON_UN_SOLO_VALOR",
-            f"Se identificó {columna} {operador_in} ({valor}) con un solo valor. Se recomienda usar {operador}, "
-            f"ya que {operador_in} está pensado para dos o más valores y con uno solo es más claro y directo "
-            f"(ej.: {columna} {operador} {valor}).",
+            f"Se identificó el uso del operador {operador_in} para comparar un único valor en "
+            f"{columna} {operador_in} ({valor}). Se recomienda reemplazar {operador_in} por {operador}, ya que se "
+            f"está comparando un solo valor. El operador {operador_in} es más apropiado para comparar múltiples "
+            f"valores (ej.: {columna} {operador} {valor}).",
         ))
     return hallazgos
 
