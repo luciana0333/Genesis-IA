@@ -96,6 +96,12 @@ class TestInConUnSoloValor(unittest.TestCase):
             "cuando se compara un solo valor (ej.: WHERE cEstado <> 'A')."
         ])
 
+    def test_severidad_baja_en_reportes(self):
+        # Mismo plan de ejecución que «=»: es una corrección de claridad, no de rendimiento.
+        hallazgo = next(h for h in verificar_reporte("SELECT a FROM T WITH (NOLOCK) WHERE nId IN (@nId)")
+                        if h.regla == "IN_CON_UN_SOLO_VALOR")
+        self.assertEqual(hallazgo.severidad.value, "bajo")
+
     def test_varios_valores_no_se_marca(self):
         for verificar in (verificar_reporte, verificar_procedimiento_normal):
             self.assertEqual(self.mensajes(verificar, "SELECT a FROM T WITH (NOLOCK) WHERE cEstado IN ('A', 'B')"), [])
