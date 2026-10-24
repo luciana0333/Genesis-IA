@@ -4,6 +4,7 @@
 import re
 from typing import Dict, List, Optional, Set, Tuple
 
+from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.sql_order_by import order_by_por_posicion
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_reportes import REGLAS_REPORTES
@@ -244,11 +245,15 @@ def _validar_comentarios_codigo(texto: str) -> List[Hallazgo]:
         re.compile(rf"/\*\s*(?:{_PALABRAS_SQL_COMENTADAS})\b.*?\*/", re.IGNORECASE | re.DOTALL),
     ]
     posiciones: Set[int] = set()
+    procedimiento = nombre_del_procedimiento(texto)
     for patron in patrones:
         for match in patron.finditer(texto):
             if match.start() in posiciones:
                 continue
             posiciones.add(match.start())
+            # Variables de prueba comentadas (--DECLARE @dFecha DATE = '...') o el EXEC de ejemplo.
+            if es_bloque_de_prueba(texto, match.start(), procedimiento):
+                continue
             hallazgos.append(_hallazgo(
                 texto,
                 match.start(),

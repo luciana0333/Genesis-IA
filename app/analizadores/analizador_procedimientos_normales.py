@@ -4,6 +4,7 @@
 import re
 from typing import Dict, List, Set, Tuple
 
+from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.sql_order_by import order_by_por_posicion
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_procedimientos_normales import REGLAS_PROCEDIMIENTOS_NORMALES
@@ -628,9 +629,11 @@ def _validar_comentarios(texto: str) -> List[Hallazgo]:
     )
     hallazgos = []
     vistos: Set[int] = set()
+    procedimiento = nombre_del_procedimiento(texto)
     for patron in patrones:
         for match in patron.finditer(texto):
-            if match.start() not in vistos:
+            # Variables de prueba comentadas (--DECLARE @dFecha DATE = '...') o el EXEC de ejemplo.
+            if match.start() not in vistos and not es_bloque_de_prueba(texto, match.start(), procedimiento):
                 vistos.add(match.start())
                 hallazgos.append(_hallazgo(texto, match.start(), "CODIGO_SQL_COMENTADO", "Se encontró código SQL comentado, es decir, sentencias que ya no se ejecutan. Elimínelo "
                 "si ya no se usa, ya que dificulta la lectura del procedimiento y el historial de "
