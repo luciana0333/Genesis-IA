@@ -74,46 +74,75 @@ def _table_scan(sentencias: List[Dict]) -> List[Hallazgo]:
     if not casos:
         return []
 
-    # La misma tabla recorrida varias veces en una consulta se nombra una sola vez, con sus filas sumadas.
-    por_tabla: Dict = {}
+    # La misma tabla es un solo problema (se arregla con su PK una vez), aunque se recorra en varias
+    # consultas: se nombra una vez, con las filas de cada consulta y la imagen del recorrido más costoso.
+    # Si se recorre varias veces en una misma consulta, sus filas se suman.
+    por_tabla: Dict[str, Dict[int, List[Dict]]] = {}
     for caso in casos:
-        por_tabla.setdefault((caso["consulta"], caso["nodo"]["objeto"]), []).append(caso["nodo"])
+        por_tabla.setdefault(caso["nodo"]["objeto"], {}).setdefault(caso["consulta"], []).append(caso["nodo"])
 
-    def describir(clave, con_veces: bool = True) -> str:
-        consulta, tabla = clave
-        nodos = por_tabla[clave]
-        texto = f"la tabla {tabla}"
-        detalles = []
-        if varias:
-            detalles.append(f"consulta {consulta}")
-        if con_veces and len(nodos) > 1:
-            detalles.append(f"{len(nodos)} veces")
-        if detalles:
-            texto += f" ({', '.join(detalles)})"
+    def filas(nodos: List[Dict]) -> Optional[tuple]:
         if all(n.get("filasLeidas") is not None and n.get("filasReales") is not None for n in nodos):
-            leidas = sum(n["filasLeidas"] for n in nodos)
-            devueltas = sum(n["filasReales"] for n in nodos)
-            texto += f": se leen {_cifra(leidas)} filas y se devuelven {_cifra(devueltas)}"
+            return sum(n["filasLeidas"] for n in nodos), sum(n["filasReales"] for n in nodos)
+        return None
+
+    def describir(tabla: str, con_veces: bool = True) -> str:
+        consultas = por_tabla[tabla]
+        texto = f"la tabla {tabla}"
+        if len(consultas) == 1:
+            consulta, nodos = next(iter(consultas.items()))
+            detalles = []
+            if varias:
+                detalles.append(f"consulta {consulta}")
+            if con_veces and len(nodos) > 1:
+                detalles.append(f"{len(nodos)} veces")
+            if detalles:
+                texto += f" ({', '.join(detalles)})"
+            cifras = filas(nodos)
+            if cifras:
+                texto += f": se leen {_cifra(cifras[0])} filas y se devuelven {_cifra(cifras[1])}"
+            return texto
+        numeros = sorted(consultas)
+        texto += (f", que se repite en {len(numeros)} consultas "
+                  f"({', '.join(map(str, numeros[:-1]))} y {numeros[-1]})")
+        cifras = {numero: filas(consultas[numero]) for numero in numeros}
+        if all(cifras.values()):
+            if len({leidas for leidas, _ in cifras.values()}) == 1:
+                devueltas = [f"{_cifra(cifras[n][1])} (consulta {n})" for n in numeros]
+                texto += (f": se leen {_cifra(cifras[numeros[0]][0])} filas en cada una y se devuelven "
+                          f"{', '.join(devueltas[:-1])} y {devueltas[-1]}")
+            else:
+                partes = [f"en la consulta {n} se leen {_cifra(cifras[n][0])} filas y se devuelven "
+                          f"{_cifra(cifras[n][1])}" for n in numeros]
+                texto += f": {', '.join(partes[:-1])} y {partes[-1]}"
         return texto
 
     # Un Table Scan ocurre en tablas sin índice clúster (heap): la recomendación es su PK CLUSTERED.
     if len(por_tabla) == 1:
-        # Una sola tabla (una o varias veces): «Se ha identificado un…» o «Se identificaron N… sobre la tabla…».
-        inicio = ("Se ha identificado un Table Scan" if len(casos) == 1
+        tabla = next(iter(por_tabla))
+        # Una sola tabla en una consulta: «Se ha identificado un…» o «Se identificaron N…» (varias veces).
+        una_consulta = len(por_tabla[tabla]) == 1
+        inicio = ("Se ha identificado un Table Scan" if len(casos) == 1 or not una_consulta
                   else f"Se identificaron {len(casos)} Table Scan")
         mensaje = (
-            f"{inicio} dentro del procedimiento sobre {describir(next(iter(por_tabla)), con_veces=False)}. Evaluar "
+            f"{inicio} dentro del procedimiento sobre {describir(tabla, con_veces=False)}. Evaluar "
             f"agregar la PK CLUSTERED en la tabla, ya que forma parte de las buenas prácticas y ayuda a agilizar la "
             f"búsqueda."
         )
     else:
-        detalle = "; ".join(d[:1].upper() + d[1:] for d in (describir(clave) for clave in por_tabla))
+        detalle = "; ".join(d[:1].upper() + d[1:] for d in (describir(tabla) for tabla in por_tabla))
         mensaje = (
             f"Se identificaron {len(casos)} Table Scan dentro del procedimiento, en {_encabezado(casos)}: "
             f"{detalle}. Evaluar agregar la PK CLUSTERED en las tablas con Table Scan, ya que forma parte de las "
             f"buenas prácticas y ayuda a agilizar la búsqueda."
         )
-    return [_hallazgo("TABLE_SCAN_DETECTADO", Severidad.ALTO, mensaje, casos)]
+    # Una imagen por tabla: la de la consulta con su recorrido más costoso (con todos sus Table Scan
+    # de esa consulta, si la recorre varias veces).
+    imagenes = []
+    for tabla, consultas in por_tabla.items():
+        elegida = max(consultas, key=lambda n: max(nodo.get("costoPct") or 0 for nodo in consultas[n]))
+        imagenes += [{"consulta": elegida, "nodo": nodo} for nodo in consultas[elegida]]
+    return [_hallazgo("TABLE_SCAN_DETECTADO", Severidad.ALTO, mensaje, imagenes)]
 
 
 # --- Spill a TempDB ---------------------------------------------------------
