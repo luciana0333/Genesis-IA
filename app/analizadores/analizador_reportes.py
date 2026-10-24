@@ -4,6 +4,7 @@
 import re
 from typing import Dict, List, Optional, Set, Tuple
 
+from app.analizadores.sql_order_by import order_by_por_posicion
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_reportes import REGLAS_REPORTES
 
@@ -611,31 +612,16 @@ def _validar_esquema_entre_bases(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
-# Fin de la lista de un ORDER BY: fin de sentencia, paréntesis o cláusula siguiente.
-_FIN_ORDER_BY = re.compile(
-    r";|\)|\b(?:OFFSET|FOR|OPTION|UNION|EXCEPT|INTERSECT|END|SELECT|INSERT|UPDATE|DELETE|RETURN|GO)\b",
-    re.IGNORECASE,
-)
-
-
 def _validar_order_by_numerico(texto: str, limpio: str) -> List[Hallazgo]:
     """ORDER BY 1, 2: se ordena por posición de columna en vez de por su nombre."""
     hallazgos = []
-    for match in re.finditer(r"\bORDER\s+BY\b", limpio, re.IGNORECASE):
-        resto = limpio[match.end():]
-        fin = _FIN_ORDER_BY.search(resto)
-        lista = resto[:fin.start() if fin else len(resto)]
-        posiciones = [
-            item.strip().split()[0] for item in lista.split(",")
-            if re.fullmatch(r"\s*\d+\s*(?:ASC|DESC)?\s*", item, re.IGNORECASE)
-        ]
-        if posiciones:
-            hallazgos.append(_hallazgo(
-                texto, match.start(), "ORDER_BY_NUMERICO_PROHIBIDO",
-                f"Se identificó un ordenamiento por posición de columna (ORDER BY {', '.join(posiciones)}). "
-                f"Se recomienda escribir el nombre de las columnas, ya que si cambia el SELECT el orden "
-                f"cambiaría sin notarlo (ej.: ORDER BY cNombre).",
-            ))
+    for inicio, posiciones in order_by_por_posicion(limpio):
+        hallazgos.append(_hallazgo(
+            texto, inicio, "ORDER_BY_NUMERICO_PROHIBIDO",
+            f"Se identificó un ordenamiento por posición de columna (ORDER BY {', '.join(posiciones)}). "
+            f"Se recomienda escribir el nombre de las columnas, ya que si cambia el SELECT el orden "
+            f"cambiaría sin notarlo (ej.: ORDER BY cNombre).",
+        ))
     return hallazgos
 
 

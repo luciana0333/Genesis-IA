@@ -4,6 +4,7 @@
 import re
 from typing import Dict, List, Set, Tuple
 
+from app.analizadores.sql_order_by import order_by_por_posicion
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_procedimientos_normales import REGLAS_PROCEDIMIENTOS_NORMALES
 from app.analizadores.analizador_tablas import _PASCAL_CASE, _a_pascal_case, _revisar_siglas, _texto_siglas
@@ -359,10 +360,10 @@ def _validar_temporales(texto: str, limpio: str) -> List[Hallazgo]:
 
 def _validar_order_by_numerico(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
-    for match in re.finditer(r"\bORDER\s+BY\s+(\d+(?:\s*,\s*\d+)*)", limpio, re.IGNORECASE):
-        posiciones = ", ".join(re.findall(r"\d+", match.group(1)))
+    for inicio, numeros in order_by_por_posicion(limpio):
+        posiciones = ", ".join(numeros)
         hallazgos.append(_hallazgo(
-            texto, match.start(), "ORDER_BY_NUMERICO_PROHIBIDO",
+            texto, inicio, "ORDER_BY_NUMERICO_PROHIBIDO",
             f"Se encontró un ORDER BY por posición de columna (ORDER BY {posiciones}). Escribir "
             f"el nombre de la columna, ya que si cambia el SELECT el orden cambiaría sin notarlo "
             f"(ej.: ORDER BY cNombre).",
