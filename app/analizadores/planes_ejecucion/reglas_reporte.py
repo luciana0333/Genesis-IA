@@ -137,25 +137,53 @@ def _lectura_residual(sentencias: List[Dict]) -> List[Hallazgo]:
     if not casos:
         return []
 
-    def describir(caso: Dict) -> str:
-        nodo = caso["nodo"]
-        tabla = f"la tabla {nodo['objeto']}" if nodo.get("objeto") else "una tabla"
-        lugar = f"{tabla} ({_nombre_operador(nodo)}"
-        lugar += f", consulta {caso['consulta']})" if varias_consultas else ")"
-        return f"{lugar}: se leen {_cifra(caso['leidas'])} filas y solo se devuelven {_cifra(caso['devueltas'])}"
+    # La misma tabla por el mismo índice en varias consultas es un solo problema (se arregla una vez):
+    # una observación con la imagen del caso más grave y las cifras de cada consulta.
+    grupos: Dict[tuple, List[Dict]] = {}
+    for caso in casos:
+        clave = (caso["nodo"].get("objeto", "").upper(), caso["nodo"].get("indice", "").upper(),
+                 caso["nodo"]["fisica"].upper())
+        grupos.setdefault(clave, []).append(caso)
 
-    if len(casos) == 1:
+    def mas_grave(grupo: List[Dict]) -> Dict:
+        """El que lee más filas por cada fila que devuelve; si empatan, el de mayor costo."""
+        return max(grupo, key=lambda c: (c["leidas"] / max(c["devueltas"], 1), c["nodo"].get("costoPct") or 0))
+
+    def describir(grupo: List[Dict]) -> str:
+        nodo = grupo[0]["nodo"]
+        tabla = f"la tabla {nodo['objeto']}" if nodo.get("objeto") else "una tabla"
+        indice = f", índice {nodo['indice'].strip('[]')}" if nodo.get("indice") else ""
+        if len(grupo) == 1:
+            caso = grupo[0]
+            lugar = f"{tabla} ({_nombre_operador(nodo)}{indice}"
+            lugar += f", consulta {caso['consulta']})" if varias_consultas else ")"
+            return f"{lugar}: se leen {_cifra(caso['leidas'])} filas y solo se devuelven {_cifra(caso['devueltas'])}"
+        ordenados = sorted(grupo, key=lambda c: c["consulta"])
+        consultas = [str(c["consulta"]) for c in ordenados]
+        lugar = (f"{tabla} ({_nombre_operador(nodo)}{indice}), que se repite en {len(grupo)} consultas "
+                 f"({', '.join(consultas[:-1])} y {consultas[-1]})")
+        if len({c["leidas"] for c in grupo}) == 1:
+            # Lee lo mismo en todas: se dice una vez y se listan las filas devueltas.
+            devueltas = [f"{_cifra(c['devueltas'])} (consulta {c['consulta']})" for c in ordenados]
+            return (f"{lugar}: se leen {_cifra(ordenados[0]['leidas'])} filas en cada una y solo se devuelven "
+                    f"{', '.join(devueltas[:-1])} y {devueltas[-1]}")
+        cifras = [f"en la consulta {c['consulta']} se leen {_cifra(c['leidas'])} filas y solo se devuelven "
+                  f"{_cifra(c['devueltas'])}" for c in ordenados]
+        return f"{lugar}: {', '.join(cifras[:-1])} y {cifras[-1]}"
+
+    lista = list(grupos.values())
+    if len(lista) == 1:
         mensaje = (
-            f"Se ha identificado una lectura residual elevada sobre {describir(casos[0])}. Optimizar "
+            f"Se ha identificado una lectura residual elevada sobre {describir(lista[0])}. Optimizar "
             f"las condiciones de filtrado o revisar los índices existentes, ya que la lectura abarca la totalidad "
             f"o casi la totalidad de los registros."
         )
     else:
         consultas = sorted({c["consulta"] for c in casos})
         encabezado = ("la consulta " if len(consultas) == 1 else "las consultas ") + ", ".join(map(str, consultas))
-        detalle = "; ".join(d[:1].upper() + d[1:] for d in (describir(c) for c in casos))
+        detalle = "; ".join(d[:1].upper() + d[1:] for d in (describir(g) for g in lista))
         mensaje = (
-            f"Se identificaron {len(casos)} lecturas residuales elevadas, en {encabezado}: {detalle}. "
+            f"Se identificaron {len(lista)} lecturas residuales elevadas, en {encabezado}: {detalle}. "
             f"Optimizar las condiciones de filtrado o revisar los índices existentes, ya que estas lecturas abarcan, "
             f"en algunos casos, la totalidad de los registros."
         )
@@ -166,7 +194,8 @@ def _lectura_residual(sentencias: List[Dict]) -> List[Hallazgo]:
         regla="LECTURA_RESIDUAL_ELEVADA",
         mensaje=mensaje,
     )
-    hallazgo.nodos = [{"consulta": c["consulta"], "nodo": c["nodo"]["id"]} for c in casos]
+    # Una imagen por tabla e índice: la del caso más grave.
+    hallazgo.nodos = [{"consulta": c["consulta"], "nodo": c["nodo"]["id"]} for c in map(mas_grave, lista)]
     return [hallazgo]
 
 
