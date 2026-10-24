@@ -41,7 +41,8 @@ class TestLecturaResidual(unittest.TestCase):
         self.assertEqual(hallazgos[0].severidad.value, "alto")
         self.assertEqual(
             hallazgos[0].mensaje,
-            "Se ha identificado una lectura residual elevada sobre la tabla [dbo].[Tickets] (Clustered Index Scan): "
+            "Se ha identificado una lectura residual elevada sobre la tabla [dbo].[Tickets] (Clustered Index Scan, "
+            "índice PK_Tickets): "
             "se leen 3,000,000 filas y solo se devuelven 300. Optimizar las condiciones de filtrado "
             "o revisar los índices existentes, ya que la lectura abarca la totalidad o casi la totalidad de los registros.",
         )
@@ -57,7 +58,7 @@ class TestLecturaResidual(unittest.TestCase):
         hallazgos = _residuales(_plan(_scan(1, "Tickets", 3_000_000, 300), _scan(2, "Pagos", 1_500_000, 20)))
         self.assertEqual(len(hallazgos), 1)
         self.assertTrue(hallazgos[0].mensaje.startswith("Se identificaron 2 lecturas residuales elevadas, en la consulta 1: "))
-        self.assertIn("; La tabla [dbo].[Pagos] (Clustered Index Scan): se leen 1,500,000 filas", hallazgos[0].mensaje)
+        self.assertIn("; La tabla [dbo].[Pagos] (Clustered Index Scan, índice PK_Pagos): se leen 1,500,000 filas", hallazgos[0].mensaje)
         self.assertTrue(hallazgos[0].mensaje.endswith(
             "Optimizar las condiciones de filtrado o revisar los índices existentes, ya que estas "
             "lecturas abarcan, en algunos casos, la totalidad de los registros."))
