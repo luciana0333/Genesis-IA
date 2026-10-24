@@ -592,19 +592,20 @@
 }
 
 /* Recuadro de detalle: como el de advertencias de SSMS / Plan Explorer. */
+/* Flota sobre la página (fuera del recuadro del diagrama): ancho, posición y alto máximo los calcula
+   el diagrama; si el contenido es más alto, se baja con su propia barra. */
 .plan-detalle-flotante {
-  position: absolute;
-  z-index: 3;
-  width: 480px;
-  max-width: calc(100% - 16px);
+  position: fixed;
+  z-index: 60;
   padding: 10px 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border: 1px solid #8fa3b5;
   background: #f4f7fa;
   color: #1d1d24;
   font-size: 0.78rem;
   line-height: 1.5;
   box-shadow: var(--shadow-md);
-  pointer-events: none;
 }
 
 .plan-detalle-titulo {

@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { EncabezadoSeccion } from '../../components/EncabezadoSeccion';
 import { tokenizarSql } from '../../utils/resaltadoSql';
 import {
@@ -108,10 +109,12 @@ export function TextoResaltado({ texto, resaltados }) {
   ));
 }
 
-const MAX_PREDICADO = 420; // el recuadro no se desplaza: los textos muy largos se acortan
-
-/** Detalle del operador como el tooltip de SSMS: mismos nombres y datos del XML. */
-function DetalleNodo({ nodo, posicion }) {
+/**
+ * Detalle del operador como el tooltip de SSMS: mismos nombres y datos del XML.
+ * Flota sobre la página (no se corta en el borde del diagrama) y, si es largo, tiene su propia
+ * barra; no se cierra mientras el mouse esté encima, para poder leerlo completo.
+ */
+function DetalleNodo({ nodo, posicion, onEntrar, onSalir }) {
   const filas = [
     ['Estimated Operator Cost', nodo.padre === null ? '' : `${nodo.costoPct.toFixed(1)}%`],
     ['Estimated Number of Rows', formatearFilas(nodo.filasEstimadas)],
@@ -124,8 +127,14 @@ function DetalleNodo({ nodo, posicion }) {
     ['Actual Elapsed Time (ms)', formatearFilas(nodo.duracionMs)],
     ['Actual Elapsed CPU Time (ms)', formatearFilas(nodo.cpuMs)],
   ].filter(([, valor]) => valor);
-  return (
-    <div className="plan-detalle-flotante" style={{ left: posicion.left, top: posicion.top }} role="tooltip">
+  return createPortal(
+    <div
+      className="plan-detalle-flotante"
+      style={posicion}
+      role="tooltip"
+      onMouseEnter={onEntrar}
+      onMouseLeave={onSalir}
+    >
       <p className="plan-detalle-titulo">
         {nodo.padre === null ? nodo.fisica.toUpperCase() : nodo.fisica}
         {nodo.logica && nodo.logica !== nodo.fisica && <span> ({nodo.logica})</span>}
@@ -154,12 +163,11 @@ function DetalleNodo({ nodo, posicion }) {
       {(nodo.predicados ?? []).map((predicado) => (
         <div key={predicado.nombre} className="plan-detalle-bloque">
           <p className="plan-detalle-subtitulo">{predicado.nombre}</p>
-          <p className="plan-detalle-objeto">
-            {predicado.texto.length > MAX_PREDICADO ? `${predicado.texto.slice(0, MAX_PREDICADO - 1)}…` : predicado.texto}
-          </p>
+          <p className="plan-detalle-objeto">{predicado.texto}</p>
         </div>
       ))}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -181,17 +189,43 @@ function Diagrama({ sentencia }) {
   // «Ajustar»: el plan completo a lo ancho del recuadro.
   const ajustar = () => cambiarZoom(((lienzoRef.current?.clientWidth ?? ancho) - 24) / ancho);
 
+  // El detalle se cierra con una pequeña espera: así da tiempo de pasar el mouse del operador al recuadro.
+  const cierre = useRef(null);
+  const mantener = () => clearTimeout(cierre.current);
+  const cerrar = () => {
+    clearTimeout(cierre.current);
+    cierre.current = setTimeout(() => setEnfocado(null), 180);
+  };
+  useEffect(() => () => clearTimeout(cierre.current), []);
+  // Si la página o el diagrama se desplazan, el recuadro ya no está junto a su operador: se cierra.
+  // (Bajar dentro del propio recuadro no lo cierra.)
+  useEffect(() => {
+    if (!enfocado) return undefined;
+    const alDesplazar = (evento) => {
+      if (!(evento.target instanceof Element && evento.target.closest('.plan-detalle-flotante'))) setEnfocado(null);
+    };
+    window.addEventListener('scroll', alDesplazar, true);
+    return () => window.removeEventListener('scroll', alDesplazar, true);
+  }, [enfocado]);
+
   const alEntrar = (nodo, evento) => {
-    const lienzo = evento.currentTarget.ownerSVGElement.parentElement;
+    mantener();
     const caja = evento.currentTarget.getBoundingClientRect();
-    const base = lienzo.getBoundingClientRect();
-    // A la derecha del operador; si no entra en el recuadro visible, a su izquierda.
-    const anchoDetalle = Math.min(ANCHO_DETALLE, lienzo.clientWidth - 16);
-    let left = caja.right - base.left + lienzo.scrollLeft + 8;
-    if (left + anchoDetalle > lienzo.scrollLeft + lienzo.clientWidth) {
-      left = Math.max(caja.left - base.left + lienzo.scrollLeft - anchoDetalle - 8, lienzo.scrollLeft + 8);
+    const margen = 8;
+    // A la derecha del operador; si no entra en la pantalla, a su izquierda.
+    const anchoDetalle = Math.min(ANCHO_DETALLE, window.innerWidth - margen * 2);
+    let left = caja.right + margen;
+    if (left + anchoDetalle > window.innerWidth - margen) {
+      left = Math.max(caja.left - anchoDetalle - margen, margen);
     }
-    setEnfocado({ nodo, posicion: { left, top: caja.top - base.top + lienzo.scrollTop } });
+    // Hacia abajo desde el operador o, si arriba hay más espacio, hacia arriba; lo que no entra se baja
+    // con la barra del propio recuadro.
+    const espacioAbajo = window.innerHeight - caja.top - margen;
+    const espacioArriba = caja.bottom - margen;
+    const posicion = espacioAbajo >= 360 || espacioAbajo >= espacioArriba
+      ? { left, top: caja.top, maxHeight: espacioAbajo }
+      : { left, bottom: window.innerHeight - caja.bottom, maxHeight: espacioArriba };
+    setEnfocado({ nodo, posicion: { ...posicion, width: anchoDetalle } });
   };
 
   return (
@@ -231,11 +265,13 @@ function Diagrama({ sentencia }) {
               maximo={maximo}
               activo={enfocado?.nodo.id === nodo.id}
               onEntrar={alEntrar}
-              onSalir={() => setEnfocado(null)}
+              onSalir={cerrar}
             />
           ))}
         </svg>
-        {enfocado && <DetalleNodo nodo={enfocado.nodo} posicion={enfocado.posicion} />}
+        {enfocado && (
+          <DetalleNodo nodo={enfocado.nodo} posicion={enfocado.posicion} onEntrar={mantener} onSalir={cerrar} />
+        )}
       </div>
     </div>
   );
