@@ -65,5 +65,41 @@ class TestReglaEnLosModulos(unittest.TestCase):
         self.assertIn("(ORDER BY 2)", hallazgos[0].mensaje)
 
 
+class TestInConUnSoloValor(unittest.TestCase):
+    """IN (SELECT ...) es una subconsulta (puede devolver varias filas): no es un solo valor."""
+
+    def mensajes(self, verificar, sql):
+        return [h.mensaje for h in verificar(sql) if h.regla == "IN_CON_UN_SOLO_VALOR"]
+
+    def test_subconsulta_no_se_marca(self):
+        casos = [
+            "DELETE A FROM #colocacsaldo A WHERE cAgeCod NOT IN (SELECT cAgeCod FROM #CurAge)",
+            "SELECT a FROM T WITH (NOLOCK) WHERE cAgeCod IN ( select cAgeCod FROM #CurAge)",
+            "SELECT a FROM T WITH (NOLOCK) WHERE cAgeCod IN (\n    SELECT cAgeCod FROM #CurAge\n)",
+        ]
+        for sql in casos:
+            for verificar in (verificar_reporte, verificar_procedimiento_normal):
+                with self.subTest(sql=sql, modulo=verificar.__name__):
+                    self.assertEqual(self.mensajes(verificar, sql), [])
+
+    def test_un_valor_si_se_marca(self):
+        mensajes = self.mensajes(verificar_reporte, "SELECT a FROM T WITH (NOLOCK) WHERE cEstado IN ('A')")
+        self.assertEqual(mensajes, [
+            "Se identificó el uso de IN para comparar un único valor. Se recomienda utilizar el operador = "
+            "cuando se compara un solo valor (ej.: WHERE cEstado = 'A')."
+        ])
+
+    def test_not_in_con_un_valor_sugiere_distinto(self):
+        mensajes = self.mensajes(verificar_reporte, "SELECT a FROM T WITH (NOLOCK) WHERE cEstado NOT IN ('A')")
+        self.assertEqual(mensajes, [
+            "Se identificó el uso de NOT IN para comparar un único valor. Se recomienda utilizar el operador <> "
+            "cuando se compara un solo valor (ej.: WHERE cEstado <> 'A')."
+        ])
+
+    def test_varios_valores_no_se_marca(self):
+        for verificar in (verificar_reporte, verificar_procedimiento_normal):
+            self.assertEqual(self.mensajes(verificar, "SELECT a FROM T WITH (NOLOCK) WHERE cEstado IN ('A', 'B')"), [])
+
+
 if __name__ == "__main__":
     unittest.main()

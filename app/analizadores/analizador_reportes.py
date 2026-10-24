@@ -317,11 +317,13 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             lambda m: _mensaje_select_estrella(_tabla_del_alias(limpio, m.group("alias")), False, f"{m.group('alias')}.*"),
         ),
         (
-            r"\bIN\s*\(\s*(?P<valor>[^,()]+?)\s*\)",
+            # IN (SELECT ...) es una subconsulta: puede devolver varias filas, no es un solo valor.
+            r"(?P<no>\bNOT\s+)?\bIN\s*\((?!\s*(?:SELECT|WITH)\b)\s*(?P<valor>[^,()]+?)\s*\)",
             "IN_CON_UN_SOLO_VALOR",
             lambda m: (
-                f"Se identificó el uso de IN para comparar un único valor. Se recomienda utilizar el operador = "
-                f"cuando se compara un solo valor (ej.: WHERE {_columna_antes(limpio, m.start())} = "
+                f"Se identificó el uso de {'NOT IN' if m.group('no') else 'IN'} para comparar un único valor. "
+                f"Se recomienda utilizar el operador {'<>' if m.group('no') else '='} cuando se compara un solo "
+                f"valor (ej.: WHERE {_columna_antes(limpio, m.start())} {'<>' if m.group('no') else '='} "
                 f"{texto[m.start('valor'):m.end('valor')]})."
             ),
         ),
