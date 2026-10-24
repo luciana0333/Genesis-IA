@@ -155,6 +155,50 @@ def _tabla_del_alias(limpio: str, alias: str) -> str:
     return match.group(1).strip() if match else alias
 
 
+# Lo que cierra una sentencia (fuera de paréntesis): «;», GO o el inicio de otra sentencia.
+_FIN_DE_SENTENCIA = re.compile(
+    r"\(|\)|;|\b(?:GO|INSERT|UPDATE|DELETE|MERGE|TRUNCATE|CREATE|ALTER|DROP|DECLARE|EXEC|EXECUTE|IF|ELSE|"
+    r"WHILE|BEGIN|END|RETURN|PRINT|SELECT|UNION|WITH)\b",
+    re.IGNORECASE,
+)
+
+
+def _fin_de_sentencia(limpio: str, desde: int) -> int:
+    """Dónde termina la sentencia que sigue en `desde`; sirve aunque el código no use «;»."""
+    nivel = 0
+    for token in _FIN_DE_SENTENCIA.finditer(limpio, desde):
+        if token.group(0) == "(":
+            nivel += 1
+        elif token.group(0) == ")":
+            nivel -= 1
+            if nivel < 0:
+                return token.start()
+        elif nivel == 0:
+            return token.start()
+    return len(limpio)
+
+
+def _tabla_del_alias_en(limpio: str, desde: int, alias: str) -> str:
+    """Tabla del alias según el FROM/JOIN de la misma sentencia (DELETE A FROM #Saldo A → #Saldo)."""
+    return _tabla_del_alias(limpio[desde:_fin_de_sentencia(limpio, desde)], alias)
+
+
+def _tabla_de_la_cte(limpio: str, nombre: str) -> Optional[str]:
+    """Primera tabla del FROM de la CTE (WITH CTE AS (SELECT ... FROM #Saldo) → #Saldo)."""
+    definicion = re.search(rf"(?:\bWITH|,)\s*{re.escape(nombre)}\s*(?:\([^)]*\))?\s+AS\s*\(", limpio, re.IGNORECASE)
+    if not definicion:
+        return None
+    nivel, fin = 1, len(limpio)
+    for i in range(definicion.end(), len(limpio)):
+        nivel += {"(": 1, ")": -1}.get(limpio[i], 0)
+        if nivel == 0:
+            fin = i
+            break
+    tabla = re.search(rf"\bFROM\s+({_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}})",
+                      limpio[definicion.end():fin], re.IGNORECASE)
+    return tabla.group(1).strip() if tabla else None
+
+
 def _nombres_cte(limpio: str) -> Set[str]:
     """Nombres definidos con WITH nombre AS (...): no son tablas físicas."""
     return {
@@ -319,7 +363,7 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
         (
             r"(?<![\w.])(?P<alias>[A-Za-z_]\w*)\s*\.\s*\*(?=\s*(?:,|\bFROM\b))",
             "SELECT_ESTRELLA_PROHIBIDO",
-            lambda m: _mensaje_select_estrella(_tabla_del_alias(limpio, m.group("alias")), False, f"{m.group('alias')}.*"),
+            lambda m: _mensaje_select_estrella(_tabla_del_alias_en(limpio, m.start(), m.group("alias")), False, f"{m.group('alias')}.*"),
         ),
         (
             # IN (SELECT ...) es una subconsulta: puede devolver varias filas, no es un solo valor.
@@ -370,7 +414,7 @@ def _columna_antes(limpio: str, posicion: int) -> str:
 
 def _objeto_select_estrella(match: re.Match, limpio: str) -> str:
     if "alias" in match.re.groupindex:
-        return f"tabla {_tabla_del_alias(limpio, match.group('alias'))}"
+        return f"tabla {_tabla_del_alias_en(limpio, match.start(), match.group('alias'))}"
     if match.group("tabla"):
         return f"{'función' if match.group('funcion') else 'tabla'} {match.group('tabla')}"
     return "consulta sin tabla identificada"
@@ -398,11 +442,18 @@ def _validar_modificaciones_fisicas(texto: str, limpio: str) -> List[Hallazgo]:
         rf"(?!(?:INTO|FROM|SET|JOIN|STATISTICS)\b)({_IDENTIFICADOR}(?:\s*\.(?:\s*\.)?\s*{_IDENTIFICADOR}){{0,2}})",
         re.IGNORECASE,
     )
+    ctes = _nombres_cte(limpio)
     for match in patron.finditer(limpio):
         tabla = match.group(2).strip()
         if "." not in tabla and not _es_temporal(tabla):
-            # UPDATE c ... FROM dbo.Cliente c: el objetivo es el alias de una tabla del FROM.
-            tabla = _tabla_del_alias(_sentencia(limpio, match.start()), tabla)
+            # UPDATE c ... FROM dbo.Cliente c: el objetivo es el alias de una tabla del FROM de esa sentencia.
+            tabla = _tabla_del_alias_en(limpio, match.end(), tabla)
+        if tabla.lower() in ctes:
+            # UPDATE de una CTE: se modifica la tabla de la que sale la CTE.
+            base = _tabla_de_la_cte(limpio, tabla)
+            if base is None or _es_temporal(base):
+                continue
+            tabla = f"{base} (mediante la CTE {tabla})"
         if not _es_temporal(tabla):
             hallazgos.append(_hallazgo(
                 texto,
@@ -762,13 +813,15 @@ def _agrupar_por_elemento(regla: str, grupo: List[Hallazgo]) -> Hallazgo:
     ]
     numeros = sorted({hallazgo.linea for hallazgo in grupo})
     lineas = ("la línea " if len(numeros) == 1 else "las líneas ") + ", ".join(map(str, numeros))
-    return Hallazgo(
+    resumen = Hallazgo(
         linea=numeros[0],
         origen=grupo[0].origen,
         severidad=grupo[0].severidad,
         regla=regla,
         mensaje=f"Se identificaron {len(grupo)} {sustantivo}, en {lineas}: {'; '.join(elementos)}. {accion}",
     )
+    resumen.lineas = numeros  # para recorrer los casos uno a uno desde «Ver en el código»
+    return resumen
 
 
 def _agrupar_hallazgos_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
@@ -805,7 +858,7 @@ def _agrupar_hallazgos_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
             detalles = ["; ".join(hechos) + ".", partes[0][1]]
         else:
             detalles = list(dict.fromkeys(h.mensaje for h in grupo))
-        resumidos.append(Hallazgo(
+        resumen = Hallazgo(
             linea=grupo[0].linea,
             origen=grupo[0].origen,
             severidad=grupo[0].severidad,
@@ -814,7 +867,9 @@ def _agrupar_hallazgos_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
                 f"Se encontraron {len(grupo)} observaciones de este tipo, en {lineas}: "
                 f"{' '.join(detalles)}"
             ),
-        ))
+        )
+        resumen.lineas = numeros  # para recorrer los casos uno a uno desde «Ver en el código»
+        resumidos.append(resumen)
     return resumidos
 
 

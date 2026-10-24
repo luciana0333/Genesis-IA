@@ -878,13 +878,15 @@ def _agrupar_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
             detalle = "; ".join(hechos) + ". " + partes[0][1]
         else:
             detalle = " ".join(dict.fromkeys(h.mensaje for h in grupo))
-        resumidos.append(Hallazgo(
+        resumen = Hallazgo(
             linea=numeros[0],
             origen=grupo[0].origen,
             severidad=grupo[0].severidad,
             regla=regla,
             mensaje=f"Se encontraron {len(grupo)} observaciones de este tipo, en {lineas}: {detalle}",
-        ))
+        )
+        resumen.lineas = numeros  # para recorrer los casos uno a uno desde «Ver en el código»
+        resumidos.append(resumen)
     return resumidos
 
 
