@@ -186,11 +186,18 @@ def _valor_desde_token(token: _Token) -> ValorArgumento:
     return ValorArgumento(crudo, crudo, False)
 
 
+# Palabras con las que empieza otra sentencia de T-SQL: cierran la anterior aunque falte el ';'
+# (ej.: el COMMIT TRANSACTION o el END TRY que siguen al último sp_addextendedproperty del script).
+_INICIO_DE_SENTENCIA = {
+    "GO", "EXEC", "EXECUTE", "COMMIT", "ROLLBACK", "BEGIN", "END", "SET", "PRINT", "IF", "ELSE", "DECLARE",
+    "SELECT", "INSERT", "UPDATE", "DELETE", "MERGE", "RETURN", "WHILE", "RAISERROR", "THROW", "SAVE", "USE",
+    "CREATE", "ALTER", "DROP", "TRUNCATE", "WAITFOR",
+}
+
+
 def _es_fin_de_sentencia(token: _Token) -> bool:
-    """GO o el inicio de otro EXEC cierran la sentencia aunque falte el ';'."""
-    return token.tipo == "fin" or (
-        token.tipo == "valor" and token.crudo.upper() in {"GO", "EXEC", "EXECUTE"}
-    )
+    """El fin del texto o el inicio de otra sentencia (GO, EXEC, COMMIT, END...) cierran la sentencia."""
+    return token.tipo == "fin" or (token.tipo == "valor" and token.crudo.upper() in _INICIO_DE_SENTENCIA)
 
 
 def _leer_argumentos(texto: str, i: int, llamada: LlamadaPropiedad, original: str) -> None:
