@@ -26,6 +26,14 @@ def _nombre_operador(nodo: Dict) -> str:
     return nodo["fisica"].upper() if nodo["padre"] is None else nodo["fisica"]
 
 
+def _lee_xml(sentencia: Dict) -> bool:
+    """La consulta lee un XML: operadores «XML Reader» (OPENXML, .nodes()) o UDX (métodos .value(), .query())."""
+    return any(
+        "XML READER" in (nodo.get("objeto") or "").upper() or nodo["fisica"].upper() == "UDX"
+        for nodo in sentencia["nodos"]
+    )
+
+
 def _conversiones_con_alerta(sentencias: List[Dict]) -> List[Dict]:
     """Conversiones implícitas que SQL Server marcó con alerta (Convert Issue con CONVERT_IMPLICIT).
 
@@ -34,6 +42,7 @@ def _conversiones_con_alerta(sentencias: List[Dict]) -> List[Dict]:
     """
     casos = []
     for sentencia in sentencias:
+        lee_xml = _lee_xml(sentencia)
         for nodo in sentencia["nodos"]:
             for advertencia in nodo["advertencias"]:
                 if advertencia["tipo"] != "conversion":
@@ -43,6 +52,10 @@ def _conversiones_con_alerta(sentencias: List[Dict]) -> List[Dict]:
                 # «Convert Issue: <Problema> <expresión tal cual el XML>»
                 partes = advertencia["texto"].split(" ", 3)
                 problema = partes[2] if len(partes) > 2 else ""
+                # Al leer un XML (OPENXML, .nodes(), .value()) sus valores llegan como texto y SQL Server los
+                # convierte al tipo de cada columna: esas conversiones de valores internos no se observan.
+                if lee_xml and _CONVERSION_INTERNA.fullmatch(partes[3] if len(partes) > 3 else ""):
+                    continue
                 casos.append({
                     "consulta": sentencia["numero"],
                     "nodo": nodo,

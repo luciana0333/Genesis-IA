@@ -130,5 +130,40 @@ class TestConversionesEnUnMismoOperador(unittest.TestCase):
         )
 
 
+_LECTOR_XML = """
+<RelOp NodeId="1" PhysicalOp="Table-valued function" LogicalOp="Table-valued function" EstimatedTotalSubtreeCost="0.1" EstimateRows="10">
+  <TableValuedFunction><Object Table="[XML Reader with XPath filter]"/></TableValuedFunction>
+</RelOp>"""
+
+
+class TestConversionesAlLeerXml(unittest.TestCase):
+    """Las conversiones de los valores leídos de un XML no se observan, aunque SQL Server las marque."""
+
+    def _con_xml(self, alertas: str) -> str:
+        return _insert(alertas).replace(f"</Warnings>{_SCAN}", f"</Warnings>{_SCAN}{_LECTOR_XML}")
+
+    def test_insert_desde_xml_no_se_observa(self):
+        for analizar in (analizar_plan_reporte, analizar_plan_negocio):
+            with self.subTest(modulo=analizar.__name__):
+                self.assertEqual(_conversiones(self._con_xml(DOCE), analizar), [])
+
+    def test_lectura_xml_con_udx_tampoco(self):
+        udx = _insert(DOCE).replace(
+            f"</Warnings>{_SCAN}",
+            '</Warnings><RelOp NodeId="2" PhysicalOp="UDX" LogicalOp="Extended Operator" EstimatedTotalSubtreeCost="0.1" EstimateRows="1"/>'
+            + _SCAN)
+        self.assertEqual(_conversiones(udx), [])
+
+    def test_columna_real_en_una_consulta_con_xml_si_se_observa(self):
+        alertas = DOCE + _alerta("[DC].[nDocTpo]=CONVERT_IMPLICIT(int,[CL].[nConsEquivalente],0)", "Seek Plan")
+        hallazgos = _conversiones(self._con_xml(alertas))
+        self.assertEqual(len(hallazgos), 1)
+        self.assertIn("«[DC].[nDocTpo]=CONVERT_IMPLICIT(int,[CL].[nConsEquivalente],0)»", hallazgos[0].mensaje)
+        self.assertNotIn("varchar(10)", hallazgos[0].mensaje)
+
+    def test_sin_xml_se_sigue_observando(self):
+        self.assertEqual(len(_conversiones(_insert(DOCE))), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
