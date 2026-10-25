@@ -11,7 +11,9 @@ from typing import Dict, List, Optional
 
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 
-_CONVERSION_IMPLICITA = re.compile(r"CONVERT_IMPLICIT\((?:[^()]|\([^()]*\))*\)")
+# Basta con que la expresión tenga CONVERT_IMPLICIT( : la conversión puede llevar funciones con varios
+# niveles de paréntesis (CONVERT_IMPLICIT(int,substring([T].[c],(1),(14)),0)) y aun así es la misma alerta.
+_CONVERSION_IMPLICITA = re.compile(r"\bCONVERT_IMPLICIT\s*\(", re.IGNORECASE)
 
 # Qué provoca cada tipo de «Convert Issue» de SQL Server.
 _EFECTO = {
