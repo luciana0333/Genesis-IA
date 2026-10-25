@@ -113,7 +113,8 @@ REGLAS_REPORTES = {
         codigo="VARCHAR_MAX_PROHIBIDO",
         nombre="VARCHAR(MAX) prohibido",
         severidad="alto",
-        descripcion="VARCHAR(MAX) solo se permite para guardar JSON o XML; en otro caso se define una longitud.",
+        descripcion="VARCHAR(MAX) solo se permite para guardar JSON, XML o listas que se separan con STRING_SPLIT; "
+                    "en otro caso se define una longitud.",
         alcance="reporte",
         activo=True,
     ),
