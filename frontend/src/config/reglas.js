@@ -128,7 +128,7 @@ export const NOMBRES_REGLAS = {
   VARBINARY_DOCUMENTO_IDENTIFICADO: 'VARBINARY identificado',
   DOCUMENTO_GUARDADO_EN_BD: 'Documento guardado en la base de datos',
   TIPO_DISTINTO_ENTRE_TEMPORALES: 'Misma columna con distinto tipo',
-  TABLA_PESADA_SIN_NOLOCK: 'Tabla de movimientos o constantes sin NOLOCK',
+  TABLA_PESADA_SIN_NOLOCK: 'Tabla de movimientos, constantes o productos sin NOLOCK',
   INDICE_SINTAXIS_INVALIDA: 'Índice mal escrito',
   INDICE_SENTENCIA_NO_RECONOCIDA: 'Instrucción que no es un índice',
   INDICE_PREFIJO_INVALIDO: 'Nomenclatura incorrecta del índice',

@@ -214,6 +214,33 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
                       "tabla de movimientos (dbo.MovimientoCaja)"):
             self.assertIn(texto, hallazgo.mensaje)
 
+    def test_nolock_recomendado_en_tablas_de_productos(self):
+        sql = "SELECT p.cCtaCod FROM dbo.Producto p\nJOIN dbo.ColocProductos c ON c.nId = p.nId;"
+        hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "TABLA_PESADA_SIN_NOLOCK")
+        for texto in ("tabla de productos (dbo.Producto), de uso frecuente, se consulta sin WITH(NOLOCK)",
+                      "tabla de productos (dbo.ColocProductos)"):
+            self.assertIn(texto, hallazgo.mensaje)
+
+    def test_producto_que_se_actualiza_no_lleva_nolock(self):
+        casos = (
+            "UPDATE p SET p.nEstado = 1 FROM dbo.Producto p WHERE p.nId = 1;",
+            "UPDATE dbo.Producto SET nEstado = 1 FROM dbo.Producto WHERE nId = 1;",
+            "DELETE p FROM dbo.Producto p WHERE p.nId = 1;",
+            # Subconsulta en el SET antes del FROM: sigue siendo el mismo UPDATE.
+            "UPDATE p\nSET p.nTotal = (\n    SELECT COUNT(1) FROM #T t WHERE t.nId = p.nId\n)\nFROM dbo.Producto p\nWHERE p.nId = 1\n",
+        )
+        for sql in casos:
+            with self.subTest(sql=sql):
+                self.assertNotIn("TABLA_PESADA_SIN_NOLOCK", {h.regla for h in verificar_procedimiento_normal(sql)})
+
+    def test_sin_punto_y_coma_un_update_de_arriba_no_tapa_la_lectura(self):
+        # Antes, sin «;», el UPDATE de arriba se tomaba como parte de la consulta y no se recomendaba nada.
+        sql = ("UPDATE p\nSET p.nEstado = 1\nFROM dbo.Producto p\nWHERE p.nId = 1\n\n"
+               "SELECT p.cCtaCod\nFROM dbo.Producto p\nWHERE p.nEstado = 1\n")
+        hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "TABLA_PESADA_SIN_NOLOCK"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertEqual(hallazgos[0].linea, 7)
+
     def test_nolock_opcional_en_las_demas_tablas(self):
         casos = (
             "SELECT c.n FROM dbo.Cliente c;",  # tabla física común: NOLOCK opcional
