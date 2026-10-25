@@ -671,6 +671,18 @@ FROM STRING_SPLIT(@cChequesParaUso,',')
         sql = "DECLARE @cTexto VARCHAR(MAX) = 'hola';\nSELECT @cTexto;"
         self.assertEqual(len(self._varchar_max(sql)), 1)
 
+    def test_reportes_tambien(self):
+        from app.analizadores.analizador_reportes import verificar_reporte
+        lista = ("DECLARE @cChequesParaUso VARCHAR(MAX) = (SELECT nConsSisValor FROM dbo.ConstSistema WITH(NOLOCK) "
+                 "WHERE nConsSisCod = 310001)\nSELECT value FROM STRING_SPLIT(@cChequesParaUso, ',')\n")
+        texto = "DECLARE @cTexto VARCHAR(MAX) = 'hola';\nSELECT @cTexto;"
+
+        def varchar_max(sql):
+            return [h for h in verificar_reporte(sql) if h.regla == "VARCHAR_MAX_PROHIBIDO"]
+
+        self.assertEqual(varchar_max(lista), [])
+        self.assertEqual(len(varchar_max(texto)), 1)
+
     def test_string_split_de_otra_variable_no_la_excusa(self):
         sql = ("DECLARE @cTexto VARCHAR(MAX) = 'hola';\nDECLARE @cLista VARCHAR(500) = '1,2';\n"
                "SELECT value FROM STRING_SPLIT(@cLista, ',');")
