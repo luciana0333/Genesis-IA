@@ -647,5 +647,35 @@ END CATCH"""
                 self.assertIn(f"(ej.: TRIM({dato}))", hallazgo.mensaje)
 
 
+
+class TestVarcharMaxConStringSplit(unittest.TestCase):
+    """Una lista que se separa con STRING_SPLIT puede ser larga: ahí VARCHAR(MAX) se justifica."""
+
+    def _varchar_max(self, sql):
+        return [h for h in verificar_procedimiento_normal(sql) if h.regla == "VARCHAR_MAX_PROHIBIDO"]
+
+    def test_caso_de_la_usuaria(self):
+        sql = """DECLARE @cChequesParaUso VARCHAR(MAX) = (SELECT nConsSisValor FROM CONSTSISTEMA WITH(NOLOCK) WHERE NCONSSISCOD=310001)
+
+DECLARE @ChequesUso TABLE
+(
+    cNumCheque VARCHAR(22) COLLATE SQL_Latin1_General_CP1_CI_AS
+)
+INSERT INTO @ChequesUso
+SELECT value
+FROM STRING_SPLIT(@cChequesParaUso,',')
+"""
+        self.assertEqual(self._varchar_max(sql), [])
+
+    def test_sin_string_split_se_sigue_marcando(self):
+        sql = "DECLARE @cTexto VARCHAR(MAX) = 'hola';\nSELECT @cTexto;"
+        self.assertEqual(len(self._varchar_max(sql)), 1)
+
+    def test_string_split_de_otra_variable_no_la_excusa(self):
+        sql = ("DECLARE @cTexto VARCHAR(MAX) = 'hola';\nDECLARE @cLista VARCHAR(500) = '1,2';\n"
+               "SELECT value FROM STRING_SPLIT(@cLista, ',');")
+        self.assertEqual(len(self._varchar_max(sql)), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

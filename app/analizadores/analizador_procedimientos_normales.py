@@ -947,7 +947,7 @@ def _sentencia_de(limpio: str, posicion: int) -> str:
 
 
 def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
-    """VARCHAR(MAX) solo se permite para JSON, XML o datos que vienen de una tabla heredada."""
+    """VARCHAR(MAX) solo se permite para JSON, XML, listas para STRING_SPLIT o datos de una tabla heredada."""
     hallazgos = []
     for match in re.finditer(r"\bN?VARCHAR\s*\(\s*MAX\s*\)", limpio, re.IGNORECASE):
         declarado = re.search(r"(@?[A-Za-z_]\w*)\s+(?:AS\s+)?$", limpio[:match.start()])
@@ -957,9 +957,12 @@ def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
             es_json_xml = re.search(r"json|xml", nombre, re.IGNORECASE) or any(
                 _USO_JSON_XML.search(_sentencia_de(limpio, uso.start())) for uso in usos
             )
+            # Una lista que se separa con STRING_SPLIT (ej.: '205,307,312,...') puede ser larga: ahí se justifica.
+            es_lista = re.search(rf"\bSTRING_SPLIT\s*\(\s*{re.escape(nombre)}\b", limpio, re.IGNORECASE)
         else:
             es_json_xml = _USO_JSON_XML.search(_sentencia_de(limpio, match.start()))
-        if es_json_xml:
+            es_lista = None
+        if es_json_xml or es_lista:
             continue
         tipo = re.sub(r"\s+", "", match.group(0)).upper()
         sujeto = f"que {nombre} se declara como {tipo}" if nombre else f"el uso de {tipo}"
