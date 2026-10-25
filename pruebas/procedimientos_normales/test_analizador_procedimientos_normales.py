@@ -598,5 +598,27 @@ END CATCH"""
                 self.assertTrue(hallazgos)
                 self.assertEqual(hallazgos[0].linea, esperada)
 
+    def test_ltrim_rtrim_con_funciones_dentro(self):
+        # Caso de la usuaria: LTRIM(RTRIM(REPLACE(REPLACE(...)))) no se detectaba por los paréntesis de adentro.
+        sql = ("SET @cDocumento = (SELECT LTRIM(RTRIM(REPLACE(REPLACE(@cDocumento, 'IGNORE_ON', ''),"
+               "'</b>IGNORE_OFF',''))))")
+        hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "LTRIM_RTRIM_PROHIBIDO"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertEqual(
+            hallazgos[0].mensaje,
+            "Se identificó la combinación de LTRIM y RTRIM sobre REPLACE(...) para quitar espacios. Se recomienda "
+            "usar TRIM, ya que hace lo mismo en una sola función y le da más legibilidad al código "
+            "(ej.: TRIM(REPLACE(...))).",
+        )
+
+    def test_ltrim_rtrim_sobre_columna_se_nombra_tal_cual(self):
+        for sql, dato in (("SELECT RTRIM(LTRIM( c.cNombre )) FROM dbo.Cliente c;", "c.cNombre"),
+                          ("SELECT LTRIM(RTRIM(@cDoc));", "@cDoc")):
+            with self.subTest(sql=sql):
+                hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "LTRIM_RTRIM_PROHIBIDO")
+                self.assertIn(f"sobre {dato} para quitar espacios", hallazgo.mensaje)
+                self.assertIn(f"(ej.: TRIM({dato}))", hallazgo.mensaje)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -474,8 +474,16 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             f"función nativa de SQL Server y mejora el rendimiento (ej.: SELECT value FROM "
             f"STRING_SPLIT(@cLista, ',')).",
         ))
-    for match in re.finditer(r"\b(LTRIM\s*\(\s*RTRIM|RTRIM\s*\(\s*LTRIM)\s*\(\s*([^()]*?)\s*\)\s*\)", limpio, re.IGNORECASE):
-        dato = match.group(2) or "cNombre"
+    for match in re.finditer(r"\b(LTRIM\s*\(\s*RTRIM|RTRIM\s*\(\s*LTRIM)\s*\(", limpio, re.IGNORECASE):
+        # Lo que va dentro puede tener otras funciones (LTRIM(RTRIM(REPLACE(@cDoc, 'a', '')))): se lee
+        # respetando sus paréntesis. Una columna o variable se nombra tal cual; una expresión larga, por su
+        # primera función («REPLACE(...)»), para no copiar toda la fórmula.
+        contenido = texto[match.end():match.end() + len(_contenido_entre_parentesis(limpio, match.end() - 1))].strip()
+        if re.fullmatch(r"[\w@#.\[\]]+", contenido):
+            dato = contenido
+        else:
+            funcion = re.match(r"(\w+)\s*\(", contenido)
+            dato = f"{funcion.group(1).upper()}(...)" if funcion else "cNombre"
         hallazgos.append(_hallazgo(
             texto, match.start(), "LTRIM_RTRIM_PROHIBIDO",
             f"Se identificó la combinación de LTRIM y RTRIM sobre {dato} para quitar espacios. Se recomienda "
