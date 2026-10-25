@@ -319,12 +319,13 @@
   border-collapse: collapse;
   color: #1e1e1e;
   font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
-  font-size: 12.5px;
+  font-size: 12px;
+  line-height: 1.35;
   white-space: nowrap;
 }
 
 .plan-sentencias th {
-  padding: 7px 14px;
+  padding: 3px 8px;
   border-right: 1px solid #d9d9d9;
   border-bottom: 1px solid #c8c8c8;
   background: #f0f0f0;
@@ -343,7 +344,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 7px 14px;
+  padding: 3px 8px;
   border: none;
   background: transparent;
   color: inherit;
@@ -375,7 +376,7 @@
 }
 
 .plan-sentencias td {
-  padding: 5px 14px;
+  padding: 1px 8px;
   border-right: 1px solid #e3e3e3;
   border-bottom: 1px solid #ececec;
 }
@@ -1423,4 +1424,28 @@
 
 .plan-divisor:focus-visible {
   border-color: #9a9aa3;
+}
+
+/* Barras de desplazamiento finas en la grilla, el Text Data y el diagrama (como Plan Explorer). */
+.plan-grilla,
+.plan-texto,
+.plan-lienzo,
+.plan-vista {
+  scrollbar-width: thin;
+  scrollbar-color: #b9b9c0 transparent;
+}
+
+.plan-grilla::-webkit-scrollbar,
+.plan-texto::-webkit-scrollbar,
+.plan-lienzo::-webkit-scrollbar,
+.plan-vista::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.plan-grilla::-webkit-scrollbar-thumb,
+.plan-texto::-webkit-scrollbar-thumb,
+.plan-lienzo::-webkit-scrollbar-thumb,
+.plan-vista::-webkit-scrollbar-thumb {
+  background: #b9b9c0;
 }
