@@ -112,6 +112,14 @@ class PruebasLote(unittest.TestCase):
         self.assertEqual(nombre_procedimiento(PLAN_CON_PROCEDIMIENTO, "x.sqlplan"), "dbo.PA_ConsultarCliente")
         self.assertEqual(nombre_procedimiento(b"<roto", "Carpeta/PA_Prueba.sqlplan"), "PA_Prueba")
 
+    def test_el_archivo_con_el_nombre_del_procedimiento_manda(self):
+        # Caso de la usuaria: el PA llama por dentro a otro (StoredProc / INSERT ... EXEC); el XML solo trae el
+        # nombre del llamado. Si el archivo ya lleva el nombre del procedimiento, ese es el que se muestra.
+        llama_a_otro = PLAN_CON_PROCEDIMIENTO.replace(b"dbo].[PA_ConsultarCliente", b"Bonificacion].[PA_RRHH_Sel_ObtenerEmpleados")
+        archivo = "Lote/Bonificacion.PA_EsquemaTotalizadoEjecutivos_Ins.sqlplan"
+        self.assertEqual(nombre_procedimiento(llama_a_otro, archivo), "Bonificacion.PA_EsquemaTotalizadoEjecutivos_Ins")
+        self.assertEqual(nombre_procedimiento(llama_a_otro, "pa_reporte_sel_saldos.sqlplan"), "pa_reporte_sel_saldos")
+
     def test_supera_limite_suma_las_sentencias(self):
         lote = analizar_lote([("a.sqlplan", NEGOCIO)], "negocio", 0.000001)
         plan = lote["planes"][0]
