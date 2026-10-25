@@ -76,6 +76,56 @@ _RECOMENDACION_CONVERSIONES = (
     "Se recomienda revisar las alertas por conversiones implícitas y homologar los tipos de datos de las "
     "columnas involucradas para evitar conversiones implícitas y mejorar el rendimiento de las consultas."
 )
+# Varias alertas en un mismo operador (una sola consulta).
+_RECOMENDACION_CONVERSIONES_UNA_CONSULTA = _RECOMENDACION_CONVERSIONES.replace("de las consultas.", "de la consulta.")
+
+
+# Al insertar, los valores del SELECT se convierten al tipo de las columnas de la tabla destino.
+_RECOMENDACION_INSERT = (
+    "Se recomienda revisar que los tipos de datos de las columnas de la tabla donde se inserta coincidan con los "
+    "de los valores del SELECT, para evitar conversiones implícitas y mejorar el rendimiento de la consulta."
+)
+_RECOMENDACION_INSERTS = (
+    "Se recomienda revisar que los tipos de datos de las columnas de las tablas donde se inserta coincidan con los "
+    "de los valores del SELECT, para evitar conversiones implícitas y mejorar el rendimiento de las consultas."
+)
+
+# Conversión de un valor calculado por SQL Server ([Expr1019]): su nombre interno no le dice nada al lector,
+# así que se resume por tipo («6 a varchar(10)»). Si es sobre una columna real, se muestra la expresión.
+_CONVERSION_INTERNA = re.compile(r"CONVERT_IMPLICIT\((\w+(?:\([^()]*\))?),\[Expr\d+\],\d+\)", re.IGNORECASE)
+_OPERADORES_INSERT = {"INSERT", "TABLE INSERT", "CLUSTERED INDEX INSERT", "INDEX INSERT"}
+
+
+def _en_plural(efecto: str) -> str:
+    """«altera la estimación…» → «alteran la estimación…»; «impide buscar…» → «impiden buscar…»."""
+    verbo, _, resto = efecto.partition(" ")
+    return f"{verbo}n {resto}" if verbo.endswith(("a", "e")) else efecto
+
+
+def _enumerar(partes: List[str]) -> str:
+    return partes[0] if len(partes) == 1 else f"{', '.join(partes[:-1])} y {partes[-1]}"
+
+
+def _elementos(casos: List[Dict]) -> str:
+    """Las expresiones sobre columnas reales tal cual y las internas resumidas por tipo de dato."""
+    reales = [f"«{c['expresion']}»" for c in casos if not _CONVERSION_INTERNA.fullmatch(c["expresion"])]
+    por_tipo: Dict[str, int] = {}
+    for caso in casos:
+        interna = _CONVERSION_INTERNA.fullmatch(caso["expresion"])
+        if interna:
+            por_tipo[interna.group(1)] = por_tipo.get(interna.group(1), 0) + 1
+    resumen = [f"{cantidad} a {tipo}" for tipo, cantidad in sorted(por_tipo.items(), key=lambda par: -par[1])]
+    return _enumerar(list(dict.fromkeys(reales)) + resumen)
+
+
+def _describir_operador(grupo: List[Dict]) -> str:
+    """«…, que altera…» o, con varios efectos, cada parte con el suyo."""
+    efectos: Dict[str, List[Dict]] = {}
+    for caso in grupo:
+        efectos.setdefault(caso["efecto"], []).append(caso)
+    return "; ".join(
+        f"{_elementos(casos)}, que {_en_plural(efecto) if len(casos) > 1 else efecto}" for efecto, casos in efectos.items()
+    )
 
 
 def _conversion_implicita(sentencias: List[Dict]) -> List[Hallazgo]:
@@ -83,21 +133,49 @@ def _conversion_implicita(sentencias: List[Dict]) -> List[Hallazgo]:
     if not casos:
         return []
     varias_consultas = len({s["numero"] for s in sentencias}) > 1
+    # Varias conversiones en el mismo operador de la misma consulta van juntas: se nombra una vez.
+    por_operador: Dict[tuple, List[Dict]] = {}
+    for caso in casos:
+        por_operador.setdefault((caso["consulta"], caso["nodo"]["id"]), []).append(caso)
+    grupos = list(por_operador.values())
+    en_insert = all(
+        _CONVERSION_INTERNA.fullmatch(c["expresion"]) and c["nodo"]["fisica"].upper() in _OPERADORES_INSERT for c in casos
+    )
     if len(casos) == 1:
         caso = casos[0]
+        recomendacion = _RECOMENDACION_INSERT if en_insert else _RECOMENDACION_CONVERSION
         mensaje = (
             f"Se ha identificado una conversión implícita en {_ubicacion(caso, varias_consultas)}: "
-            f"«{caso['expresion']}», que {caso['efecto']}. {_RECOMENDACION_CONVERSION}"
+            f"«{caso['expresion']}», que {caso['efecto']}. {recomendacion}"
         )
+    elif len(grupos) == 1:
+        # Un solo operador: «Se han identificado 12 conversiones implícitas en el operador INSERT…».
+        grupo = grupos[0]
+        efectos = {c["efecto"] for c in grupo}
+        ubicacion = _ubicacion(grupo[0], varias_consultas)
+        if len(efectos) == 1:
+            detalle = f"{ubicacion}, que {_en_plural(grupo[0]['efecto'])}: {_elementos(grupo)}"
+        else:
+            detalle = f"{ubicacion}: {_describir_operador(grupo)}"
+        recomendacion = _RECOMENDACION_INSERT if en_insert else _RECOMENDACION_CONVERSIONES_UNA_CONSULTA
+        mensaje = f"Se han identificado {len(casos)} conversiones implícitas en {detalle}. {recomendacion}"
     else:
         consultas = sorted({c["consulta"] for c in casos})
         encabezado = ("la consulta " if len(consultas) == 1 else "las consultas ") + ", ".join(map(str, consultas))
-        detalle = "; ".join(
-            f"{_ubicacion(c, varias_consultas, mayuscula=True)}: «{c['expresion']}», que {c['efecto']}" for c in casos
-        )
+
+        def linea(grupo: List[Dict]) -> str:
+            lugar = _ubicacion(grupo[0], varias_consultas, mayuscula=True)
+            if len(grupo) == 1:
+                return f"{lugar}: «{grupo[0]['expresion']}», que {grupo[0]['efecto']}"
+            if len({c["efecto"] for c in grupo}) == 1:
+                return (f"{lugar}: {len(grupo)} conversiones ({_elementos(grupo)}), que "
+                        f"{_en_plural(grupo[0]['efecto'])}")
+            return f"{lugar}: {len(grupo)} conversiones ({_describir_operador(grupo)})"
+
+        recomendacion = _RECOMENDACION_INSERTS if en_insert else _RECOMENDACION_CONVERSIONES
         mensaje = (
-            f"Se identificaron {len(casos)} conversiones implícitas, en {encabezado}: {detalle}. "
-            f"{_RECOMENDACION_CONVERSIONES}"
+            f"Se identificaron {len(casos)} conversiones implícitas, en {encabezado}: "
+            f"{'; '.join(linea(g) for g in grupos)}. {recomendacion}"
         )
     hallazgo = Hallazgo(
         linea=1,
