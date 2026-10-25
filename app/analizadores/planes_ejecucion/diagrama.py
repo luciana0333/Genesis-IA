@@ -374,14 +374,21 @@ def _filas_reales_de(superiores: List[ET.Element]) -> Optional[float]:
 
 
 # Sentencias con plan propio: las consultas (StmtSimple) y la condición de cada IF (StmtCond).
-SENTENCIAS = {"StmtSimple", "StmtCond"}
+SENTENCIAS = {"StmtSimple", "StmtCond", "StmtCursor"}
 
 
 def plan_de_sentencia(sentencia: ET.Element) -> Optional[ET.Element]:
-    """QueryPlan propio de la sentencia; en un IF, el de su condición (sin los bloques THEN / ELSE)."""
+    """
+    QueryPlan propio de la sentencia; en un IF, el de su condición (sin los bloques THEN / ELSE);
+    en un cursor (DECLARE CURSOR / OPEN / FETCH), el de su consulta (CursorPlan > Operation > QueryPlan).
+    """
     if _local(sentencia) == "StmtCond":
         condicion = next((e for e in sentencia if _local(e) == "Condition"), None)
         return next((e for e in condicion if _local(e) == "QueryPlan"), None) if condicion is not None else None
+    if _local(sentencia) == "StmtCursor":
+        cursor = next((e for e in sentencia if _local(e) == "CursorPlan"), None)
+        operaciones = [e for e in cursor if _local(e) == "Operation"] if cursor is not None else []
+        return next((p for o in operaciones for p in o if _local(p) == "QueryPlan"), None)
     return next((e for e in sentencia if _local(e) == "QueryPlan"), None)
 
 

@@ -73,7 +73,7 @@ class TestConversionImplicitaReporte(unittest.TestCase):
 
     def test_dos_alertas_en_el_mismo_operador_se_muestran_una_vez_en_la_imagen(self):
         hallazgos = _hallazgos(_plan(IMPLICITA_SEEK + IMPLICITA_CARDINALIDAD))
-        self.assertIn("Se identificaron 2 conversiones implícitas", hallazgos[0].mensaje)
+        self.assertIn("Se han identificado 2 conversiones implícitas en el operador SELECT", hallazgos[0].mensaje)
         self.assertEqual(hallazgos[0].nodos, [{"consulta": 1, "nodo": "raiz"}])
 
     def test_conversion_explicita_con_alerta_no_cuenta(self):
