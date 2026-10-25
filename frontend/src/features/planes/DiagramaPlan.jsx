@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { EncabezadoSeccion } from '../../components/EncabezadoSeccion';
 import { tokenizarSql } from '../../utils/resaltadoSql';
 import {
@@ -108,10 +109,12 @@ export function TextoResaltado({ texto, resaltados }) {
   ));
 }
 
-const MAX_PREDICADO = 420; // el recuadro no se desplaza: los textos muy largos se acortan
-
-/** Detalle del operador como el tooltip de SSMS: mismos nombres y datos del XML. */
-function DetalleNodo({ nodo, posicion }) {
+/**
+ * Detalle del operador como el tooltip de SSMS: mismos nombres y datos del XML.
+ * Flota sobre la página (no se corta en el borde del diagrama) y, si es largo, tiene su propia
+ * barra; no se cierra mientras el mouse esté encima, para poder leerlo completo.
+ */
+function DetalleNodo({ nodo, posicion, onEntrar, onSalir }) {
   const filas = [
     ['Estimated Operator Cost', nodo.padre === null ? '' : `${nodo.costoPct.toFixed(1)}%`],
     ['Estimated Number of Rows', formatearFilas(nodo.filasEstimadas)],
@@ -124,8 +127,14 @@ function DetalleNodo({ nodo, posicion }) {
     ['Actual Elapsed Time (ms)', formatearFilas(nodo.duracionMs)],
     ['Actual Elapsed CPU Time (ms)', formatearFilas(nodo.cpuMs)],
   ].filter(([, valor]) => valor);
-  return (
-    <div className="plan-detalle-flotante" style={{ left: posicion.left, top: posicion.top }} role="tooltip">
+  return createPortal(
+    <div
+      className="plan-detalle-flotante"
+      style={posicion}
+      role="tooltip"
+      onMouseEnter={onEntrar}
+      onMouseLeave={onSalir}
+    >
       <p className="plan-detalle-titulo">
         {nodo.padre === null ? nodo.fisica.toUpperCase() : nodo.fisica}
         {nodo.logica && nodo.logica !== nodo.fisica && <span> ({nodo.logica})</span>}
@@ -154,12 +163,11 @@ function DetalleNodo({ nodo, posicion }) {
       {(nodo.predicados ?? []).map((predicado) => (
         <div key={predicado.nombre} className="plan-detalle-bloque">
           <p className="plan-detalle-subtitulo">{predicado.nombre}</p>
-          <p className="plan-detalle-objeto">
-            {predicado.texto.length > MAX_PREDICADO ? `${predicado.texto.slice(0, MAX_PREDICADO - 1)}…` : predicado.texto}
-          </p>
+          <p className="plan-detalle-objeto">{predicado.texto}</p>
         </div>
       ))}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -181,17 +189,43 @@ function Diagrama({ sentencia }) {
   // «Ajustar»: el plan completo a lo ancho del recuadro.
   const ajustar = () => cambiarZoom(((lienzoRef.current?.clientWidth ?? ancho) - 24) / ancho);
 
+  // El detalle se cierra con una pequeña espera: así da tiempo de pasar el mouse del operador al recuadro.
+  const cierre = useRef(null);
+  const mantener = () => clearTimeout(cierre.current);
+  const cerrar = () => {
+    clearTimeout(cierre.current);
+    cierre.current = setTimeout(() => setEnfocado(null), 180);
+  };
+  useEffect(() => () => clearTimeout(cierre.current), []);
+  // Si la página o el diagrama se desplazan, el recuadro ya no está junto a su operador: se cierra.
+  // (Bajar dentro del propio recuadro no lo cierra.)
+  useEffect(() => {
+    if (!enfocado) return undefined;
+    const alDesplazar = (evento) => {
+      if (!(evento.target instanceof Element && evento.target.closest('.plan-detalle-flotante'))) setEnfocado(null);
+    };
+    window.addEventListener('scroll', alDesplazar, true);
+    return () => window.removeEventListener('scroll', alDesplazar, true);
+  }, [enfocado]);
+
   const alEntrar = (nodo, evento) => {
-    const lienzo = evento.currentTarget.ownerSVGElement.parentElement;
+    mantener();
     const caja = evento.currentTarget.getBoundingClientRect();
-    const base = lienzo.getBoundingClientRect();
-    // A la derecha del operador; si no entra en el recuadro visible, a su izquierda.
-    const anchoDetalle = Math.min(ANCHO_DETALLE, lienzo.clientWidth - 16);
-    let left = caja.right - base.left + lienzo.scrollLeft + 8;
-    if (left + anchoDetalle > lienzo.scrollLeft + lienzo.clientWidth) {
-      left = Math.max(caja.left - base.left + lienzo.scrollLeft - anchoDetalle - 8, lienzo.scrollLeft + 8);
+    const margen = 8;
+    // A la derecha del operador; si no entra en la pantalla, a su izquierda.
+    const anchoDetalle = Math.min(ANCHO_DETALLE, window.innerWidth - margen * 2);
+    let left = caja.right + margen;
+    if (left + anchoDetalle > window.innerWidth - margen) {
+      left = Math.max(caja.left - anchoDetalle - margen, margen);
     }
-    setEnfocado({ nodo, posicion: { left, top: caja.top - base.top + lienzo.scrollTop } });
+    // Hacia abajo desde el operador o, si arriba hay más espacio, hacia arriba; lo que no entra se baja
+    // con la barra del propio recuadro.
+    const espacioAbajo = window.innerHeight - caja.top - margen;
+    const espacioArriba = caja.bottom - margen;
+    const posicion = espacioAbajo >= 360 || espacioAbajo >= espacioArriba
+      ? { left, top: caja.top, maxHeight: espacioAbajo }
+      : { left, bottom: window.innerHeight - caja.bottom, maxHeight: espacioArriba };
+    setEnfocado({ nodo, posicion: { ...posicion, width: anchoDetalle } });
   };
 
   return (
@@ -231,11 +265,13 @@ function Diagrama({ sentencia }) {
               maximo={maximo}
               activo={enfocado?.nodo.id === nodo.id}
               onEntrar={alEntrar}
-              onSalir={() => setEnfocado(null)}
+              onSalir={cerrar}
             />
           ))}
         </svg>
-        {enfocado && <DetalleNodo nodo={enfocado.nodo} posicion={enfocado.posicion} />}
+        {enfocado && (
+          <DetalleNodo nodo={enfocado.nodo} posicion={enfocado.posicion} onEntrar={mantener} onSalir={cerrar} />
+        )}
       </div>
     </div>
   );
@@ -310,11 +346,84 @@ function EncabezadoOrdenable({ columna, orden, onOrdenar, className }) {
   );
 }
 
+/*
+ * Paneles ajustables como en Plan Explorer: la grilla de sentencias, el Text Data y el diagrama
+ * comparten un alto fijo y se reparten el espacio arrastrando las barras que los separan
+ * (doble clic en una barra: medidas iniciales). Las medidas se recuerdan en este navegador.
+ */
+const ALTOS_INICIALES = { grilla: 150, texto: 130 };
+const ALTO_MINIMO = 44;
+const ALTO_MINIMO_DIAGRAMA = 160;
+const ALTO_TOTAL = 760; // grilla + Text Data + diagrama, como la ventana de Plan Explorer
+const CLAVE_ALTOS = 'genesis.planes.paneles';
+
+function leerAltos() {
+  try {
+    const guardados = JSON.parse(localStorage.getItem(CLAVE_ALTOS) || 'null');
+    if (guardados && Number.isFinite(guardados.grilla) && Number.isFinite(guardados.texto)) return guardados;
+  } catch {
+    // Sin almacenamiento (ventana privada, bloqueado): se usan las medidas iniciales.
+  }
+  return ALTOS_INICIALES;
+}
+
+function guardarAltos(altos) {
+  try {
+    localStorage.setItem(CLAVE_ALTOS, JSON.stringify(altos));
+  } catch {
+    // Sin almacenamiento: las medidas valen solo mientras la página esté abierta.
+  }
+}
+
+/** Barra entre dos paneles: al arrastrarla cambia el alto del panel de arriba. */
+function Divisor({ etiqueta, alto, minimo, maximo, onCambiar, onReiniciar }) {
+  const alPresionar = (evento) => {
+    evento.preventDefault();
+    const barra = evento.currentTarget;
+    barra.setPointerCapture?.(evento.pointerId);
+    barra.classList.add('arrastrando');
+    const inicioY = evento.clientY;
+    const mover = (ev) => onCambiar(Math.round(Math.min(Math.max(alto + ev.clientY - inicioY, minimo), maximo)));
+    const soltar = () => {
+      barra.classList.remove('arrastrando');
+      barra.removeEventListener('pointermove', mover);
+      barra.removeEventListener('pointerup', soltar);
+      barra.removeEventListener('pointercancel', soltar);
+    };
+    barra.addEventListener('pointermove', mover);
+    barra.addEventListener('pointerup', soltar);
+    barra.addEventListener('pointercancel', soltar);
+  };
+  // Con el teclado: flechas arriba y abajo de 20 en 20 píxeles.
+  const alTeclear = (evento) => {
+    const paso = { ArrowUp: -20, ArrowDown: 20 }[evento.key];
+    if (!paso) return;
+    evento.preventDefault();
+    onCambiar(Math.min(Math.max(alto + paso, minimo), maximo));
+  };
+  return (
+    <div
+      className="plan-divisor"
+      role="separator"
+      aria-orientation="horizontal"
+      aria-label={etiqueta}
+      aria-valuenow={alto}
+      aria-valuemin={minimo}
+      aria-valuemax={maximo}
+      tabIndex={0}
+      title="Arrastra para ajustar · doble clic: medidas iniciales"
+      onPointerDown={alPresionar}
+      onDoubleClick={onReiniciar}
+      onKeyDown={alTeclear}
+    />
+  );
+}
+
 /** Panel «Text Data» de Plan Explorer: el código de la sentencia tal cual viene en el XML, coloreado. */
-function TextoSentencia({ codigo }) {
+function TextoSentencia({ codigo, alto }) {
   if (!codigo) return null;
   return (
-    <div className="plan-panel">
+    <div className="plan-panel" style={{ height: alto }}>
       <p className="plan-panel-titulo">Text Data</p>
       <pre className="plan-texto">
         {tokenizarSql(codigo).map((fragmento, indice) => (
@@ -332,6 +441,16 @@ export function DiagramaPlan({ sentencias = [] }) {
   const [elegida, setElegida] = useState(null);
   const [pestana, setPestana] = useState('diagrama');
   const [orden, setOrden] = useState({ titulo: null, direccion: null });
+  const [altos, setAltos] = useState(leerAltos);
+  const cambiarAlto = (panel) => (valor) => setAltos((actuales) => {
+    const nuevos = { ...actuales, [panel]: valor };
+    guardarAltos(nuevos);
+    return nuevos;
+  });
+  const reiniciarAltos = () => {
+    setAltos(ALTOS_INICIALES);
+    guardarAltos(ALTOS_INICIALES);
+  };
   if (!sentencias.length) return null;
   // La sentencia elegida se recuerda por su número: al reordenar sigue siendo la misma.
   const sentencia = sentencias.find((s) => s.numero === elegida) ?? sentencias[0];
@@ -346,6 +465,11 @@ export function DiagramaPlan({ sentencias = [] }) {
     (suma, campo) => ({ ...suma, [campo]: sentencias.reduce((t, s) => t + (s[campo] || 0), 0) }),
     {},
   );
+  // El diagrama se queda con lo que dejan la grilla y el Text Data (al menos ALTO_MINIMO_DIAGRAMA).
+  const conTexto = Boolean(sentencia.codigo);
+  const libre = ALTO_TOTAL - ALTO_MINIMO_DIAGRAMA - 60;
+  const maximoGrilla = Math.max(ALTO_MINIMO, libre - (conTexto ? altos.texto : 0));
+  const maximoTexto = Math.max(ALTO_MINIMO, libre - altos.grilla);
 
   return (
     <section className="plan-diagrama-seccion">
@@ -355,63 +479,83 @@ export function DiagramaPlan({ sentencias = [] }) {
         titulo="Diagrama del plan"
         acciones={<span className="results-meta">Pasa el mouse sobre un operador para ver su detalle</span>}
       />
-      <div className="table-scroll plan-grilla">
-        <table className="plan-sentencias">
-          <thead>
-            <tr>
-              <EncabezadoOrdenable columna={COLUMNA_SENTENCIA} orden={orden} onOrdenar={alOrdenar} />
-              {COLUMNAS_SENTENCIAS.map((columna) => (
-                <EncabezadoOrdenable key={columna.titulo} columna={columna} orden={orden} onOrdenar={alOrdenar} className="num" />
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {ordenadas.map((item) => {
-              // Como Plan Explorer: filas estimadas y reales en naranja si se alejan mucho.
-              const desviada = filasDesviadas(item);
-              return (
-                <tr
-                  key={item.numero}
-                  className={item === sentencia ? 'elegida' : undefined}
-                  onClick={() => setElegida(item.numero)}
-                >
-                  <td className="plan-sentencia-texto" title={item.texto}>{item.texto || item.tipo}</td>
-                  {COLUMNAS_SENTENCIAS.map((columna) => (
-                    <td key={columna.titulo} className={columna.filas && desviada ? 'num desviada' : 'num'}>
-                      {columna.valor(item, totales)}
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <TextoSentencia codigo={sentencia.codigo} />
-      <div className="plan-vista">
-        {pestana === 'diagrama' && <Diagrama key={sentencia.numero} sentencia={sentencia} />}
-        {pestana === 'parametros' && <ParametrosPlan parametros={sentencia.parametros} />}
-        {pestana === 'indices' && <IndicesFaltantes indices={sentencia.indicesFaltantes} />}
-      </div>
-      {/* Pestañas al pie, como Plan Explorer; entre paréntesis, cuántos datos trae el XML. */}
-      <div className="plan-pestanas" role="tablist" aria-label="Vistas del plan">
-        {[
-          { id: 'diagrama', etiqueta: 'Plan Diagram' },
-          { id: 'parametros', etiqueta: 'Parameters', cantidad: sentencia.parametros?.length ?? 0 },
-          { id: 'indices', etiqueta: 'Missing Indexes', cantidad: sentencia.indicesFaltantes?.length ?? 0 },
-        ].map((opcion) => (
-          <button
-            key={opcion.id}
-            type="button"
-            role="tab"
-            aria-selected={pestana === opcion.id}
-            className={pestana === opcion.id ? 'plan-pestana activa' : 'plan-pestana'}
-            onClick={() => setPestana(opcion.id)}
-          >
-            {opcion.etiqueta}
-            {opcion.cantidad > 0 && <span className="plan-pestana-cantidad">{opcion.cantidad}</span>}
-          </button>
-        ))}
+      <div className="plan-paneles" style={{ height: ALTO_TOTAL }}>
+        <div className="table-scroll plan-grilla" style={{ height: Math.min(altos.grilla, maximoGrilla) }}>
+          <table className="plan-sentencias">
+            <thead>
+              <tr>
+                <EncabezadoOrdenable columna={COLUMNA_SENTENCIA} orden={orden} onOrdenar={alOrdenar} />
+                {COLUMNAS_SENTENCIAS.map((columna) => (
+                  <EncabezadoOrdenable key={columna.titulo} columna={columna} orden={orden} onOrdenar={alOrdenar} className="num" />
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ordenadas.map((item) => {
+                // Como Plan Explorer: filas estimadas y reales en naranja si se alejan mucho.
+                const desviada = filasDesviadas(item);
+                return (
+                  <tr
+                    key={item.numero}
+                    className={item === sentencia ? 'elegida' : undefined}
+                    onClick={() => setElegida(item.numero)}
+                  >
+                    <td className="plan-sentencia-texto" title={item.texto}>{item.texto || item.tipo}</td>
+                    {COLUMNAS_SENTENCIAS.map((columna) => (
+                      <td key={columna.titulo} className={columna.filas && desviada ? 'num desviada' : 'num'}>
+                        {columna.valor(item, totales)}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <Divisor
+          etiqueta="Alto de la grilla de sentencias"
+          alto={Math.min(altos.grilla, maximoGrilla)}
+          minimo={ALTO_MINIMO}
+          maximo={maximoGrilla}
+          onCambiar={cambiarAlto('grilla')}
+          onReiniciar={reiniciarAltos}
+        />
+        <TextoSentencia codigo={sentencia.codigo} alto={Math.min(altos.texto, maximoTexto)} />
+        {conTexto && (
+          <Divisor
+            etiqueta="Alto del Text Data"
+            alto={Math.min(altos.texto, maximoTexto)}
+            minimo={ALTO_MINIMO}
+            maximo={maximoTexto}
+            onCambiar={cambiarAlto('texto')}
+            onReiniciar={reiniciarAltos}
+          />
+        )}
+        <div className="plan-vista">
+          {pestana === 'diagrama' && <Diagrama key={sentencia.numero} sentencia={sentencia} />}
+          {pestana === 'parametros' && <ParametrosPlan parametros={sentencia.parametros} />}
+          {pestana === 'indices' && <IndicesFaltantes indices={sentencia.indicesFaltantes} />}
+        </div>
+        {/* Pestañas al pie, como Plan Explorer; entre paréntesis, cuántos datos trae el XML. */}
+        <div className="plan-pestanas" role="tablist" aria-label="Vistas del plan">
+          {[
+            { id: 'diagrama', etiqueta: 'Plan Diagram' },
+            { id: 'parametros', etiqueta: 'Parameters', cantidad: sentencia.parametros?.length ?? 0 },
+            { id: 'indices', etiqueta: 'Missing Indexes', cantidad: sentencia.indicesFaltantes?.length ?? 0 },
+          ].map((opcion) => (
+            <button
+              key={opcion.id}
+              type="button"
+              role="tab"
+              aria-selected={pestana === opcion.id}
+              className={pestana === opcion.id ? 'plan-pestana activa' : 'plan-pestana'}
+              onClick={() => setPestana(opcion.id)}
+            >
+              {opcion.etiqueta}
+              {opcion.cantidad > 0 && <span className="plan-pestana-cantidad">{opcion.cantidad}</span>}
+            </button>
+          ))}
+        </div>
       </div>
     </section>
   );

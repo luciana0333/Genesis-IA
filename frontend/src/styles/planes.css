@@ -319,12 +319,13 @@
   border-collapse: collapse;
   color: #1e1e1e;
   font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
-  font-size: 12.5px;
+  font-size: 12px;
+  line-height: 1.35;
   white-space: nowrap;
 }
 
 .plan-sentencias th {
-  padding: 7px 14px;
+  padding: 3px 8px;
   border-right: 1px solid #d9d9d9;
   border-bottom: 1px solid #c8c8c8;
   background: #f0f0f0;
@@ -343,7 +344,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 7px 14px;
+  padding: 3px 8px;
   border: none;
   background: transparent;
   color: inherit;
@@ -375,7 +376,7 @@
 }
 
 .plan-sentencias td {
-  padding: 5px 14px;
+  padding: 3px 8px;
   border-right: 1px solid #e3e3e3;
   border-bottom: 1px solid #ececec;
 }
@@ -389,11 +390,12 @@
 }
 
 .plan-sentencias tbody tr:hover td {
-  background: #f3f7fb;
+  background: #f8f8f9;
 }
 
+/* Sentencia elegida: gris muy claro. */
 .plan-sentencias tbody tr.elegida td {
-  background: #e5eff9;
+  background: #f1f1f3;
 }
 
 .plan-sentencias td.desviada,
@@ -592,19 +594,20 @@
 }
 
 /* Recuadro de detalle: como el de advertencias de SSMS / Plan Explorer. */
+/* Flota sobre la página (fuera del recuadro del diagrama): ancho, posición y alto máximo los calcula
+   el diagrama; si el contenido es más alto, se baja con su propia barra. */
 .plan-detalle-flotante {
-  position: absolute;
-  z-index: 3;
-  width: 480px;
-  max-width: calc(100% - 16px);
+  position: fixed;
+  z-index: 60;
   padding: 10px 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border: 1px solid #8fa3b5;
   background: #f4f7fa;
   color: #1d1d24;
   font-size: 0.78rem;
   line-height: 1.5;
   box-shadow: var(--shadow-md);
-  pointer-events: none;
 }
 
 .plan-detalle-titulo {
@@ -1335,4 +1338,115 @@
   color: #8a8a96;
   font-size: 0.82rem;
   font-weight: 600;
+}
+
+/* ───────── PANELES AJUSTABLES (como Plan Explorer) ─────────
+   Grilla, Text Data y diagrama comparten un alto fijo; las barras entre ellos se arrastran. */
+.plan-paneles {
+  display: flex;
+  flex-direction: column;
+  margin-top: 14px;
+}
+
+.plan-diagrama-seccion .plan-paneles .plan-grilla {
+  flex-shrink: 0;
+  margin-top: 0;
+  overflow: auto;
+}
+
+.plan-paneles .plan-panel {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  margin-top: 0;
+  overflow: hidden;
+}
+
+.plan-paneles .plan-texto {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+.plan-paneles .plan-vista {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 0;
+  overflow: auto;
+}
+
+.plan-paneles .plan-vista > .plan-diagrama {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.plan-paneles .plan-lienzo {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+.plan-paneles .plan-pestanas {
+  flex-shrink: 0;
+}
+
+.plan-divisor {
+  position: relative;
+  flex-shrink: 0;
+  height: 8px;
+  border-top: 1px solid #d6d6dc;
+  border-bottom: 1px solid #d6d6dc;
+  background: #ececf0;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+/* Agarradera: dos rayitas al centro. */
+.plan-divisor::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 34px;
+  height: 2px;
+  margin-left: -17px;
+  border-top: 1px solid #9a9aa3;
+  border-bottom: 1px solid #9a9aa3;
+}
+
+/* Al pasar el mouse o arrastrar no cambia de color; solo con el teclado (Tab) se marca su borde en gris. */
+.plan-divisor:focus {
+  outline: none;
+}
+
+.plan-divisor:focus-visible {
+  border-color: #9a9aa3;
+}
+
+/* Barras de desplazamiento finas en la grilla, el Text Data y el diagrama (como Plan Explorer). */
+.plan-grilla,
+.plan-texto,
+.plan-lienzo,
+.plan-vista {
+  scrollbar-width: thin;
+  scrollbar-color: #b9b9c0 transparent;
+}
+
+.plan-grilla::-webkit-scrollbar,
+.plan-texto::-webkit-scrollbar,
+.plan-lienzo::-webkit-scrollbar,
+.plan-vista::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.plan-grilla::-webkit-scrollbar-thumb,
+.plan-texto::-webkit-scrollbar-thumb,
+.plan-lienzo::-webkit-scrollbar-thumb,
+.plan-vista::-webkit-scrollbar-thumb {
+  background: #b9b9c0;
 }

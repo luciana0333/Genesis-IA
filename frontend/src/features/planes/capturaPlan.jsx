@@ -285,17 +285,19 @@ export async function crearCapturaPlan({ grupos, archivo, regla }) {
   });
   const altoTotal = y - SEPARACION + 8;
   const consultas = [...new Set(casos.map((c) => c.sentencia.numero))];
-  const pestana = `${archivo || 'plan.sqlplan'} · ${consultas.length > 1 ? 'Consultas' : 'Consulta'} ${consultas.join(', ')}`;
+  const nombreArchivo = archivo || 'plan.sqlplan';
+  const detalleConsultas = ` · ${consultas.length > 1 ? 'Consultas' : 'Consulta'} ${consultas.join(', ')}`;
   // La imagen nunca es más angosta que su pestaña (un solo cuadrito compacto es estrecho).
-  anchoTotal = Math.max(anchoTotal, medir(pestana, true) + 44);
+  anchoTotal = Math.max(anchoTotal, medir(nombreArchivo + detalleConsultas) + 44);
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${anchoTotal * ESCALA}" height="${altoTotal * ESCALA}"
       viewBox="0 0 ${anchoTotal} ${altoTotal}">
     <style>${ESTILOS}</style>
     <rect width="100%" height="100%" fill="#ffffff"/>
-    <rect x="0" y="0" width="${Math.min(medir(pestana, true) + 44, anchoTotal)}" height="${ALTO_PESTANA}" fill="#2d2d30"/>
-    <rect x="12" y="8" width="10" height="10" fill="none" stroke="#d4d4d4" stroke-width="1.4"/>
-    <text x="30" y="17.5" font-size="${TAMANO}" font-weight="700" fill="#ffffff">${escapar(pestana)}</text>
+    <rect x="0" y="0" width="${anchoTotal}" height="${ALTO_PESTANA}" fill="#e6e6ea"/>
+    <line x1="0" y1="${ALTO_PESTANA - 0.5}" x2="${anchoTotal}" y2="${ALTO_PESTANA - 0.5}" stroke="#c9c9cf"/>
+    <path d="M13.5 6.5h6l3.5 3.5v9.5h-9.5z M19.5 6.5v3.5h3.5" fill="none" stroke="#5a5a64" stroke-width="1.1" stroke-linejoin="round"/>
+    <text x="30" y="17.5" font-size="${TAMANO}" fill="#33333b" xml:space="preserve">${escapar(nombreArchivo)}<tspan fill="#74747e">${escapar(detalleConsultas)}</tspan></text>
     ${bloques.join('')}
   </svg>`;
 
