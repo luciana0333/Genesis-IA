@@ -390,11 +390,12 @@
 }
 
 .plan-sentencias tbody tr:hover td {
-  background: #f3f7fb;
+  background: #f8f8f9;
 }
 
+/* Sentencia elegida: gris muy claro. */
 .plan-sentencias tbody tr.elegida td {
-  background: #e5eff9;
+  background: #f1f1f3;
 }
 
 .plan-sentencias td.desviada,
