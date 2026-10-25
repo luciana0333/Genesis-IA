@@ -246,9 +246,41 @@ def _tiene_nolock_despues(texto: str, posicion: int) -> bool:
     ))
 
 
-# Palabras del nombre que indican una tabla de movimientos (pesada) o de constantes.
+# Palabras del nombre que indican una tabla de movimientos (pesada), de constantes o de productos.
 _PALABRAS_MOVIMIENTOS = {"mov", "movs", "movimiento", "movimientos"}
 _PALABRAS_CONSTANTES = {"constante", "constantes"}
+_PALABRAS_PRODUCTOS = {"producto", "productos"}
+
+
+def _modificaciones(limpio: str) -> List[tuple]:
+    """
+    (inicio, fin, tabla o alias modificado) de cada UPDATE y DELETE. La sentencia termina en «;» o
+    donde empieza la siguiente (el SET es parte del UPDATE), así sirve aunque el código no use «;».
+    """
+    referencia = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
+    resultado = []
+    for modificacion in re.finditer(rf"\b(?:UPDATE|DELETE(?:\s+FROM)?)\s+(?:TOP\s*\([^)]*\)\s*)?({referencia})",
+                                    limpio, re.IGNORECASE):
+        fin = len(limpio)
+        for siguiente in _INICIO_O_SELECT.finditer(limpio, modificacion.end()):
+            tramo = limpio[modificacion.end():siguiente.start()]
+            if re.match(r"\s*SET\b", limpio[siguiente.start():], re.IGNORECASE):
+                continue
+            # Un SELECT dentro de paréntesis es una subconsulta del UPDATE/DELETE, no otra sentencia.
+            if tramo.count("(") > tramo.count(")"):
+                continue
+            fin = siguiente.start()
+            break
+        resultado.append((modificacion.start(), fin, _limpiar_nombre(modificacion.group(1)).lower()))
+    return resultado
+
+
+# Inicio de la siguiente sentencia, contando también un SELECT al comienzo de una línea.
+_INICIO_O_SELECT = re.compile(
+    r";|\bGO\b|^\s*(?=(?:SELECT|INSERT|UPDATE|DELETE|DECLARE|SET|IF|ELSE|END|BEGIN|RETURN|CREATE|DROP|"
+    r"TRUNCATE|EXEC|EXECUTE|WHILE|MERGE|WITH)\b)",
+    re.IGNORECASE | re.MULTILINE,
+)
 
 
 def _palabras_del_nombre(nombre: str) -> List[str]:
@@ -260,11 +292,12 @@ def _palabras_del_nombre(nombre: str) -> List[str]:
 def _validar_nolock_tablas_pesadas(texto: str, limpio: str) -> List[Hallazgo]:
     """
     En los procedimientos de negocio el WITH(NOLOCK) es opcional, salvo al leer
-    tablas de movimientos (pesadas) o de constantes: ahí se recomienda.
+    tablas de movimientos (pesadas), de constantes o de productos: ahí se recomienda.
     No aplica a la tabla que se modifica en un UPDATE o DELETE.
     """
     hallazgos = []
     referencia = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
+    modificaciones = _modificaciones(limpio)
     for match in re.finditer(rf"\b(FROM|JOIN)\s+({referencia})", limpio, re.IGNORECASE):
         if re.match(r"\s*\(", limpio[match.end():]):  # función de tabla, no una tabla
             continue
@@ -278,16 +311,17 @@ def _validar_nolock_tablas_pesadas(texto: str, limpio: str) -> List[Hallazgo]:
         elif palabras & _PALABRAS_CONSTANTES:
             tipo = "de constantes"
             porque = "de uso frecuente"
+        elif palabras & _PALABRAS_PRODUCTOS:
+            tipo = "de productos"
+            porque = "de uso frecuente"
         else:
             continue
-        # La tabla que se modifica (UPDATE/DELETE ... FROM) no lleva NOLOCK.
-        sentencia = _sentencia_de(limpio, match.start())
-        objetivo = re.search(rf"\b(?:UPDATE|DELETE(?:\s+FROM)?)\s+({referencia})", sentencia, re.IGNORECASE)
-        if objetivo:
-            alias = re.match(rf"\s+(?:AS\s+)?([A-Za-z_][\w$#]*)", limpio[match.end():])
-            nombre_objetivo = _limpiar_nombre(objetivo.group(1)).lower()
-            if nombre_objetivo in {tabla.lower(), (alias.group(1).lower() if alias else "")}:
-                continue
+        # La tabla que se modifica (UPDATE/DELETE ... FROM) no lleva NOLOCK: se mira el UPDATE o DELETE
+        # de esta misma sentencia, aunque el código no use «;».
+        alias = re.match(rf"\s+(?:AS\s+)?([A-Za-z_][\w$#]*)", limpio[match.end():])
+        nombres = {tabla.lower(), (alias.group(1).lower() if alias else "")}
+        if any(inicio <= match.start() < fin and objetivo in nombres for inicio, fin, objetivo in modificaciones):
+            continue
         hallazgos.append(_hallazgo(
             texto, match.start(2), "TABLA_PESADA_SIN_NOLOCK",
             f"Se identificó que la tabla {tipo} ({tabla}), {porque}, se consulta sin WITH(NOLOCK). Se recomienda "
