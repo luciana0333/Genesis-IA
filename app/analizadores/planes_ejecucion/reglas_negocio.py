@@ -163,9 +163,10 @@ def _spill(sentencias: List[Dict]) -> List[Hallazgo]:
 
 # --- Sobreestimación de memoria ------------------------------------------------
 
-# Reserva desproporcionada aunque SQL Server no ponga la alerta: se reservaron 10 MB o más y se
-# usó el 10 % o menos (ej.: 200 MB reservados y 30 KB usados).
-MEMORIA_MINIMA_KB = 10 * 1024
+# En un entorno muy transaccional, reservar poca memoria no es un problema: solo se observa a partir de
+# 80 MB reservados y si se usó el 10 % o menos (ej.: 80 MB reservados y 1 MB usado), tenga o no la
+# alerta Excessive Grant de SQL Server.
+MEMORIA_MINIMA_KB = 80 * 1024
 PORCENTAJE_MAXIMO_USADO = 0.10
 
 
@@ -178,7 +179,8 @@ def _reserva_desproporcionada(memoria: Optional[Dict]) -> bool:
 def _memoria(sentencias: List[Dict]) -> List[Hallazgo]:
     """
     Consultas con la memoria reservada muy por encima de la usada: la alerta Excessive Grant del XML
-    o, aunque no la traiga, una reserva desproporcionada (MEMORIA_MINIMA_KB y PORCENTAJE_MAXIMO_USADO).
+    (si reservó MEMORIA_MINIMA_KB o más) o, aunque no la traiga, una reserva desproporcionada
+    (MEMORIA_MINIMA_KB y PORCENTAJE_MAXIMO_USADO).
     """
     varias = len({s["numero"] for s in sentencias}) > 1
     casos = []
@@ -189,7 +191,10 @@ def _memoria(sentencias: List[Dict]) -> List[Hallazgo]:
         # Solo «Excessive Grant» es sobreestimación; «Grant Increase» y «Used More Than Granted» son lo contrario.
         alerta = next((a for a in raiz["advertencias"] if a["tipo"] == "memoria"
                        and a.get("datos", {}).get("tipo", "Excessive Grant") == "Excessive Grant"), None)
-        if alerta:
+        concedida = (alerta or {}).get("datos", {}).get("concedidaKb")
+        if concedida is None:
+            concedida = (s.get("memoria") or {}).get("concedida")
+        if alerta and concedida is not None and concedida >= MEMORIA_MINIMA_KB:
             casos.append({"consulta": s["numero"], "nodo": raiz, "datos": alerta.get("datos", {})})
         elif _reserva_desproporcionada(s.get("memoria")):
             memoria = s["memoria"]
