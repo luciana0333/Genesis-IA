@@ -192,11 +192,21 @@ def _limpiar_nombre(nombre: str) -> str:
     return ".".join(parte.strip().strip("[]") for parte in nombre.split("."))
 
 
+# Un nombre de archivo que ya es el del procedimiento: «Bonificacion.PA_EsquemaTotalizado_Ins».
+_ARCHIVO_CON_PROCEDIMIENTO = re.compile(r"(?:^|\.)(?:PA|SP|USP)_\w", re.IGNORECASE)
+
+
 def nombre_procedimiento(contenido: bytes, archivo: str) -> str:
     """
-    Procedimiento del plan: el que nombra el propio XML (StoredProc o el EXEC / CREATE PROCEDURE
-    de una sentencia) o, si no viene, el nombre del archivo sin extensión.
+    Procedimiento del plan. Si el archivo ya lleva el nombre del procedimiento (PA_..., con o sin su
+    esquema), se usa ese: el XML de un plan real no trae el nombre del procedimiento que se ejecutó,
+    solo el de los que este llama por dentro (StoredProc, INSERT ... EXEC), que no es el analizado.
+    Si no, el que nombra el propio XML (StoredProc o el EXEC / CREATE PROCEDURE de una sentencia) o,
+    si no viene, el nombre del archivo sin extensión.
     """
+    nombre_archivo = PurePosixPath(archivo).stem
+    if _ARCHIVO_CON_PROCEDIMIENTO.search(nombre_archivo):
+        return nombre_archivo
     try:
         raiz = ET.fromstring(contenido)
     except ET.ParseError:
