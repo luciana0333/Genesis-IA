@@ -1416,10 +1416,11 @@
   border-bottom: 1px solid #9a9aa3;
 }
 
-.plan-divisor:hover,
-.plan-divisor:focus-visible,
-.plan-divisor.arrastrando {
-  border-color: var(--red-main);
-  background: #f6d4d6;
+/* Al pasar el mouse o arrastrar no cambia de color; solo con el teclado (Tab) se marca su borde en gris. */
+.plan-divisor:focus {
   outline: none;
+}
+
+.plan-divisor:focus-visible {
+  border-color: #9a9aa3;
 }
