@@ -109,6 +109,15 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "OPENJSON_COLLATE_INNECESARIO": ReglaDiccionario(
+        codigo="OPENJSON_COLLATE_INNECESARIO",
+        nombre="COLLATE innecesario en OPENJSON",
+        severidad="bajo",
+        descripcion="Las columnas del WITH de OPENJSON toman por defecto el COLLATE de la base de datos: no es "
+                    "necesario indicarlo.",
+        alcance="reporte",
+        activo=True,
+    ),
     "VARCHAR_MAX_PROHIBIDO": ReglaDiccionario(
         codigo="VARCHAR_MAX_PROHIBIDO",
         nombre="VARCHAR(MAX) prohibido",

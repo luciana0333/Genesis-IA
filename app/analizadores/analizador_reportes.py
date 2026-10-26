@@ -5,6 +5,7 @@ import re
 from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
+from app.analizadores.openjson_collate import collates_en_openjson, mensaje_collate_openjson
 from app.analizadores.sql_order_by import order_by_por_posicion
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_reportes import REGLAS_REPORTES
@@ -491,6 +492,14 @@ def _sentencia(limpio: str, posicion: int) -> str:
     return limpio[inicio:fin if fin >= 0 else len(limpio)]
 
 
+def _validar_collate_openjson(texto: str, limpio: str) -> List[Hallazgo]:
+    """COLLATE en las columnas del WITH de OPENJSON: sobra, toman el COLLATE de la base de datos."""
+    return [
+        _hallazgo(texto, posicion, "OPENJSON_COLLATE_INNECESARIO", mensaje_collate_openjson(columnas))
+        for posicion, columnas in collates_en_openjson(limpio)
+    ]
+
+
 def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
     """VARCHAR(MAX) solo se permite para guardar JSON o XML, o una lista que se separa con STRING_SPLIT."""
     hallazgos = []
@@ -889,6 +898,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_sentencias(texto_sql, limpio))
     hallazgos.extend(_validar_sintaxis_prohibida(texto_sql, limpio))
     hallazgos.extend(_validar_varchar_max(texto_sql, limpio))
+    hallazgos.extend(_validar_collate_openjson(texto_sql, limpio))
     hallazgos.extend(_validar_control_de_flujo(texto_sql, limpio))
     hallazgos.extend(_validar_transacciones(texto_sql, limpio))
     hallazgos.extend(_validar_esquema_procedimiento(texto_sql, limpio))
