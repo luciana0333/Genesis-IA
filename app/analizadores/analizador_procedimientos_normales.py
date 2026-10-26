@@ -408,8 +408,15 @@ def _validar_order_by_numerico(texto: str, limpio: str) -> List[Hallazgo]:
 
 def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
+    # La condición del ON termina en el siguiente JOIN, WHERE, GROUP BY, ORDER BY, «;» o donde empieza otra
+    # sentencia (aunque el código no use «;»): así un CAST de la consulta siguiente no se toma como del JOIN.
+    fin_del_on = (
+        r"\bJOIN\b|\bWHERE\b|\bGROUP\s+BY\b|\bORDER\s+BY\b|\bHAVING\b|\bUNION\b|\bEXCEPT\b|\bINTERSECT\b|"
+        r"\bOPTION\b|\b(?:CROSS|OUTER)\s+APPLY\b|\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bMERGE\b|"
+        r"\bIF\b|\bELSE\b|\bBEGIN\b|\bEND\b|\bSET\b|\bDECLARE\b|\bEXEC(?:UTE)?\b|\bRETURN\b|\bWHILE\b|\bGO\b|;"
+    )
     patron = re.compile(
-        rf"\bJOIN\s+({_REFERENCIA}).*?\bON\b(?:(?!\bJOIN\b|\bWHERE\b|\bGROUP\s+BY\b|\bORDER\s+BY\b|;).)*?\b(CAST|CONVERT)\s*\(",
+        rf"\bJOIN\s+({_REFERENCIA})(?:(?!{fin_del_on}).)*?\bON\b(?:(?!{fin_del_on}).)*?\b(CAST|CONVERT)\s*\(",
         re.IGNORECASE | re.DOTALL,
     )
     for match in patron.finditer(limpio):
