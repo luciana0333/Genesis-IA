@@ -103,6 +103,12 @@ const TIPOS_POR_REGLA = {
   MEMORIA_SOBREESTIMADA: ['memoria'],
 };
 
+/** KB del XML como los muestra SSMS: «33 MB», «512 KB». */
+function kbComoSsms(kb) {
+  if (kb == null) return '?';
+  return kb >= 1024 ? `${Math.round(kb / 1024).toLocaleString('en-US')} MB` : `${Math.round(kb).toLocaleString('en-US')} KB`;
+}
+
 function contenidoRecuadro(nodo, regla, sentencia) {
   // En la regla de tiempo el recuadro muestra el bloque y sus tiempos, no las advertencias.
   if (regla === 'TIEMPO_EJECUCION_SUPERADO') {
@@ -125,6 +131,16 @@ function contenidoRecuadro(nodo, regla, sentencia) {
   const propias = TIPOS_POR_REGLA[regla];
   const items = nodo.advertencias.map((a) => (!propias || propias.includes(a.tipo) ? a : { ...a, resaltados: [] }));
   const grupos = items.length ? [{ titulo: 'Warnings:', items }] : [];
+  // Sobreestimación de memoria sin la alerta Excessive Grant en el XML: se muestra la memoria de la consulta
+  // (MemoryGrantInfo), que es de donde sale la observación, para que la imagen la respalde.
+  const memoria = sentencia?.memoria;
+  if (regla === 'MEMORIA_SOBREESTIMADA' && !nodo.advertencias.some((a) => a.tipo === 'memoria') && memoria?.concedida != null) {
+    const valores = [memoria.solicitada, memoria.concedida, memoria.usada].map((kb) => `(${kbComoSsms(kb)})`);
+    grupos.push({
+      titulo: 'Memory Grant Info:',
+      items: [{ texto: `Requested ${valores[0]}, Granted ${valores[1]}, Max Used ${valores[2]}`, resaltados: valores }],
+    });
+  }
   // Lectura residual: con el mismo aviso que muestra Plan Explorer (datos del XML: ActualRowsRead y ActualRows).
   if (regla === 'LECTURA_RESIDUAL_ELEVADA' && nodo.filasLeidas != null) {
     const leidas = Math.round(nodo.filasLeidas).toLocaleString('en-US');
