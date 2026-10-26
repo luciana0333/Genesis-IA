@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { tokenizarSql } from '../utils/resaltadoSql';
 
 function contarLineas(texto) {
@@ -28,6 +28,10 @@ export function EditorCodigo({
   const marcasRef = useRef(null);
   const textareaRef = useRef(null);
   const [lineaActiva, setLineaActiva] = useState(null);
+  // Posición real de cada línea marcada (y de la del cursor), tomada de su número en la numeración:
+  // el número siempre queda alineado con el texto, aunque el navegador tenga zoom (con zoom el alto de
+  // línea tiene decimales y un cálculo «línea × alto» se corre unos píxeles por línea).
+  const [ubicaciones, setUbicaciones] = useState({});
   const lineas = contarLineas(valor);
   const fragmentos = tokenizarSql(valor);
 
@@ -41,6 +45,31 @@ export function EditorCodigo({
     if (lineaActivaRef.current) lineaActivaRef.current.style.transform = `translateY(${-scrollTop}px)`;
     if (marcasRef.current) marcasRef.current.style.transform = `translateY(${-scrollTop}px)`;
   };
+
+  useLayoutEffect(() => {
+    const medir = () => {
+      const numeracion = numeracionRef.current;
+      const entrada = marcasRef.current?.parentElement ?? lineaActivaRef.current?.parentElement;
+      if (!numeracion || !entrada) return;
+      const base = entrada.getBoundingClientRect().top - numeracion.scrollTop;
+      const nuevas = {};
+      for (const linea of [...marcadas, lineaActiva].filter(Boolean)) {
+        const numero = numeracion.children[linea - 1];
+        if (numero) {
+          const caja = numero.getBoundingClientRect();
+          nuevas[linea] = { top: caja.top - base, height: caja.height };
+        }
+      }
+      // Solo si cambió: `marcadas` puede llegar como un arreglo nuevo en cada render.
+      setUbicaciones((actuales) => (JSON.stringify(actuales) === JSON.stringify(nuevas) ? actuales : nuevas));
+    };
+    medir();
+    window.addEventListener('resize', medir);  // también al cambiar el zoom del navegador
+    return () => window.removeEventListener('resize', medir);
+  }, [marcadas, lineaActiva, valor]);
+
+  // Posición de una línea: la medida o, mientras tanto, la calculada.
+  const ubicacion = (linea) => ubicaciones[linea] ?? { top: `calc(var(--code-padding) + var(--code-linea) * ${linea - 1})` };
 
   // Las marcas nuevas se alinean con el desplazamiento actual del código.
   useEffect(() => {
@@ -99,7 +128,7 @@ export function EditorCodigo({
             <div
               className="code-linea-activa"
               ref={lineaActivaRef}
-              style={{ top: `calc(var(--code-padding) + var(--code-linea) * ${lineaActiva - 1})` }}
+              style={ubicacion(lineaActiva)}
               aria-hidden="true"
             />
           )}
@@ -110,7 +139,7 @@ export function EditorCodigo({
                   key={linea}
                   data-linea={linea}
                   className="code-linea-marcada"
-                  style={{ top: `calc(var(--code-padding) + var(--code-linea) * ${linea - 1})` }}
+                  style={ubicacion(linea)}
                 />
               ))}
             </div>
