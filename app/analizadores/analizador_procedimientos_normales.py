@@ -409,19 +409,49 @@ def _validar_order_by_numerico(texto: str, limpio: str) -> List[Hallazgo]:
 
 def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
-    patron = re.compile(
-        rf"\bJOIN\s+({_REFERENCIA}).*?\bON\b(?:(?!\bJOIN\b|\bWHERE\b|\bGROUP\s+BY\b|\bORDER\s+BY\b|;).)*?\b(CAST|CONVERT)\s*\(",
-        re.IGNORECASE | re.DOTALL,
+    # La condición del ON termina en el siguiente JOIN, WHERE, GROUP BY, ORDER BY, «;» o donde empieza otra
+    # sentencia (aunque el código no use «;»): así un CAST de la consulta siguiente no se toma como del JOIN.
+    fin_del_on = (
+        r"\bJOIN\b|\bWHERE\b|\bGROUP\s+BY\b|\bORDER\s+BY\b|\bHAVING\b|\bUNION\b|\bEXCEPT\b|\bINTERSECT\b|"
+        r"\bOPTION\b|\b(?:CROSS|OUTER)\s+APPLY\b|\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bMERGE\b|"
+        r"\bIF\b|\bELSE\b|\bBEGIN\b|\bEND\b|\bSET\b|\bDECLARE\b|\bEXEC(?:UTE)?\b|\bRETURN\b|\bWHILE\b|\bGO\b|;"
     )
+    patron = re.compile(rf"\bJOIN\s+({_REFERENCIA})(?:(?!{fin_del_on}).)*?\bON\b", re.IGNORECASE | re.DOTALL)
+    fin = re.compile(fin_del_on, re.IGNORECASE)
     for match in patron.finditer(limpio):
         tabla = _limpiar_nombre(match.group(1))
-        hallazgos.append(_hallazgo(
-            texto, match.start(2), "CAST_EN_JOIN_PROHIBIDO",
-            f"Se identificó un {match.group(2).upper()} en la condición del JOIN con la tabla {tabla}. Se "
-            f"recomienda convertir el dato antes del JOIN (en una tabla temporal o variable) o unir columnas del "
-            f"mismo tipo, ya que la conversión en la condición impide usar los índices y vuelve lenta la consulta.",
-        ))
+        termina = fin.search(limpio, match.end())
+        condicion = limpio[match.end():termina.start() if termina else len(limpio)]
+        for conversion in re.finditer(r"\b(CAST|CONVERT)\s*\(", condicion, re.IGNORECASE):
+            # Solo si convierte una columna: CAST(GETDATE() AS DATE) o CAST(@dFecha AS DATE) no impiden
+            # usar los índices de la tabla.
+            argumento = _contenido_entre_parentesis(condicion, conversion.end() - 1)
+            if not _usa_columna(argumento, conversion.group(1)):
+                continue
+            hallazgos.append(_hallazgo(
+                texto, match.end() + conversion.start(), "CAST_EN_JOIN_PROHIBIDO",
+                f"Se identificó un {conversion.group(1).upper()} en la condición del JOIN con la tabla {tabla}. Se "
+                f"recomienda convertir el dato antes del JOIN (en una tabla temporal o variable) o unir columnas del "
+                f"mismo tipo, ya que la conversión en la condición impide usar los índices y vuelve lenta la consulta.",
+            ))
+            break  # una observación por JOIN
     return hallazgos
+
+
+_NO_SON_COLUMNAS = {"AS", "NULL", "AND", "OR", "NOT", "CASE", "WHEN", "THEN", "ELSE", "END", "IS", "IN", "LIKE"}
+
+
+def _usa_columna(argumento: str, funcion: str) -> bool:
+    """¿El dato que convierte un CAST(dato AS tipo) / CONVERT(tipo, dato) tiene alguna columna?"""
+    if funcion.upper() == "CONVERT":
+        partes = [p for p, _ in _separar_por_comas(argumento)]
+        dato = partes[1] if len(partes) > 1 else argumento
+    else:
+        dato = re.split(r"\bAS\b", argumento, maxsplit=1, flags=re.IGNORECASE)[0]
+    # Fuera: nombres de función (GETDATE(), DAY(...)), variables, números y textos.
+    sin_funciones = re.sub(r"\b[A-Za-z_]\w*\s*(?=\()", " ", dato)
+    restos = re.findall(r"(?<![@#\w])[A-Za-z_\[][\w\]]*(?:\s*\.\s*[A-Za-z_\[][\w\]]*)*", sin_funciones)
+    return any(r.upper() not in _NO_SON_COLUMNAS for r in restos)
 
 
 # Cláusulas que indican en qué parte de la sentencia está un COLLATE.

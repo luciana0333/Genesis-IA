@@ -689,5 +689,44 @@ FROM STRING_SPLIT(@cChequesParaUso,',')
         self.assertEqual(len(self._varchar_max(sql)), 1)
 
 
+class TestCastEnJoin(unittest.TestCase):
+    def _lineas(self, sql):
+        return [h.linea for h in verificar_procedimiento_normal(sql) if h.regla == "CAST_EN_JOIN_PROHIBIDO"]
+
+    def test_cast_de_la_consulta_siguiente_no_es_del_join(self):
+        # Caso de la usuaria: sin «;», la búsqueda seguía del último JOIN al CAST del INSERT siguiente.
+        sql = (
+            "SELECT a.c FROM #A a\n"
+            "LEFT JOIN #EquipoCoordinadorFinal ec ON ec.userAnalista = a.cUsuario AND ec.cAgeCod = a.cAgeCod\n\n"
+            "INSERT INTO #REPO_Productividad (cCodAnalista, nSaldoCapitalTC)\n"
+            "SELECT cCodAnalista, CAST(SUM(nSaldoCapitalTC) AS DECIMAL(18,2)) [nSaldoCapitalTC]\n"
+            "FROM dbo.Productividad with(nolock)\nGROUP BY cCodAnalista\n"
+        )
+        self.assertEqual(self._lineas(sql), [])
+
+    def test_cast_en_la_condicion_del_join_si_se_marca(self):
+        self.assertEqual(self._lineas("SELECT a.c FROM #A a\nINNER JOIN #B b ON CAST(b.n AS INT) = a.n\n"), [2])
+        self.assertEqual(self._lineas(
+            "SELECT a.c FROM #A a\nLEFT JOIN dbo.B b WITH(NOLOCK) ON b.c = CONVERT(VARCHAR(10), a.n)\nWHERE a.n = 1"), [2])
+
+    def test_cast_de_una_fecha_o_variable_no_se_marca(self):
+        # Caso de la usuaria: CAST(GETDATE() AS DATE) en el ON no convierte una columna: no afecta los índices.
+        sql = ("SELECT 1 FROM #RRHH U1\n"
+               "LEFT JOIN #PeriodosNoLaborados P ON p.cCoduser = U1.cUser AND CAST(GETDATE() AS DATE) "
+               "BETWEEN p.dFecIni AND p.dFecFin\n")
+        self.assertEqual(self._lineas(sql), [])
+        self.assertEqual(self._lineas("SELECT 1 FROM #A a JOIN #B b ON b.d = CAST(@dFecha AS DATE)"), [])
+        self.assertEqual(self._lineas("SELECT 1 FROM #A a JOIN #B b ON b.d = CONVERT(DATE, GETDATE(), 103)"), [])
+
+    def test_cast_de_una_columna_despues_de_uno_de_fecha_si_se_marca(self):
+        sql = ("SELECT 1 FROM #A a JOIN #B b ON CAST(GETDATE() AS DATE) BETWEEN b.i AND b.f "
+               "AND CAST(b.x AS INT) = a.x")
+        self.assertEqual(self._lineas(sql), [1])
+
+    def test_cast_fuera_del_on_no_se_marca(self):
+        self.assertEqual(self._lineas("SELECT a.c FROM #A a JOIN #B b ON b.n = a.n WHERE CAST(a.d AS DATE) = @d"), [])
+        self.assertEqual(self._lineas("SELECT a.c FROM #A a CROSS JOIN #B b\nSELECT CAST(1 AS INT)"), [])
+
+
 if __name__ == "__main__":
     unittest.main()
