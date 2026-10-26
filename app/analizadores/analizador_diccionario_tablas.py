@@ -698,17 +698,53 @@ def _validar_valores_sin_comillas(llamadas: List[LlamadaPropiedad]) -> List[Hall
     return hallazgos
 
 
+# Lo que puede ir después de ADD sin ser una columna nueva.
+_ADD_SIN_COLUMNA = {"CONSTRAINT", "PRIMARY", "FOREIGN", "UNIQUE", "CHECK", "DEFAULT", "INDEX", "PERIOD"}
+
+
+def _alter_solo_restricciones(texto_tabla: str) -> bool:
+    """
+    True si todos los ALTER TABLE del script solo agregan o quitan restricciones (ADD CONSTRAINT PK_...,
+    DROP CONSTRAINT, WITH CHECK...) o quitan columnas: no hay columnas nuevas ni modificadas que documentar.
+    """
+    texto = _sin_comentarios(texto_tabla or "")
+    cuerpos = [
+        m.group(1) for m in re.finditer(
+            r"\bALTER\s+TABLE\s+\S+(.*?)(?=;|\bGO\b|\bALTER\s+TABLE\b|\bCREATE\b|\bCOMMIT\b|\bEND\b|\Z)",
+            texto, re.IGNORECASE | re.DOTALL,
+        )
+    ]
+    if not cuerpos:
+        return False
+    for cuerpo in cuerpos:
+        accion = re.match(r"\s*(?:WITH\s+(?:NO)?CHECK\s+)?(\w+)(?:\s+(\w+))?", cuerpo)
+        if not accion:
+            return False
+        verbo, siguiente = accion.group(1).upper(), (accion.group(2) or "").upper()
+        if verbo == "ADD" and siguiente not in _ADD_SIN_COLUMNA:
+            return False  # ADD de una columna
+        if verbo == "ALTER":
+            return False  # ALTER COLUMN
+        if verbo not in {"ADD", "DROP", "CHECK", "NOCHECK", "ENABLE", "DISABLE", "SET", "REBUILD", "SWITCH"}:
+            return False
+    return True
+
+
 def _validar_alter_sin_diccionario(
     tipo_sentencia: str,
     llamadas: List[LlamadaPropiedad],
     esquema: Optional[str],
     nombre_tabla: str,
     columnas_alter: Set[str],
+    texto_tabla: str = "",
 ) -> List[Hallazgo]:
     """
     Aviso general solo si el ALTER no tiene ADD ni ALTER COLUMN reconocibles:
-    esas columnas ya tienen su propia observación.
+    esas columnas ya tienen su propia observación. Un ALTER que solo agrega o quita
+    restricciones (PK, FK, DEFAULT, CHECK...) o quita columnas no cambia lo que se documenta.
     """
+    if _alter_solo_restricciones(texto_tabla):
+        return []
     if tipo_sentencia == "ALTER" and not llamadas and not columnas_alter:
         full = _nombre_completo(esquema, nombre_tabla)
         return [_hallazgo(
@@ -865,7 +901,7 @@ def _revisar_tabla(texto_tabla: str, texto_diccionario: str) -> List[Hallazgo]:
     hallazgos += _validar_sintaxis(llamadas)
     hallazgos += _validar_parametros(llamadas)
     hallazgos += _validar_alter_sin_diccionario(
-        tipo_sentencia, llamadas, esquema, nombre_tabla, columnas_agregadas | columnas_modificadas
+        tipo_sentencia, llamadas, esquema, nombre_tabla, columnas_agregadas | columnas_modificadas, texto_tabla
     )
     hallazgos += _validar_columnas_modificadas(llamadas, tipo_sentencia, columnas_modificadas)
     if es_create:
