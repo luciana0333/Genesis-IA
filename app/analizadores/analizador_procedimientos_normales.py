@@ -5,6 +5,7 @@ import re
 from typing import Dict, List, Set, Tuple
 
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
+from app.analizadores.openjson_collate import collates_en_openjson, dentro_de_openjson, mensaje_collate_openjson
 from app.analizadores.sql_order_by import order_by_por_posicion
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_procedimientos_normales import REGLAS_PROCEDIMIENTOS_NORMALES
@@ -609,6 +610,14 @@ def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
 _COLLATE_EMPRESA = "SQL_Latin1_General_CP1_CI_AS"
 
 
+def _validar_collate_openjson(texto: str, limpio: str) -> List[Hallazgo]:
+    """COLLATE en las columnas del WITH de OPENJSON: sobra, toman el COLLATE de la base de datos."""
+    return [
+        _hallazgo(texto, posicion, "OPENJSON_COLLATE_INNECESARIO", mensaje_collate_openjson(columnas))
+        for posicion, columnas in collates_en_openjson(limpio)
+    ]
+
+
 def _validar_collate_usado(texto: str, limpio: str) -> List[Hallazgo]:
     """
     El COLLATE de la empresa es SQL_Latin1_General_CP1_CI_AS. DATABASE_DEFAULT
@@ -619,6 +628,8 @@ def _validar_collate_usado(texto: str, limpio: str) -> List[Hallazgo]:
         collate = match.group(1)
         if collate.upper() == _COLLATE_EMPRESA.upper():
             continue
+        if dentro_de_openjson(limpio, match.start()):
+            continue  # lo observa «COLLATE innecesario en OPENJSON»
         if collate.upper() == "DATABASE_DEFAULT":
             hallazgos.append(_hallazgo(
                 texto, match.start(1), "COLLATE_DATABASE_DEFAULT",
@@ -1336,6 +1347,7 @@ def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -
     hallazgos.extend(_validar_tabla_repetida(texto_sql, limpio))
     hallazgos.extend(_validar_collate_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_collate_usado(texto_sql, limpio))
+    hallazgos.extend(_validar_collate_openjson(texto_sql, limpio))
     hallazgos.extend(_validar_tipos_entre_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_comentarios(texto_sql))
     hallazgos.extend(_validar_variables(texto_sql, limpio))
