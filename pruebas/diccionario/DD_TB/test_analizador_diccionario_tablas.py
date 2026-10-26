@@ -213,9 +213,14 @@ class TestDiccionarioTablas(unittest.TestCase):
             "sp_addextendedproperty", "sp_updateextendedproperty"))
         self.assertEqual(hallazgos, [])
 
-    def test_alter_sin_columnas_y_sin_diccionario_da_el_aviso_general(self):
+    def test_alter_que_solo_quita_una_restriccion_no_pide_diccionario(self):
+        # No agrega ni modifica columnas: no hay nada que documentar (pedido de la usuaria, 25 oct.).
         hallazgos = verificar_diccionario_tablas(
             "ALTER TABLE CLICKTOPAY.Cliente DROP CONSTRAINT DF_Cliente_bActivo", "")
+        self.assertEqual([h.regla for h in hallazgos], [])
+
+    def test_alter_no_reconocido_y_sin_diccionario_da_el_aviso_general(self):
+        hallazgos = verificar_diccionario_tablas("ALTER TABLE CLICKTOPAY.Cliente ADD", "")
         self.assertEqual([h.regla for h in hallazgos], ["ALTER_SIN_DICCIONARIO"])
         self.assertIn("pero no se adjuntó su diccionario", hallazgos[0].mensaje)
 
