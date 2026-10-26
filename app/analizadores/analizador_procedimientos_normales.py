@@ -570,8 +570,8 @@ def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
     tabla (@T) debe tener el mismo tipo y longitud: si una es VARCHAR(40) y la
     otra VARCHAR(30), al pasar los datos de una a otra se truncan o falla.
     """
-    hallazgos = []
-    primeras: Dict[str, Tuple[str, str, int]] = {}
+    # Por columna: su nombre, cada tipo con las tablas que lo usan, y dónde aparece por primera vez.
+    columnas: Dict[str, Dict] = {}
     patron = re.compile(
         r"\b(?:CREATE\s+TABLE\s+(#[A-Za-z_]\w*)|DECLARE\s+(@[A-Za-z_]\w*)\s+(?:AS\s+)?TABLE)\s*\(",
         re.IGNORECASE,
@@ -590,19 +590,26 @@ def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
             nombre = columna.group(1).strip("[]")
             tipo = re.sub(r"\s+", "", columna.group(2)).upper()
             posicion = apertura + 1 + desplazamiento + columna.start(1)
-            anterior = primeras.get(nombre.lower())
-            if anterior is None:
-                primeras[nombre.lower()] = (tabla, tipo, posicion)
-                continue
-            tabla_anterior, tipo_anterior, posicion_anterior = anterior
-            if tipo != tipo_anterior and tabla.lower() != tabla_anterior.lower():
-                hallazgos.append(_hallazgo(
-                    texto, posicion, "TIPO_DISTINTO_ENTRE_TEMPORALES",
-                    f"La columna {nombre} es {tipo} en {tabla}, pero {tipo_anterior} en "
-                    f"{tabla_anterior} (línea {_linea(texto, posicion_anterior)}). Usar el mismo tipo "
-                    f"y longitud en ambas, ya que al pasar los datos de una tabla a otra se pueden truncar o "
-                    f"generar un error.",
-                ))
+            datos = columnas.setdefault(nombre.lower(), {"nombre": nombre, "tipos": {}, "posicion": posicion})
+            tablas = datos["tipos"].setdefault(tipo, [])
+            if tabla.lower() not in (t.lower() for t in tablas):
+                tablas.append(tabla)
+
+    # Una observación por columna (no por cada par de tablas), con todos sus tipos y en qué tablas está cada uno.
+    hallazgos = []
+    for datos in columnas.values():
+        if len(datos["tipos"]) < 2:
+            continue
+        detalle = ", ".join(
+            f"{tipo} ({' y '.join(tablas) if len(tablas) <= 2 else ', '.join(tablas[:-1]) + ' y ' + tablas[-1]})"
+            for tipo, tablas in datos["tipos"].items()
+        )
+        hallazgos.append(_hallazgo(
+            texto, datos["posicion"], "TIPO_DISTINTO_ENTRE_TEMPORALES",
+            f"La columna {datos['nombre']} tiene distintos tipos en las tablas temporales: {detalle}. Usar el mismo "
+            f"tipo y longitud en todas, ya que al pasar los datos de una tabla a otra se pueden truncar o generar "
+            f"un error.",
+        ))
     return hallazgos
 
 
