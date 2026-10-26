@@ -164,10 +164,10 @@ def _spill(sentencias: List[Dict]) -> List[Hallazgo]:
 # --- Sobreestimación de memoria ------------------------------------------------
 
 # En un entorno muy transaccional, reservar poca memoria no es un problema: solo se observa a partir de
-# 80 MB reservados y si se usó el 10 % o menos (ej.: 80 MB reservados y 1 MB usado), tenga o no la
-# alerta Excessive Grant de SQL Server.
+# 80 MB reservados y si se usó el 75 % o menos de lo reservado (ej.: 80 MB reservados y 1 MB usado, o
+# 1000 MB y 400 MB), tenga o no la alerta Excessive Grant de SQL Server. Si usa más del 75 %, está bien.
 MEMORIA_MINIMA_KB = 80 * 1024
-PORCENTAJE_MAXIMO_USADO = 0.10
+PORCENTAJE_MAXIMO_USADO = 0.75
 
 
 def _reserva_desproporcionada(memoria: Optional[Dict]) -> bool:
@@ -179,8 +179,8 @@ def _reserva_desproporcionada(memoria: Optional[Dict]) -> bool:
 def _memoria(sentencias: List[Dict]) -> List[Hallazgo]:
     """
     Consultas con la memoria reservada muy por encima de la usada: la alerta Excessive Grant del XML
-    (si reservó MEMORIA_MINIMA_KB o más) o, aunque no la traiga, una reserva desproporcionada
-    (MEMORIA_MINIMA_KB y PORCENTAJE_MAXIMO_USADO).
+    o, aunque no la traiga, una reserva desproporcionada: en ambos casos, desde MEMORIA_MINIMA_KB
+    reservados y usando PORCENTAJE_MAXIMO_USADO o menos.
     """
     varias = len({s["numero"] for s in sentencias}) > 1
     casos = []
@@ -194,7 +194,9 @@ def _memoria(sentencias: List[Dict]) -> List[Hallazgo]:
         concedida = (alerta or {}).get("datos", {}).get("concedidaKb")
         if concedida is None:
             concedida = (s.get("memoria") or {}).get("concedida")
-        if alerta and concedida is not None and concedida >= MEMORIA_MINIMA_KB:
+        usada = (s.get("memoria") or {}).get("usada")
+        uso_razonable = concedida is not None and usada is not None and usada > concedida * PORCENTAJE_MAXIMO_USADO
+        if alerta and concedida is not None and concedida >= MEMORIA_MINIMA_KB and not uso_razonable:
             casos.append({"consulta": s["numero"], "nodo": raiz, "datos": alerta.get("datos", {})})
         elif _reserva_desproporcionada(s.get("memoria")):
             memoria = s["memoria"]
