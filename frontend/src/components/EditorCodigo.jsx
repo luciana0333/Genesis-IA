@@ -1,6 +1,29 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { tokenizarSql } from '../utils/resaltadoSql';
 
+/** Caja (en pantalla) de la primera letra de una línea del código coloreado, o null si la línea está vacía. */
+function letraDeLinea(pre, textos, linea) {
+  const contenido = textos[linea - 1] ?? '';
+  const primera = contenido.search(/\S/);
+  if (!pre || primera < 0) return null;
+  let objetivo = primera;
+  for (let n = 0; n < linea - 1; n += 1) objetivo += textos[n].length + 1;
+  const recorrido = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT);
+  let acumulado = 0;
+  for (let nodo = recorrido.nextNode(); nodo; nodo = recorrido.nextNode()) {
+    if (acumulado + nodo.length > objetivo) {
+      const rango = document.createRange();
+      if (typeof rango.getBoundingClientRect !== 'function') return null;  // sin medición (pruebas)
+      rango.setStart(nodo, objetivo - acumulado);
+      rango.setEnd(nodo, objetivo - acumulado + 1);
+      const caja = rango.getBoundingClientRect();
+      return caja.height ? caja : null;
+    }
+    acumulado += nodo.length;
+  }
+  return null;
+}
+
 function contarLineas(texto) {
   let lineas = 1;
   for (let i = 0; i < texto.length; i += 1) {
@@ -52,13 +75,16 @@ export function EditorCodigo({
       const entrada = marcasRef.current?.parentElement ?? lineaActivaRef.current?.parentElement;
       if (!numeracion || !entrada) return;
       const base = entrada.getBoundingClientRect().top - numeracion.scrollTop;
+      const textos = valor.split('\n');
       const nuevas = {};
       for (const linea of [...marcadas, lineaActiva].filter(Boolean)) {
         const numero = numeracion.children[linea - 1];
-        if (numero) {
-          const caja = numero.getBoundingClientRect();
-          nuevas[linea] = { top: caja.top - base, height: caja.height };
-        }
+        if (!numero) continue;
+        const caja = numero.getBoundingClientRect();
+        // La franja se centra sobre el propio texto de la línea; si la línea está vacía, sobre su número.
+        const letra = letraDeLinea(resaltadoRef.current, textos, linea);
+        const centro = letra ? (letra.top + letra.bottom) / 2 : (caja.top + caja.bottom) / 2;
+        nuevas[linea] = { top: Math.round((centro - caja.height / 2 - base) * 10) / 10, height: caja.height };
       }
       // Solo si cambió: `marcadas` puede llegar como un arreglo nuevo en cada render.
       setUbicaciones((actuales) => (JSON.stringify(actuales) === JSON.stringify(nuevas) ? actuales : nuevas));
