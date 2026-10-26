@@ -79,7 +79,8 @@ def _memoria(solicitada: Optional[float], concedida: Optional[float], usada: Opt
         "memoria",
         f"{tipo}: Requested {valores[0]}, Granted {valores[1]}, Max Used {valores[2]}",
         valores,
-        {"tipo": tipo, "solicitada": _kb(solicitada), "concedida": _kb(concedida), "usada": _kb(usada)},
+        {"tipo": tipo, "solicitada": _kb(solicitada), "concedida": _kb(concedida), "usada": _kb(usada),
+         "concedidaKb": concedida},
     )
 
 

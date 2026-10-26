@@ -40,21 +40,36 @@ class TestMemoriaDesproporcionada(unittest.TestCase):
         )
 
     def test_uso_razonable_no_se_marca(self):
-        self.assertEqual(_memoria(_plan(200 * 1024, 50 * 1024)), [])  # usa el 25 %
+        self.assertEqual(_memoria(_plan(200 * 1024, 160 * 1024)), [])  # usa el 80 %
+
+    def test_ejemplo_de_la_usuaria_1000_mb_y_400_mb(self):
+        self.assertEqual(len(_memoria(_plan(1000 * 1024, 400 * 1024))), 1)  # usa el 40 %: se marca
 
     def test_reserva_pequena_no_se_marca(self):
-        self.assertEqual(_memoria(_plan(5 * 1024, 10)), [])  # menos de 10 MB
+        self.assertEqual(_memoria(_plan(5 * 1024, 10)), [])  # menos de 80 MB
+        self.assertEqual(_memoria(_plan(79 * 1024, 10)), [])
 
     def test_limites_exactos(self):
-        self.assertEqual(len(_memoria(_plan(10 * 1024, 1024))), 1)  # 10 MB y 10 %: se marca
-        self.assertEqual(_memoria(_plan(10 * 1024, 1025)), [])  # un poco más del 10 %
+        self.assertEqual(len(_memoria(_plan(80 * 1024, 60 * 1024))), 1)  # 80 MB y 75 %: se marca
+        self.assertEqual(_memoria(_plan(80 * 1024, 60 * 1024 + 1)), [])  # un poco más del 75 %
+
+    def test_ejemplo_de_la_usuaria_80_mb_y_1_mb(self):
+        self.assertEqual(len(_memoria(_plan(80 * 1024, 1024))), 1)
 
     def test_con_alerta_y_desproporcion_sale_una_sola_vez(self):
         self.assertEqual(len(_memoria(_plan(200 * 1024, 30, con_alerta=True))), 1)
 
-    def test_la_alerta_de_sql_server_se_sigue_respetando(self):
-        # SQL Server pone Excessive Grant aunque no cumpla nuestro criterio: se marca igual.
-        self.assertEqual(len(_memoria(_plan(5 * 1024, 10, con_alerta=True))), 1)
+    def test_alerta_con_reserva_minima_no_se_marca(self):
+        # Caso de la usuaria: Excessive Grant de 1 MB reservado y 16 KB usados; en un entorno transaccional
+        # es mínimo. La alerta se sigue viendo en el diagrama, pero no es observación.
+        self.assertEqual(_memoria(_plan(1024, 16, con_alerta=True)), [])
+        self.assertEqual(_memoria(_plan(79 * 1024, 16, con_alerta=True)), [])
+
+    def test_alerta_desde_80_mb_se_marca(self):
+        self.assertEqual(len(_memoria(_plan(80 * 1024, 16, con_alerta=True))), 1)
+
+    def test_alerta_con_uso_mayor_al_75_no_se_marca(self):
+        self.assertEqual(_memoria(_plan(100 * 1024, 90 * 1024, con_alerta=True)), [])
 
 
 if __name__ == "__main__":
