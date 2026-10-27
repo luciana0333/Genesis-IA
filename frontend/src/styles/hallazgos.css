@@ -1321,3 +1321,10 @@
   .aprobar-siglas-fila { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .aprobar-siglas-aprobar { justify-self: start; }
 }
+
+/* Nombres muy largos sin espacios (índices, tablas, expresiones): se cortan dentro del recuadro en vez de salirse. */
+.finding-body .finding-message,
+.finding-body .finding-list li,
+.finding-body .finding-fix {
+  overflow-wrap: anywhere;
+}

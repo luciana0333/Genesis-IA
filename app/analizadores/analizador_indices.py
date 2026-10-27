@@ -80,6 +80,7 @@ class _Indice:
     incluidas: List[str]
     posicion_tabla: int
     tipo_explicito: bool = True  # False si dice solo CREATE INDEX (SQL Server lo toma NONCLUSTERED)
+    filtro: str = ""  # condición del WHERE de un índice filtrado (sin la palabra WHERE)
 
 
 def _limpiar(nombre: str) -> str:
@@ -235,6 +236,7 @@ def verificar_indices(texto_indices: str, texto_tabla: str = "") -> List[Hallazg
 
     for indice in indices:
         hallazgos.extend(_validar_indice(texto, indice, tabla_script))
+        hallazgos.extend(_validar_columna_fija_en_filtro(texto, indice))
     duplicados = _validar_duplicados(texto, indices, tabla_script)
     # Un índice duplicado se elimina, no se renombra: sugerir otro nombre podría coincidir
     # con el del índice que ya existe (IXN_Cliente_cCodigo2 -> IXN_Cliente_cCodigo).
@@ -247,7 +249,70 @@ def verificar_indices(texto_indices: str, texto_tabla: str = "") -> List[Hallazg
         if not (h.regla in ("INDICE_NOMBRE_NO_ESTANDAR", "INDICE_PREFIJO_INVALIDO") and h.linea in lineas_duplicadas)
     ]
     hallazgos.extend(duplicados)
-    return sorted(hallazgos, key=lambda h: h.linea)
+    return _juntar_tablas_existentes(sorted(hallazgos, key=lambda h: h.linea))
+
+
+def _juntar_tablas_existentes(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
+    """
+    Varios índices para tablas que ya existen: una sola observación que nombra cada índice con su tabla,
+    en vez de una por índice.
+    """
+    existentes = [h for h in hallazgos if h.regla == "INDICE_TABLA_EXISTENTE"]
+    if len(existentes) < 2:
+        return hallazgos
+    casos = "; ".join(f"Índice {h.indice} (tabla {h.tabla})" for h in existentes)
+    junta = Hallazgo(
+        linea=existentes[0].linea,
+        origen=existentes[0].origen,
+        severidad=existentes[0].severidad,
+        regla="INDICE_TABLA_EXISTENTE",
+        mensaje=(
+            f"Se identificaron {len(existentes)} índices para tablas que ya existen (su CREATE TABLE no está en el "
+            f"script de la tabla): {casos}. Se recomienda validar que cada tabla realmente necesite su índice, "
+            f"revisando las consultas que lo usarán y los índices que ya tiene, ya que en una tabla con datos un "
+            f"índice nuevo ocupa espacio, vuelve más lentas las inserciones y podría repetir uno existente."
+        ),
+    )
+    junta.seccion = "indices"
+    junta.lineas = sorted({h.linea for h in existentes})  # para recorrerlos con la barra «1 de N»
+    primera = hallazgos.index(existentes[0])
+    resto = [h for h in hallazgos if h.regla != "INDICE_TABLA_EXISTENTE"]
+    return resto[:primera] + [junta] + resto[primera:]
+
+
+def _columnas_fijas(filtro: str) -> List[str]:
+    """Columnas que el filtro deja en un solo valor: «bVigente = 1», «nEstado = 'A'», «dBaja IS NULL»."""
+    if re.search(r"\bOR\b", filtro, re.IGNORECASE):
+        return []  # con OR la columna puede tener más de un valor
+    fijas = []
+    for condicion in re.split(r"\bAND\b", filtro, flags=re.IGNORECASE):
+        igual = re.fullmatch(r"\s*\(?\s*\[?(\w+)\]?\s*(?:=\s*(?:N?'[^']*'|-?\d+(?:\.\d+)?)|IS\s+NULL)\s*\)?\s*",
+                             condicion, re.IGNORECASE)
+        if igual:
+            fijas.append(igual.group(1))
+    return fijas
+
+
+def _validar_columna_fija_en_filtro(texto: str, indice: _Indice) -> List[Hallazgo]:
+    """
+    Índice filtrado con una columna de la clave que el WHERE fija en un solo valor (WHERE bVigente = 1):
+    esa columna vale siempre lo mismo dentro del índice, no ordena ni distingue filas.
+    """
+    fijas = {c.lower() for c in _columnas_fijas(indice.filtro)}
+    sobran = [c for c in indice.claves if c.lower() in fijas]
+    quedan = [c for c in indice.claves if c.lower() not in fijas]
+    if not sobran or not quedan:
+        return []
+    cuales = sobran[0] if len(sobran) == 1 else f"{', '.join(sobran[:-1])} y {sobran[-1]}"
+    columna = "la columna" if len(sobran) == 1 else "las columnas"
+    return [_hallazgo(
+        texto, indice.posicion, "INDICE_COLUMNA_FIJA_EN_FILTRO",
+        f"Se identificó que {columna} {cuales} del índice {indice.nombre} forma{'n' if len(sobran) > 1 else ''} "
+        f"parte de su clave, pero el filtro WHERE {indice.filtro} ya {'la' if len(sobran) == 1 else 'las'} fija en "
+        f"un solo valor. Se recomienda retirar{'la' if len(sobran) == 1 else 'las'} de la clave del índice, ya que "
+        f"no aporta{'n' if len(sobran) > 1 else ''} para ordenar ni para distinguir las filas y solo ocupa"
+        f"{'n' if len(sobran) > 1 else ''} espacio (ej.: ({', '.join(quedan)}) WHERE {indice.filtro}).",
+    )]
 
 
 def _validar_sentencias_ajenas(texto: str, limpio: str) -> List[Hallazgo]:
@@ -338,6 +403,12 @@ def _leer_indice(texto: str, inicio: int, sentencia: str, hallazgos: List[Hallaz
     if include:
         contenido, _ = _contenido_parentesis(resto, include.end() - 1)
         incluidas = [_limpiar(c) for c in _separar(contenido)]
+    # Índice filtrado: WHERE ... hasta las opciones (WITH (...)) o el filegroup (ON [PRIMARY]).
+    filtro = ""
+    donde = re.search(r"\bWHERE\b", resto, re.IGNORECASE)
+    if donde:
+        filtro = re.split(r"\bWITH\s*\(|\bON\s+\[?\w+\]?\s*$", resto[donde.end():], maxsplit=1,
+                          flags=re.IGNORECASE)[0].strip()
     return _Indice(
         posicion=inicio,
         nombre=nombre,
@@ -348,6 +419,7 @@ def _leer_indice(texto: str, inicio: int, sentencia: str, hallazgos: List[Hallaz
         claves=claves,
         incluidas=incluidas,
         posicion_tabla=inicio + cabecera.start(4),
+        filtro=filtro,
     )
 
 
@@ -483,6 +555,7 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
             f"índice, revisando las consultas que lo usarán y los índices que ya tiene, ya que en una tabla con "
             f"datos un índice nuevo ocupa espacio, vuelve más lentas las inserciones y podría repetir uno existente.",
         ))
+        hallazgos[-1].indice, hallazgos[-1].tabla = indice.nombre, tabla  # para juntarlos en una observación
         return hallazgos
 
     # Columnas que no existen y columnas que no se pueden indexar.

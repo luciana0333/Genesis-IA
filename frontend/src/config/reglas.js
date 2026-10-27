@@ -143,6 +143,7 @@ export const NOMBRES_REGLAS = {
   INDICE_CLUSTERED_CON_PK: 'Índice clustered innecesario',
   INDICE_SEGUNDO_CLUSTERED: 'Segundo índice clustered',
   INDICE_DUPLICADO: 'Índice duplicado',
+  INDICE_COLUMNA_FIJA_EN_FILTRO: 'Columna del índice fija en el filtro',
   INDICE_INCLUDE_EXTENSO: 'INCLUDE con muchas columnas',
   INDICE_COLUMNA_DESCRIPTIVA: 'Columna descriptiva en el índice',
   INDICE_IDENTIFICA_POR_DESCRIPCION: 'Descripción usada como identificador',
