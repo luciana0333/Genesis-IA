@@ -1,0 +1,15 @@
+diccionario_es_pe.txt.gz
+========================
+
+Todas las palabras del español de Perú (con sus plurales, femeninos y conjugaciones), una por
+línea, comprimidas. Las usa app/analizadores/ortografia.py para revisar la ortografía y las tildes
+de las descripciones del diccionario.
+
+Origen: diccionario es_PE (es_PE.dic + es_PE.aff) del proyecto RLA-ES (Recursos Lingüísticos
+Abiertos del Español), tomado del repositorio de diccionarios de LibreOffice:
+https://github.com/LibreOffice/dictionaries/tree/master/es
+
+Licencia del diccionario: GNU GPL 3, GNU LGPL 3 o MPL 1.1 (a elección), según el proyecto RLA-ES.
+
+Se generó una sola vez expandiendo las reglas del .aff sobre cada palabra del .dic (26 oct. 2026).
+Para actualizarlo, descargar de nuevo es_PE.dic y es_PE.aff y repetir la expansión.

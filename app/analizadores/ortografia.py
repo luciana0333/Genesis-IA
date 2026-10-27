@@ -4,21 +4,24 @@ ortografia.py
 -------------
 Detecta palabras mal escritas en las descripciones del diccionario.
 
-- Usa el diccionario de español de pyspellchecker (funciona sin internet).
-- No exige tildes: "unico" y "único" se aceptan por igual.
-- Acepta las formas del español a partir de su raíz (plurales, femeninos,
-  conjugaciones, participios, derivados en -dor o -mente), porque el
-  diccionario base solo trae la forma principal de cada palabra.
+- Usa el diccionario oficial de español Perú (RLA-ES, es_PE, el de LibreOffice),
+  expandido a todas sus formas en app/reglas/diccionario_es_pe.txt.gz (funciona
+  sin internet y sin instalar nada). Licencia: GPL / LGPL / MPL (proyecto RLA-ES).
+- Revisa las tildes: si la palabra solo existe con otra tilde («codigo» → «código»,
+  «guión» → «guion»), se marca y se sugiere la forma correcta.
+- Acepta además formas derivadas a partir de su raíz (prefijos como re- o des-,
+  participios, derivados en -dor o -mente) que el diccionario no trae sueltas.
 - Ignora nombres de objetos (columnas, tablas), siglas en mayúsculas,
   palabras con mayúsculas internas (nEstadoId) y el vocabulario técnico del
   equipo (app/reglas/vocabulario_tecnico.txt).
 """
 
+import gzip
 import re
 import unicodedata
 from functools import lru_cache
 from pathlib import Path
-from typing import Iterable, List, Optional, Set, Tuple
+from typing import Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
 
 _PALABRA = re.compile(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+")
 # Identificadores dentro del texto: nEstadoId, cCodPersona / SolicitudArchivos.
@@ -31,6 +34,7 @@ _IDENTIFICADOR_TECNICO = re.compile(r"[_@#$]|\w\.\w")
 # Verbos con cambio de raíz: puede -> poder, tiene -> tener, sirve -> servir.
 _CAMBIOS_DE_RAIZ = (("ue", "o"), ("ie", "e"), ("i", "e"))
 _VOCABULARIO = Path(__file__).resolve().parent.parent / "reglas" / "vocabulario_tecnico.txt"
+_DICCIONARIO_ES = Path(__file__).resolve().parent.parent / "reglas" / "diccionario_es_pe.txt.gz"
 _LONGITUD_MINIMA = 3
 
 # Terminación -> terminaciones de la forma base que se prueban en su lugar.
@@ -66,8 +70,29 @@ def normalizar(palabra: str) -> str:
 
 
 @lru_cache(maxsize=1)
+def _diccionario_es() -> FrozenSet[str]:
+    """Todas las palabras del español (en minúsculas y con sus tildes). Vacío si falta el archivo."""
+    if not _DICCIONARIO_ES.is_file():
+        return frozenset()
+    with gzip.open(_DICCIONARIO_ES, "rt", encoding="utf-8") as archivo:
+        return frozenset(linea.strip().lower() for linea in archivo if linea.strip())
+
+
+@lru_cache(maxsize=1)
+def _formas_con_tilde() -> Dict[str, Tuple[str, ...]]:
+    """Palabra sin tildes -> sus formas correctas («codigo» -> ('código',); «practico» -> ('práctico', ...))."""
+    formas: Dict[str, List[str]] = {}
+    for palabra in _diccionario_es():
+        formas.setdefault(normalizar(palabra), []).append(palabra)
+    return {clave: tuple(sorted(valores)) for clave, valores in formas.items()}
+
+
+@lru_cache(maxsize=1)
 def _corrector():
-    """Carga el diccionario una sola vez. None si pyspellchecker no está instalado."""
+    """
+    pyspellchecker, si está instalado: solo para desempatar sugerencias por lo frecuente que es
+    cada palabra. Ya no decide qué palabra es válida (su lista viene de subtítulos y está incompleta).
+    """
     try:
         from spellchecker import SpellChecker
     except ImportError:  # pragma: no cover - depende del entorno
@@ -77,9 +102,8 @@ def _corrector():
 
 @lru_cache(maxsize=1)
 def _palabras_validas() -> Set[str]:
-    corrector = _corrector()
-    base = {normalizar(p) for p in corrector.word_frequency.dictionary} if corrector else set()
-    return base | _vocabulario_tecnico()
+    """Palabras válidas sin tildes: el diccionario de español y el vocabulario técnico del equipo."""
+    return set(_formas_con_tilde()) | _vocabulario_tecnico()
 
 
 @lru_cache(maxsize=1)
@@ -95,8 +119,8 @@ def _vocabulario_tecnico() -> Set[str]:
 
 
 def disponible() -> bool:
-    """True si el corrector de español está instalado."""
-    return _corrector() is not None
+    """True si el diccionario de español está en el proyecto."""
+    return bool(_diccionario_es())
 
 
 def _variantes_de_raiz(raiz: str) -> Set[str]:
@@ -117,10 +141,15 @@ def es_palabra_valida(palabra: str) -> bool:
     n = normalizar(palabra)
     if n in validas:
         return True
-    # Prefijos comunes: si «activa» es válida, «desactiva» también.
+    # Prefijos comunes: si «programados» es válida, «reprogramados» también.
     for prefijo in _PREFIJOS:
         if n.startswith(prefijo) and len(n) - len(prefijo) >= 4 and es_palabra_valida(n[len(prefijo):]):
             return True
+    # Sin diccionario completo (falta el archivo), se aceptan además las formas que se deducen de la
+    # raíz. Con el diccionario no hace falta: ya trae todas las formas, y deducirlas deja pasar
+    # errores (actualisa ≈ actuales).
+    if _diccionario_es():
+        return False
     for terminacion, reemplazos in _TERMINACIONES:
         if n.endswith(terminacion) and len(n) - len(terminacion) >= 2:
             for raiz in _variantes_de_raiz(n[: -len(terminacion)]):
@@ -203,15 +232,16 @@ def _distancia(a: str, b: str) -> int:
 
 
 _LETRAS = "abcdefghijklmnopqrstuvwxyzáéíóúñü"
+_LETRAS_SIN_TILDE = "abcdefghijklmnopqrstuvwxyzñ"
 
 
-def _a_una_letra(palabra: str) -> Set[str]:
+def _a_una_letra(palabra: str, letras: str = _LETRAS) -> Set[str]:
     """Todas las variantes a un cambio de letra: quitar, cambiar, agregar o intercambiar vecinas."""
     partes = [(palabra[:i], palabra[i:]) for i in range(len(palabra) + 1)]
     quitar = {a + b[1:] for a, b in partes if b}
     intercambiar = {a + b[1] + b[0] + b[2:] for a, b in partes if len(b) > 1}
-    cambiar = {a + letra + b[1:] for a, b in partes if b for letra in _LETRAS}
-    agregar = {a + letra + b for a, b in partes for letra in _LETRAS}
+    cambiar = {a + letra + b[1:] for a, b in partes if b for letra in letras}
+    agregar = {a + letra + b for a, b in partes for letra in letras}
     return quitar | intercambiar | cambiar | agregar
 
 
@@ -227,6 +257,18 @@ def _es_confusion_tipica(original: str, candidata: str) -> bool:
     return len(distintas) == 1 and frozenset(distintas[0]) in _CONFUSIONES
 
 
+def tilde_correcta(palabra: str) -> Optional[List[str]]:
+    """
+    Si la palabra está bien escrita salvo por la tilde, sus formas correctas («codigo» -> ['código'],
+    «guión» -> ['guion']); si no, None. Las palabras del vocabulario técnico no se revisan.
+    """
+    minuscula = palabra.lower()
+    if minuscula in _diccionario_es() or normalizar(palabra) in _vocabulario_tecnico():
+        return None
+    formas = _formas_con_tilde().get(normalizar(palabra))
+    return list(formas) if formas else None
+
+
 def sugerencias(palabra: str, maximo: int = 1) -> List[str]:
     """
     Palabras parecidas del diccionario, con la misma mayúscula inicial que la
@@ -234,34 +276,34 @@ def sugerencias(palabra: str, maximo: int = 1) -> List[str]:
     errores de tipeo rara vez cambian la primera), ordenadas por cercanía y
     luego por frecuencia. Si no hay una buena candidata, no se sugiere nada.
     """
-    corrector = _corrector()
-    if corrector is None:
+    formas = _formas_con_tilde()
+    if not formas:
         return []
     original = palabra.lower()
-    candidatas = {
-        c for c in (corrector.candidates(original) or set())
-        if c != original and normalizar(c)[:1] == normalizar(original)[:1]
-    }
-    # Palabras válidas a un cambio de letra, incluidas formas verbales que el diccionario
-    # no trae (Actualisa → Actualiza): s/z, b/v, c/s, letras de más o de menos.
-    candidatas |= {
-        c for c in _a_una_letra(original)
-        if c != original and normalizar(c)[:1] == normalizar(original)[:1] and es_palabra_valida(c)
-    }
+    base = normalizar(original)
+    # Se busca sin tildes (más rápido) y luego se toman las formas reales con su tilde:
+    # palabras a un cambio de letra (s/z, b/v, letras de más o de menos, vecinas intercambiadas)
+    # y, en palabras largas, a dos cambios.
+    cercanas = _a_una_letra(base, _LETRAS_SIN_TILDE)
+    claves = {c for c in cercanas if c in formas}
+    if len(base) >= 7 and not claves:
+        claves = {c for primera in cercanas for c in _a_una_letra(primera, _LETRAS_SIN_TILDE) if c in formas}
+    candidatas = {f for clave in claves if clave[:1] == base[:1] for f in formas[clave] if f != original}
+    corrector = _corrector()
     # Solo se sugiere si la corrección es casi segura: una letra de diferencia (o dos en
     # palabras largas). Si no, se pide revisar la palabra en vez de adivinar (ROJSH ≠ ROJO).
     tolerancia = 2 if len(original) >= 7 else 1
     candidatas = {c for c in candidatas if _distancia(normalizar(c), normalizar(original)) <= tolerancia}
     def prioridad(candidata: str):
         # 1) más cercana; 2) sin tildes agregadas; 3) confusión típica del español (b/v, s/z...);
-        # 4) palabra que el diccionario conoce; 5) la más usada.
+        # 4) la más usada (si pyspellchecker está instalado); 5) orden alfabético, para que sea estable.
         tilde_nueva = any(letra in "áéíóú" and letra not in original for letra in candidata)
         return (
             _distancia(normalizar(candidata), normalizar(original)),
             tilde_nueva,
             not _es_confusion_tipica(original, candidata),
-            normalizar(candidata) not in _palabras_validas(),
-            -corrector.word_usage_frequency(candidata),
+            -(corrector.word_usage_frequency(candidata) if corrector else 0),
+            candidata,
         )
 
     ordenadas = sorted(candidatas, key=prioridad)[:maximo]
@@ -301,9 +343,33 @@ def palabras_mal_escritas(
         if clave in vistas or _debe_ignorarse(palabra, ignorar, en_mayusculas):
             continue
         vistas.add(clave)
-        if not es_palabra_valida(palabra):
+        # Bien escrita salvo la tilde (codigo → código). En una descripción escrita toda en
+        # mayúsculas no se exige la tilde: es común omitirla y llenaría el informe de avisos.
+        tilde = None if palabra.isupper() else tilde_correcta(palabra)
+        if tilde:
+            resultado.append((palabra, [_con_mayusculas(f, palabra) for f in tilde]))
+        elif not es_palabra_valida(palabra):
             resultado.append((palabra, sugerencias(palabra)))
     return resultado
+
+
+def _con_mayusculas(forma: str, original: str) -> str:
+    """La forma sugerida con las mayúsculas de la palabra original (Codigo → Código)."""
+    if original.isupper() and len(original) > 1:
+        return forma.upper()
+    return forma[:1].upper() + forma[1:] if original[:1].isupper() else forma
+
+
+def es_error_de_tilde(palabra: str, opciones: Optional[List[str]]) -> bool:
+    """True si la palabra solo se diferencia de la sugerida en la tilde."""
+    return bool(opciones) and normalizar(palabra) == normalizar(opciones[0]) and palabra != opciones[0]
+
+
+def _opciones(palabra: str, opciones: List[str]) -> str:
+    """'código', o 'práctico' o 'practicó' cuando la tilde depende del sentido."""
+    if es_error_de_tilde(palabra, opciones) and len(opciones) > 1:
+        return " o ".join(f"'{o}'" for o in opciones[:2])
+    return f"'{opciones[0]}'"
 
 
 def redactar_error_ortografico(objeto: str, errores: List[Tuple[str, Optional[List[str]]]], documento: str) -> str:
@@ -315,7 +381,7 @@ def redactar_error_ortografico(objeto: str, errores: List[Tuple[str, Optional[Li
     """
     palabras = ", ".join(f"'{palabra}'" for palabra, _ in errores)
     error = "un error de escritura" if len(errores) == 1 else f"{len(errores)} errores de escritura"
-    con_sugerencia = [f"'{palabra}' por '{opciones[0]}'" for palabra, opciones in errores if opciones]
+    con_sugerencia = [f"'{palabra}' por {_opciones(palabra, opciones)}" for palabra, opciones in errores if opciones]
     sin_sugerencia = [f"'{palabra}'" for palabra, opciones in errores if not opciones]
     acciones = []
     if con_sugerencia:
@@ -338,6 +404,9 @@ def _enumerar(elementos: List[str]) -> str:
 def elemento_ortografico(objeto: str, errores: List[Tuple[str, Optional[List[str]]]]) -> str:
     """Línea de la lista cuando se agrupan varios errores: "del parámetro @x: 'a' → 'b'"."""
     cambios = ", ".join(
-        f"'{palabra}' → '{opciones[0]}'" if opciones else f"'{palabra}'" for palabra, opciones in errores
+        (f"'{palabra}' → {_opciones(palabra, opciones)}"
+         + (" (tilde)" if es_error_de_tilde(palabra, opciones) else ""))
+        if opciones else f"'{palabra}'"
+        for palabra, opciones in errores
     )
     return f"Descripción {objeto}: {cambios}"

@@ -409,13 +409,15 @@ def _iniciar_servidor():
         print('Cierre el otro servidor (Ctrl + C en su terminal) y vuelva a iniciar este.')
         sys.exit(_SALIDA_PUERTO_OCUPADO)
     if not ortografia.disponible():
-        print('AVISO: pyspellchecker no está instalado; no se revisará la ortografía de los diccionarios.')
-        print('       Instálelo con: python -m pip install -r requirements.txt')
+        print('AVISO: falta app/reglas/diccionario_es_pe.txt.gz; no se revisará la ortografía de los diccionarios.')
+        print('       Actualice el proyecto con: git pull')
     # Las descripciones sugeridas cargan spaCy y el diccionario (unos segundos): se precargan
     # en segundo plano para que el primer «Generar diccionario faltante» responda al instante.
+    # Lo mismo el diccionario de español de la ortografía (~3 s la primera vez).
     import threading
     from app.analizadores import descripciones_sugeridas
     threading.Thread(target=descripciones_sugeridas.precargar, daemon=True).start()
+    threading.Thread(target=lambda: ortografia.palabras_mal_escritas('precarga'), daemon=True).start()
     print(f'Servidor Genesis corriendo en http://localhost:{puerto}')
     try:
         server.serve_forever()

@@ -1,2 +1,5 @@
 # La pantalla compilada se guarda tal cual (sin convertir saltos de línea).
 frontend/dist/** -text
+
+# Diccionario de español comprimido: binario, sin convertir.
+*.gz binary

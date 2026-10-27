@@ -5,29 +5,34 @@ from app.analizadores.analizador_diccionario_tablas import verificar_diccionario
 
 
 DESCRIPCIONES_CORRECTAS = [
-    "Identificador unico del archivo de la solicitud",
+    "Identificador único del archivo de la solicitud",
     "Identificador único del estado",
     "Ruta de almacenamiento del archivo",
     "Fecha de registro del archivo; se asigna al insertar",
     "Indica si el registro se encuentra activo (1=Activo, 0=Inactivo)",
-    "Correo electronico de contacto del cliente",
-    "Tabla que almacena la informacion del cliente",
+    "Correo electrónico de contacto del cliente",
+    "Tabla que almacena la información del cliente",
     "Archivos adjuntos registrados para cada solicitud",
-    "Monto del desembolso del credito en soles",
-    "Numero de cuotas pendientes del prestamo",
-    "Usuario que registra la operacion",
-    "Fecha y hora de la ultima actualizacion",
+    "Monto del desembolso del crédito en soles",
+    "Número de cuotas pendientes del préstamo",
+    "Usuario que registra la operación",
+    "Fecha y hora de la última actualización",
     "Observaciones ingresadas por el analista",
-    "Codigo del producto crediticio",
+    "Código del producto crediticio",
     "Estados que puede tener una solicitud",
     "Clientes que tienen deuda vencida",
     "Campo que sirve para auditar cambios",
     "Motivo por el cual se rechaza la solicitud",
     "Se usa en @level2name y Estado.nEstadoId",
+    # Casos de la usuaria que el diccionario anterior (pyspellchecker) marcaba como errores.
+    "Periodo en formato AAAAMM",
+    "Créditos reprogramados del mes",
+    "Bono de gestión comercial",
+    "Indica la tasa promedio ponderada al cierre del mes anterior",
 ]
 
 
-@unittest.skipUnless(ortografia.disponible(), "pyspellchecker no está instalado")
+@unittest.skipUnless(ortografia.disponible(), "falta el diccionario de español")
 class TestOrtografia(unittest.TestCase):
     def test_descripciones_correctas_no_generan_avisos(self):
         for texto in DESCRIPCIONES_CORRECTAS:
@@ -51,7 +56,7 @@ class TestOrtografia(unittest.TestCase):
     def test_palabra_con_mayusculas_sueltas_al_final_se_revisa(self):
         # Caso reportado: 'clienteYY' se ignoraba por tener mayúsculas internas.
         self.assertEqual(
-            ortografia.palabras_mal_escritas("Consulta la informacion del clienteYY"),
+            ortografia.palabras_mal_escritas("Consulta la información del clienteYY"),
             [("clienteYY", ["cliente"])],
         )
         self.assertEqual(ortografia.palabras_mal_escritas("Estado ActivoX del registro"), [("ActivoX", ["Activo"])])
@@ -67,7 +72,7 @@ class TestOrtografia(unittest.TestCase):
         procedimiento = "CREATE PROCEDURE CLICKTOPAY.PA_Cliente_Consultar AS BEGIN SELECT 1 END"
         diccionario_proc = (
             "EXEC sys.sp_addextendedproperty\n@name=N'MS_Description',\n"
-            "@value=N'Consulta la informacion del clienteYY',\n"
+            "@value=N'Consulta la información del clienteYY',\n"
             "@level0type=N'SCHEMA', @level0name=N'CLICKTOPAY',\n"
             "@level1type=N'PROCEDURE', @level1name=N'PA_Cliente_Consultar'\nGO"
         )
@@ -77,7 +82,7 @@ class TestOrtografia(unittest.TestCase):
         tabla = "CREATE TABLE CLICKTOPAY.Cliente (nClienteId INT NOT NULL);"
         diccionario_tabla = (
             "EXEC sys.sp_addextendedproperty @name=N'MS_Description', "
-            "@value=N'Informacion del clienteYY', @level0type=N'SCHEMA', @level0name=N'CLICKTOPAY', "
+            "@value=N'Información del clienteYY', @level0type=N'SCHEMA', @level0name=N'CLICKTOPAY', "
             "@level1type=N'TABLE', @level1name=N'Cliente';\n"
             "EXEC sys.sp_addextendedproperty @name=N'MS_Description', "
             "@value=N'Identificador del cliente', @level0type=N'SCHEMA', @level0name=N'CLICKTOPAY', "
@@ -87,8 +92,25 @@ class TestOrtografia(unittest.TestCase):
         self.assertEqual([h.regla for h in hallazgos], ["ERROR_ORTOGRAFICO"])
         self.assertIn("corregir 'clienteYY' por 'cliente'", hallazgos[0].mensaje)
 
-    def test_no_exige_tildes(self):
-        self.assertEqual(ortografia.palabras_mal_escritas("Descripcion del codigo unico"), [])
+    def test_detecta_falta_de_tilde_y_sugiere_la_forma_correcta(self):
+        self.assertEqual(
+            ortografia.palabras_mal_escritas("Descripcion del codigo unico del credito"),
+            [("Descripcion", ["Descripción"]), ("codigo", ["código"]), ("unico", ["único"]), ("credito", ["crédito"])],
+        )
+        # Tilde de más (guion se escribe sin tilde) y palabras que existen con y sin tilde (numero/número).
+        self.assertEqual(ortografia.palabras_mal_escritas("Estado del guión"), [("guión", ["guion"])])
+        self.assertEqual(ortografia.palabras_mal_escritas("Solo numero el registro"), [])
+
+    def test_la_falta_de_tilde_se_indica_en_el_mensaje(self):
+        errores = ortografia.palabras_mal_escritas("Codigo de operacion del clinete")
+        self.assertEqual(
+            ortografia.elemento_ortografico("del parámetro @x", errores),
+            "Descripción del parámetro @x: 'Codigo' → 'Código' (tilde), 'operacion' → 'operación' (tilde), "
+            "'clinete' → 'cliente'",
+        )
+
+    def test_en_mayusculas_no_se_exige_la_tilde(self):
+        self.assertEqual(ortografia.palabras_mal_escritas("CODIGO DEL CLIENTE"), [])
 
     def test_ignora_nombres_de_objetos_siglas_y_vocabulario(self):
         texto = "Valor de nEstadoId para el RUC del cliente enviado por email desde Estado"

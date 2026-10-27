@@ -21,7 +21,7 @@ END
 DICCIONARIO = """
 EXEC sys.sp_addextendedproperty
 @name=N'MS_Description',
-@value=N'Codigo de cuenta',
+@value=N'Código de cuenta',
 @level0type=N'SCHEMA',
 @level0name=N'Dbo',
 @level1type=N'PROCEDURE',

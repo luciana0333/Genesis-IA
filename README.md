@@ -7,7 +7,7 @@ planes de ejecución reales (`.sqlplan`) mediante reglas estáticas.
 ## Estructura
 
 ```
-app/        Analizadores y reglas (Python; pyspellchecker y spaCy son opcionales)
+app/        Analizadores y reglas (Python; spaCy es opcional)
 frontend/   Interfaz web (React + Vite) — ver frontend/README.md
 pruebas/    Pruebas unitarias de los analizadores
 recursos/   Archivos de ejemplo (planes de ejecución)
@@ -35,9 +35,11 @@ Para modificar la pantalla se necesita Node.js 20+; después de cada cambio en
 recarga automática: `python server.py --sin-recarga`. El puerto se puede cambiar
 con la variable `GENESIS_PUERTO` (por defecto, 8000).
 
-`requirements.txt` instala `pyspellchecker`, que revisa la ortografía de las
-descripciones del diccionario. Si el corrector marca como error una palabra
-correcta del negocio, agréguela a `app/reglas/vocabulario_tecnico.txt`.
+La ortografía y las tildes de las descripciones del diccionario se revisan con el
+diccionario oficial de español Perú (RLA-ES, el de LibreOffice), que viene dentro del
+proyecto (`app/reglas/diccionario_es_pe.txt.gz`): no hay que instalar nada. Si el
+corrector marca como error una palabra del negocio (jerga, siglas), agréguela a
+`app/reglas/vocabulario_tecnico.txt`.
 
 Abrir http://localhost:8000.
 

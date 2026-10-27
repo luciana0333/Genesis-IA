@@ -23,7 +23,7 @@ END
 DICCIONARIO = """
 EXEC sys.sp_addextendedproperty
 @name=N'MS_Description',
-@value=N'Procedimiento que permite la busqueda de informacion de PERSONA',
+@value=N'Procedimiento que permite la búsqueda de información de PERSONA',
 @level0type=N'SCHEMA',
 @level0name=N'Dbo',
 @level1type=N'PROCEDURE',
@@ -32,7 +32,7 @@ GO
 
 EXEC sys.sp_addextendedproperty
 @name=N'MS_Description',
-@value=N'Codigo unico de la persona a consultar',
+@value=N'Código único de la persona a consultar',
 @level0type=N'SCHEMA',
 @level0name=N'Dbo',
 @level1type=N'PROCEDURE',

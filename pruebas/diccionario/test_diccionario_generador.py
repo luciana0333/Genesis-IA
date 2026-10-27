@@ -30,7 +30,7 @@ def _completar(script: str) -> str:
     """Simula al desarrollador: escribe una descripción distinta en cada sentencia."""
     partes = script.split("@value = N''")
     return "".join(
-        parte + (f"@value = N'Descripcion de prueba numero {i}'" if i < len(partes) - 1 else "")
+        parte + (f"@value = N'Descripción de prueba numero {i}'" if i < len(partes) - 1 else "")
         for i, parte in enumerate(partes)
     )
 

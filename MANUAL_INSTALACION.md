@@ -59,10 +59,10 @@ Instala dos complementos. **Genesis funciona aunque este paso falle**:
 
 | Complemento | Para qué | Si no se instala |
 |---|---|---|
-| Corrector ortográfico (`pyspellchecker`) | Revisa la ortografía de las descripciones del diccionario | No se revisa la ortografía |
+| `pyspellchecker` | Ayuda a ordenar las sugerencias de ortografía por lo frecuente de cada palabra | Las sugerencias se ordenan igual, sin ese desempate (la ortografía y las tildes se revisan siempre: el diccionario de español viene dentro del proyecto) |
 | spaCy y su modelo de español (unos 50 MB) | Redacta las descripciones sugeridas de «Generar diccionario faltante» | Las sugerencias usan reglas más simples |
 
-Si la red bloquea la descarga completa, prueba solo el corrector, que es pequeño:
+Si la red bloquea la descarga completa, puedes instalar solo el primero, que es pequeño:
 
 ```
 python -m pip install pyspellchecker==0.9.0

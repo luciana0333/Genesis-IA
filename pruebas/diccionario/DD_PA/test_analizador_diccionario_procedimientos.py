@@ -178,7 +178,7 @@ class TestOrtografiaProcedimientos(unittest.TestCase):
         procedimiento = "CREATE PROCEDURE dbo.PA_Cliente_Consultar\n    @nClienteId INT\nAS\nBEGIN\n    SELECT 1\nEND"
         diccionario = (
             "EXEC sys.sp_addextendedproperty @name = N'MS_Description', "
-            "@value = N'Consulta la informacion del clienet', @level0type = N'SCHEMA', @level0name = N'dbo', "
+            "@value = N'Consulta la información del clienet', @level0type = N'SCHEMA', @level0name = N'dbo', "
             "@level1type = N'PROCEDURE', @level1name = N'PA_Cliente_Consultar';\n"
             "EXEC sys.sp_addextendedproperty @name = N'MS_Description', "
             "@value = N'Identificadodr del cliente', @level0type = N'SCHEMA', @level0name = N'dbo', "
