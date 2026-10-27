@@ -32,7 +32,7 @@ GO
 
 EXEC sys.sp_addextendedproperty
 @name=N'MS_Description',
-@value=N'Codigo de la persona',
+@value=N'Código de la persona',
 @level0type=N'SCHEMA',
 @level0name=N'RRHH',
 @level1type=N'PROCEDURE',

@@ -29,7 +29,7 @@ class TestDocumentacionDuplicadaProcedimiento(unittest.TestCase):
         diccionario = "\n".join([
             sentencia("Consulta el cliente por su identificador"),
             sentencia("Identificador del cliente", "@nClienteId"),
-            sentencia("Codigo del cliente", "@cCodigo"),
+            sentencia("Código del cliente", "@cCodigo"),
             sentencia("Identificador del cliente", "@nClienteId"),
         ])
         hallazgos = duplicados(diccionario)
@@ -42,7 +42,7 @@ class TestDocumentacionDuplicadaProcedimiento(unittest.TestCase):
         diccionario = "\n".join([
             sentencia("Consulta el cliente por su identificador"),
             sentencia("Identificador del cliente", "@nClienteId"),
-            sentencia("Codigo del cliente", "@cCodigo"),
+            sentencia("Código del cliente", "@cCodigo"),
             sentencia("Consulta el cliente por su identificador"),
             sentencia("Identificador del cliente", "@nClienteId"),
         ])
@@ -56,12 +56,12 @@ class TestDocumentacionDuplicadaProcedimiento(unittest.TestCase):
         diccionario = "\n".join([
             sentencia("Consulta el cliente por su identificador"),
             sentencia("Identificador del cliente", "@nClienteId"),
-            sentencia("Codigo del cliente", "@cCodigo"),
+            sentencia("Código del cliente", "@cCodigo"),
         ])
         self.assertEqual(duplicados(diccionario), [])
 
     def test_update_no_cuenta_como_repetido(self):
-        actualizar = sentencia("Identificador unico del cliente", "@nClienteId").replace(
+        actualizar = sentencia("Identificador único del cliente", "@nClienteId").replace(
             "sp_addextendedproperty", "sp_updateextendedproperty")
         diccionario = "\n".join([
             sentencia("Consulta el cliente por su identificador"),

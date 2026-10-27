@@ -27,7 +27,7 @@ def sentencia(descripcion="Consulta el cliente", parametro=None, nombre="PA_Clie
 
 
 COMPLETO = "\n".join([sentencia(), sentencia("Identificador del cliente", "@nClienteId"),
-                      sentencia("Codigo del cliente", "@cCodigo")])
+                      sentencia("Código del cliente", "@cCodigo")])
 
 
 def reglas(hallazgos):

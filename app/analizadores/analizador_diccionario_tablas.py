@@ -18,7 +18,9 @@ from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con
 from app.analizadores.diccionario_nomenclatura import nomenclatura_tabla
 from app.analizadores.diccionario_varios import agrupar_varios, por_objeto
 from app.analizadores.objetos_repetidos import hallazgo_repetidos, quitar_creaciones_repetidas
-from app.analizadores.ortografia import elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico
+from app.analizadores.ortografia import (
+    ACCION_ORTOGRAFIA, elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico,
+)
 from app.analizadores.propiedades_extendidas import (
     LlamadaPropiedad,
     como_llamadas_crudas,
@@ -806,7 +808,7 @@ _PLANTILLAS_AGRUPADAS = {
     ),
     "ERROR_ORTOGRAFICO": (
         "descripciones con errores de escritura",
-        "Se recomienda corregir cada palabra por la sugerida (o revisar su escritura si no hay sugerencia), ya que el diccionario es la documentación oficial de la tabla.",
+        ACCION_ORTOGRAFIA,
     ),
     "DOCUMENTACION_EXISTENTE_EN_ALTER": (
         "descripciones que se agregan a objetos que ya existen",

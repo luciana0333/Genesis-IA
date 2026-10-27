@@ -35,7 +35,7 @@ GO
 
 EXEC sys.sp_addextendedproperty
 @name=N'MS_Description',
-@value=N'Identificador unico',
+@value=N'Identificador único',
 @level0type=N'SCHEMA',
 @level0name=N'CLICKTOPAY',
 @level1type=N'TABLE',
@@ -87,7 +87,7 @@ GO
 
 EXEC sys.sp_addextendedproperty
 @name=N'MS_Description',
-@value=N'Identificador unico',
+@value=N'Identificador único',
 @level0type=N'SCHEMA',
 @level0name=N'CLICKTOPAY',
 @level1type=N'TABLE',
@@ -98,7 +98,7 @@ GO
 
 EXEC sys.sp_addextendedproperty
 @name=N'MS_Description',
-@value=N'Codigo de persona',
+@value=N'Código de persona',
 @level0type=N'SCHEMA',
 @level0name=N'CLICKTOPAY',
 @level1type=N'TABLE',
@@ -146,7 +146,7 @@ GO
 
 EXEC sys.sp_addextendedproperty
 @name=N'MS_Description',
-@value=N'Codigo de persona',
+@value=N'Código de persona',
 @level0type=N'SCHEMA',
 @level0name=N'CLICKTOPAY',
 @level1type=N'TABLE',
@@ -287,14 +287,14 @@ class TestDiccionarioTablasAlter(unittest.TestCase):
 
     def test_columnas_nuevas_documentadas_no_generan_hallazgos(self):
         diccionario = "\n".join([
-            self._columna("cCodigo", "Codigo corto del estado"),
+            self._columna("cCodigo", "Código corto del estado"),
             self._columna("bActivo", "Indica si el estado se encuentra activo"),
         ])
         self.assertEqual(verificar_diccionario_tablas(self.ALTER, diccionario), [])
 
     def test_no_exige_la_descripcion_de_la_tabla(self):
         diccionario = "\n".join([
-            self._columna("cCodigo", "Codigo corto del estado"),
+            self._columna("cCodigo", "Código corto del estado"),
             self._columna("bActivo", "Indica si el estado se encuentra activo"),
         ])
         reglas = {h.regla for h in verificar_diccionario_tablas(self.ALTER, diccionario)}
@@ -302,7 +302,7 @@ class TestDiccionarioTablasAlter(unittest.TestCase):
 
     def test_columna_nueva_sin_documentar_es_alto(self):
         hallazgos = verificar_diccionario_tablas(
-            self.ALTER, self._columna("cCodigo", "Codigo corto del estado")
+            self.ALTER, self._columna("cCodigo", "Código corto del estado")
         )
         self.assertEqual([h.regla for h in hallazgos], ["COLUMNA_FALTANTE"])
         self.assertEqual(hallazgos[0].severidad, Severidad.ALTO)
@@ -316,7 +316,7 @@ class TestDiccionarioTablasAlter(unittest.TestCase):
         )
         diccionario = "\n".join([
             tabla,
-            self._columna("cCodigo", "Codigo corto del estado"),
+            self._columna("cCodigo", "Código corto del estado"),
             self._columna("bActivo", "Indica si el estado se encuentra activo"),
         ])
         hallazgos = verificar_diccionario_tablas(self.ALTER, diccionario)
@@ -442,7 +442,7 @@ class TestDiccionarioTablasSinDependerDeGO(unittest.TestCase):
     def test_punto_y_coma_y_exec_dentro_de_la_descripcion_no_cortan_la_sentencia(self):
         diccionario = caso6.diccionario_correcto(";").replace(
             "Nombre del archivo adjunto",
-            "Nombre del archivo; no ejecutar EXEC sys.sp_addextendedproperty aqui",
+            "Nombre del archivo; no ejecutar EXEC sys.sp_addextendedproperty aquí",
         )
         self.assertEqual(verificar_diccionario_tablas(caso6.TABLA, diccionario), [])
 
@@ -463,7 +463,7 @@ class TestDiccionarioTablasSinDependerDeGO(unittest.TestCase):
 
     def test_columna_documentada_dos_veces(self):
         base = caso6.diccionario_correcto(";")
-        repetida = caso6._sentencia("cNombreArchivo", "Otra descripcion") + ";"
+        repetida = caso6._sentencia("cNombreArchivo", "Otra descripción") + ";"
         hallazgos = verificar_diccionario_tablas(caso6.TABLA, base + "\n" + repetida)
         self.assertEqual([h.regla for h in hallazgos], ["DOCUMENTACION_DUPLICADA"])
         self.assertRegex(hallazgos[0].mensaje, r"^Se identificó que la columna cNombreArchivo se encuentra "
