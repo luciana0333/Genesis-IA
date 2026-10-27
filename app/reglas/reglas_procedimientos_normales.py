@@ -368,7 +368,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "DROP_TABLE_CON_VALIDACION": ReglaDiccionario(
         codigo="DROP_TABLE_CON_VALIDACION",
-        nombre="Validación con OBJECT_ID antes de DROP TABLE",
+        nombre="Sintaxis antigua para eliminar tablas",
         severidad="bajo",
         descripcion="Para eliminar una tabla temporal si existe se usa DROP TABLE IF EXISTS #tabla, en lugar de "
                     "IF OBJECT_ID('tempdb..#tabla') IS NOT NULL DROP TABLE #tabla.",

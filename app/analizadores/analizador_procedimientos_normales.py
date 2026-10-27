@@ -1001,7 +1001,7 @@ def _validar_drop_table_if_exists(texto: str) -> List[Hallazgo]:
     if not casos:
         return []
     lineas = [_linea(texto, posicion) for posicion, _, _ in casos]
-    hallazgo = _hallazgo(texto, casos[0][0], "DROP_TABLE_CON_VALIDACION", mensaje_drop_if_exists(casos, lineas))
+    hallazgo = _hallazgo(texto, casos[0][0], "DROP_TABLE_CON_VALIDACION", mensaje_drop_if_exists(casos))
     if len(casos) > 1:
         hallazgo.lineas = sorted(set(lineas))  # para recorrerlas con la barra «1 de N»
     return [hallazgo]

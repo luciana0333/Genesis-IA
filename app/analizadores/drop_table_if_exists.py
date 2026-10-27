@@ -65,21 +65,16 @@ def validaciones_antes_de_drop(texto: str) -> List[Tuple[int, str, str]]:
     return sorted(encontradas)
 
 
-def _validacion(tabla: str, forma: str) -> str:
-    if forma == "OBJECT_ID":
-        return f"IF OBJECT_ID('tempdb..{tabla}') IS NOT NULL"
-    return "IF EXISTS (SELECT … FROM tempdb…)"
+def _enumerar(partes: List[str]) -> str:
+    return partes[0] if len(partes) == 1 else f"{', '.join(partes[:-1])} y {partes[-1]}"
 
 
-def mensaje_drop_if_exists(casos: List[Tuple[int, str, str]], lineas: List[int]) -> str:
-    """Texto aprobado por la usuaria (uno o varios casos)."""
-    motivo = ("ya que elimina la tabla si existe en una sola instrucción y no genera error si la tabla no está "
-              "creada.")
-    if len(casos) == 1:
-        _, tabla, forma = casos[0]
-        return (f"Se identificó la validación {_validacion(tabla, forma)} para eliminar la tabla temporal {tabla}. "
-                f"Se recomienda reemplazarla por DROP TABLE IF EXISTS {tabla}, {motivo}")
-    donde = ("la línea " if len(set(lineas)) == 1 else "las líneas ") + ", ".join(map(str, sorted(set(lineas))))
-    detalle = "; ".join(f"{_validacion(tabla, forma)} para la tabla temporal {tabla}" for _, tabla, forma in casos)
-    return (f"Se identificaron {len(casos)} validaciones antes de eliminar tablas temporales, en {donde}: {detalle}. "
-            f"Se recomienda reemplazarlas por DROP TABLE IF EXISTS (ej.: DROP TABLE IF EXISTS {casos[0][1]}), {motivo}")
+def mensaje_drop_if_exists(casos: List[Tuple[int, str, str]]) -> str:
+    """Texto de la usuaria: una sola observación con todas las tablas."""
+    tablas = list(dict.fromkeys(tabla for _, tabla, _ in casos))
+    formas = list(dict.fromkeys(f"IF {forma}" for _, _, forma in casos))
+    uso = " e ".join(formas)  # «IF OBJECT_ID», «IF EXISTS» o «IF OBJECT_ID e IF EXISTS»
+    sobre = f"la tabla {tablas[0]}" if len(tablas) == 1 else f"las tablas {_enumerar(tablas)}"
+    return (f"Se identificó el uso de {uso} sobre {sobre}. Se recomienda utilizar DROP TABLE IF EXISTS en lugar de "
+            f"{uso}, ya que esta instrucción verifica si la tabla existe y la elimina en un solo paso, simplificando "
+            f"el código y evitando errores si la tabla no existe.")
