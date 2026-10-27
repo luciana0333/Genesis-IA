@@ -204,6 +204,11 @@ REGLAS_TABLAS = {
         "INDICE_INCLUDE_EXTENSO", "INCLUDE con muchas columnas", "medio",
         "Un índice con más de 5 columnas en el INCLUDE se valida: cada columna incluida se copia en el índice.",
     ),
+    "INDICE_COLUMNA_FIJA_EN_FILTRO": _regla(
+        "INDICE_COLUMNA_FIJA_EN_FILTRO", "Columna del índice fija en el filtro", "bajo",
+        "En un índice filtrado, una columna de la clave que el WHERE fija en un solo valor (WHERE bVigente = 1) "
+        "no aporta: se retira de la clave.",
+    ),
     "INDICE_DUPLICADO": _regla(
         "INDICE_DUPLICADO", "Índice duplicado", "medio",
         "No debe haber dos índices con las mismas columnas clave (ni uno igual a la clave primaria).",
