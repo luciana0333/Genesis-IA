@@ -372,28 +372,33 @@ def _opciones(palabra: str, opciones: List[str]) -> str:
     return f"'{opciones[0]}'"
 
 
+# «Qué hacer» de las faltas de ortografía (texto de la usuaria), igual en tablas y procedimientos.
+ACCION_ORTOGRAFIA = (
+    "Se recomienda corregir las palabras según las sugerencias proporcionadas o revisar su escritura "
+    "si no hay sugerencias, para mantener una documentación clara y correcta."
+)
+
+
 def redactar_error_ortografico(objeto: str, errores: List[Tuple[str, Optional[List[str]]]], documento: str) -> str:
     """
-    Mensaje del hallazgo de ortografía: qué palabras están mal y por cuál
-    corregir cada una (o que se revise, si no hay sugerencia).
-    objeto: "del procedimiento dbo.PA_X", "de la columna cNombre"...
-    documento: a qué documenta el diccionario ("del procedimiento", "de la tabla").
+    Mensaje del hallazgo de ortografía: cada palabra con su corrección (o sola, si no hay sugerencia)
+    y el «Qué hacer» común. objeto: "del procedimiento dbo.PA_X", "de la columna cNombre"...
+    documento: a qué documenta el diccionario (se conserva por compatibilidad con quien llama).
     """
-    palabras = ", ".join(f"'{palabra}'" for palabra, _ in errores)
     error = "un error de escritura" if len(errores) == 1 else f"{len(errores)} errores de escritura"
-    con_sugerencia = [f"'{palabra}' por {_opciones(palabra, opciones)}" for palabra, opciones in errores if opciones]
-    sin_sugerencia = [f"'{palabra}'" for palabra, opciones in errores if not opciones]
-    acciones = []
-    if con_sugerencia:
-        acciones.append("corregir " + _enumerar(con_sugerencia))
-    if sin_sugerencia:
-        palabra_s = "la palabra " if len(sin_sugerencia) == 1 else "las palabras "
-        acciones.append(f"revisar {palabra_s}{_enumerar(sin_sugerencia)} y escribir correctamente la descripción")
     return (
         f"Se {'identificó' if len(errores) == 1 else 'identificaron'} {error} en la descripción {objeto}: "
-        f"{palabras}. "
-        f"Se recomienda {' y '.join(acciones)}, ya que el diccionario es la documentación oficial "
-        f"{documento}."
+        f"{_cambios(errores)}. {ACCION_ORTOGRAFIA}"
+    )
+
+
+def _cambios(errores: List[Tuple[str, Optional[List[str]]]]) -> str:
+    """«'codigo' → 'código' (tilde), 'clinete' → 'cliente', 'ROJSH'»."""
+    return ", ".join(
+        (f"'{palabra}' → {_opciones(palabra, opciones)}"
+         + (" (tilde)" if es_error_de_tilde(palabra, opciones) else ""))
+        if opciones else f"'{palabra}'"
+        for palabra, opciones in errores
     )
 
 
@@ -403,10 +408,4 @@ def _enumerar(elementos: List[str]) -> str:
 
 def elemento_ortografico(objeto: str, errores: List[Tuple[str, Optional[List[str]]]]) -> str:
     """Línea de la lista cuando se agrupan varios errores: "del parámetro @x: 'a' → 'b'"."""
-    cambios = ", ".join(
-        (f"'{palabra}' → {_opciones(palabra, opciones)}"
-         + (" (tilde)" if es_error_de_tilde(palabra, opciones) else ""))
-        if opciones else f"'{palabra}'"
-        for palabra, opciones in errores
-    )
-    return f"Descripción {objeto}: {cambios}"
+    return f"Descripción {objeto}: {_cambios(errores)}"

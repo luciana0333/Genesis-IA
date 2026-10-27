@@ -90,7 +90,7 @@ class TestOrtografia(unittest.TestCase):
         )
         hallazgos = verificar_diccionario_tablas(tabla, diccionario_tabla)
         self.assertEqual([h.regla for h in hallazgos], ["ERROR_ORTOGRAFICO"])
-        self.assertIn("corregir 'clienteYY' por 'cliente'", hallazgos[0].mensaje)
+        self.assertIn("'clienteYY' → 'cliente'", hallazgos[0].mensaje)
 
     def test_detecta_falta_de_tilde_y_sugiere_la_forma_correcta(self):
         self.assertEqual(
@@ -139,7 +139,13 @@ class TestOrtografia(unittest.TestCase):
 
     def test_mensaje_sin_sugerencia_pide_revisar_la_descripcion(self):
         mensaje = ortografia.redactar_error_ortografico("del procedimiento dbo.PA_X", [("ROJSH", [])], "del procedimiento")
-        self.assertIn("revisar la palabra 'ROJSH' y escribir correctamente la descripción", mensaje)
+        # Texto de la usuaria para el «Qué hacer», igual en tablas y procedimientos.
+        self.assertEqual(
+            mensaje,
+            "Se identificó un error de escritura en la descripción del procedimiento dbo.PA_X: 'ROJSH'. Se recomienda "
+            "corregir las palabras según las sugerencias proporcionadas o revisar su escritura si no hay sugerencias, "
+            "para mantener una documentación clara y correcta.",
+        )
         varios = ortografia.redactar_error_ortografico("de la tabla dbo.T", [("a", ["b"]), ("c", ["d"])], "de la tabla")
         self.assertTrue(varios.startswith("Se identificaron 2 errores de escritura"))
 
