@@ -5,6 +5,7 @@ import re
 from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
+from app.analizadores.drop_table_if_exists import mensaje_drop_if_exists, validaciones_antes_de_drop
 from app.analizadores.openjson_collate import collates_en_openjson, mensaje_collate_openjson
 from app.analizadores.sql_order_by import order_by_por_posicion
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
@@ -500,6 +501,18 @@ def _validar_collate_openjson(texto: str, limpio: str) -> List[Hallazgo]:
     ]
 
 
+def _validar_drop_table_if_exists(texto: str) -> List[Hallazgo]:
+    """IF OBJECT_ID('tempdb..#T') IS NOT NULL DROP TABLE #T: se escribe DROP TABLE IF EXISTS #T."""
+    casos = validaciones_antes_de_drop(texto)
+    if not casos:
+        return []
+    lineas = [_linea(texto, posicion) for posicion, _, _ in casos]
+    hallazgo = _hallazgo(texto, casos[0][0], "DROP_TABLE_CON_VALIDACION", mensaje_drop_if_exists(casos))
+    if len(casos) > 1:
+        hallazgo.lineas = sorted(set(lineas))  # para recorrerlas con la barra «1 de N»
+    return [hallazgo]
+
+
 def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
     """VARCHAR(MAX) solo se permite para guardar JSON o XML, o una lista que se separa con STRING_SPLIT."""
     hallazgos = []
@@ -898,6 +911,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_sentencias(texto_sql, limpio))
     hallazgos.extend(_validar_sintaxis_prohibida(texto_sql, limpio))
     hallazgos.extend(_validar_varchar_max(texto_sql, limpio))
+    hallazgos.extend(_validar_drop_table_if_exists(texto_sql))
     hallazgos.extend(_validar_collate_openjson(texto_sql, limpio))
     hallazgos.extend(_validar_control_de_flujo(texto_sql, limpio))
     hallazgos.extend(_validar_transacciones(texto_sql, limpio))
