@@ -366,6 +366,15 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "DROP_TABLE_CON_VALIDACION": ReglaDiccionario(
+        codigo="DROP_TABLE_CON_VALIDACION",
+        nombre="Validación con OBJECT_ID antes de DROP TABLE",
+        severidad="bajo",
+        descripcion="Para eliminar una tabla temporal si existe se usa DROP TABLE IF EXISTS #tabla, en lugar de "
+                    "IF OBJECT_ID('tempdb..#tabla') IS NOT NULL DROP TABLE #tabla.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "VARCHAR_MAX_PROHIBIDO": ReglaDiccionario(
         codigo="VARCHAR_MAX_PROHIBIDO",
         nombre="VARCHAR(MAX) prohibido",
