@@ -477,6 +477,11 @@ def _clave_primaria(texto: str, columnas: List[ColumnaNueva]) -> Tuple[List[str]
 # Largo máximo de los nombres (sin el esquema): uno más largo dificulta escribir y leer las consultas.
 _LARGO_MAXIMO_TABLA = 30
 _LARGO_MAXIMO_COLUMNA = 40
+# «Qué hacer» del nombre de tabla muy largo (texto de la usuaria).
+_ACCION_TABLA_MUY_LARGA = (
+    "Se recomienda reducir la longitud del nombre de la tabla, ya que resulta demasiado extenso. El nombre debe "
+    "ser breve, claro y descriptivo, de manera que permita identificar fácilmente su finalidad."
+)
 
 
 def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: str) -> List[Hallazgo]:
@@ -522,9 +527,8 @@ def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: s
     if len(tabla) > _LARGO_MAXIMO_TABLA:
         hallazgos.append(con_elemento(_hallazgo(
             texto, -1, "TABLA_NOMBRE_MUY_LARGO",
-            f"Se identificó que el nombre de la tabla {referencia} tiene {len(tabla)} caracteres. Se recomienda "
-            f"usar un nombre de máximo {_LARGO_MAXIMO_TABLA} caracteres, ya que el nombre de la tabla debe "
-            f"reflejar su finalidad y ser corto, claro y entendible.",
+            f"Se identificó que el nombre de la tabla {referencia} tiene {len(tabla)} caracteres. "
+            f"{_ACCION_TABLA_MUY_LARGA}",  # Texto de la usuaria.
         ), f"{referencia} ({len(tabla)} caracteres)"))
     return hallazgos
 
@@ -744,8 +748,7 @@ _PLANTILLAS_AGRUPADAS = {
     ),
     "TABLA_NOMBRE_MUY_LARGO": (
         "tablas con nombre muy largo",
-        "Se recomienda usar nombres de máximo 30 caracteres, ya que el nombre de cada tabla debe reflejar su "
-        "finalidad y ser corto, claro y entendible.",
+        _ACCION_TABLA_MUY_LARGA,
     ),
     "COLUMNA_NOMBRE_MUY_LARGO": (
         "columnas con nombre muy largo",
