@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.drop_table_if_exists import mensaje_drop_if_exists, validaciones_antes_de_drop
-from app.analizadores.openjson_collate import collates_en_openjson, mensaje_collate_openjson
+from app.analizadores.openjson_collate import collates_en_openjson, dentro_de_openjson, mensaje_collate_openjson
 from app.analizadores.sql_order_by import order_by_por_posicion
 from app.analizadores.sql_parentesis import sin_parentesis_cerrados
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
@@ -719,6 +719,41 @@ _CLAUSULAS = re.compile(
 )
 
 
+def _validar_collate_database_default(texto: str, limpio: str) -> List[Hallazgo]:
+    """COLLATE DATABASE_DEFAULT depende de cada base: se usa el de la empresa (SQL_Latin1_General_CP1_CI_AS)."""
+    hallazgos = []
+    for match in re.finditer(r"\bCOLLATE\s+DATABASE_DEFAULT\b", limpio, re.IGNORECASE):
+        if dentro_de_openjson(limpio, match.start()):
+            continue  # lo observa «COLLATE innecesario en OPENJSON»
+        columna = _columna_antes_de(limpio, match.start())
+        en_columna = f" en la columna {columna}" if columna else ""
+        hallazgos.append(_hallazgo(
+            texto, match.start(), "COLLATE_DATABASE_DEFAULT",
+            f"Se identificó el uso de COLLATE DATABASE_DEFAULT{en_columna}, que toma el COLLATE de la base donde "
+            f"se ejecuta. Se recomienda definir el COLLATE explícitamente con el que usa la empresa, ya que "
+            f"DATABASE_DEFAULT puede cambiar entre bases y servidores, y las comparaciones fallarían "
+            f"(ej.: COLLATE SQL_Latin1_General_CP1_CI_AS).",
+        ))
+    return hallazgos
+
+
+# Lo que separa una columna de la anterior: coma, paréntesis, comparación o palabra de la consulta.
+_ANTES_DE_LA_COLUMNA = re.compile(
+    r"[,(=<>]|\b(?:ON|WHERE|AND|OR|SELECT|BY|WHEN|THEN|ELSE|HAVING|SET)\b", re.IGNORECASE
+)
+
+
+def _columna_antes_de(limpio: str, posicion: int) -> Optional[str]:
+    """La columna a la que se aplica el COLLATE: «cCod» en «cCod VARCHAR(10) NOT NULL COLLATE …», «a.c» en «a.c COLLATE …»."""
+    previo = sin_parentesis_cerrados(limpio[:posicion])
+    cortes = list(_ANTES_DE_LA_COLUMNA.finditer(previo))
+    inicio = cortes[-1].end() if cortes else 0
+    nombre = re.compile(r"\s*([\w.\[\]@#]+)").match(previo, inicio)
+    if not nombre or re.match(r"\s*\(", limpio[nombre.end():]):
+        return None  # sin nombre, o es una función (LTRIM(a.c) COLLATE …)
+    return nombre.group(1)
+
+
 def _validar_collate_en_condiciones(texto: str, limpio: str) -> List[Hallazgo]:
     """COLLATE no se permite en las condiciones del WHERE ni del JOIN."""
     hallazgos = []
@@ -925,6 +960,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_esquema_entre_bases(texto_sql, limpio))
     hallazgos.extend(_validar_order_by_numerico(texto_sql, limpio))
     hallazgos.extend(_validar_collate_en_condiciones(texto_sql, limpio))
+    hallazgos.extend(_validar_collate_database_default(texto_sql, limpio))
     hallazgos.extend(_validar_funciones_reemplazables(texto_sql, limpio))
     hallazgos.extend(_validar_modificaciones_fisicas(texto_sql, limpio))
     hallazgos.extend(_validar_variables(texto_sql, limpio))

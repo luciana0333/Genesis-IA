@@ -225,6 +225,15 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "COLLATE_DATABASE_DEFAULT": ReglaDiccionario(
+        codigo="COLLATE_DATABASE_DEFAULT",
+        nombre="COLLATE DATABASE_DEFAULT",
+        severidad="alto",
+        descripcion="El COLLATE se define explícitamente con el de la empresa (SQL_Latin1_General_CP1_CI_AS), "
+                    "no con DATABASE_DEFAULT.",
+        alcance="reporte",
+        activo=True,
+    ),
     "COLLATE_EN_PREDICADO": ReglaDiccionario(
         codigo="COLLATE_EN_PREDICADO",
         nombre="COLLATE en WHERE o JOIN",
