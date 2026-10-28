@@ -4,6 +4,7 @@
 import re
 from typing import Dict, List, Set, Tuple
 
+from app.analizadores.collate_temporales import columnas_sin_collate
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.drop_table_if_exists import mensaje_drop_if_exists, validaciones_antes_de_drop
 from app.analizadores.openjson_collate import collates_en_openjson, dentro_de_openjson, mensaje_collate_openjson
@@ -688,29 +689,10 @@ def _validar_collate_usado(texto: str, limpio: str) -> List[Hallazgo]:
 
 def _validar_collate_temporales(texto: str, limpio: str) -> List[Hallazgo]:
     """Toda columna de texto de una tabla temporal (#T) o variable de tabla (@T) lleva COLLATE."""
-    hallazgos = []
-    patron = re.compile(
-        r"\b(?:CREATE\s+TABLE\s+(#[A-Za-z_]\w*)|DECLARE\s+(@[A-Za-z_]\w*)\s+(?:AS\s+)?TABLE)\s*\(",
-        re.IGNORECASE,
-    )
-    for match in patron.finditer(limpio):
-        tabla = match.group(1) or match.group(2)
-        tipo_tabla = "la tabla temporal" if match.group(1) else "la variable de tabla"
-        apertura = match.end() - 1
-        contenido = _contenido_entre_parentesis(limpio, apertura)
-        for definicion, desplazamiento in _separar_por_comas(contenido):
-            columna = re.match(rf"\s*({_IDENTIFICADOR})\s+({_TIPOS_TEXTO})", definicion, re.IGNORECASE)
-            if not columna or re.search(r"\bCOLLATE\s+\w+", definicion, re.IGNORECASE):
-                continue
-            tipo = re.match(r"\s*\S+\s+(\w+\s*(?:\([^)]*\))?)", definicion).group(1).upper().replace(" ", "")
-            hallazgos.append(_hallazgo(
-                texto, apertura + 1 + desplazamiento + columna.start(1), "TEMPORAL_TEXTO_SIN_COLLATE",
-                f"La columna de texto {columna.group(1)} de {tipo_tabla} {tabla} no define "
-                f"COLLATE. Añadir el COLLATE de la empresa, ya que sin él puede fallar al compararla "
-                f"con columnas de otras tablas "
-                f"(ej.: {columna.group(1)} {tipo} COLLATE SQL_Latin1_General_CP1_CI_AS).",
-            ))
-    return hallazgos
+    return [
+        _hallazgo(texto, posicion, "TEMPORAL_TEXTO_SIN_COLLATE", mensaje)
+        for posicion, mensaje in columnas_sin_collate(limpio)
+    ]
 
 
 def _validar_comentarios(texto: str) -> List[Hallazgo]:

@@ -4,6 +4,7 @@
 import re
 from typing import Dict, List, Optional, Set, Tuple
 
+from app.analizadores.collate_temporales import columnas_sin_collate
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.drop_table_if_exists import mensaje_drop_if_exists, validaciones_antes_de_drop
 from app.analizadores.openjson_collate import collates_en_openjson, mensaje_collate_openjson
@@ -311,36 +312,11 @@ def _validar_comentarios_codigo(texto: str) -> List[Hallazgo]:
 
 
 def _validar_tablas_temporales(texto: str, limpio: str) -> List[Hallazgo]:
-    hallazgos = []
-    patron = re.compile(rf"\bCREATE\s+TABLE\s+({_IDENTIFICADOR})\s*\(", re.IGNORECASE)
-    for tabla_match in patron.finditer(limpio):
-        tabla = tabla_match.group(1)
-        if not _es_temporal(tabla):
-            continue
-        inicio = tabla_match.end()
-        profundidad = 0
-        fin = len(limpio)
-        for indice in range(inicio, len(limpio)):
-            if limpio[indice] == "(":
-                profundidad += 1
-            elif limpio[indice] == ")":
-                if profundidad == 0:
-                    fin = indice
-                    break
-                profundidad -= 1
-        bloque = limpio[inicio:fin]
-        for columna in re.finditer(rf"\b({_IDENTIFICADOR})\s+({_TIPOS_TEXTO})(?:\s*\([^)]*\))?[^,]*", bloque, re.IGNORECASE):
-            if not re.search(r"\bCOLLATE\s+\w+", columna.group(0), re.IGNORECASE):
-                hallazgos.append(_hallazgo(
-                    texto,
-                    inicio + columna.start(),
-                    "TEMPORAL_TEXTO_SIN_COLLATE",
-                    f"Se identificó que la columna {columna.group(1)} de la tabla temporal {tabla} no tiene COLLATE. "
-                    f"Se recomienda añadir el COLLATE de la empresa, ya que sin él puede fallar al compararla con "
-                    f"columnas de otras tablas "
-                    f"(ej.: {columna.group(1)} VARCHAR(50) COLLATE SQL_Latin1_General_CP1_CI_AS).",
-                ))
-    return hallazgos
+    """Columnas de texto de tablas temporales (#T) y variables de tabla (@T) sin COLLATE."""
+    return [
+        _hallazgo(texto, posicion, "TEMPORAL_TEXTO_SIN_COLLATE", mensaje)
+        for posicion, mensaje in columnas_sin_collate(limpio)
+    ]
 
 
 def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
