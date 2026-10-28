@@ -282,7 +282,29 @@ def _separar_por_comas(contenido: str) -> List[Tuple[str, int]]:
                 segmentos.append((contenido[inicio:indice], inicio))
                 inicio = indice + 1
     segmentos.append((contenido[inicio:], inicio))
-    return segmentos
+    return [parte for segmento, posicion in segmentos for parte in _separar_restriccion_pegada(segmento, posicion)]
+
+
+# Restricción de tabla (con su lista de columnas) escrita sin coma después de la última columna. SQL Server la
+# acepta y la aplica a las columnas de la lista, no a la columna anterior:
+#     , bEstado bit not null
+#     constraint PK_Tasa_nTasaId primary key clustered (nTasaId)      <- la PK es nTasaId, no bEstado
+# Un CONSTRAINT de la propia columna (constraint DF_X default '') no lleva lista de columnas y no se separa.
+_RESTRICCION_DE_TABLA = re.compile(
+    r"\b(?:CONSTRAINT\s+\S+\s+)?(?:(?:PRIMARY\s+KEY|UNIQUE)(?:\s+(?:CLUSTERED|NONCLUSTERED))?|FOREIGN\s+KEY)\s*\(",
+    re.IGNORECASE,
+)
+
+
+def _separar_restriccion_pegada(segmento: str, posicion: int) -> List[Tuple[str, int]]:
+    """[(columna, pos), (restricción, pos)] si la restricción de tabla quedó pegada a la columna; si no, el segmento."""
+    if re.match(r"\s*(?:CONSTRAINT|PRIMARY|UNIQUE|FOREIGN|CHECK|INDEX)\b", segmento, re.IGNORECASE):
+        return [(segmento, posicion)]
+    restriccion = _RESTRICCION_DE_TABLA.search(segmento)
+    if not restriccion:
+        return [(segmento, posicion)]
+    corte = restriccion.start()
+    return [(segmento[:corte], posicion), (segmento[corte:], posicion + corte)]
 
 
 def _columna_desde_segmento(segmento: str, posicion: int) -> Optional[ColumnaNueva]:
