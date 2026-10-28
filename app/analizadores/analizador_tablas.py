@@ -190,6 +190,20 @@ def _a_pascal_case(nombre: str) -> Optional[str]:
 _CONECTORES_NOMBRE = {"a", "al", "con", "de", "del", "el", "en", "la", "las", "los", "o", "para", "por", "sin", "y"}
 
 
+def _otra_forma_valida(palabra: str) -> bool:
+    """
+    True si la palabra existe en otro género o número, aunque el diccionario no traiga esta forma:
+    «moratorios» -> «moratoria». Así no se parte en dos («mora» + «torios»).
+    """
+    singular = palabra[:-2] if palabra.endswith("es") else palabra[:-1] if palabra.endswith("s") else palabra
+    formas = {singular, palabra[:-1]}
+    for forma in list(formas):
+        if forma.endswith(("o", "a")):
+            formas.add(forma[:-1] + ("a" if forma.endswith("o") else "o"))
+            formas.add(forma[:-1] + ("as" if forma.endswith("o") else "os"))
+    return any(len(forma) >= 4 and es_palabra_valida(forma) for forma in formas - {palabra})
+
+
 def _corregir_palabras_pegadas(nombre: str) -> Optional[str]:
     """
     Nombre que ya parece PascalCase pero con dos palabras pegadas en un tramo
@@ -202,7 +216,7 @@ def _corregir_palabras_pegadas(nombre: str) -> Optional[str]:
     salida, cambiado = "", False
     for tramo in re.findall(r"[A-Z]+(?=[A-Z][a-z]|\d|$)|[A-Z]?[a-z]+|\d+", nombre):
         bajo = tramo.lower()
-        if tramo.isupper() or tramo.isdigit() or len(bajo) < 8 or es_palabra_valida(bajo):
+        if tramo.isupper() or tramo.isdigit() or len(bajo) < 8 or es_palabra_valida(bajo) or _otra_forma_valida(bajo):
             salida += tramo
             continue
         palabras = separar_palabras(bajo)
@@ -282,7 +296,29 @@ def _separar_por_comas(contenido: str) -> List[Tuple[str, int]]:
                 segmentos.append((contenido[inicio:indice], inicio))
                 inicio = indice + 1
     segmentos.append((contenido[inicio:], inicio))
-    return segmentos
+    return [parte for segmento, posicion in segmentos for parte in _separar_restriccion_pegada(segmento, posicion)]
+
+
+# Restricción de tabla (con su lista de columnas) escrita sin coma después de la última columna. SQL Server la
+# acepta y la aplica a las columnas de la lista, no a la columna anterior:
+#     , bEstado bit not null
+#     constraint PK_Tasa_nTasaId primary key clustered (nTasaId)      <- la PK es nTasaId, no bEstado
+# Un CONSTRAINT de la propia columna (constraint DF_X default '') no lleva lista de columnas y no se separa.
+_RESTRICCION_DE_TABLA = re.compile(
+    r"\b(?:CONSTRAINT\s+\S+\s+)?(?:(?:PRIMARY\s+KEY|UNIQUE)(?:\s+(?:CLUSTERED|NONCLUSTERED))?|FOREIGN\s+KEY)\s*\(",
+    re.IGNORECASE,
+)
+
+
+def _separar_restriccion_pegada(segmento: str, posicion: int) -> List[Tuple[str, int]]:
+    """[(columna, pos), (restricción, pos)] si la restricción de tabla quedó pegada a la columna; si no, el segmento."""
+    if re.match(r"\s*(?:CONSTRAINT|PRIMARY|UNIQUE|FOREIGN|CHECK|INDEX)\b", segmento, re.IGNORECASE):
+        return [(segmento, posicion)]
+    restriccion = _RESTRICCION_DE_TABLA.search(segmento)
+    if not restriccion:
+        return [(segmento, posicion)]
+    corte = restriccion.start()
+    return [(segmento[:corte], posicion), (segmento[corte:], posicion + corte)]
 
 
 def _columna_desde_segmento(segmento: str, posicion: int) -> Optional[ColumnaNueva]:
@@ -438,6 +474,16 @@ def _clave_primaria(texto: str, columnas: List[ColumnaNueva]) -> Tuple[List[str]
 # VALIDACIONES
 # ---------------------------------------------------------------------------
 
+# Largo máximo de los nombres (sin el esquema): uno más largo dificulta escribir y leer las consultas.
+_LARGO_MAXIMO_TABLA = 30
+_LARGO_MAXIMO_COLUMNA = 40
+# «Qué hacer» del nombre de tabla muy largo (texto de la usuaria).
+_ACCION_TABLA_MUY_LARGA = (
+    "Se recomienda reducir la longitud del nombre de la tabla, ya que resulta demasiado extenso. El nombre debe "
+    "ser breve, claro y descriptivo, de manera que permita identificar fácilmente su finalidad."
+)
+
+
 def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: str) -> List[Hallazgo]:
     hallazgos = []
     if not esquema:
@@ -478,6 +524,12 @@ def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: s
             f"El nombre de la tabla {tabla} incluye la palabra de enlace '{omitibles[0]}'. Quítela "
             f"del nombre: la nomenclatura no usa palabras como de, del, mi o su.",
         ))
+    if len(tabla) > _LARGO_MAXIMO_TABLA:
+        hallazgos.append(con_elemento(_hallazgo(
+            texto, -1, "TABLA_NOMBRE_MUY_LARGO",
+            f"Se identificó que el nombre de la tabla {referencia} tiene {len(tabla)} caracteres. "
+            f"{_ACCION_TABLA_MUY_LARGA}",  # Texto de la usuaria.
+        ), f"{referencia} ({len(tabla)} caracteres)"))
     return hallazgos
 
 
@@ -598,6 +650,15 @@ def _validar_columna(
             f"claramente su finalidad.",
         ))
 
+    if len(columna.nombre) > _LARGO_MAXIMO_COLUMNA:
+        elementos["COLUMNA_NOMBRE_MUY_LARGO"] = f"{columna.nombre} de {len(columna.nombre)} caracteres"
+        hallazgos.append(_hallazgo(
+            texto, columna.posicion, "COLUMNA_NOMBRE_MUY_LARGO",
+            f"Se identificó que el nombre de la columna {columna.nombre} de la tabla {referencia} tiene "
+            f"{len(columna.nombre)} caracteres. Se recomienda usar nombres de máximo {_LARGO_MAXIMO_COLUMNA} "
+            f"caracteres, ya que un nombre largo dificulta escribir y leer las consultas que usan la columna.",
+        ))
+
     binario = re.match(r"\s*(VARBINARY|IMAGE)\b", definicion, re.IGNORECASE)
     if binario:
         elementos["COLUMNA_VARBINARY_PROHIBIDA"] = f"{columna.nombre} ({binario.group(1).upper()})"
@@ -684,6 +745,15 @@ _PLANTILLAS_AGRUPADAS = {
         "tablas cuyos nombres contienen siglas",
         "Validar que las siglas sean comprensibles y estén estandarizadas. De ser necesario, reemplazarlas por "
         "términos descriptivos que faciliten la comprensión del nombre de la tabla.",
+    ),
+    "TABLA_NOMBRE_MUY_LARGO": (
+        "tablas con nombre muy largo",
+        _ACCION_TABLA_MUY_LARGA,
+    ),
+    "COLUMNA_NOMBRE_MUY_LARGO": (
+        "columnas con nombre muy largo",
+        "Se recomienda usar nombres de máximo 40 caracteres, ya que un nombre largo dificulta escribir y leer "
+        "las consultas que usan la columna.",
     ),
     "PK_FALTANTE": (
         "tablas sin clave primaria",
@@ -832,7 +902,7 @@ def verificar_tabla(texto_sql: str, es_dbcmaica: bool = False) -> List[Hallazgo]
 # Reglas de la tabla (no de una columna): su elemento ya nombra la tabla.
 _REGLAS_DE_TABLA = {
     "CREATE_SIN_PARENTESIS", "TABLA_SIN_ESQUEMA", "TABLA_NOMBRE_NO_PASCALCASE", "TABLA_CON_PALABRA_OMITIBLE",
-    "TABLA_NOMBRE_CON_SIGLA",
+    "TABLA_NOMBRE_CON_SIGLA", "TABLA_NOMBRE_MUY_LARGO",
     "PK_FALTANTE", "PK_COMPUESTA", "PK_NO_CLUSTER",
 }
 

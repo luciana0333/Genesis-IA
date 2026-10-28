@@ -75,3 +75,8 @@ supervisor
 supervisores
 tienda
 tiendas
+
+# Palabras correctas que el diccionario es_PE no trae
+moratorio
+moratorios
+moratorias

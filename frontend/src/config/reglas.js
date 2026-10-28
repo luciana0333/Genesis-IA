@@ -40,6 +40,8 @@ export const NOMBRES_REGLAS = {
   TABLA_NOMBRE_NO_ESTANDAR: 'Nombre de tabla fuera del estándar',
   COLUMNA_NOMBRE_NO_PASCALCASE: 'Nombre de columna fuera del estándar',
   COLUMNA_NOMBRE_CON_SIGLA: 'Nombre de columna con sigla por validar',
+  TABLA_NOMBRE_MUY_LARGO: 'Nombre de tabla muy largo',
+  COLUMNA_NOMBRE_MUY_LARGO: 'Nombre de columna muy largo',
   COLUMNA_NULL_EN_ALTER: 'Evaluar valor por defecto',
   COLUMNA_NOT_NULL_SIN_DEFAULT_EN_ALTER: 'Columna NOT NULL sin DEFAULT',
   COLUMNA_NOMBRE_CON_NUMERO: 'Nombre de columna con números',
