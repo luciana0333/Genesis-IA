@@ -25,7 +25,7 @@ class NombresMuyLargosTest(unittest.TestCase):
 
     def test_tabla_de_30_o_menos_no_se_observa(self):
         # 30 caracteres justos (el esquema no cuenta).
-        sql = ("CREATE TABLE dbo.EsquemaTotalizadoSupervisoresAb "
+        sql = ("CREATE TABLE dbo.EsquemaTotalizadoSupervisoresA "
                "(nEsquemaId INT IDENTITY(1,1) NOT NULL PRIMARY KEY CLUSTERED)")
         self.assertNotIn("TABLA_NOMBRE_MUY_LARGO", _reglas(sql))
 
