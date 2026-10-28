@@ -247,10 +247,12 @@ def _validar_nolock(texto: str, limpio: str) -> List[Hallazgo]:
 def _validar_hints(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     for match in re.finditer(_HINTS_PROHIBIDOS, limpio, re.IGNORECASE):
+        # MAXRECURSION tampoco se permite, pero va con su propio título.
+        es_maxrecursion = "MAXRECURSION" in match.group(0).upper()
         hallazgos.append(_hallazgo(
             texto,
             match.start(),
-            "HINT_PLAN_PROHIBIDO",
+            "MAXRECURSION_PROHIBIDO" if es_maxrecursion else "HINT_PLAN_PROHIBIDO",
             f"Se identificó el uso de '{match.group(0)}', que le indica al motor de base de datos cómo ejecutar "
             f"la consulta. Se recomienda retirarlo, ya que no está permitido forzar al motor y es el optimizador "
             f"quien decide el mejor plan de ejecución.",

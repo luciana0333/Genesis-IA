@@ -28,6 +28,14 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "MAXRECURSION_PROHIBIDO": ReglaDiccionario(
+        codigo="MAXRECURSION_PROHIBIDO",
+        nombre="Uso de MAXRECURSION no permitido",
+        severidad="alto",
+        descripcion="No se permite OPTION (MAXRECURSION ...) en los reportes.",
+        alcance="reporte",
+        activo=True,
+    ),
     "HINT_BLOQUEO_PROHIBIDO": ReglaDiccionario(
         codigo="HINT_BLOQUEO_PROHIBIDO",
         nombre="Hint de bloqueo prohibido",
