@@ -254,8 +254,41 @@ _PREDICADOS = [
 ]
 
 
+def _valores_definidos(elemento: ET.Element) -> str:
+    """Defined Values como SSMS: «[Expr1004] = Scalar Operator(CONVERT_IMPLICIT(...))» o solo las columnas."""
+    partes = []
+    for definido in elemento:
+        if _local(definido) != "DefinedValue":
+            continue
+        columnas = [_columna(c) for c in definido if _local(c) == "ColumnReference"]
+        escalar = next((e for e in definido if _local(e) == "ScalarOperator"), None)
+        if escalar is not None and escalar.attrib.get("ScalarString"):
+            # Las columnas calculadas van entre corchetes, como en SSMS: [Expr1002] = Scalar Operator(...)
+            columnas = [c if c.startswith("[") else f"[{c}]" for c in columnas]
+            partes.append(f"{', '.join(columnas)} = Scalar Operator({escalar.attrib['ScalarString']})")
+        else:
+            partes.extend(columnas)
+    return ", ".join(partes)
+
+
+def _orden(elemento: ET.Element) -> str:
+    """Order By como SSMS: [Tabla].[Columna] Ascending."""
+    return ", ".join(
+        f"{_columna(c)} {'Ascending' if columna.attrib.get('Ascending', 'true') == 'true' else 'Descending'}"
+        for columna in elemento if _local(columna) == "OrderByColumn"
+        for c in columna if _local(c) == "ColumnReference"
+    )
+
+
+_PREDICADOS += [
+    ("OrderBy", "Order By", _orden),
+    ("GroupBy", "Group By", _columnas),
+    ("DefinedValues", "Defined Values", _valores_definidos),
+]
+
+
 def _predicados(relop: ET.Element) -> List[Dict]:
-    """Predicados y columnas del operador (Seek Predicates, Predicate, Hash Keys...) tal cual el XML."""
+    """Predicados, columnas y expresiones del operador (Seek Predicates, Defined Values...) tal cual el XML."""
     encontrados = []
     for elemento in _propios(relop):
         for etiqueta, nombre, leer in _PREDICADOS:
@@ -267,6 +300,65 @@ def _predicados(relop: ET.Element) -> List[Dict]:
     if salida is not None and len(salida):
         encontrados.append({"nombre": "Output List", "texto": _columnas(salida)})
     return encontrados
+
+
+def _decimal(valor: Optional[float]) -> str:
+    """Número como lo escribe SSMS: sin ceros de más (0.0032831, 1, 1.11156)."""
+    if valor is None:
+        return ""
+    texto = f"{valor:.7f}".rstrip("0").rstrip(".")
+    return texto if texto not in ("", "-0") else "0"
+
+
+def _propiedades(relop: ET.Element, propio: float, costo_pct: float, contadores: Dict) -> List[List[str]]:
+    """
+    Datos del operador con los nombres y el orden del recuadro de SQL Server (SSMS), tomados del XML.
+    Solo los que el plan trae (un plan estimado no tiene los «Actual»).
+    """
+    atributos = relop.attrib
+    hilos = [e for e in _propios(relop) if _local(e) == "RunTimeCountersPerThread"]
+    almacenamiento = next((e for e in _propios(relop) if e.attrib.get("Storage")), None)
+    ordenado = next((e for e in _propios(relop) if "Ordered" in e.attrib), None)
+
+    def suma(nombre: str) -> Optional[float]:
+        valores = [v for v in (_numero(h, nombre) for h in hilos) if v is not None]
+        return sum(valores) if valores else None
+
+    filas_estimadas = _numero(relop, "EstimateRows")
+    ejecuciones_estimadas = 1 + (_numero(relop, "EstimateRebinds") or 0) + (_numero(relop, "EstimateRewinds") or 0)
+    tamano = _numero(relop, "AvgRowSize")
+    filas = [
+        ["Physical Operation", atributos.get("PhysicalOp", "")],
+        ["Logical Operation", atributos.get("LogicalOp", "")],
+        ["Actual Execution Mode", hilos[0].attrib.get("ActualExecutionMode", "") if hilos else ""],
+        ["Estimated Execution Mode", atributos.get("EstimatedExecutionMode", "")],
+        ["Storage", almacenamiento.attrib["Storage"] if almacenamiento is not None else ""],
+        ["Number of Rows Read", _decimal(contadores.get("filasLeidas"))],
+        ["Actual Number of Rows for All Executions", _decimal(contadores.get("filasReales"))],
+        ["Actual Number of Batches", _decimal(suma("Batches"))],
+        ["Actual Logical Reads", _decimal(contadores.get("lecturas"))],
+        ["Actual Physical Reads", _decimal(contadores.get("lecturasFisicas"))],
+        ["Actual Elapsed Time (ms)", _decimal(contadores.get("duracionMs"))],
+        ["Actual Elapsed CPU Time (ms)", _decimal(contadores.get("cpuMs"))],
+        ["Estimated I/O Cost", _decimal(_numero(relop, "EstimateIO"))],
+        ["Estimated Operator Cost", f"{_decimal(propio)} ({round(costo_pct):.0f}%)"],
+        ["Estimated CPU Cost", _decimal(_numero(relop, "EstimateCPU"))],
+        ["Estimated Subtree Cost", _decimal(_numero(relop, "EstimatedTotalSubtreeCost"))],
+        ["Number of Executions", _decimal(contadores.get("ejecuciones"))],
+        ["Estimated Number of Executions", _decimal(ejecuciones_estimadas)],
+        ["Estimated Number of Rows for All Executions",
+         _decimal(filas_estimadas * ejecuciones_estimadas if filas_estimadas is not None else None)],
+        ["Estimated Number of Rows Per Execution", _decimal(filas_estimadas)],
+        ["Estimated Number of Rows to be Read", _decimal(_numero(relop, "EstimatedRowsRead"))],
+        ["Estimated Row Size", f"{tamano:.0f} B" if tamano is not None else ""],
+        ["Actual Rebinds", _decimal(suma("ActualRebinds"))],
+        ["Actual Rewinds", _decimal(suma("ActualRewinds"))],
+        # El XML lo escribe «true/false» o «1/0»; SSMS lo muestra como True/False.
+        ["Ordered", ("True" if ordenado.attrib["Ordered"].lower() in ("1", "true") else "False")
+         if ordenado is not None else ""],
+        ["Node ID", atributos.get("NodeId", "")],
+    ]
+    return [fila for fila in filas if fila[1]]
 
 
 def _parametros(plan: ET.Element) -> List[Dict]:
@@ -323,17 +415,21 @@ def _nodos_de(relop: ET.Element, padre: str, costo_total: float, nodos: List[Dic
         if _local(elemento) == "Warnings":
             advertencias.extend(_leer_advertencias(elemento))
     ejecuciones_estimadas = 1 + (_numero(relop, "EstimateRebinds") or 0) + (_numero(relop, "EstimateRewinds") or 0)
+    contadores = _contadores(relop)
+    costo_pct = round(propio / costo_total * 100, 1) if costo_total > 0 else 0.0
     nodos.append({
         "id": relop.attrib.get("NodeId", "?"),
         "padre": padre,
         "fisica": relop.attrib.get("PhysicalOp", ""),
         "logica": relop.attrib.get("LogicalOp", ""),
         **_objeto(relop),
-        "costoPct": round(propio / costo_total * 100, 1) if costo_total > 0 else 0.0,
+        "costoPct": costo_pct,
         "filasEstimadas": (_numero(relop, "EstimateRows") or 0) * ejecuciones_estimadas,
-        **_contadores(relop),
+        **contadores,
         "advertencias": advertencias,
         "predicados": _predicados(relop),
+        # Recuadro del operador: todos los datos del XML con los nombres y el orden de SQL Server.
+        "propiedades": _propiedades(relop, propio, costo_pct, contadores),
     })
     for hijo in hijos:
         _nodos_de(hijo, relop.attrib.get("NodeId", "?"), costo_total, nodos)
