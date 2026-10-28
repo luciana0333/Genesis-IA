@@ -8,6 +8,7 @@ from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_
 from app.analizadores.drop_table_if_exists import mensaje_drop_if_exists, validaciones_antes_de_drop
 from app.analizadores.openjson_collate import collates_en_openjson, dentro_de_openjson, mensaje_collate_openjson
 from app.analizadores.sql_order_by import order_by_por_posicion
+from app.analizadores.sql_parentesis import sin_parentesis_cerrados
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_procedimientos_normales import REGLAS_PROCEDIMIENTOS_NORMALES
 from app.analizadores.analizador_tablas import _PASCAL_CASE, _a_pascal_case, _revisar_siglas, _texto_siglas
@@ -509,8 +510,9 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             f"lento el procedimiento (ej.: SELECT {alias}.cNombre, {alias}.dFecha).",
         ))
     for match in re.finditer(r"([\w.\[\]@#]+)\s+COLLATE\s+\w+", limpio, re.IGNORECASE):
-        # La cláusula que manda es la más cercana al COLLATE (puede haber un ON antes del WHERE).
-        previo = limpio[:match.start()]
+        # La cláusula que manda es la más cercana al COLLATE (puede haber un ON antes del WHERE). Una
+        # subconsulta ya cerrada (WHERE a IN (SELECT … FROM …) AND c COLLATE …) no cambia la cláusula.
+        previo = sin_parentesis_cerrados(limpio[:match.start()])
         clausulas = _CLAUSULAS_COLLATE.findall(previo[previo.rfind(";") + 1:])
         ultima = clausulas[-1].upper() if clausulas else ""
         if ultima not in {"WHERE", "ON", "HAVING"}:
