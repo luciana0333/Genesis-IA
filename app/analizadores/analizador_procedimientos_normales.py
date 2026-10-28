@@ -10,6 +10,7 @@ from app.analizadores.drop_table_if_exists import mensaje_drop_if_exists, valida
 from app.analizadores.openjson_collate import collates_en_openjson, dentro_de_openjson, mensaje_collate_openjson
 from app.analizadores.sql_order_by import order_by_por_posicion
 from app.analizadores.sql_parentesis import sin_parentesis_cerrados
+from app.analizadores.variables_sin_uso import variables_sin_uso
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_procedimientos_normales import REGLAS_PROCEDIMIENTOS_NORMALES
 from app.analizadores.analizador_tablas import _PASCAL_CASE, _a_pascal_case, _revisar_siglas, _texto_siglas
@@ -467,11 +468,12 @@ _CLAUSULAS_COLLATE = re.compile(
 def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     # Cada SELECT seguido de INTO sin pasar por otra sentencia ni por su FROM: así se
-    # detecta también justo después de BEGIN o de una sentencia sin ";".
+    # detecta también justo después de BEGIN o de una sentencia sin ";". Las subconsultas entre
+    # paréntesis no cuentan: SELECT (SELECT MAX(n) FROM B) AS nMax INTO #C sigue siendo un SELECT INTO.
     for match in re.finditer(
-        r"(?is)\b(SELECT)\b(?:(?!\b(?:SELECT|INSERT|MERGE|OUTPUT|FROM|UPDATE|DELETE|GO)\b|;).)*?"
+        r"(?is)\b(SELECT)\b(?:(?!\b(?:SELECT|INSERT|MERGE|OUTPUT|FROM|UPDATE|DELETE|FETCH|GO)\b|;).)*?"
         r"\bINTO\b\s*([#@]?[\w\[\].]*)",
-        limpio,
+        sin_parentesis_cerrados(limpio),
     ):
         destino = match.group(2).strip()
         tabla = f"la tabla {destino}" if destino else "una tabla temporal"
@@ -717,17 +719,13 @@ def _validar_comentarios(texto: str) -> List[Hallazgo]:
 
 
 def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
-    hallazgos = []
-    declaraciones: Dict[str, int] = {}
-    for match in re.finditer(r"\bDECLARE\s+(@[A-Za-z_]\w*)", limpio, re.IGNORECASE):
-        # Se conserva el nombre tal como se escribió (@cLista, no @clista).
-        if match.group(1).lower() not in {nombre.lower() for nombre in declaraciones}:
-            declaraciones[match.group(1)] = match.start(1)
-    for variable, posicion in declaraciones.items():
-        if not re.search(rf"(?<![\w]){re.escape(variable)}\b", limpio[posicion + len(variable):], re.IGNORECASE):
-            hallazgos.append(_hallazgo(texto, posicion, "VARIABLE_DECLARADA_SIN_USO", f"La variable {variable} se declara, pero no se usa. Se recomienda eliminarla, "
-                f"ya que no cumple ninguna función dentro del procedimiento."))
-    return hallazgos
+    """Variables que nunca se leen: solo declaradas, o que solo reciben valores o filas."""
+    return [
+        _hallazgo(texto, posicion, "VARIABLE_DECLARADA_SIN_USO",
+                  f"La variable {variable} se declara, pero no se usa. Se recomienda eliminarla, "
+                  f"ya que no cumple ninguna función dentro del procedimiento.")
+        for variable, posicion in variables_sin_uso(limpio)
+    ]
 
 
 # Acciones estándar del manual: la palabra completa se abrevia.
