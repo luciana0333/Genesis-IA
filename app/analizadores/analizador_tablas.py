@@ -190,6 +190,20 @@ def _a_pascal_case(nombre: str) -> Optional[str]:
 _CONECTORES_NOMBRE = {"a", "al", "con", "de", "del", "el", "en", "la", "las", "los", "o", "para", "por", "sin", "y"}
 
 
+def _otra_forma_valida(palabra: str) -> bool:
+    """
+    True si la palabra existe en otro género o número, aunque el diccionario no traiga esta forma:
+    «moratorios» -> «moratoria». Así no se parte en dos («mora» + «torios»).
+    """
+    singular = palabra[:-2] if palabra.endswith("es") else palabra[:-1] if palabra.endswith("s") else palabra
+    formas = {singular, palabra[:-1]}
+    for forma in list(formas):
+        if forma.endswith(("o", "a")):
+            formas.add(forma[:-1] + ("a" if forma.endswith("o") else "o"))
+            formas.add(forma[:-1] + ("as" if forma.endswith("o") else "os"))
+    return any(len(forma) >= 4 and es_palabra_valida(forma) for forma in formas - {palabra})
+
+
 def _corregir_palabras_pegadas(nombre: str) -> Optional[str]:
     """
     Nombre que ya parece PascalCase pero con dos palabras pegadas en un tramo
@@ -202,7 +216,7 @@ def _corregir_palabras_pegadas(nombre: str) -> Optional[str]:
     salida, cambiado = "", False
     for tramo in re.findall(r"[A-Z]+(?=[A-Z][a-z]|\d|$)|[A-Z]?[a-z]+|\d+", nombre):
         bajo = tramo.lower()
-        if tramo.isupper() or tramo.isdigit() or len(bajo) < 8 or es_palabra_valida(bajo):
+        if tramo.isupper() or tramo.isdigit() or len(bajo) < 8 or es_palabra_valida(bajo) or _otra_forma_valida(bajo):
             salida += tramo
             continue
         palabras = separar_palabras(bajo)

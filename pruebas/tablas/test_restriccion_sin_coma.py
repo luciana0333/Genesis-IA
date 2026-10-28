@@ -50,5 +50,18 @@ class RestriccionSinComaTest(unittest.TestCase):
         self.assertNotIn("COLUMNA_NOMBRE_NO_PASCALCASE", {h.regla for h in verificar_tabla(sql, False)})
 
 
+class PalabraEnOtraFormaTest(unittest.TestCase):
+    def test_no_se_parte_si_existe_en_otro_genero_o_numero(self):
+        from app.analizadores import analizador_tablas
+        # «moratorios» no está en el diccionario, pero «moratoria» sí: no es «mora» + «torios».
+        self.assertTrue(analizador_tablas._otra_forma_valida("moratorios"))
+        self.assertIsNone(analizador_tablas._corregir_palabras_pegadas("nInteresesMoratorios"))
+
+    def test_las_palabras_pegadas_de_verdad_se_siguen_corrigiendo(self):
+        from app.analizadores import analizador_tablas
+        self.assertEqual(analizador_tablas._corregir_palabras_pegadas("nMontoaprobado"), "nMontoAprobado")
+        self.assertEqual(analizador_tablas._corregir_palabras_pegadas("cCuentaspagadas"), "cCuentasPagadas")
+
+
 if __name__ == "__main__":
     unittest.main()
