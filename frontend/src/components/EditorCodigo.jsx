@@ -1,27 +1,20 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { tokenizarSql } from '../utils/resaltadoSql';
 
-/** Caja (en pantalla) de la primera letra de una línea del código coloreado, o null si la línea está vacía. */
-function letraDeLinea(pre, textos, linea) {
-  const contenido = textos[linea - 1] ?? '';
-  const primera = contenido.search(/\S/);
-  if (!pre || primera < 0) return null;
-  let objetivo = primera;
-  for (let n = 0; n < linea - 1; n += 1) objetivo += textos[n].length + 1;
-  const recorrido = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT);
-  let acumulado = 0;
-  for (let nodo = recorrido.nextNode(); nodo; nodo = recorrido.nextNode()) {
-    if (acumulado + nodo.length > objetivo) {
-      const rango = document.createRange();
-      if (typeof rango.getBoundingClientRect !== 'function') return null;  // sin medición (pruebas)
-      rango.setStart(nodo, objetivo - acumulado);
-      rango.setEnd(nodo, objetivo - acumulado + 1);
-      const caja = rango.getBoundingClientRect();
-      return caja.height ? caja : null;
-    }
-    acumulado += nodo.length;
+/**
+ * Fragmentos coloreados agrupados por línea: [[{ tipo, valor }, ...], ...]. Cada línea del código se
+ * dibuja en su propio renglón, y ahí mismo se pinta si está marcada o tiene el cursor: así el sombreado
+ * siempre queda en la fila del texto, con cualquier zoom o escala de pantalla.
+ */
+function porLineas(fragmentos) {
+  const lineas = [[]];
+  for (const fragmento of fragmentos) {
+    fragmento.valor.split('\n').forEach((parte, indice) => {
+      if (indice > 0) lineas.push([]);
+      if (parte) lineas[lineas.length - 1].push({ tipo: fragmento.tipo, valor: parte });
+    });
   }
-  return null;
+  return lineas;
 }
 
 function contarLineas(texto) {
@@ -47,16 +40,10 @@ export function EditorCodigo({
 }) {
   const numeracionRef = useRef(null);
   const resaltadoRef = useRef(null);
-  const lineaActivaRef = useRef(null);
-  const marcasRef = useRef(null);
   const textareaRef = useRef(null);
   const [lineaActiva, setLineaActiva] = useState(null);
-  // Posición real de cada línea marcada (y de la del cursor), tomada de su número en la numeración:
-  // el número siempre queda alineado con el texto, aunque el navegador tenga zoom (con zoom el alto de
-  // línea tiene decimales y un cálculo «línea × alto» se corre unos píxeles por línea).
-  const [ubicaciones, setUbicaciones] = useState({});
   const lineas = contarLineas(valor);
-  const fragmentos = tokenizarSql(valor);
+  const renglones = porLineas(tokenizarSql(valor));
 
   const sincronizarDesplazamiento = (evento) => {
     const { scrollTop, scrollLeft } = evento.target;
@@ -65,44 +52,7 @@ export function EditorCodigo({
       resaltadoRef.current.scrollTop = scrollTop;
       resaltadoRef.current.scrollLeft = scrollLeft;
     }
-    if (lineaActivaRef.current) lineaActivaRef.current.style.transform = `translateY(${-scrollTop}px)`;
-    if (marcasRef.current) marcasRef.current.style.transform = `translateY(${-scrollTop}px)`;
   };
-
-  useLayoutEffect(() => {
-    const medir = () => {
-      const numeracion = numeracionRef.current;
-      const entrada = marcasRef.current?.parentElement ?? lineaActivaRef.current?.parentElement;
-      if (!numeracion || !entrada) return;
-      const base = entrada.getBoundingClientRect().top - numeracion.scrollTop;
-      const textos = valor.split('\n');
-      const nuevas = {};
-      for (const linea of [...marcadas, lineaActiva].filter(Boolean)) {
-        const numero = numeracion.children[linea - 1];
-        if (!numero) continue;
-        const caja = numero.getBoundingClientRect();
-        // La franja se centra sobre el propio texto de la línea; si la línea está vacía, sobre su número.
-        const letra = letraDeLinea(resaltadoRef.current, textos, linea);
-        const centro = letra ? (letra.top + letra.bottom) / 2 : (caja.top + caja.bottom) / 2;
-        nuevas[linea] = { top: Math.round((centro - caja.height / 2 - base) * 10) / 10, height: caja.height };
-      }
-      // Solo si cambió: `marcadas` puede llegar como un arreglo nuevo en cada render.
-      setUbicaciones((actuales) => (JSON.stringify(actuales) === JSON.stringify(nuevas) ? actuales : nuevas));
-    };
-    medir();
-    window.addEventListener('resize', medir);  // también al cambiar el zoom del navegador
-    return () => window.removeEventListener('resize', medir);
-  }, [marcadas, lineaActiva, valor]);
-
-  // Posición de una línea: la medida o, mientras tanto, la calculada.
-  const ubicacion = (linea) => ubicaciones[linea] ?? { top: `calc(var(--code-padding) + var(--code-linea) * ${linea - 1})` };
-
-  // Las marcas nuevas se alinean con el desplazamiento actual del código.
-  useEffect(() => {
-    if (marcasRef.current && textareaRef.current) {
-      marcasRef.current.style.transform = `translateY(${-textareaRef.current.scrollTop}px)`;
-    }
-  }, [marcadas]);
 
   // «Ver en el código»: lleva el código hasta la línea (a un tercio de la altura) y pone el cursor al inicio.
   useEffect(() => {
@@ -123,7 +73,7 @@ export function EditorCodigo({
     // El editor crece con el código: además se desplaza la página hasta la línea marcada.
     // (tras pintar las marcas nuevas)
     setTimeout(() => {
-      marcasRef.current?.querySelector(`[data-linea="${enfocar.linea}"]`)
+      resaltadoRef.current?.querySelector(`[data-linea="${enfocar.linea}"]`)
         ?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
     }, 0);
     // Solo cuando llega un pedido nuevo (clave nueva), no en cada render.
@@ -150,34 +100,22 @@ export function EditorCodigo({
           ))}
         </div>
         <div className="code-input">
-          {lineaActiva && (
-            <div
-              className="code-linea-activa"
-              ref={lineaActivaRef}
-              style={ubicacion(lineaActiva)}
-              aria-hidden="true"
-            />
-          )}
-          {marcadas.length > 0 && (
-            <div className="code-marcas" ref={marcasRef} aria-hidden="true">
-              {marcadas.map((linea) => (
-                <div
-                  key={linea}
-                  data-linea={linea}
-                  className="code-linea-marcada"
-                  style={ubicacion(linea)}
-                />
-              ))}
-            </div>
-          )}
           <pre className="code-highlight" ref={resaltadoRef} aria-hidden="true">
-            {fragmentos.map((fragmento, indice) => (
-              fragmento.tipo === 'texto'
-                ? fragmento.valor
-                : <span key={indice} className={`tok-${fragmento.tipo}`}>{fragmento.valor}</span>
-            ))}
-            {/* Un salto final evita que la última línea vacía quede sin altura. */}
-            {'\n'}
+            <span className="code-renglones">
+              {renglones.map((partes, indice) => {
+                const numero = indice + 1;
+                const clase = marcadas.includes(numero) ? ' marcada' : numero === lineaActiva ? ' activa' : '';
+                return (
+                  <span key={indice} className={`code-renglon${clase}`} data-linea={numero}>
+                    {partes.map((parte, posicion) => (
+                      parte.tipo === 'texto'
+                        ? <Fragment key={posicion}>{parte.valor}</Fragment>
+                        : <span key={posicion} className={`tok-${parte.tipo}`}>{parte.valor}</span>
+                    ))}
+                  </span>
+                );
+              })}
+            </span>
           </pre>
           <textarea
             ref={textareaRef}
