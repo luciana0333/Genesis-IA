@@ -415,13 +415,24 @@ h3.section-title {
   opacity: 1;
 }
 
-.code-linea-activa {
-  position: absolute;
-  right: 0;
-  left: 0;
-  height: var(--code-linea);
+/* Cada línea del código coloreado es un renglón del ancho de la línea más larga (como mínimo el del
+   editor): su sombreado va en la misma fila que su texto, con cualquier zoom o escala de pantalla. */
+.code-renglones {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+}
+
+.code-renglon {
+  display: block;
+  min-height: var(--code-linea);
+  /* El sombreado llega hasta los bordes del editor (cubre el relleno del código). */
+  margin: 0 -16px;
+  padding: 0 16px;
+}
+
+.code-renglon.activa {
   background: rgba(227, 6, 19, 0.045);
-  pointer-events: none;
 }
 
 .code-posicion {
@@ -1017,18 +1028,8 @@ select.campo-icono-tipo {
 }
 
 /* ───────── LÍNEAS DE UNA OBSERVACIÓN («Ver en el código») ───────── */
-.code-marcas {
-  position: absolute;
-  inset: 0 0 auto 0;
-  pointer-events: none;
-}
-
-.code-linea-marcada {
-  position: absolute;
-  right: 0;
-  left: 0;
-  height: var(--code-linea);
-  /* Solo el sombreado claro (sin franja oscura a la izquierda). */
+/* Solo el sombreado claro (sin franja oscura a la izquierda). */
+.code-renglon.marcada {
   background: rgba(227, 6, 19, 0.1);
 }
 
