@@ -474,6 +474,11 @@ def _clave_primaria(texto: str, columnas: List[ColumnaNueva]) -> Tuple[List[str]
 # VALIDACIONES
 # ---------------------------------------------------------------------------
 
+# Largo máximo de los nombres (sin el esquema): uno más largo dificulta escribir y leer las consultas.
+_LARGO_MAXIMO_TABLA = 30
+_LARGO_MAXIMO_COLUMNA = 40
+
+
 def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: str) -> List[Hallazgo]:
     hallazgos = []
     if not esquema:
@@ -514,6 +519,13 @@ def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: s
             f"El nombre de la tabla {tabla} incluye la palabra de enlace '{omitibles[0]}'. Quítela "
             f"del nombre: la nomenclatura no usa palabras como de, del, mi o su.",
         ))
+    if len(tabla) > _LARGO_MAXIMO_TABLA:
+        hallazgos.append(con_elemento(_hallazgo(
+            texto, -1, "TABLA_NOMBRE_MUY_LARGO",
+            f"Se identificó que el nombre de la tabla {referencia} tiene {len(tabla)} caracteres. Se recomienda "
+            f"usar un nombre de máximo {_LARGO_MAXIMO_TABLA} caracteres, ya que un nombre largo dificulta "
+            f"escribir y leer las consultas que usan la tabla.",
+        ), f"{referencia} ({len(tabla)} caracteres)"))
     return hallazgos
 
 
@@ -634,6 +646,15 @@ def _validar_columna(
             f"claramente su finalidad.",
         ))
 
+    if len(columna.nombre) > _LARGO_MAXIMO_COLUMNA:
+        elementos["COLUMNA_NOMBRE_MUY_LARGO"] = f"{columna.nombre} de {len(columna.nombre)} caracteres"
+        hallazgos.append(_hallazgo(
+            texto, columna.posicion, "COLUMNA_NOMBRE_MUY_LARGO",
+            f"Se identificó que el nombre de la columna {columna.nombre} de la tabla {referencia} tiene "
+            f"{len(columna.nombre)} caracteres. Se recomienda usar nombres de máximo {_LARGO_MAXIMO_COLUMNA} "
+            f"caracteres, ya que un nombre largo dificulta escribir y leer las consultas que usan la columna.",
+        ))
+
     binario = re.match(r"\s*(VARBINARY|IMAGE)\b", definicion, re.IGNORECASE)
     if binario:
         elementos["COLUMNA_VARBINARY_PROHIBIDA"] = f"{columna.nombre} ({binario.group(1).upper()})"
@@ -720,6 +741,16 @@ _PLANTILLAS_AGRUPADAS = {
         "tablas cuyos nombres contienen siglas",
         "Validar que las siglas sean comprensibles y estén estandarizadas. De ser necesario, reemplazarlas por "
         "términos descriptivos que faciliten la comprensión del nombre de la tabla.",
+    ),
+    "TABLA_NOMBRE_MUY_LARGO": (
+        "tablas con nombre muy largo",
+        "Se recomienda usar nombres de máximo 30 caracteres, ya que un nombre largo dificulta escribir y leer "
+        "las consultas que usan la tabla.",
+    ),
+    "COLUMNA_NOMBRE_MUY_LARGO": (
+        "columnas con nombre muy largo",
+        "Se recomienda usar nombres de máximo 40 caracteres, ya que un nombre largo dificulta escribir y leer "
+        "las consultas que usan la columna.",
     ),
     "PK_FALTANTE": (
         "tablas sin clave primaria",
@@ -868,7 +899,7 @@ def verificar_tabla(texto_sql: str, es_dbcmaica: bool = False) -> List[Hallazgo]
 # Reglas de la tabla (no de una columna): su elemento ya nombra la tabla.
 _REGLAS_DE_TABLA = {
     "CREATE_SIN_PARENTESIS", "TABLA_SIN_ESQUEMA", "TABLA_NOMBRE_NO_PASCALCASE", "TABLA_CON_PALABRA_OMITIBLE",
-    "TABLA_NOMBRE_CON_SIGLA",
+    "TABLA_NOMBRE_CON_SIGLA", "TABLA_NOMBRE_MUY_LARGO",
     "PK_FALTANTE", "PK_COMPUESTA", "PK_NO_CLUSTER",
 }
 

@@ -49,6 +49,15 @@ REGLAS_TABLAS = {
         "El nombre de la tabla lleva varias mayúsculas seguidas (posible sigla, ej.: MetaTPPP): validar su "
         "significado y, de ser posible, usar palabras descriptivas.",
     ),
+    "TABLA_NOMBRE_MUY_LARGO": _regla(
+        "TABLA_NOMBRE_MUY_LARGO", "Nombre de tabla muy largo", "bajo",
+        "El nombre de la tabla (sin el esquema) no debe pasar de 30 caracteres, ya que dificulta escribir y "
+        "leer las consultas.",
+    ),
+    "COLUMNA_NOMBRE_MUY_LARGO": _regla(
+        "COLUMNA_NOMBRE_MUY_LARGO", "Nombre de columna muy largo", "bajo",
+        "El nombre de la columna no debe pasar de 40 caracteres, ya que dificulta escribir y leer las consultas.",
+    ),
     "TABLA_CON_PALABRA_OMITIBLE": _regla(
         "TABLA_CON_PALABRA_OMITIBLE", "Nombre de tabla con palabra omitible", "alto",
         "El nombre de la tabla no debe incluir palabras de enlace como de, mi o su.",
