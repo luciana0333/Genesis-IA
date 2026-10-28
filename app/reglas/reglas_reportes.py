@@ -30,7 +30,7 @@ REGLAS_REPORTES = {
     ),
     "MAXRECURSION_PROHIBIDO": ReglaDiccionario(
         codigo="MAXRECURSION_PROHIBIDO",
-        nombre="Uso de MAXRECURSION no permitido",
+        nombre="Uso de MAXRECURSION en consultas",
         severidad="alto",
         descripcion="No se permite OPTION (MAXRECURSION ...) en los reportes.",
         alcance="reporte",

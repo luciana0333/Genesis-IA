@@ -718,11 +718,25 @@ _CLAUSULAS = re.compile(
 )
 
 
+def _sin_parentesis_cerrados(texto: str) -> str:
+    """El texto con el contenido de los paréntesis ya cerrados en blanco (subconsultas, funciones)."""
+    caracteres, abiertos = list(texto), []
+    for indice, caracter in enumerate(texto):
+        if caracter == "(":
+            abiertos.append(indice)
+        elif caracter == ")" and abiertos:
+            inicio = abiertos.pop()
+            caracteres[inicio + 1:indice] = " " * (indice - inicio - 1)
+    return "".join(caracteres)
+
+
 def _validar_collate_en_condiciones(texto: str, limpio: str) -> List[Hallazgo]:
     """COLLATE no se permite en las condiciones del WHERE ni del JOIN."""
     hallazgos = []
     for match in re.finditer(r"\bCOLLATE\s+\w+", limpio, re.IGNORECASE):
-        previo = limpio[:match.start()]
+        # Una subconsulta ya cerrada antes del COLLATE (WHERE a IN (SELECT … FROM …) AND c COLLATE …)
+        # no cambia la cláusula en la que está.
+        previo = _sin_parentesis_cerrados(limpio[:match.start()])
         clausulas = _CLAUSULAS.findall(previo[previo.rfind(";") + 1:])
         ultima = clausulas[-1].upper() if clausulas else ""
         if ultima not in {"WHERE", "ON", "HAVING"}:
