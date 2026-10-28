@@ -179,6 +179,17 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
         alcance="procedimiento",
         activo=True,
     ),
+    "DESCRIPCION_NO_COINCIDE_CON_NOMBRE": ReglaDiccionario(
+        codigo="DESCRIPCION_NO_COINCIDE_CON_NOMBRE",
+        nombre="Descripción que no coincide con el nombre",
+        severidad="medio",
+        descripcion=(
+            "La descripción de un parámetro habla de un dato distinto al que indica su nombre "
+            "(p. ej. @nCodMoneda descrito como «Monto…»)."
+        ),
+        alcance="procedimiento",
+        activo=True,
+    ),
     "VALIDAR_DOCUMENTACION_ALTER": ReglaDiccionario(
         codigo="VALIDAR_DOCUMENTACION_ALTER",
         nombre="Validar documentación existente",
