@@ -115,7 +115,9 @@ export function TextoResaltado({ texto, resaltados }) {
  * barra; no se cierra mientras el mouse esté encima, para poder leerlo completo.
  */
 function DetalleNodo({ nodo, posicion, onEntrar, onSalir }) {
-  const filas = [
+  // Todos los datos del operador tal cual el XML, con los nombres y el orden de SQL Server.
+  // (La raíz de la consulta no tiene: usa los datos de siempre.)
+  const filas = nodo.propiedades?.length ? nodo.propiedades : [
     ['Estimated Operator Cost', nodo.padre === null ? '' : `${nodo.costoPct.toFixed(1)}%`],
     ['Estimated Number of Rows', formatearFilas(nodo.filasEstimadas)],
     ['Actual Number of Rows', formatearFilas(nodo.filasReales)],
