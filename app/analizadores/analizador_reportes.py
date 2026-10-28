@@ -8,6 +8,8 @@ from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_
 from app.analizadores.drop_table_if_exists import mensaje_drop_if_exists, validaciones_antes_de_drop
 from app.analizadores.openjson_collate import collates_en_openjson, mensaje_collate_openjson
 from app.analizadores.sql_order_by import order_by_por_posicion
+from app.analizadores.sql_parentesis import sin_parentesis_cerrados
+from app.analizadores.variables_sin_uso import variables_sin_uso
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_reportes import REGLAS_REPORTES
 
@@ -347,7 +349,7 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     reglas = [
         (
-            r"(?is)\b(?P<pos>SELECT)\b(?:(?!\b(?:SELECT|INSERT|MERGE|OUTPUT|FROM|UPDATE|DELETE)\b|;).)*?"
+            r"(?is)\b(?P<pos>SELECT)\b(?:(?!\b(?:SELECT|INSERT|MERGE|OUTPUT|FROM|UPDATE|DELETE|FETCH)\b|;).)*?"
             r"\bINTO\s+(?P<tabla>[#\w\[\].]+)",
             "SELECT_INTO_PROHIBIDO",
             lambda m: (
@@ -388,8 +390,12 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             ),
         ),
     ]
+    # Para SELECT INTO las subconsultas entre paréntesis no cuentan (mismo largo, las posiciones valen):
+    # SELECT (SELECT MAX(n) FROM B) AS nMax INTO #C sigue siendo un SELECT INTO.
+    sin_subconsultas = sin_parentesis_cerrados(limpio)
     for patron, regla, mensaje in reglas:
-        for match in re.finditer(patron, limpio, re.IGNORECASE):
+        donde = sin_subconsultas if regla == "SELECT_INTO_PROHIBIDO" else limpio
+        for match in re.finditer(patron, donde, re.IGNORECASE):
             # SELECT * sobre sys.objects...: ya lo marca «Catálogo de sistema prohibido».
             if regla == "SELECT_ESTRELLA_PROHIBIDO" and "tabla" in match.re.groupindex and match.group("tabla") \
                     and re.match(_CATALOGOS_PROHIBIDOS, match.group("tabla"), re.IGNORECASE):
@@ -767,22 +773,13 @@ def _validar_funciones_reemplazables(texto: str, limpio: str) -> List[Hallazgo]:
 
 
 def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
-    hallazgos = []
-    declaraciones: Dict[str, int] = {}
-    for match in re.finditer(r"\bDECLARE\s+(@[A-Za-z_]\w*)", limpio, re.IGNORECASE):
-        if match.group(1).lower() not in {nombre.lower() for nombre in declaraciones}:
-            declaraciones[match.group(1)] = match.start(1)
-    for variable, posicion in declaraciones.items():
-        usos = len(re.findall(rf"(?<![\w]){re.escape(variable)}\b", limpio[posicion + len(variable):], re.IGNORECASE))
-        if usos == 0:
-            hallazgos.append(_hallazgo(
-                texto,
-                posicion,
-                "VARIABLE_DECLARADA_SIN_USO",
-                f"Se identificó que la variable {variable} se declara pero no se usa en el procedimiento. "
-                f"Se recomienda eliminarla, ya que solo ocupa espacio y dificulta la lectura del código.",
-            ))
-    return hallazgos
+    """Variables que nunca se leen: solo declaradas, o que solo reciben valores o filas."""
+    return [
+        _hallazgo(texto, posicion, "VARIABLE_DECLARADA_SIN_USO",
+                  f"Se identificó que la variable {variable} se declara pero no se usa en el procedimiento. "
+                  f"Se recomienda eliminarla, ya que solo ocupa espacio y dificulta la lectura del código.")
+        for variable, posicion in variables_sin_uso(limpio)
+    ]
 
 
 # Reglas que, repetidas, se resumen por elemento (tabla, función): «dbo.Cliente (líneas 9, 12)».
