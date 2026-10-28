@@ -19,8 +19,8 @@ class NombresMuyLargosTest(unittest.TestCase):
         self.assertEqual(
             hallazgo.mensaje,
             "Se identificó que el nombre de la tabla CONTABILIDAD.ReclasificacionTipoProvisionAsientos tiene 36 "
-            "caracteres. Se recomienda usar un nombre de máximo 30 caracteres, ya que un nombre largo dificulta "
-            "escribir y leer las consultas que usan la tabla.",
+            "caracteres. Se recomienda usar un nombre de máximo 30 caracteres, ya que el nombre de la tabla debe "
+            "reflejar su finalidad y ser corto, claro y entendible.",
         )
 
     def test_tabla_de_30_o_menos_no_se_observa(self):

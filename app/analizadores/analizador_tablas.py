@@ -523,8 +523,8 @@ def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: s
         hallazgos.append(con_elemento(_hallazgo(
             texto, -1, "TABLA_NOMBRE_MUY_LARGO",
             f"Se identificó que el nombre de la tabla {referencia} tiene {len(tabla)} caracteres. Se recomienda "
-            f"usar un nombre de máximo {_LARGO_MAXIMO_TABLA} caracteres, ya que un nombre largo dificulta "
-            f"escribir y leer las consultas que usan la tabla.",
+            f"usar un nombre de máximo {_LARGO_MAXIMO_TABLA} caracteres, ya que el nombre de la tabla debe "
+            f"reflejar su finalidad y ser corto, claro y entendible.",
         ), f"{referencia} ({len(tabla)} caracteres)"))
     return hallazgos
 
@@ -744,8 +744,8 @@ _PLANTILLAS_AGRUPADAS = {
     ),
     "TABLA_NOMBRE_MUY_LARGO": (
         "tablas con nombre muy largo",
-        "Se recomienda usar nombres de máximo 30 caracteres, ya que un nombre largo dificulta escribir y leer "
-        "las consultas que usan la tabla.",
+        "Se recomienda usar nombres de máximo 30 caracteres, ya que el nombre de cada tabla debe reflejar su "
+        "finalidad y ser corto, claro y entendible.",
     ),
     "COLUMNA_NOMBRE_MUY_LARGO": (
         "columnas con nombre muy largo",
