@@ -109,6 +109,7 @@ export const NOMBRES_REGLAS = {
   DOCUMENTACION_DUPLICADA: 'Documentación duplicada',
   DESCRIPCION_TABLA_INADECUADA: 'Descripción de tabla inadecuada',
   ERROR_ORTOGRAFICO: 'Palabra mal escrita en la descripción',
+  DESCRIPCION_NO_COINCIDE_CON_NOMBRE: 'Descripción que no coincide con el nombre',
   DOCUMENTACION_EXISTENTE_EN_ALTER: 'Validar documentación existente',
   ACTUALIZACION_SIN_DESCRIPCION_PREVIA: 'Actualización sin descripción previa',
   VALIDAR_COLUMNA_MODIFICADA: 'Validar documentación de columna modificada',

@@ -93,6 +93,14 @@ def por_objeto(
     ]
 
 
+def _con_objeto(caso: str, objeto: str) -> str:
+    """«Descripción del parámetro @x (PA_Y): …»; sin cambios si el caso ya nombra el objeto."""
+    if objeto.upper() in caso.upper():
+        return caso
+    titulo, detalle = caso.split(": ", 1)
+    return f"{titulo} ({objeto}): {detalle}"
+
+
 def agrupar_varios(hallazgos, plantillas: Dict[str, Tuple[str, str]], articulo: str) -> list:
     """
     Una observación por regla en todo el script. Si la regla aparece una vez, el mensaje dice de
@@ -123,7 +131,13 @@ def agrupar_varios(hallazgos, plantillas: Dict[str, Tuple[str, str]], articulo: 
             sustantivo, accion = plantillas[regla]
             lineas = resumido.lineas
             donde = ("la línea " if len(lineas) == 1 else "las líneas ") + ", ".join(map(str, lineas))
-            casos = "; ".join(f"{objeto} : {', '.join(elems)}" for objeto, elems in por_objeto.items())
+            casos = "; ".join(
+                # Casos que ya traen su detalle («Descripción del parámetro @x: 'a' → 'b'»): uno por
+                # viñeta, con el objeto entre paréntesis si el caso no lo nombra.
+                "; ".join(_con_objeto(e, objeto) for e in elems) if any(": " in e for e in elems)
+                else f"{objeto} : {', '.join(elems)}"
+                for objeto, elems in por_objeto.items()
+            )
             total = sum(len(elems) for elems in por_objeto.values())
             resumido.mensaje = f"Se identificaron {total} {sustantivo}, en {donde}: {casos}. {accion}"
         resultado.append(resumido)

@@ -338,7 +338,10 @@ def palabras_mal_escritas(
         1 for palabra in palabras
         if palabra.isupper() and len(palabra) >= _LONGITUD_MINIMA and es_palabra_valida(palabra)
     ) >= 2
-    for palabra in palabras:
+    sin_que = falta_que(texto)
+    if sin_que:
+        resultado.append((sin_que[0], [sin_que[1]]))
+    for indice, palabra in enumerate(palabras):
         clave = normalizar(palabra)
         if clave in vistas or _debe_ignorarse(palabra, ignorar, en_mayusculas):
             continue
@@ -346,11 +349,66 @@ def palabras_mal_escritas(
         # Bien escrita salvo la tilde (codigo → código). En una descripción escrita toda en
         # mayúsculas no se exige la tilde: es común omitirla y llenaría el informe de avisos.
         tilde = None if palabra.isupper() else tilde_correcta(palabra)
+        anterior = palabras[indice - 1].lower() if indice else ""
+        siguiente = palabras[indice + 1].lower() if indice + 1 < len(palabras) else ""
+        pasado = _pasado_sin_tilde(palabra, anterior, siguiente)
         if tilde:
             resultado.append((palabra, [_con_mayusculas(f, palabra) for f in tilde]))
+        elif pasado:
+            resultado.append((palabra, [pasado]))
         elif not es_palabra_valida(palabra):
             resultado.append((palabra, sugerencias(palabra)))
     return resultado
+
+
+# Tras «que», «el cual» o «se», un verbo terminado en -o casi siempre es el pasado sin su tilde:
+# «el usuario el cual solicito la disponibilidad» → «solicitó». «Solicito» existe («yo solicito»),
+# pero en una descripción no se escribe en primera persona.
+_ANTES_DEL_PASADO = {"que", "cual", "cuales", "quien", "quienes", "se"}
+
+
+def _pasado_sin_tilde(palabra: str, anterior: str, siguiente: str) -> Optional[str]:
+    """«solicitó» si «solicito» va tras «que / el cual / se» (no ante «de»: «que tipo de»)."""
+    if anterior not in _ANTES_DEL_PASADO or siguiente == "de" or palabra.isupper():
+        return None
+    if not palabra.endswith("o") or len(palabra) < 4:
+        return None
+    forma = palabra[:-1] + "ó"
+    return forma if forma.lower() in _diccionario_es() else None
+
+
+# «Procedimiento almacenado actualiza…» / «Tabla almacena…»: falta el «que» antes del verbo.
+# Después del verbo va lo que hace («actualiza el estado», «almacena los créditos»); así no se toma
+# como verbo un adjetivo que también lo es («Tabla maestra de agencias»: maestrar).
+_INICIO_SIN_QUE = re.compile(
+    r"^\s*((?:Procedimiento(?:\s+almacenado)?|Tabla)\s+([a-záéíóúñ]+))\s+"
+    r"(?:el|la|los|las|lo|un|una|unos|unas|al|todos|todas|información|datos)\b",
+    re.IGNORECASE,
+)
+_NO_SON_VERBOS = {"para", "contra", "hacia", "sobre", "entre"}
+
+
+def _es_verbo_conjugado(palabra: str) -> bool:
+    """«actualiza» (actualizar), «obtiene» (obtener), «devuelve» (devolver)."""
+    # Palabras cortas («de», «se», «la») no se toman como verbo.
+    if palabra in _NO_SON_VERBOS or len(palabra) < 4:
+        return False
+    if palabra.endswith("a"):
+        infinitivos = {palabra + "r"}
+    elif palabra.endswith("e"):
+        infinitivos = {raiz + fin for raiz in _variantes_de_raiz(palabra[:-1]) for fin in ("er", "ir")}
+    else:
+        return False
+    return any(infinitivo in _diccionario_es() for infinitivo in infinitivos)
+
+
+def falta_que(texto: str) -> Optional[Tuple[str, str]]:
+    """('Procedimiento almacenado actualiza', 'Procedimiento almacenado que actualiza') o None."""
+    inicio = _INICIO_SIN_QUE.match(texto or "")
+    if not inicio or not _es_verbo_conjugado(inicio.group(2).lower()):
+        return None
+    frase, verbo = inicio.group(1), inicio.group(2)
+    return frase, f"{frase[:len(frase) - len(verbo)]}que {verbo}"
 
 
 def _con_mayusculas(forma: str, original: str) -> str:

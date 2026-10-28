@@ -17,6 +17,7 @@ import difflib
 import re
 from typing import List, Set, Tuple, Dict, Optional
 
+from app.analizadores.descripcion_vs_nombre import contradice
 from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_procedimiento
 from app.analizadores.diccionario_varios import agrupar_varios, por_objeto
@@ -589,6 +590,33 @@ def _validar_ortografia(
     return hallazgos
 
 
+def _validar_descripcion_vs_nombre(
+    llamadas: List[Tuple[int, Dict[str, str]]], texto_diccionario: str
+) -> List[Hallazgo]:
+    """@nCodMonedaTotal descrito como «Monto total…»: la descripción y el nombre hablan de datos distintos."""
+    hallazgos = []
+    for pos, args in llamadas:
+        if "PARAMETER" not in args.get("level2type", "").upper() or "value" not in args:
+            continue
+        parametro = _limpiar_valor(args.get("level2name", ""))
+        distinto = contradice(parametro, _texto_de_valor(args["value"]))
+        if not distinto:
+            continue
+        segun_descripcion, segun_nombre = distinto
+        hallazgos.append(con_elemento(Hallazgo(
+            linea=_numero_linea(texto_diccionario, _posicion_valor(texto_diccionario, pos)),
+            origen=OrigenAnalisis.DICCIONARIO,
+            severidad=Severidad.MEDIO,
+            regla="DESCRIPCION_NO_COINCIDE_CON_NOMBRE",
+            mensaje=(
+                f"La descripción del parámetro {parametro} habla de {segun_descripcion}, pero su nombre indica "
+                f"{segun_nombre}. Se recomienda revisar la descripción o el nombre del parámetro, ya que deben "
+                f"referirse al mismo dato."
+            ),
+        ), f"{parametro} (la descripción habla de {segun_descripcion} y el nombre indica {segun_nombre})"))
+    return hallazgos
+
+
 # ---------------------------------------------------------------------------
 # ORQUESTADOR PRINCIPAL
 # ---------------------------------------------------------------------------
@@ -624,6 +652,10 @@ _PLANTILLAS_AGRUPADAS = {
     "ERROR_ORTOGRAFICO": (
         "descripciones con errores de escritura",
         ACCION_ORTOGRAFIA,
+    ),
+    "DESCRIPCION_NO_COINCIDE_CON_NOMBRE": (
+        "parámetros cuya descripción no coincide con su nombre",
+        "Se recomienda revisar la descripción o el nombre de cada parámetro, ya que deben referirse al mismo dato.",
     ),
     "PARAMETRO_NO_EXISTE": (
         "parámetros documentados que no existen en el procedimiento",
@@ -723,6 +755,7 @@ def _revisar_procedimiento(texto_procedimiento: str, texto_diccionario: str) -> 
     hallazgos += _validar_parametros_inexistentes(texto_diccionario, parametros_reales, nombre_proc)
     hallazgos += _validar_nombre_propiedad(texto_diccionario, esquema, nombre_proc)
     hallazgos += _validar_ortografia(llamadas, texto_diccionario, esquema, nombre_proc, parametros_reales)
+    hallazgos += _validar_descripcion_vs_nombre(llamadas, texto_diccionario)
     if REGLAS_DICCIONARIO_PROCEDIMIENTOS["VALOR_SIN_COMILLAS"].activo:
         hallazgos += _validar_valores_sin_comillas(llamadas, texto_diccionario)
 
