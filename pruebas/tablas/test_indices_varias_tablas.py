@@ -47,9 +47,18 @@ class IndicesVariasTablasTest(unittest.TestCase):
             "(estructura IXN_Tabla_Columnas): "
             "IXN_TESTIMONIO_CCTACOD_IC01 → IXN_Testimonio_cCtaCod; "
             "IXN_MOVIMIENTO_CCTACOD → IXN_TestimonioMovimiento_cCtaCod. "
-            "Renombrar cada índice como se sugiere, ya que el nombre no identifica de forma correcta las columnas "
-            "incluidas en el índice (formato IXN_Tabla_Columnas).",
+            "Renombrar cada índice como se sugiere, ya que su nombre no cumple con la nomenclatura establecida.",
         )
+
+    def test_sufijo_del_include_mal_escrito(self):
+        indices = ("CREATE NONCLUSTERED INDEX IXN_Testimonio_cCtaCod_IC01 ON Garantia.Testimonio (cCtaCod) "
+                   "INCLUDE (nTestimonioId)\n"
+                   "CREATE NONCLUSTERED INDEX IXN_TestimonioMovimiento_cCtaCod_IC01 ON Garantia.TestimonioMovimiento "
+                   "(cCtaCod) INCLUDE (nEstado)")
+        mensaje = [h for h in verificar_indices(indices, TABLAS) if h.regla == "INDICE_NOMBRE_NO_ESTANDAR"][0].mensaje
+        self.assertTrue(mensaje.endswith(
+            "Renombrar cada índice como se sugiere, ya que su nombre no cumple con la nomenclatura establecida. "
+            "Se recomienda utilizar INC en lugar de IC para identificar las columnas incluidas."))
 
     def test_nombre_en_mayusculas_con_la_sintaxis_correcta_no_se_observa(self):
         indice = "CREATE NONCLUSTERED INDEX IXN_TESTIMONIOMOVIMIENTO_CCTACOD ON Garantia.TestimonioMovimiento (cCtaCod)"

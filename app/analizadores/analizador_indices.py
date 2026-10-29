@@ -274,7 +274,12 @@ def _juntar_nombres(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
     formatos = list(dict.fromkeys(h.formato for h in nombres))
     # Texto de la usuaria. La estructura va sin «:» para que la pantalla separe bien la lista.
     estructura = f"estructura {formatos[0]}" if len(formatos) == 1 else "cada uno con la estructura de su tipo"
-    formato = f"formato {formatos[0]}" if len(formatos) == 1 else "cada uno con el formato de su tipo"
+    # Solo si el error está en el sufijo del INCLUDE: «utilizar INC en lugar de IC».
+    sufijos = list(dict.fromkeys(h.sufijo_incorrecto for h in nombres if getattr(h, "sufijo_incorrecto", None)))
+    incluidas = (
+        f" Se recomienda utilizar INC en lugar de {' o '.join(sufijos)} para identificar las columnas incluidas."
+        if sufijos else ""
+    )
     junta = Hallazgo(
         linea=nombres[0].linea,
         origen=nombres[0].origen,
@@ -282,8 +287,8 @@ def _juntar_nombres(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
         regla="INDICE_NOMBRE_NO_ESTANDAR",
         mensaje=(
             f"Se identificaron {cantidad} índices cuya nomenclatura no está alineada según las buenas prácticas "
-            f"({estructura}): {casos}. Renombrar cada índice como se sugiere, ya que el nombre no identifica de "
-            f"forma correcta las columnas incluidas en el índice ({formato})."
+            f"({estructura}): {casos}. Renombrar cada índice como se sugiere, ya que su nombre no cumple con la "
+            f"nomenclatura establecida.{incluidas}"
         ),
     )
     junta.seccion = "indices"
@@ -531,6 +536,11 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
         ))
         # Para juntar varios índices en una observación.
         hallazgos[-1].indice, hallazgos[-1].esperado, hallazgos[-1].formato = indice.nombre, esperado, formato
+        # Sufijo del INCLUDE mal escrito (IC01, IN01 en vez de INC01).
+        sufijo = re.search(r"_([A-Za-z]+)\d+$", indice.nombre)
+        hallazgos[-1].sufijo_incorrecto = (
+            sufijo.group(1).upper() if sufijo and "_INC" in esperado and sufijo.group(1).upper() != "INC" else None
+        )
 
     if "." not in tabla:
         hallazgos.append(_hallazgo(
