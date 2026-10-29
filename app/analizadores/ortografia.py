@@ -134,7 +134,11 @@ def _variantes_de_raiz(raiz: str) -> Set[str]:
     return variantes
 
 
-_PREFIJOS = ("des", "re", "in", "pre", "sub", "auto")
+# Prefijos de palabras compuestas: si «servicio» es válida, «microservicio» también.
+_PREFIJOS = (
+    "des", "re", "in", "pre", "sub", "auto", "micro", "macro", "multi", "inter", "intra", "sobre", "super",
+    "semi", "anti", "contra", "post", "pos", "mini", "hiper", "extra", "infra", "ultra", "tele", "mono", "co",
+)
 
 
 def es_palabra_valida(palabra: str) -> bool:
@@ -209,6 +213,9 @@ def _debe_ignorarse(palabra: str, nombres_objeto: Set[str], texto_en_mayusculas:
     if palabra.isupper() and (not texto_en_mayusculas or len(palabra) <= 3):
         return True
     if _parece_identificador(palabra):
+        return True
+    # Sin vocales no es una palabra del español: es una abreviatura (Trx, Nro, Cbr).
+    if not re.search(r"[aeiouyáéíóúü]", palabra, re.IGNORECASE):
         return True
     return normalizar(palabra) in nombres_objeto
 
@@ -423,6 +430,9 @@ def palabras_mal_escritas(
     if not disponible() or not texto:
         return []
     ignorar = {normalizar(n) for n in nombres_objeto if n}
+    # Las palabras que forman el nombre de lo que se documenta son vocabulario del equipo: si el parámetro
+    # se llama @nMicroservicioId o @cCodTrx, «microservicio» y «Trx» no son errores en su descripción.
+    ignorar |= {normalizar(p) for n in nombres_objeto if n for p in _PALABRAS_DEL_NOMBRE.findall(n)}
     resultado: List[Tuple[str, Optional[List[str]]]] = []
     vistas: Set[str] = set()
     palabras = [

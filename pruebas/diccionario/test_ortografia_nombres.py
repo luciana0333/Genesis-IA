@@ -33,3 +33,20 @@ class SugerenciasTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AbreviaturasYCompuestasEnDescripcionesTest(unittest.TestCase):
+    def test_palabras_del_nombre_documentado_no_se_marcan(self):
+        from app.analizadores.ortografia import palabras_mal_escritas
+        self.assertEqual(palabras_mal_escritas("Código de la Trx registrada.", {"@cCodTrx"}), [])
+        self.assertEqual(palabras_mal_escritas("Identificador del microservicio.", {"@nMicroservicioId"}), [])
+
+    def test_sin_vocales_es_abreviatura_y_prefijos_compuestos(self):
+        from app.analizadores.ortografia import palabras_mal_escritas
+        self.assertEqual(palabras_mal_escritas("Código Trx del registro Nro"), [])
+        self.assertEqual(palabras_mal_escritas("Operación interbancaria multimoneda del microservicio"), [])
+
+    def test_los_errores_reales_se_siguen_marcando(self):
+        from app.analizadores.ortografia import palabras_mal_escritas
+        self.assertEqual(palabras_mal_escritas("Código de la trasaccion", {"@cCodTrx"}),
+                         [("trasaccion", ["transacción"])])
