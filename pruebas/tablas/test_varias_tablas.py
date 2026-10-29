@@ -47,9 +47,10 @@ class TestVariasTablas(unittest.TestCase):
         # Redacción de la usuaria; las líneas van en el encabezado (hallazgo.lineas), no en el texto.
         self.assertEqual(
             mensaje,
+            # La misma columna en dos tablas se dice una vez, con sus tablas.
             "Se identificaron dos columnas cuyo prefijo no corresponde al tipo de dato definido: "
-            "Bonificacion.EsquemaSupervisores : Cambiar nGradoSatisfaccion por cGradoSatisfaccion; "
-            "Bonificacion.EsquemaEjecutivos : Cambiar nGradoSatisfaccion por cGradoSatisfaccion. "
+            "Cambiar nGradoSatisfaccion por cGradoSatisfaccion "
+            "en las tablas Bonificacion.EsquemaSupervisores y Bonificacion.EsquemaEjecutivos. "
             "Corregir los nombres de ambas columnas, utilizando el prefijo c en lugar de n, "
             "ya que corresponden a datos de tipo texto y no numéricos.",
         )

@@ -137,12 +137,23 @@ def _separar(contenido: str) -> List[str]:
     return [parte.strip() for parte in partes if parte.strip()]
 
 
-def _tabla_del_script(texto_tabla: str) -> Optional[_Tabla]:
-    """Columnas, tipos y clave primaria del CREATE TABLE del script de la tabla."""
+def _tablas_del_script(texto_tabla: str) -> Dict[str, _Tabla]:
+    """Todas las tablas que crea el script de la tabla (puede traer varias), por su nombre en minúsculas."""
     limpio = _sin_comentarios(texto_tabla or "")
-    creacion = re.search(rf"\bCREATE\s+TABLE\s+({_REFERENCIA})\s*\(", limpio, re.IGNORECASE)
-    if not creacion:
-        return None
+    tablas: Dict[str, _Tabla] = {}
+    for creacion in re.finditer(rf"\bCREATE\s+TABLE\s+({_REFERENCIA})\s*\(", limpio, re.IGNORECASE):
+        tabla = _leer_tabla(limpio, creacion)
+        tablas.setdefault(tabla.nombre.lower(), tabla)
+    return tablas
+
+
+def _tabla_del_script(texto_tabla: str) -> Optional[_Tabla]:
+    """Columnas, tipos y clave primaria del primer CREATE TABLE del script de la tabla."""
+    return next(iter(_tablas_del_script(texto_tabla).values()), None)
+
+
+def _leer_tabla(limpio: str, creacion: re.Match) -> _Tabla:
+    """Columnas, tipos y clave primaria de un CREATE TABLE."""
     tabla = _Tabla(nombre=_limpiar(creacion.group(1)).split(".")[-1])
     contenido, _ = _contenido_parentesis(limpio, creacion.end() - 1)
     for definicion in _separar(contenido):
@@ -221,7 +232,7 @@ def verificar_indices(texto_indices: str, texto_tabla: str = "") -> List[Hallazg
     """Valida la sintaxis, el nombre y la estructura de cada CREATE INDEX."""
     texto = texto_indices or ""
     limpio = _sin_comentarios(texto)
-    tabla_script = _tabla_del_script(texto_tabla)
+    tablas_script = _tablas_del_script(texto_tabla)
     hallazgos: List[Hallazgo] = []
     indices: List[_Indice] = []
 
@@ -235,9 +246,10 @@ def verificar_indices(texto_indices: str, texto_tabla: str = "") -> List[Hallazg
             indices.append(indice)
 
     for indice in indices:
-        hallazgos.extend(_validar_indice(texto, indice, tabla_script))
+        # Cada índice se cruza con su propia tabla del script (el script puede crear varias).
+        hallazgos.extend(_validar_indice(texto, indice, _tabla_de(indice, tablas_script)))
         hallazgos.extend(_validar_columna_fija_en_filtro(texto, indice))
-    duplicados = _validar_duplicados(texto, indices, tabla_script)
+    duplicados = _validar_duplicados(texto, indices, tablas_script)
     # Un índice duplicado se elimina, no se renombra: sugerir otro nombre podría coincidir
     # con el del índice que ya existe (IXN_Cliente_cCodigo2 -> IXN_Cliente_cCodigo).
     lineas_duplicadas = {h.linea for h in duplicados}
@@ -249,7 +261,45 @@ def verificar_indices(texto_indices: str, texto_tabla: str = "") -> List[Hallazg
         if not (h.regla in ("INDICE_NOMBRE_NO_ESTANDAR", "INDICE_PREFIJO_INVALIDO") and h.linea in lineas_duplicadas)
     ]
     hallazgos.extend(duplicados)
-    return _juntar_tablas_existentes(sorted(hallazgos, key=lambda h: h.linea))
+    return _juntar_nombres(_juntar_tablas_existentes(sorted(hallazgos, key=lambda h: h.linea)))
+
+
+def _juntar_nombres(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
+    """Varios índices con el nombre fuera del estándar: una sola observación con cada nombre y su sugerencia."""
+    nombres = [h for h in hallazgos if h.regla == "INDICE_NOMBRE_NO_ESTANDAR" and getattr(h, "esperado", None)]
+    if len(nombres) < 2:
+        return hallazgos
+    cantidad = _NUMEROS_EN_LETRAS.get(len(nombres), str(len(nombres)))
+    casos = "; ".join(f"{h.indice} → {h.esperado}" for h in nombres)
+    formatos = list(dict.fromkeys(h.formato for h in nombres))
+    # Texto de la usuaria. La estructura va sin «:» para que la pantalla separe bien la lista.
+    estructura = f"estructura {formatos[0]}" if len(formatos) == 1 else "cada uno con la estructura de su tipo"
+    # Solo si el error está en el sufijo del INCLUDE: «utilizar INC en lugar de IC».
+    sufijos = list(dict.fromkeys(h.sufijo_incorrecto for h in nombres if getattr(h, "sufijo_incorrecto", None)))
+    incluidas = (
+        f" Se recomienda utilizar INC en lugar de {' o '.join(sufijos)} para identificar las columnas incluidas."
+        if sufijos else ""
+    )
+    junta = Hallazgo(
+        linea=nombres[0].linea,
+        origen=nombres[0].origen,
+        severidad=nombres[0].severidad,
+        regla="INDICE_NOMBRE_NO_ESTANDAR",
+        mensaje=(
+            f"Se identificaron {cantidad} índices cuya nomenclatura no está alineada según las buenas prácticas "
+            f"({estructura}): {casos}. Renombrar cada índice como se sugiere, ya que su nombre no cumple con la "
+            f"nomenclatura establecida.{incluidas}"
+        ),
+    )
+    junta.seccion = "indices"
+    junta.lineas = sorted({h.linea for h in nombres})  # para recorrerlos con la barra «1 de N»
+    primera = hallazgos.index(nombres[0])
+    resto = [h for h in hallazgos if h not in nombres]
+    return resto[:primera] + [junta] + resto[primera:]
+
+
+_NUMEROS_EN_LETRAS = {2: "dos", 3: "tres", 4: "cuatro", 5: "cinco", 6: "seis", 7: "siete", 8: "ocho", 9: "nueve",
+                      10: "diez"}
 
 
 def _juntar_tablas_existentes(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
@@ -478,12 +528,19 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
             ),
         ))
     elif indice.nombre.lower() not in validos and not hay_repetidas:
+        formato = f"{prefijo}_Tabla_Columnas{'_INC' + esperado.rsplit('_INC', 1)[1] if '_INC' in esperado else ''}"
         hallazgos.append(_hallazgo(
             texto, indice.posicion, "INDICE_NOMBRE_NO_ESTANDAR",
             f"El nombre del índice {indice.nombre} no corresponde a la tabla y las columnas que indexa. "
-            f"Renombrarlo como {esperado} (formato {prefijo}_Tabla_Columnas"
-            f"{'_INC' + esperado.rsplit('_INC', 1)[1] if '_INC' in esperado else ''}).",
+            f"Renombrarlo como {esperado} (formato {formato}).",
         ))
+        # Para juntar varios índices en una observación.
+        hallazgos[-1].indice, hallazgos[-1].esperado, hallazgos[-1].formato = indice.nombre, esperado, formato
+        # Sufijo del INCLUDE mal escrito (IC01, IN01 en vez de INC01).
+        sufijo = re.search(r"_([A-Za-z]+)\d+$", indice.nombre)
+        hallazgos[-1].sufijo_incorrecto = (
+            sufijo.group(1).upper() if sufijo and "_INC" in esperado and sufijo.group(1).upper() != "INC" else None
+        )
 
     if "." not in tabla:
         hallazgos.append(_hallazgo(
@@ -650,6 +707,11 @@ def _validar_clustered(texto: str, indice: _Indice, tabla: Optional[_Tabla], tab
     )]
 
 
+def _tabla_de(indice: _Indice, tablas_script: Dict[str, _Tabla]) -> Optional[_Tabla]:
+    """La tabla del script sobre la que se crea el índice (None si el script no la crea)."""
+    return tablas_script.get(_limpiar(indice.tabla).split(".")[-1].lower())
+
+
 def _identificador_de(indice: _Indice, tabla_script: Optional[_Tabla]) -> str:
     """Columna identidad de la tabla: la PK del script o, si no la hay, n + NombreTabla + Id."""
     if tabla_script and tabla_script.pk:
@@ -657,17 +719,20 @@ def _identificador_de(indice: _Indice, tabla_script: Optional[_Tabla]) -> str:
     return f"n{_nombre_estandar_tabla(indice.tabla)}Id"
 
 
-def _validar_duplicados(texto: str, indices: List[_Indice], tabla_script: Optional[_Tabla]) -> List[Hallazgo]:
-    """Dos índices con las mismas columnas clave (o uno igual a la clave primaria)."""
+def _validar_duplicados(texto: str, indices: List[_Indice], tablas_script: Dict[str, _Tabla]) -> List[Hallazgo]:
+    """Dos índices con las mismas columnas clave (o uno igual a la clave primaria de su tabla)."""
     hallazgos = []
     vistos: Dict[Tuple[str, Tuple[str, ...]], str] = {}
-    if tabla_script and tabla_script.pk:
-        clave_pk = (tabla_script.nombre.lower(), tuple(c.lower() for c in tabla_script.pk))
-        vistos[clave_pk] = tabla_script.pk_nombre or "la clave primaria"
+    claves_pk = set()
+    for tabla_script in tablas_script.values():
+        if tabla_script.pk:
+            clave_pk = (tabla_script.nombre.lower(), tuple(c.lower() for c in tabla_script.pk))
+            vistos[clave_pk] = tabla_script.pk_nombre or "la clave primaria"
+            claves_pk.add(clave_pk)
     for indice in indices:
         clave = (_limpiar(indice.tabla).split(".")[-1].lower(), tuple(c.lower() for c in indice.claves))
         if clave in vistos:
-            es_pk = bool(tabla_script) and vistos[clave] == (tabla_script.pk_nombre or "la clave primaria")
+            es_pk = clave in claves_pk
             if es_pk and indice.clustered:
                 continue  # un CLUSTERED que repite la PK ya se marca en INDICE_CLUSTERED_CON_PK
             accion = (f"eliminar el índice {indice.nombre}, ya que la clave primaria ya cubre esas columnas y"

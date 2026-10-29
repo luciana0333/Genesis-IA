@@ -16,7 +16,7 @@ La severidad de cada regla sale del catálogo app/reglas/reglas_tablas.py.
 
 import re
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.analizadores.diccionario_agrupar import agrupar, con_elemento
@@ -915,6 +915,11 @@ _DATO_EN_PLURAL = {"c": "de texto", "n": "numéricos", "b": "de tipo bit", "d": 
 _DATO_EN_SINGULAR = {"c": "texto", "n": "numérico", "b": "bit", "d": "fecha u hora"}
 
 
+def _enumerar(nombres: List[str]) -> str:
+    """«A», «A y B», «A, B y C»."""
+    return nombres[0] if len(nombres) == 1 else f"{', '.join(nombres[:-1])} y {nombres[-1]}"
+
+
 def _mensaje_prefijo_entre_tablas(grupo: List[Hallazgo]) -> Optional[str]:
     """
     Prefijo de columna inválido en varias tablas (redacción de la usuaria):
@@ -927,7 +932,16 @@ def _mensaje_prefijo_entre_tablas(grupo: List[Hallazgo]) -> Optional[str]:
         return None
     total = len(grupo)
     cantidad = _NUMEROS_EN_LETRAS.get(total, str(total))
-    casos = [f"{h.tabla} : Cambiar {h.cambio[0]} por {h.cambio[1]}" for h in grupo]
+    # La misma columna con el mismo cambio en varias tablas se dice una vez, con todas sus tablas.
+    por_cambio: Dict[tuple, List[str]] = {}
+    for h in grupo:
+        por_cambio.setdefault((h.cambio[0], h.cambio[1]), []).append(h.tabla)
+    casos = [
+        f"{tablas[0]} : Cambiar {actual} por {nuevo}" if len(tablas) == 1
+        # Texto de la usuaria.
+        else f"Cambiar {actual} por {nuevo} en las tablas {_enumerar(tablas)}"
+        for (actual, nuevo), tablas in por_cambio.items()
+    ]
     cuales = "ambas columnas" if total == 2 else f"las {cantidad} columnas"
     pares = {(c[2], c[3]) for c in cambios}
     if len(pares) == 1:
@@ -1007,7 +1021,13 @@ def _agrupar_entre_tablas(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
                     columnas = ", ".join(h.columna for h in de_la_tabla)
                     casos.append(f"{tabla} : {columnas} ({_texto_siglas(siglas, articulo=False)})")
             else:
-                casos = [f"{h.elemento} ({h.tabla})" for h in grupo]
+                # La misma columna con el mismo error en varias tablas se dice una vez, con todas sus tablas.
+                por_columna: Dict[str, List[str]] = {}
+                for h in grupo:
+                    tablas = por_columna.setdefault(h.elemento, [])
+                    if h.tabla not in tablas:
+                        tablas.append(h.tabla)
+                casos = [f"{elemento} ({_enumerar(tablas)})" for elemento, tablas in por_columna.items()]
             sustantivo, accion = _PLANTILLAS_AGRUPADAS[regla]
             cantidad = _NUMEROS_EN_LETRAS.get(len(grupo), str(len(grupo)))
             mensaje = f"Se identificaron {cantidad} {sustantivo}: {'; '.join(casos)}. {accion}"
