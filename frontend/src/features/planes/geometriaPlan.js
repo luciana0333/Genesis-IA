@@ -55,30 +55,41 @@ export function formatearFilas(valor) {
 export function calcularPosiciones(nodos) {
   const hijos = new Map(nodos.map((nodo) => [nodo.id, []]));
   for (const nodo of nodos) if (nodo.padre !== null) hijos.get(nodo.padre)?.push(nodo);
-  const posiciones = new Map();
-  let siguienteFila = 0;
-  const ubicar = (nodo, columna) => {
+  // Columnas que ocupa cada rama (cuántos niveles tiene hacia la derecha).
+  const profundidad = new Map();
+  const medir = (nodo) => {
     const propios = hijos.get(nodo.id) ?? [];
-    let fila;
-    if (!propios.length) {
-      fila = siguienteFila;
-      siguienteFila += 1;
-    } else {
-      propios.forEach((hijo, indice) => {
-        const filaHijo = ubicar(hijo, columna + 1);
-        if (indice === 0) fila = filaHijo;
-      });
-    }
+    const valor = propios.length ? 1 + Math.max(...propios.map(medir)) : 0;
+    profundidad.set(nodo.id, valor);
+    return valor;
+  };
+  // Como Plan Explorer: cada rama va en la fila libre más alta de SUS columnas, no debajo de todo lo
+  // anterior (una rama corta no baja por otra larga que está más a la derecha).
+  const libre = [];  // por columna: la primera fila sin operador
+  const filaLibre = (desde, hasta) => {
+    let fila = 0;
+    for (let columna = desde; columna <= hasta; columna += 1) fila = Math.max(fila, libre[columna] ?? 0);
+    return fila;
+  };
+  const posiciones = new Map();
+  let filas = 0;
+  const ubicar = (nodo, columna, filaMinima) => {
+    const fila = Math.max(filaMinima, filaLibre(columna, columna + profundidad.get(nodo.id)));
     posiciones.set(nodo.id, {
       x: MARGEN + columna * COLUMNA + COLUMNA / 2,
       y: MARGEN + fila * FILA + 40,
     });
-    return fila;
+    libre[columna] = fila + 1;
+    filas = Math.max(filas, fila + 1);
+    (hijos.get(nodo.id) ?? []).forEach((hijo, indice) => ubicar(hijo, columna + 1, indice === 0 ? fila : fila + 1));
   };
   const raiz = nodos.find((nodo) => nodo.padre === null);
-  if (raiz) ubicar(raiz, 0);
+  if (raiz) {
+    medir(raiz);
+    ubicar(raiz, 0, 0);
+  }
   const columnas = Math.max(...[...posiciones.values()].map((p) => p.x), 0);
-  return { posiciones, ancho: columnas + COLUMNA / 2 + MARGEN, alto: MARGEN * 2 + siguienteFila * FILA };
+  return { posiciones, ancho: columnas + COLUMNA / 2 + MARGEN, alto: MARGEN * 2 + filas * FILA };
 }
 
 /** Rojo para los operadores más caros, naranja para los que pesan al menos la mitad del mayor. */
