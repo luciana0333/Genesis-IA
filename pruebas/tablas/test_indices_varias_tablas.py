@@ -47,8 +47,8 @@ class IndicesVariasTablasTest(unittest.TestCase):
             "(estructura IXN_Tabla_Columnas): "
             "IXN_TESTIMONIO_CCTACOD_IC01 → IXN_Testimonio_cCtaCod; "
             "IXN_MOVIMIENTO_CCTACOD → IXN_TestimonioMovimiento_cCtaCod. "
-            "Renombrar cada índice como se sugiere, ya que su nombre no identifica correctamente la tabla y las "
-            "columnas que indexa (formato IXN_Tabla_Columnas).",
+            "Renombrar cada índice como se sugiere, ya que el nombre no identifica de forma correcta las columnas "
+            "incluidas en el índice (formato IXN_Tabla_Columnas).",
         )
 
     def test_nombre_en_mayusculas_con_la_sintaxis_correcta_no_se_observa(self):

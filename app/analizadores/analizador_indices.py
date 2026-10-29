@@ -282,8 +282,8 @@ def _juntar_nombres(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
         regla="INDICE_NOMBRE_NO_ESTANDAR",
         mensaje=(
             f"Se identificaron {cantidad} índices cuya nomenclatura no está alineada según las buenas prácticas "
-            f"({estructura}): {casos}. Renombrar cada índice como se sugiere, ya que su nombre no identifica "
-            f"correctamente la tabla y las columnas que indexa ({formato})."
+            f"({estructura}): {casos}. Renombrar cada índice como se sugiere, ya que el nombre no identifica de "
+            f"forma correcta las columnas incluidas en el índice ({formato})."
         ),
     )
     junta.seccion = "indices"
