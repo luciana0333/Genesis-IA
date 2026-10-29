@@ -107,6 +107,7 @@ export const NOMBRES_REGLAS = {
   WAITFOR_DELAY_PROHIBIDO: 'WAITFOR prohibido',
   TRANSACCION_SIN_CIERRE: 'Transacción sin COMMIT',
   ESQUEMA_OMITIDO_ENTRE_BASES: 'Esquema omitido entre bases',
+  DEPENDENCIA_BASE_BI: 'Dependencia con la base de datos BI',
   SINTAXIS_DICCIONARIO: 'Error de sintaxis en el diccionario',
   PARAMETROS_INCOMPLETOS: 'Faltan datos en la sentencia',
   TIPO_NIVEL_INCORRECTO: 'Tipo de nivel incorrecto',
