@@ -417,13 +417,21 @@ def _nodos_de(relop: ET.Element, padre: str, costo_total: float, nodos: List[Dic
     ejecuciones_estimadas = 1 + (_numero(relop, "EstimateRebinds") or 0) + (_numero(relop, "EstimateRewinds") or 0)
     contadores = _contadores(relop)
     costo_pct = round(propio / costo_total * 100, 1) if costo_total > 0 else 0.0
+    fisica, logica = relop.attrib.get("PhysicalOp", ""), relop.attrib.get("LogicalOp", "")
+    # Búsqueda en el índice clúster para traer columnas que faltan (Lookup="true"): SSMS y Plan Explorer
+    # la muestran como Key Lookup, aunque el XML la guarde como Clustered Index Seek.
+    if fisica == "Clustered Index Seek" and any(
+        _local(e) == "IndexScan" and e.attrib.get("Lookup", "").lower() in ("true", "1") for e in relop
+    ):
+        fisica = logica = "Key Lookup"
     nodos.append({
         "id": relop.attrib.get("NodeId", "?"),
         "padre": padre,
-        "fisica": relop.attrib.get("PhysicalOp", ""),
-        "logica": relop.attrib.get("LogicalOp", ""),
+        "fisica": fisica,
+        "logica": logica,
         **_objeto(relop),
         "costoPct": costo_pct,
+        "_propio": propio,
         "filasEstimadas": (_numero(relop, "EstimateRows") or 0) * ejecuciones_estimadas,
         **contadores,
         "advertencias": advertencias,
@@ -433,6 +441,26 @@ def _nodos_de(relop: ET.Element, padre: str, costo_total: float, nodos: List[Dic
     })
     for hijo in hijos:
         _nodos_de(hijo, relop.attrib.get("NodeId", "?"), costo_total, nodos)
+
+
+def _costos_sobre_la_suma(nodos: List[Dict]) -> None:
+    """
+    % de costo de cada operador sobre la suma de los costos propios de todos (como SSMS y Plan Explorer),
+    no sobre el costo de la consulta: con un «row goal» (IF EXISTS, TOP, OR EXISTS) un hijo puede costar más
+    que su padre y la suma pasa del costo de la consulta (un Scan salía con 100 % en vez de 50 %).
+    """
+    total = sum(n.get("_propio", 0.0) for n in nodos)
+    for nodo in nodos:
+        propio = nodo.pop("_propio", None)
+        if propio is None or total <= 0:
+            continue
+        nodo["costoPct"] = round(propio / total * 100, 1)
+        for fila in nodo.get("propiedades", []):
+            if fila[0] == "Estimated Operator Cost":
+                fila[1] = f"{_decimal(propio)} ({round(nodo['costoPct']):.0f}%)"
+        for fila in nodo.get("propiedades", []):
+            if fila[0] in ("Physical Operation", "Logical Operation") and nodo["fisica"] == "Key Lookup":
+                fila[1] = "Key Lookup"
 
 
 def _indices_faltantes(plan: ET.Element) -> List[Dict]:
@@ -513,7 +541,11 @@ def construir_diagrama(contenido: Union[str, bytes]) -> List[Dict]:
         advertencias.extend(_indices_faltantes(plan))
 
         # La condición de un IF llega como «COND»: se muestra como IF, igual que en Plan Explorer.
-        tipo = "IF" if _local(sentencia) == "StmtCond" else sentencia.attrib.get("StatementType", "SELECT").split(" ")[0]
+        tipo_xml = sentencia.attrib.get("StatementType", "SELECT")
+        tipo = ("IF" if _local(sentencia) == "StmtCond"
+                # «COND WITH QUERY» (IF con subconsulta) se muestra completo, como en Plan Explorer.
+                else tipo_xml if tipo_xml.upper().startswith("COND WITH QUERY")
+                else tipo_xml.split(" ")[0])
         nodos = [{
             "id": "raiz", "padre": None, "fisica": tipo, "logica": tipo, "objeto": "", "indice": "",
             "costoPct": 0.0, "filasEstimadas": _numero(sentencia, "StatementEstRows"),
@@ -523,6 +555,7 @@ def construir_diagrama(contenido: Union[str, bytes]) -> List[Dict]:
         }]
         for relop in superiores:
             _nodos_de(relop, "raiz", costo_total, nodos)
+        _costos_sobre_la_suma(nodos)
         _completar_filas_reales(nodos)
 
         sentencias.append({
