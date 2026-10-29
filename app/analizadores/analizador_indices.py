@@ -261,7 +261,37 @@ def verificar_indices(texto_indices: str, texto_tabla: str = "") -> List[Hallazg
         if not (h.regla in ("INDICE_NOMBRE_NO_ESTANDAR", "INDICE_PREFIJO_INVALIDO") and h.linea in lineas_duplicadas)
     ]
     hallazgos.extend(duplicados)
-    return _juntar_tablas_existentes(sorted(hallazgos, key=lambda h: h.linea))
+    return _juntar_nombres(_juntar_tablas_existentes(sorted(hallazgos, key=lambda h: h.linea)))
+
+
+def _juntar_nombres(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
+    """Varios índices con el nombre fuera del estándar: una sola observación con cada nombre y su sugerencia."""
+    nombres = [h for h in hallazgos if h.regla == "INDICE_NOMBRE_NO_ESTANDAR" and getattr(h, "esperado", None)]
+    if len(nombres) < 2:
+        return hallazgos
+    cantidad = _NUMEROS_EN_LETRAS.get(len(nombres), str(len(nombres)))
+    casos = "; ".join(f"{h.indice} → {h.esperado}" for h in nombres)
+    formatos = list(dict.fromkeys(h.formato for h in nombres))
+    formato = f"formato {formatos[0]}" if len(formatos) == 1 else "cada uno con el formato de su tipo"
+    junta = Hallazgo(
+        linea=nombres[0].linea,
+        origen=nombres[0].origen,
+        severidad=nombres[0].severidad,
+        regla="INDICE_NOMBRE_NO_ESTANDAR",
+        mensaje=(
+            f"Se identificaron {cantidad} índices cuyo nombre no corresponde a la tabla y las columnas que indexan: "
+            f"{casos}. Renombrar cada índice como se sugiere ({formato})."
+        ),
+    )
+    junta.seccion = "indices"
+    junta.lineas = sorted({h.linea for h in nombres})  # para recorrerlos con la barra «1 de N»
+    primera = hallazgos.index(nombres[0])
+    resto = [h for h in hallazgos if h not in nombres]
+    return resto[:primera] + [junta] + resto[primera:]
+
+
+_NUMEROS_EN_LETRAS = {2: "dos", 3: "tres", 4: "cuatro", 5: "cinco", 6: "seis", 7: "siete", 8: "ocho", 9: "nueve",
+                      10: "diez"}
 
 
 def _juntar_tablas_existentes(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
@@ -490,12 +520,14 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
             ),
         ))
     elif indice.nombre.lower() not in validos and not hay_repetidas:
+        formato = f"{prefijo}_Tabla_Columnas{'_INC' + esperado.rsplit('_INC', 1)[1] if '_INC' in esperado else ''}"
         hallazgos.append(_hallazgo(
             texto, indice.posicion, "INDICE_NOMBRE_NO_ESTANDAR",
             f"El nombre del índice {indice.nombre} no corresponde a la tabla y las columnas que indexa. "
-            f"Renombrarlo como {esperado} (formato {prefijo}_Tabla_Columnas"
-            f"{'_INC' + esperado.rsplit('_INC', 1)[1] if '_INC' in esperado else ''}).",
+            f"Renombrarlo como {esperado} (formato {formato}).",
         ))
+        # Para juntar varios índices en una observación.
+        hallazgos[-1].indice, hallazgos[-1].esperado, hallazgos[-1].formato = indice.nombre, esperado, formato
 
     if "." not in tabla:
         hallazgos.append(_hallazgo(
