@@ -137,12 +137,23 @@ def _separar(contenido: str) -> List[str]:
     return [parte.strip() for parte in partes if parte.strip()]
 
 
-def _tabla_del_script(texto_tabla: str) -> Optional[_Tabla]:
-    """Columnas, tipos y clave primaria del CREATE TABLE del script de la tabla."""
+def _tablas_del_script(texto_tabla: str) -> Dict[str, _Tabla]:
+    """Todas las tablas que crea el script de la tabla (puede traer varias), por su nombre en minúsculas."""
     limpio = _sin_comentarios(texto_tabla or "")
-    creacion = re.search(rf"\bCREATE\s+TABLE\s+({_REFERENCIA})\s*\(", limpio, re.IGNORECASE)
-    if not creacion:
-        return None
+    tablas: Dict[str, _Tabla] = {}
+    for creacion in re.finditer(rf"\bCREATE\s+TABLE\s+({_REFERENCIA})\s*\(", limpio, re.IGNORECASE):
+        tabla = _leer_tabla(limpio, creacion)
+        tablas.setdefault(tabla.nombre.lower(), tabla)
+    return tablas
+
+
+def _tabla_del_script(texto_tabla: str) -> Optional[_Tabla]:
+    """Columnas, tipos y clave primaria del primer CREATE TABLE del script de la tabla."""
+    return next(iter(_tablas_del_script(texto_tabla).values()), None)
+
+
+def _leer_tabla(limpio: str, creacion: re.Match) -> _Tabla:
+    """Columnas, tipos y clave primaria de un CREATE TABLE."""
     tabla = _Tabla(nombre=_limpiar(creacion.group(1)).split(".")[-1])
     contenido, _ = _contenido_parentesis(limpio, creacion.end() - 1)
     for definicion in _separar(contenido):
@@ -221,7 +232,7 @@ def verificar_indices(texto_indices: str, texto_tabla: str = "") -> List[Hallazg
     """Valida la sintaxis, el nombre y la estructura de cada CREATE INDEX."""
     texto = texto_indices or ""
     limpio = _sin_comentarios(texto)
-    tabla_script = _tabla_del_script(texto_tabla)
+    tablas_script = _tablas_del_script(texto_tabla)
     hallazgos: List[Hallazgo] = []
     indices: List[_Indice] = []
 
@@ -235,9 +246,10 @@ def verificar_indices(texto_indices: str, texto_tabla: str = "") -> List[Hallazg
             indices.append(indice)
 
     for indice in indices:
-        hallazgos.extend(_validar_indice(texto, indice, tabla_script))
+        # Cada índice se cruza con su propia tabla del script (el script puede crear varias).
+        hallazgos.extend(_validar_indice(texto, indice, _tabla_de(indice, tablas_script)))
         hallazgos.extend(_validar_columna_fija_en_filtro(texto, indice))
-    duplicados = _validar_duplicados(texto, indices, tabla_script)
+    duplicados = _validar_duplicados(texto, indices, tablas_script)
     # Un índice duplicado se elimina, no se renombra: sugerir otro nombre podría coincidir
     # con el del índice que ya existe (IXN_Cliente_cCodigo2 -> IXN_Cliente_cCodigo).
     lineas_duplicadas = {h.linea for h in duplicados}
@@ -650,6 +662,11 @@ def _validar_clustered(texto: str, indice: _Indice, tabla: Optional[_Tabla], tab
     )]
 
 
+def _tabla_de(indice: _Indice, tablas_script: Dict[str, _Tabla]) -> Optional[_Tabla]:
+    """La tabla del script sobre la que se crea el índice (None si el script no la crea)."""
+    return tablas_script.get(_limpiar(indice.tabla).split(".")[-1].lower())
+
+
 def _identificador_de(indice: _Indice, tabla_script: Optional[_Tabla]) -> str:
     """Columna identidad de la tabla: la PK del script o, si no la hay, n + NombreTabla + Id."""
     if tabla_script and tabla_script.pk:
@@ -657,17 +674,20 @@ def _identificador_de(indice: _Indice, tabla_script: Optional[_Tabla]) -> str:
     return f"n{_nombre_estandar_tabla(indice.tabla)}Id"
 
 
-def _validar_duplicados(texto: str, indices: List[_Indice], tabla_script: Optional[_Tabla]) -> List[Hallazgo]:
-    """Dos índices con las mismas columnas clave (o uno igual a la clave primaria)."""
+def _validar_duplicados(texto: str, indices: List[_Indice], tablas_script: Dict[str, _Tabla]) -> List[Hallazgo]:
+    """Dos índices con las mismas columnas clave (o uno igual a la clave primaria de su tabla)."""
     hallazgos = []
     vistos: Dict[Tuple[str, Tuple[str, ...]], str] = {}
-    if tabla_script and tabla_script.pk:
-        clave_pk = (tabla_script.nombre.lower(), tuple(c.lower() for c in tabla_script.pk))
-        vistos[clave_pk] = tabla_script.pk_nombre or "la clave primaria"
+    claves_pk = set()
+    for tabla_script in tablas_script.values():
+        if tabla_script.pk:
+            clave_pk = (tabla_script.nombre.lower(), tuple(c.lower() for c in tabla_script.pk))
+            vistos[clave_pk] = tabla_script.pk_nombre or "la clave primaria"
+            claves_pk.add(clave_pk)
     for indice in indices:
         clave = (_limpiar(indice.tabla).split(".")[-1].lower(), tuple(c.lower() for c in indice.claves))
         if clave in vistos:
-            es_pk = bool(tabla_script) and vistos[clave] == (tabla_script.pk_nombre or "la clave primaria")
+            es_pk = clave in claves_pk
             if es_pk and indice.clustered:
                 continue  # un CLUSTERED que repite la PK ya se marca en INDICE_CLUSTERED_CON_PK
             accion = (f"eliminar el índice {indice.nombre}, ya que la clave primaria ya cubre esas columnas y"
