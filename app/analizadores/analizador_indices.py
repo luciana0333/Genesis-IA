@@ -272,6 +272,8 @@ def _juntar_nombres(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
     cantidad = _NUMEROS_EN_LETRAS.get(len(nombres), str(len(nombres)))
     casos = "; ".join(f"{h.indice} → {h.esperado}" for h in nombres)
     formatos = list(dict.fromkeys(h.formato for h in nombres))
+    # Texto de la usuaria. La estructura va sin «:» para que la pantalla separe bien la lista.
+    estructura = f"estructura {formatos[0]}" if len(formatos) == 1 else "cada uno con la estructura de su tipo"
     formato = f"formato {formatos[0]}" if len(formatos) == 1 else "cada uno con el formato de su tipo"
     junta = Hallazgo(
         linea=nombres[0].linea,
@@ -279,8 +281,9 @@ def _juntar_nombres(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
         severidad=nombres[0].severidad,
         regla="INDICE_NOMBRE_NO_ESTANDAR",
         mensaje=(
-            f"Se identificaron {cantidad} índices cuyo nombre no corresponde a la tabla y las columnas que indexan: "
-            f"{casos}. Renombrar cada índice como se sugiere ({formato})."
+            f"Se identificaron {cantidad} índices cuya nomenclatura no está alineada según las buenas prácticas "
+            f"({estructura}): {casos}. Renombrar cada índice como se sugiere, ya que su nombre no identifica "
+            f"correctamente la tabla y las columnas que indexa ({formato})."
         ),
     )
     junta.seccion = "indices"

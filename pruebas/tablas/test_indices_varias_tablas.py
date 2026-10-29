@@ -43,10 +43,12 @@ class IndicesVariasTablasTest(unittest.TestCase):
         self.assertEqual(nombres[0].seccion, "indices")
         self.assertEqual(
             nombres[0].mensaje,
-            "Se identificaron dos índices cuyo nombre no corresponde a la tabla y las columnas que indexan: "
+            "Se identificaron dos índices cuya nomenclatura no está alineada según las buenas prácticas "
+            "(estructura IXN_Tabla_Columnas): "
             "IXN_TESTIMONIO_CCTACOD_IC01 → IXN_Testimonio_cCtaCod; "
             "IXN_MOVIMIENTO_CCTACOD → IXN_TestimonioMovimiento_cCtaCod. "
-            "Renombrar cada índice como se sugiere (formato IXN_Tabla_Columnas).",
+            "Renombrar cada índice como se sugiere, ya que su nombre no identifica correctamente la tabla y las "
+            "columnas que indexa (formato IXN_Tabla_Columnas).",
         )
 
     def test_nombre_en_mayusculas_con_la_sintaxis_correcta_no_se_observa(self):
