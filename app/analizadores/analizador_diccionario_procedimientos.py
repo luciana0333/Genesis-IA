@@ -20,7 +20,7 @@ from typing import List, Set, Tuple, Dict, Optional
 from app.analizadores.descripcion_vs_nombre import contradice
 from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_procedimiento
-from app.analizadores.diccionario_varios import agrupar_varios, por_objeto
+from app.analizadores.diccionario_varios import agrupar_varios, nombres_del_script, objetos_sin_script, por_objeto
 from app.analizadores.objetos_repetidos import hallazgo_repetidos, quitar_creaciones_repetidas
 from app.analizadores.ortografia import (
     ACCION_ORTOGRAFIA, elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico,
@@ -626,6 +626,7 @@ def _validar_descripcion_vs_nombre(
 _REGLAS_DEL_OBJETO = {
     "OBJETO_SIN_ESQUEMA", "PROCEDIMIENTO_SIN_PREFIJO_PA", "PROCEDIMIENTO_NOMBRE_INCOMPLETO",
     "PROCEDIMIENTO_ACCION_SIN_SEPARAR", "PROCEDIMIENTO_ACCION_NO_ABREVIADA", "PROCEDIMIENTO_SIN_ACCION",
+    "PROCEDIMIENTO_TABLA_SEPARADA",
 }
 _REGLAS_GENERALES = {
     "PROCEDIMIENTO_SIN_DESCRIPCION", "DESCRIPCION_PROCEDIMIENTO_VACIA", "VALIDAR_DOCUMENTACION_ALTER",
@@ -708,7 +709,38 @@ def verificar_diccionario(
                 hallazgo.objeto = nombre
                 hallazgos.append(hallazgo)
         hallazgos = agrupar_varios(hallazgos, _PLANTILLAS_AGRUPADAS, "el procedimiento")
+        hallazgos += _procedimientos_fuera_del_script(
+            texto_diccionario, nombres_del_script(texto_procedimiento, _ENCABEZADO, _nombre_del_encabezado)
+        )
     return ([duplicado] if duplicado else []) + hallazgos
+
+
+def _procedimientos_fuera_del_script(texto_diccionario: str, nombres: List[str]) -> List[Hallazgo]:
+    """El diccionario documenta procedimientos cuyo CREATE/ALTER no está en el script: se avisa una vez."""
+    faltantes = objetos_sin_script(texto_diccionario, nombres)
+    if not faltantes:
+        return []
+    lineas = sorted({linea for _, de_uno in faltantes for linea in de_uno})
+    lista = "; ".join(nombre for nombre, _ in faltantes)
+    unico = len(faltantes) == 1
+    hallazgo = Hallazgo(
+        linea=lineas[0],
+        origen=OrigenAnalisis.DICCIONARIO,
+        severidad=Severidad(REGLAS_DICCIONARIO_PROCEDIMIENTOS["PROCEDIMIENTO_FUERA_DEL_SCRIPT"].severidad),
+        regla="PROCEDIMIENTO_FUERA_DEL_SCRIPT",
+        mensaje=(
+            f"Se identificó documentación del procedimiento {lista}, que no está en el script de los procedimientos. "
+            if unico else
+            f"Se identificaron {len(faltantes)} procedimientos documentados que no están en el script de los "
+            f"procedimientos: {lista}. "
+        ) + (
+            f"Se recomienda adjuntar el CREATE PROCEDURE de {'ese procedimiento' if unico else 'cada uno'} para "
+            f"revisar su documentación, o retirar esas sentencias si no corresponden a este pase."
+        ),
+    )
+    hallazgo.lineas = lineas
+    hallazgo.seccion = "diccionario"
+    return [hallazgo]
 
 
 def diccionario_por_procedimiento(texto_procedimiento: str, texto_diccionario: str):

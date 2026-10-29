@@ -29,7 +29,7 @@ class TestTablaDuplicada(unittest.TestCase):
         self.assertEqual(duplicada[0].linea, 8)
         self.assertEqual(
             duplicada[0].mensaje,
-            "Se identificó que la tabla TB_cliente_datos se crea dos veces en el script (líneas 1 y 8). "
+            "Se identificó que la tabla TB_cliente_datos se crea dos veces en el script. "
             "Se recomienda retirar una de las sentencias CREATE TABLE, ya que SQL Server genera un error "
             "al intentar crear un objeto que ya existe.",
         )
@@ -47,7 +47,7 @@ class TestTablaDuplicada(unittest.TestCase):
 
     def test_tres_veces(self):
         hallazgo = verificar_tabla(TABLA + TABLA + TABLA)[0]
-        self.assertIn("se crea tres veces en el script (líneas 1, 7 y 13)", hallazgo.mensaje)
+        self.assertIn("se crea tres veces en el script.", hallazgo.mensaje)
         self.assertIn("retirar las sentencias repetidas CREATE TABLE", hallazgo.mensaje)
 
     def test_create_y_alter_de_la_misma_tabla_no_es_duplicado(self):
@@ -71,7 +71,7 @@ class TestTablaDuplicada(unittest.TestCase):
         hallazgos = [h for h in verificar_tabla(TABLA + otra + TABLA + otra) if h.regla == "TABLA_DUPLICADA"]
         self.assertEqual(len(hallazgos), 1)
         self.assertIn("Se identificaron dos tablas que se crean más de una vez en el script: "
-                      "TB_cliente_datos (líneas 1 y 13); Persona (líneas 7 y 19).", hallazgos[0].mensaje)
+                      "TB_cliente_datos; Persona.", hallazgos[0].mensaje)
 
 
 class TestProcedimientoDuplicado(unittest.TestCase):
@@ -88,7 +88,7 @@ GO
         hallazgos = verificar_diccionario(self.PROCEDIMIENTO + self.PROCEDIMIENTO, "")
         self.assertEqual(reglas(hallazgos).count("PROCEDIMIENTO_DUPLICADO"), 1)
         duplicado = hallazgos[0]
-        self.assertIn("el procedimiento PA_Cliente_Sel_PorId se crea dos veces en el script (líneas 1 y 8)",
+        self.assertIn("el procedimiento PA_Cliente_Sel_PorId se crea dos veces en el script.",
                       duplicado.mensaje)
         self.assertIn("CREATE PROCEDURE", duplicado.mensaje)
         self.assertEqual(reglas(hallazgos).count("PARAMETRO_FALTANTE"), 1)

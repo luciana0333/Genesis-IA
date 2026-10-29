@@ -17,6 +17,7 @@ Detecta palabras mal escritas en las descripciones del diccionario.
 """
 
 import gzip
+import bisect
 import re
 import unicodedata
 from functools import lru_cache
@@ -133,7 +134,11 @@ def _variantes_de_raiz(raiz: str) -> Set[str]:
     return variantes
 
 
-_PREFIJOS = ("des", "re", "in", "pre", "sub", "auto")
+# Prefijos de palabras compuestas: si «servicio» es válida, «microservicio» también.
+_PREFIJOS = (
+    "des", "re", "in", "pre", "sub", "auto", "micro", "macro", "multi", "inter", "intra", "sobre", "super",
+    "semi", "anti", "contra", "post", "pos", "mini", "hiper", "extra", "infra", "ultra", "tele", "mono", "co",
+)
 
 
 def es_palabra_valida(palabra: str) -> bool:
@@ -209,6 +214,9 @@ def _debe_ignorarse(palabra: str, nombres_objeto: Set[str], texto_en_mayusculas:
         return True
     if _parece_identificador(palabra):
         return True
+    # Sin vocales no es una palabra del español: es una abreviatura (Trx, Nro, Cbr).
+    if not re.search(r"[aeiouyáéíóúü]", palabra, re.IGNORECASE):
+        return True
     return normalizar(palabra) in nombres_objeto
 
 
@@ -269,6 +277,83 @@ def tilde_correcta(palabra: str) -> Optional[List[str]]:
     return list(formas) if formas else None
 
 
+def _falta_una_letra(escrita: str, candidata: str) -> bool:
+    """True si la candidata es la palabra escrita con una o dos letras más (vencdos → vencidos, Destinario →
+    Destinatario): olvidar letras al escribir es el error más común."""
+    if not 1 <= len(candidata) - len(escrita) <= 2:
+        return False
+    letras = iter(candidata)
+    return all(letra in letras for letra in escrita)
+
+
+@lru_cache(maxsize=1)
+def _por_inicial_y_largo() -> Dict[Tuple[str, int], Tuple[str, ...]]:
+    """Palabras del diccionario (sin tildes) agrupadas por primera letra y largo: búsqueda rápida."""
+    grupos: Dict[Tuple[str, int], List[str]] = {}
+    for clave in _formas_con_tilde():
+        grupos.setdefault((clave[:1], len(clave)), []).append(clave)
+    return {k: tuple(v) for k, v in grupos.items()}
+
+
+def _con_letras_faltantes(base: str) -> Set[str]:
+    """Palabras del diccionario (sin tildes) que son la escrita con una o dos letras más."""
+    grupos = _por_inicial_y_largo()
+    return {
+        clave for extra in (1, 2) for clave in grupos.get((base[:1], len(base) + extra), ())
+        if _falta_una_letra(base, clave)
+    }
+
+
+@lru_cache(maxsize=1)
+def _claves_ordenadas() -> Tuple[str, ...]:
+    return tuple(sorted(_formas_con_tilde()))
+
+
+def _es_inicio_de_palabra(texto: str) -> bool:
+    """True si alguna palabra del diccionario empieza así (Garant → garantía, Pers → persona): una abreviatura."""
+    claves = _claves_ordenadas()
+    base = normalizar(texto)
+    posicion = bisect.bisect_left(claves, base)
+    return posicion < len(claves) and claves[posicion].startswith(base) and claves[posicion] != base
+
+
+# Nombre con prefijo de tipo (c, n, d, b, j, x… en minúscula y luego la primera palabra): cCorreoDestinario.
+_NOMBRE_CON_PREFIJO = re.compile(r"^[@#]?[a-z]{1,2}(?=[A-ZÁÉÍÓÚÑ])")
+_PALABRAS_DEL_NOMBRE = re.compile(r"[A-ZÁÉÍÓÚÑ]{2,}(?=[A-ZÁÉÍÓÚÑ][a-záéíóúñ]|$)|[A-ZÁÉÍÓÚÑ]?[a-záéíóúñ]+")
+_LARGO_MINIMO_NOMBRE = 6  # palabras más cortas suelen ser abreviaturas (Cod, Pers, Cta, Mov)
+
+
+def errores_en_nombre(nombre: str) -> List[Tuple[str, List[str]]]:
+    """
+    Palabras mal escritas dentro de un nombre de columna o parámetro (@cCorreoDestinario → Destinatario).
+    Para no confundir abreviaturas con errores, solo se marca una palabra si: el nombre tiene prefijo de tipo,
+    la palabra tiene 6 letras o más, no es sigla (MAYÚSCULAS), no es inicio de otra palabra (Garant → Garantía),
+    no está en el vocabulario técnico y hay una corrección segura para sugerir.
+    """
+    prefijo = _NOMBRE_CON_PREFIJO.match(nombre or "")
+    if not prefijo or not disponible():
+        return []
+    errores = []
+    for palabra in _PALABRAS_DEL_NOMBRE.findall(nombre[prefijo.end():]):
+        if palabra.isupper() or len(palabra) < _LARGO_MINIMO_NOMBRE:
+            continue
+        if es_palabra_valida(palabra) or tilde_correcta(palabra) or _es_inicio_de_palabra(palabra):
+            continue
+        sugeridas = sugerencias(palabra)
+        if sugeridas:
+            errores.append((palabra, sugeridas))
+    return errores
+
+
+def _sonido(texto: str) -> str:
+    """Letras que suenan igual en español, unificadas (b/v, s/z, y/i): «-iba» y «-iva» terminan igual."""
+    return texto.translate(str.maketrans("bzy", "vsi"))
+
+
+# Verbo con pronombre pegado (destinarlo, enviarse): en nombres y descripciones casi nunca es la palabra buscada.
+_VERBO_CON_PRONOMBRE = re.compile(r"(?:[aei]r|ndo)(?:lo|la|le|los|las|les|se|me|nos)$")
+
+
 def sugerencias(palabra: str, maximo: int = 1) -> List[str]:
     """
     Palabras parecidas del diccionario, con la misma mayúscula inicial que la
@@ -288,18 +373,39 @@ def sugerencias(palabra: str, maximo: int = 1) -> List[str]:
     claves = {c for c in cercanas if c in formas}
     if len(base) >= 7 and not claves:
         claves = {c for primera in cercanas for c in _a_una_letra(primera, _LETRAS_SIN_TILDE) if c in formas}
+    # En palabras largas también las que solo tienen letras de menos (Destinario → Destinatario), aunque
+    # haya otra a un cambio (destinarlo): olvidar letras es el error más común.
+    if len(base) >= 7:
+        claves |= _con_letras_faltantes(base)
     candidatas = {f for clave in claves if clave[:1] == base[:1] for f in formas[clave] if f != original}
     corrector = _corrector()
     # Solo se sugiere si la corrección es casi segura: una letra de diferencia (o dos en
     # palabras largas). Si no, se pide revisar la palabra en vez de adivinar (ROJSH ≠ ROJO).
     tolerancia = 2 if len(original) >= 7 else 1
     candidatas = {c for c in candidatas if _distancia(normalizar(c), normalizar(original)) <= tolerancia}
+    # Con pyspellchecker: si alguna candidata es de uso común, las que nadie usa (cumplimento) pierden.
+    hay_usadas = bool(corrector) and any(corrector.word_usage_frequency(c) > 0 for c in candidatas)
+
     def prioridad(candidata: str):
-        # 1) más cercana; 2) sin tildes agregadas; 3) confusión típica del español (b/v, s/z...);
+        # 1) puntaje (abajo); 2) sin tildes agregadas; 3) confusión típica del español (b/v, s/z...);
         # 4) la más usada (si pyspellchecker está instalado); 5) orden alfabético, para que sea estable.
         tilde_nueva = any(letra in "áéíóú" and letra not in original for letra in candidata)
+        escrita, propuesta = normalizar(original), normalizar(candidata)
+        # Puntaje (menor es mejor): letras por cambiar; +0.5 si cambia la terminación (-ario, -ción: dice
+        # qué palabra es); -0.6 si solo le falta una letra (Cdigo → Código) o dos y empieza igual
+        # (Destinario → Destinatario); verbos con pronombre pegado (destinarlo) al final.
+        solo_faltan = _falta_una_letra(escrita, propuesta) and (
+            len(propuesta) == len(escrita) + 1 or propuesta[:3] == escrita[:3]
+        )
+        puntaje = (
+            _distancia(propuesta, escrita)
+            + (0.5 if _sonido(propuesta[-3:]) != _sonido(escrita[-3:]) else 0)
+            - (0.6 if solo_faltan else 0)
+            + (5 if _VERBO_CON_PRONOMBRE.search(propuesta) else 0)
+            + (1.1 if hay_usadas and corrector.word_usage_frequency(candidata) == 0 else 0)
+        )
         return (
-            _distancia(normalizar(candidata), normalizar(original)),
+            puntaje,
             tilde_nueva,
             not _es_confusion_tipica(original, candidata),
             -(corrector.word_usage_frequency(candidata) if corrector else 0),
@@ -324,6 +430,9 @@ def palabras_mal_escritas(
     if not disponible() or not texto:
         return []
     ignorar = {normalizar(n) for n in nombres_objeto if n}
+    # Las palabras que forman el nombre de lo que se documenta son vocabulario del equipo: si el parámetro
+    # se llama @nMicroservicioId o @cCodTrx, «microservicio» y «Trx» no son errores en su descripción.
+    ignorar |= {normalizar(p) for n in nombres_objeto if n for p in _PALABRAS_DEL_NOMBRE.findall(n)}
     resultado: List[Tuple[str, Optional[List[str]]]] = []
     vistas: Set[str] = set()
     palabras = [

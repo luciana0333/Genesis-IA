@@ -99,13 +99,14 @@ def hallazgo_repetidos(
     if len(repetidas) == 1:
         nombre, lineas = repetidas[0]
         veces = _VECES.get(len(lineas), f"{len(lineas)} veces")
-        mensaje = (f"Se identificó que {objeto} {nombre} se crea {veces} en el script ({_lineas(lineas)}). "
+        mensaje = (f"Se identificó que {objeto} {nombre} se crea {veces} en el script. "
                    f"Se recomienda retirar {'una de las sentencias' if len(lineas) == 2 else 'las sentencias repetidas'} "
                    f"{sentencia}, {motivo}")
     else:
         plural = "tablas" if tipo == "tabla" else "procedimientos"
         cantidad = _EN_LETRAS.get(len(repetidas), str(len(repetidas)))
-        casos = "; ".join(f"{nombre} ({_lineas(lineas)})" for nombre, lineas in repetidas)
+        # Las líneas van en el encabezado de la observación, no en el texto.
+        casos = "; ".join(nombre for nombre, _ in repetidas)
         mensaje = (f"Se identificaron {cantidad} {plural} que se crean más de una vez en el script: {casos}. "
                    f"Se recomienda retirar las sentencias {sentencia} repetidas, {motivo}")
     todas = sorted({linea for _, lineas in repetidas for linea in lineas})
