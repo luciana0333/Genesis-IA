@@ -18,7 +18,9 @@ import { IndicesFaltantes, ParametrosPlan } from './PestanasPlan';
 
 export function Flecha({ desde, hasta, filas, filasMaximas, desviada = false }) {
   // Más gruesa cuantas más filas pasan, como en Plan Explorer.
-  const grosor = 1.5 + 4.5 * (Math.log10((filas ?? 0) + 1) / Math.log10(filasMaximas + 1 || 10));
+  // El grosor muestra cuántas filas pasan: escala logarítmica con un mínimo de 100 000 filas para la
+  // flecha más gruesa, así 1 fila siempre es delgada aunque sea el máximo del plan (como Plan Explorer).
+  const grosor = 1.5 + 4.5 * (Math.log10((filas ?? 0) + 1) / Math.log10(Math.max(filasMaximas, 100000) + 1));
   const inicio = desde.x - ICONO / 2 - 8;
   const fin = hasta.x + ICONO / 2 + 6;
   const punta = 4 + grosor * 0.6;
