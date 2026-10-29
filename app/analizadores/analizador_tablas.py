@@ -938,7 +938,8 @@ def _mensaje_prefijo_entre_tablas(grupo: List[Hallazgo]) -> Optional[str]:
         por_cambio.setdefault((h.cambio[0], h.cambio[1]), []).append(h.tabla)
     casos = [
         f"{tablas[0]} : Cambiar {actual} por {nuevo}" if len(tablas) == 1
-        else f"Cambiar {actual} por {nuevo} ({_enumerar(tablas)})"
+        # Texto de la usuaria.
+        else f"Cambiar {actual} por {nuevo} en las tablas {_enumerar(tablas)}"
         for (actual, nuevo), tablas in por_cambio.items()
     ]
     cuales = "ambas columnas" if total == 2 else f"las {cantidad} columnas"

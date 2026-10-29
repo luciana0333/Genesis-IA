@@ -32,7 +32,7 @@ class MismaColumnaVariasTablasTest(unittest.TestCase):
         self.assertEqual(
             hallazgo.mensaje,
             "Se identificaron tres columnas cuyo prefijo no corresponde al tipo de dato definido: Cambiar cNumGarant "
-            "por nNumGarant (Garantia.Testimonio, Garantia.TestimonioMovimiento y Garantia.AmpliarTestimonio). "
+            "por nNumGarant en las tablas Garantia.Testimonio, Garantia.TestimonioMovimiento y Garantia.AmpliarTestimonio. "
             "Corregir los nombres de las tres columnas, utilizando el prefijo n en lugar de c, ya que corresponden "
             "a datos de tipo numérico y no de texto.",
         )
@@ -46,7 +46,7 @@ class MismaColumnaVariasTablasTest(unittest.TestCase):
     def test_columnas_distintas_siguen_por_separado(self):
         sql = SCRIPT.replace("cNumGarant BIGINT NOT NULL,\n    cUsuario", "cNumGarantia BIGINT NOT NULL,\n    cUsuario")
         mensaje = {h.regla: h for h in verificar_tabla(sql, False)}["COLUMNA_PREFIJO_TIPO_INVALIDO"].mensaje
-        self.assertIn("Cambiar cNumGarant por nNumGarant (Garantia.Testimonio y Garantia.TestimonioMovimiento); "
+        self.assertIn("Cambiar cNumGarant por nNumGarant en las tablas Garantia.Testimonio y Garantia.TestimonioMovimiento; "
                       "Garantia.AmpliarTestimonio : Cambiar cNumGarantia por nNumGarantia", mensaje)
 
 
