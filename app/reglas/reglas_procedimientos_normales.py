@@ -186,6 +186,14 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "DEPENDENCIA_BASE_BI": ReglaDiccionario(
+        codigo="DEPENDENCIA_BASE_BI",
+        nombre="Dependencia con la base de datos BI",
+        severidad="alto",
+        descripcion="Los procedimientos de negocio no deben depender de la base BI: no es una base productiva.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "TABLA_REPETIDA_EN_CONSULTA": ReglaDiccionario(
         codigo="TABLA_REPETIDA_EN_CONSULTA",
         nombre="Misma tabla en varios JOIN",
