@@ -269,6 +269,13 @@ def tilde_correcta(palabra: str) -> Optional[List[str]]:
     return list(formas) if formas else None
 
 
+def _falta_una_letra(escrita: str, candidata: str) -> bool:
+    """True si la candidata es la palabra escrita con una letra más en algún lugar (vencdos → vencidos)."""
+    if len(candidata) != len(escrita) + 1:
+        return False
+    return any(candidata[:i] + candidata[i + 1:] == escrita for i in range(len(candidata)))
+
+
 def sugerencias(palabra: str, maximo: int = 1) -> List[str]:
     """
     Palabras parecidas del diccionario, con la misma mayúscula inicial que la
@@ -295,11 +302,13 @@ def sugerencias(palabra: str, maximo: int = 1) -> List[str]:
     tolerancia = 2 if len(original) >= 7 else 1
     candidatas = {c for c in candidatas if _distancia(normalizar(c), normalizar(original)) <= tolerancia}
     def prioridad(candidata: str):
-        # 1) más cercana; 2) sin tildes agregadas; 3) confusión típica del español (b/v, s/z...);
-        # 4) la más usada (si pyspellchecker está instalado); 5) orden alfabético, para que sea estable.
+        # 1) más cercana; 2) le falta una letra (vencdos → vencidos, Cdigo → Código: el error de tipeo más
+        # común, antes que cambiar una letra: venados, caigo); 3) sin tildes agregadas; 4) confusión típica
+        # del español (b/v, s/z...); 5) la más usada (si pyspellchecker está instalado); 6) orden alfabético.
         tilde_nueva = any(letra in "áéíóú" and letra not in original for letra in candidata)
         return (
             _distancia(normalizar(candidata), normalizar(original)),
+            not _falta_una_letra(normalizar(original), normalizar(candidata)),
             tilde_nueva,
             not _es_confusion_tipica(original, candidata),
             -(corrector.word_usage_frequency(candidata) if corrector else 0),

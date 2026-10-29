@@ -16,7 +16,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_tabla
-from app.analizadores.diccionario_varios import agrupar_varios, por_objeto
+from app.analizadores.diccionario_varios import agrupar_varios, nombres_del_script, objetos_sin_script, por_objeto
 from app.analizadores.objetos_repetidos import hallazgo_repetidos, quitar_creaciones_repetidas
 from app.analizadores.ortografia import (
     ACCION_ORTOGRAFIA, elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico,
@@ -873,7 +873,37 @@ def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> Li
                 hallazgo.objeto = nombre
                 hallazgos.append(hallazgo)
         hallazgos = agrupar_varios(hallazgos, _PLANTILLAS_AGRUPADAS, "la tabla")
+        hallazgos += _tablas_fuera_del_script(
+            texto_diccionario, nombres_del_script(texto_tabla, _ENCABEZADO_TABLA, _nombre_del_encabezado)
+        )
     return ([duplicada] if duplicada else []) + hallazgos
+
+
+def _tablas_fuera_del_script(texto_diccionario: str, nombres: List[str]) -> List[Hallazgo]:
+    """El diccionario documenta tablas cuyo CREATE/ALTER no está en el script: se avisa una vez."""
+    faltantes = objetos_sin_script(texto_diccionario, nombres)
+    if not faltantes:
+        return []
+    lineas = sorted({linea for _, de_una in faltantes for linea in de_una})
+    lista = "; ".join(nombre for nombre, _ in faltantes)
+    unica = len(faltantes) == 1
+    hallazgo = Hallazgo(
+        linea=lineas[0],
+        origen=OrigenAnalisis.DICCIONARIO,
+        severidad=Severidad(REGLAS_DICCIONARIO_TABLAS["TABLA_FUERA_DEL_SCRIPT"].severidad),
+        regla="TABLA_FUERA_DEL_SCRIPT",
+        mensaje=(
+            f"Se identificó documentación de la tabla {lista}, que no está en el script de las tablas. "
+            if unica else
+            f"Se identificaron {len(faltantes)} tablas documentadas que no están en el script de las tablas: {lista}. "
+        ) + (
+            f"Se recomienda adjuntar el CREATE TABLE de {'esa tabla' if unica else 'cada una'} para revisar su "
+            f"documentación, o retirar esas sentencias si no corresponden a este pase."
+        ),
+    )
+    hallazgo.lineas = lineas
+    hallazgo.seccion = "diccionario"
+    return [hallazgo]
 
 
 def diccionario_por_tabla(texto_tabla: str, texto_diccionario: str):

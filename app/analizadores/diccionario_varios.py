@@ -10,6 +10,7 @@ Para no perder los números de línea, cada objeto se revisa sobre una copia del
 completo en la que todo lo que no le pertenece se reemplaza por espacios.
 """
 
+import difflib
 import re
 from typing import Callable, Dict, List, Optional, Pattern, Tuple
 
@@ -40,6 +41,28 @@ def separar_objetos(texto: str, encabezado: Pattern, nombre_de: Callable) -> Lis
     return list(objetos.values())
 
 
+def es_otro_objeto(nombre: str, claves: List[str]) -> bool:
+    """
+    True si el @level1name es de un objeto que no está en el script (otro procedimiento u otra tabla);
+    False si coincide o se parece mucho a uno del script (nombre mal escrito: lo dice la revisión de ese objeto).
+    """
+    clave = _limpiar(nombre or "")
+    if not clave or clave in claves:
+        return False
+    return max((difflib.SequenceMatcher(None, clave, otra).ratio() for otra in claves), default=0) < 0.85
+
+
+def objetos_sin_script(texto_diccionario: str, nombres: List[str]) -> List[Tuple[str, List[int]]]:
+    """[(nombre, líneas)] de los objetos que el diccionario documenta pero que no están en el script."""
+    claves = [_limpiar(n) for n in nombres]
+    encontrados: Dict[str, Tuple[str, List[int]]] = {}
+    for ll in leer_propiedades_extendidas(texto_diccionario):
+        nombre = ll.texto("level1name")
+        if es_otro_objeto(nombre, claves):
+            encontrados.setdefault(_limpiar(nombre), (nombre, []))[1].append(ll.linea)
+    return list(encontrados.values())
+
+
 def repartir_diccionario(texto_diccionario: str, nombres: List[str]) -> List[List[Rango]]:
     """
     Rangos del diccionario de cada objeto (en el orden de `nombres`). Cada sentencia va al
@@ -60,6 +83,8 @@ def repartir_diccionario(texto_diccionario: str, nombres: List[str]) -> List[Lis
     ]
     anterior = next((d for d in duenos if d is not None), 0)
     for i, ll in enumerate(llamadas):
+        if duenos[i] is None and es_otro_objeto(ll.texto("level1name"), claves):
+            continue  # documenta un objeto que no está en el script: se avisa aparte (objetos_sin_script)
         dueno = duenos[i] if duenos[i] is not None else anterior
         anterior = dueno
         desde = 0 if i == 0 else ll.posicion
@@ -99,6 +124,11 @@ def _con_objeto(caso: str, objeto: str) -> str:
         return caso
     titulo, detalle = caso.split(": ", 1)
     return f"{titulo} ({objeto}): {detalle}"
+
+
+def nombres_del_script(texto_objeto: str, encabezado: Pattern, nombre_de: Callable) -> List[str]:
+    """Nombres de los objetos que crea el script, en orden."""
+    return [nombre for nombre, _ in separar_objetos(texto_objeto, encabezado, nombre_de)]
 
 
 def agrupar_varios(hallazgos, plantillas: Dict[str, Tuple[str, str]], articulo: str) -> list:

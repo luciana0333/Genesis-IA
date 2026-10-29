@@ -60,6 +60,14 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
         alcance="procedimiento",
         activo=True,
     ),
+    "PROCEDIMIENTO_TABLA_SEPARADA": ReglaDiccionario(
+        codigo="PROCEDIMIENTO_TABLA_SEPARADA",
+        nombre="Tabla separada con guion bajo en el nombre",
+        severidad="alto",
+        descripcion="En PA_Tabla_Acción_Finalidad la tabla va sin guion bajo (PA_GarantiaTestimonio_Upd_...).",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "PARAMETRO_NO_EXISTE": ReglaDiccionario(
         codigo="PARAMETRO_NO_EXISTE",
         nombre="Parámetro documentado que no existe",
@@ -117,6 +125,17 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
         severidad="alto",
         descripcion="@level0name, @level1name o @level2name no pueden ir vacíos (N''): deben indicar el "
                     "esquema, el procedimiento o el parámetro documentado.",
+        alcance="procedimiento",
+        activo=True,
+    ),
+    "PROCEDIMIENTO_FUERA_DEL_SCRIPT": ReglaDiccionario(
+        codigo="PROCEDIMIENTO_FUERA_DEL_SCRIPT",
+        nombre="Procedimiento documentado que no está en el script",
+        severidad="medio",
+        descripcion=(
+            "Con varios procedimientos, el diccionario documenta uno cuyo CREATE/ALTER no está en el script: "
+            "no se puede revisar su documentación."
+        ),
         alcance="procedimiento",
         activo=True,
     ),

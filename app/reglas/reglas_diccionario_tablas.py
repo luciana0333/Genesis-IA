@@ -145,6 +145,17 @@ REGLAS_DICCIONARIO_TABLAS = {
         alcance="tabla",
         activo=True,
     ),
+    "TABLA_FUERA_DEL_SCRIPT": ReglaDiccionario(
+        codigo="TABLA_FUERA_DEL_SCRIPT",
+        nombre="Tabla documentada que no está en el script",
+        severidad="medio",
+        descripcion=(
+            "Con varias tablas, el diccionario documenta una cuyo CREATE/ALTER no está en el script: no se puede "
+            "revisar su documentación."
+        ),
+        alcance="tabla",
+        activo=True,
+    ),
     "NOMBRE_TABLA_NO_COINCIDE": ReglaDiccionario(
         codigo="NOMBRE_TABLA_NO_COINCIDE",
         nombre="Nombre de tabla no coincide",

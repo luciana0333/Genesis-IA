@@ -63,6 +63,16 @@ def nomenclatura_procedimiento(nombre: str) -> List[Tuple[str, str]]:
                  f"del manual, {abreviatura}, ya que así se nombran las acciones estándar (ej.: {sugerido}).")]
 
     if accion.lower() not in _ACCIONES_ESTANDAR and not _VERBO.fullmatch(accion):
+        # La acción está más adelante (PA_Garantia_Testimonio_Upd_Estado): la tabla quedó separada con
+        # guion bajo. Se sugiere juntarla, no agregar otra acción.
+        posicion = next((i for i, parte in enumerate(finalidad) if parte.lower() in _ACCIONES_ESTANDAR), None)
+        if posicion is not None:
+            partes_tabla = [tabla, accion] + finalidad[:posicion]
+            sugerido = "_".join(["PA", "".join(_en_pascal(p) for p in partes_tabla)] + finalidad[posicion:])
+            return [("PROCEDIMIENTO_TABLA_SEPARADA",
+                     f"En el nombre del procedimiento {nombre}, la tabla está separada con guion bajo "
+                     f"({'_'.join(partes_tabla)}). Escribir la tabla sin guion bajo, ya que el formato es "
+                     f"PA_Tabla_Acción_Finalidad (ej.: {sugerido}).")]
         sugerido = "_".join(["PA", _en_pascal(tabla), "Sel", _en_pascal(accion)] + [_en_pascal(x) for x in finalidad])
         return [("PROCEDIMIENTO_SIN_ACCION",
                  f"El nombre del procedimiento {nombre} no indica una acción: '{accion}' no es Sel, Upd, "
