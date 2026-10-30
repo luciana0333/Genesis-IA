@@ -161,6 +161,18 @@ class TestConversionesAlLeerXml(unittest.TestCase):
         self.assertIn("«[DC].[nDocTpo]=CONVERT_IMPLICIT(int,[CL].[nConsEquivalente],0)»", hallazgos[0].mensaje)
         self.assertNotIn("varchar(10)", hallazgos[0].mensaje)
 
+    def test_valor_directo_del_lector_xml_no_se_observa(self):
+        alertas = "".join(
+            f'<PlanAffectingConvert ConvertIssue="Cardinality Estimate" '
+            f'Expression="CONVERT_IMPLICIT({tipo},XML Reader with XPath filter.[{columna}],0)"/>'
+            for tipo, columna in (("varchar(13)", "lvalue"), ("varchar(13)", "value"), ("int", "lvalue"), ("decimal(18,2)", "value")))
+        for analizar in (analizar_plan_reporte, analizar_plan_negocio):
+            with self.subTest(modulo=analizar.__name__):
+                self.assertEqual(_conversiones(self._con_xml(alertas), analizar), [])
+                # El diagrama sigue mostrando la alerta tal cual el XML.
+                raiz = construir_diagrama(self._con_xml(alertas))[0]["nodos"][0]
+                self.assertEqual(len(raiz["advertencias"]), 4)
+
     def test_sin_xml_se_sigue_observando(self):
         self.assertEqual(len(_conversiones(_insert(DOCE))), 1)
 
