@@ -3,7 +3,7 @@ import unittest
 
 from app.analizadores.analizador_reportes import verificar_reporte
 
-ENCABEZADO = "CREATE PROCEDURE dbo.PA_Cliente_Sel_Resumen\n    @nAgenciaId INT\nAS\nBEGIN\n"
+ENCABEZADO = "CREATE PROCEDURE dbo.PA_GDD_Cliente_Sel_Resumen\n    @nAgenciaId INT\nAS\nBEGIN\n"
 
 
 def procedimiento(cuerpo):
@@ -137,16 +137,39 @@ class TestReportesQA(unittest.TestCase):
     def test_nombre_sin_prefijo_pa_ni_accion(self):
         sql = "CREATE PROCEDURE dbo.BI_Reporte\nAS\nBEGIN\n    SELECT c.cCodigo FROM dbo.Cliente c WITH(NOLOCK);\nEND;"
         hallazgos = verificar_reporte(sql)
-        self.assertEqual([(h.regla, h.linea) for h in hallazgos],
-                         [("PROCEDIMIENTO_SIN_PREFIJO_PA", 1), ("PROCEDIMIENTO_SIN_ACCION", 1)])
-        self.assertIn("ej.: PA_BI_Reporte", hallazgos[0].mensaje)
-        self.assertIn("ej.: PA_BI_Sel_Reporte", hallazgos[1].mensaje)
+        self.assertEqual([(h.regla, h.linea) for h in hallazgos], [("REPORTE_NOMBRE_FUERA_DEL_ESTANDAR", 1)])
+        self.assertEqual(hallazgos[0].severidad.value, "medio")
+        self.assertIn("no empieza con el prefijo PA_", hallazgos[0].mensaje)
 
-    def test_nombre_con_accion_en_cualquier_posicion(self):
-        for nombre in ("PA_Sel_Reporte", "PA_BI_Reporte_Sel", "PA_Cliente_upd_Estado"):
+    def test_nomenclatura_de_reportes_pa_gdd(self):
+        # PA_GDD_Tabla_Acción_Finalidad: el área de los reportes siempre es GDD (Gestión de Datos).
+        casos = {
+            "PA_ProyectoLote_Sel_Cuotas": "falta el área GDD después de PA_",
+            "PA_RRHH_ProyectoLote_Sel_Cuotas": "el área debe ser GDD y no RRHH",
+            "PA_GDD_Proyecto_Lote_Sel_Cuotas": "la tabla está separada con guion bajo (Proyecto_Lote)",
+            "PA_GDD_ProyectoLote_Sel": "falta la finalidad después de la acción",
+            "PA_GDD_Sel_Cuotas": "falta la tabla antes de la acción",
+            "PA_GDD_ProyectoLote_Cuotas": "no indica la acción (Sel, Upd, Ins o Del)",
+            "PA_GDD_ProyectoLote_Consultar_Cuotas": "la acción se escribe Sel",
+        }
+        for nombre, problema in casos.items():
             with self.subTest(nombre=nombre):
-                sql = f"CREATE PROCEDURE dbo.{nombre}\nAS\nSELECT 1;"
-                self.assertEqual(reglas(sql), [])
+                hallazgo = verificar_reporte(f"CREATE PROCEDURE dbo.{nombre}\nAS\nSELECT 1;")[0]
+                self.assertEqual(hallazgo.regla, "REPORTE_NOMBRE_FUERA_DEL_ESTANDAR")
+                self.assertIn(problema, hallazgo.mensaje)
+        primero = verificar_reporte("CREATE PROCEDURE dbo.PA_ProyectoLote_Sel_Cuotas\nAS\nSELECT 1;")[0]
+        self.assertEqual(
+            primero.mensaje,
+            "Se identificó que el nombre del procedimiento PA_ProyectoLote_Sel_Cuotas no cumple con la nomenclatura "
+            "de reportes: falta el área GDD después de PA_. Se recomienda nombrarlo con el formato "
+            "PA_GDD_Tabla_Acción_Finalidad (ej.: PA_GDD_ProyectoLote_Sel_Cuotas), ya que así se identifica el área "
+            "de Gestión de Datos, la tabla y qué hace el procedimiento.",
+        )
+
+    def test_nombre_correcto_de_reporte(self):
+        for nombre in ("PA_GDD_ProyectoLote_Sel_Cuotas", "DBO.PA_GDD_ProyectoLote_Sel_Cuotas", "PA_GDD_Cliente_Upd_Estado"):
+            with self.subTest(nombre=nombre):
+                self.assertEqual(reglas(f"CREATE PROCEDURE {nombre if '.' in nombre else 'dbo.' + nombre}\nAS\nSELECT 1;"), [])
 
     def test_nombre_solo_se_revisa_en_create(self):
         sql = "ALTER PROCEDURE dbo.BI_Reporte\nAS\nSELECT 1;"
