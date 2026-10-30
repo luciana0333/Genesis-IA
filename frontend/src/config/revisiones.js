@@ -61,8 +61,8 @@ export const REVISIONES = {
       ayuda: 'Pega aquí el CREATE o ALTER PROCEDURE completo para aplicar las reglas de reportes.',
     },
     diccionario: null,
-    ejemplo: { sql: SQL_REPORTE, diccionario: '', nombre: 'dbo.PA_BI_Sel_Reporte' },
-    demo: { sql: DEMO_REPORTE, diccionario: '', nombre: 'dbo.PA_Cliente_Sel_Resumen' },
+    ejemplo: { sql: SQL_REPORTE, diccionario: '', nombre: 'dbo.PA_GDD_Reporte_Sel_Resumen' },
+    demo: { sql: DEMO_REPORTE, diccionario: '', nombre: 'dbo.PA_GDD_Cliente_Sel_Resumen' },
   },
   procedimiento_normal: {
     id: 'procedimiento_normal',

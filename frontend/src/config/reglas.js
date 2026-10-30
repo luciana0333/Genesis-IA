@@ -80,6 +80,7 @@ export const NOMBRES_REGLAS = {
   PROCEDIMIENTO_ACCION_NO_ABREVIADA: 'Acción sin abreviar',
   PROCEDIMIENTO_ACCION_SIN_SEPARAR: 'Acción sin separar',
   PROCEDIMIENTO_SIN_ACCION: 'Nombre sin acción',
+  REPORTE_NOMBRE_FUERA_DEL_ESTANDAR: 'Nombre del reporte fuera del estándar',
   PROCEDIMIENTO_TABLA_SEPARADA: 'Tabla separada con guion bajo en el nombre',
   PROCEDIMIENTO_NOMBRE_NO_PASCALCASE: 'Nombre de procedimiento fuera del estándar',
   PROCEDIMIENTO_NOMBRE_CON_SIGLA: 'Nombre de procedimiento con sigla por validar',

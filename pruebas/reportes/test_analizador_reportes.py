@@ -351,17 +351,18 @@ class TestAnalizadorReportes(unittest.TestCase):
 
     def test_accion_pegada_a_la_finalidad(self):
         casos = {
-            "PA_Registro_SelEjecucionesDetalle": "PA_Registro_Sel_EjecucionesDetalle",
-            "PA_Cliente_ConsultarDatos": "PA_Cliente_Sel_Datos",
+            "PA_GDD_Registro_SelEjecucionesDetalle": "PA_GDD_Registro_Sel_EjecucionesDetalle",
+            "PA_GDD_Cliente_ConsultarDatos": "PA_GDD_Cliente_Sel_Datos",
         }
         for nombre, sugerido in casos.items():
             with self.subTest(nombre=nombre):
                 hallazgos = [h for h in verificar_reporte(f"CREATE PROCEDURE dbo.{nombre} AS SELECT a FROM #T")
-                             if h.regla == "PROCEDIMIENTO_ACCION_SIN_SEPARAR"]
+                             if h.regla == "REPORTE_NOMBRE_FUERA_DEL_ESTANDAR"]
                 self.assertEqual(len(hallazgos), 1)
-                self.assertIn(sugerido, hallazgos[0].mensaje)
-        correcto = "CREATE PROCEDURE dbo.PA_Registro_Sel_EjecucionesDetalle AS SELECT a FROM #T"
-        self.assertNotIn("PROCEDIMIENTO_ACCION_SIN_SEPARAR", {h.regla for h in verificar_reporte(correcto)})
+                self.assertIn("está pegada a la finalidad", hallazgos[0].mensaje)
+                self.assertIn(f"(ej.: {sugerido})", hallazgos[0].mensaje)
+        correcto = "CREATE PROCEDURE dbo.PA_GDD_Registro_Sel_EjecucionesDetalle AS SELECT a FROM #T"
+        self.assertNotIn("REPORTE_NOMBRE_FUERA_DEL_ESTANDAR", {h.regla for h in verificar_reporte(correcto)})
 
     def test_linea_es_la_del_elemento_que_causa_el_hallazgo(self):
         previo = "ALTER PROCEDURE dbo.PA_Cliente_Sel AS\nBEGIN\nDECLARE @n INT = 1;\n"

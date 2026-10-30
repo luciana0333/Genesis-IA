@@ -185,6 +185,17 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "REPORTE_NOMBRE_FUERA_DEL_ESTANDAR": ReglaDiccionario(
+        codigo="REPORTE_NOMBRE_FUERA_DEL_ESTANDAR",
+        nombre="Nombre del reporte fuera del estándar",
+        severidad="medio",
+        descripcion=(
+            "Solo CREATE: el nombre del reporte sigue PA_GDD_Tabla_Acción_Finalidad, con el área de Gestión de "
+            "Datos (ej.: PA_GDD_ProyectoLote_Sel_Cuotas)."
+        ),
+        alcance="reporte",
+        activo=True,
+    ),
     "PROCEDIMIENTO_SIN_PREFIJO_PA": ReglaDiccionario(
         codigo="PROCEDIMIENTO_SIN_PREFIJO_PA",
         nombre="Procedimiento sin prefijo PA_",

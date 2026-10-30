@@ -22,7 +22,7 @@ export const INDICES_TABLA = `CREATE NONCLUSTERED INDEX
     IXN_Cliente_cCodPersona
     ON CLICKTOPAY.Cliente (cCodPersona);`;
 
-export const SQL_REPORTE = `ALTER PROCEDURE dbo.PA_BI_Sel_Reporte
+export const SQL_REPORTE = `ALTER PROCEDURE dbo.PA_GDD_Reporte_Sel_Resumen
 AS
 BEGIN
     SELECT cCodigo, cNombre
@@ -79,7 +79,7 @@ GO`;
  * hallazgos de cada revisión. Los ejemplos de arriba son los correctos con
  * que se precarga el editor.
  */
-export const DEMO_REPORTE = `ALTER PROCEDURE dbo.PA_Cliente_Sel_Resumen
+export const DEMO_REPORTE = `ALTER PROCEDURE dbo.PA_GDD_Cliente_Sel_Resumen
 AS
 BEGIN
     SELECT *

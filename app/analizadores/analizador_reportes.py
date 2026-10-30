@@ -607,10 +607,69 @@ def _hallazgo_accion_pegada(texto: str, posicion: int, nombre: str, segmentos: L
     )
 
 
+# Los reportes son del área de Gestión de Datos: PA_GDD_Tabla_Acción_Finalidad.
+_AREA_REPORTES = "GDD"
+
+
+def _pascal(parte: str) -> str:
+    return parte[:1].upper() + parte[1:] if parte else parte
+
+
+def _problemas_nombre_reporte(nombre: str) -> Tuple[List[str], str]:
+    """
+    Qué no cumple el nombre con PA_GDD_Tabla_Acción_Finalidad y el nombre sugerido.
+    Ej.: PA_ProyectoLote_Sel_Cuotas → (['falta el área GDD después de PA_'], 'PA_GDD_ProyectoLote_Sel_Cuotas').
+    """
+    segmentos = [s for s in nombre.split("_") if s]
+    problemas = []
+    if segmentos and segmentos[0].upper() == "PA":
+        segmentos = segmentos[1:]
+    else:
+        problemas.append("no empieza con el prefijo PA_")
+    if segmentos and segmentos[0].upper() == _AREA_REPORTES:
+        segmentos = segmentos[1:]
+    elif segmentos and segmentos[0].isupper() and len(segmentos[0]) <= 6:
+        problemas.append(f"el área debe ser {_AREA_REPORTES} y no {segmentos[0]}")
+        segmentos = segmentos[1:]
+    else:
+        problemas.append(f"falta el área {_AREA_REPORTES} después de PA_")
+
+    # Acción: separada (Sel) o pegada a la finalidad (SelCuotas).
+    # También escrita completa (Consultar → Sel, Actualizar → Upd).
+    posicion = next((i for i, s in enumerate(segmentos) if s.lower() in _ABREVIATURA_ACCION), None)
+    pegada = None
+    if posicion is None:
+        posicion = next((i for i, s in enumerate(segmentos) if _ACCION_PEGADA.match(s)), None)
+        if posicion is not None:
+            pegada = _ACCION_PEGADA.match(segmentos[posicion])
+    if posicion is None:
+        problemas.append("no indica la acción (Sel, Upd, Ins o Del)")
+        tabla, accion, finalidad = segmentos[:1], "Sel", segmentos[1:]
+    else:
+        tabla, finalidad = segmentos[:posicion], segmentos[posicion + 1:]
+        accion = _ABREVIATURA_ACCION[(pegada.group(1) if pegada else segmentos[posicion]).lower()]
+        if pegada:
+            problemas.append(f"la acción {pegada.group(1)} está pegada a la finalidad ({segmentos[posicion]})")
+            finalidad = [pegada.group(2)] + finalidad
+        if not tabla:
+            problemas.append("falta la tabla antes de la acción")
+        elif len(tabla) > 1:
+            problemas.append(f"la tabla está separada con guion bajo ({'_'.join(tabla)})")
+        if not pegada and segmentos[posicion] != accion:
+            problemas.append(f"la acción se escribe {accion}")
+    if not finalidad:
+        problemas.append("falta la finalidad después de la acción")
+    sugerido = "_".join(
+        ["PA", _AREA_REPORTES, "".join(_pascal(t) for t in tabla) or "Tabla", accion]
+        + ["".join(_pascal(f) for f in finalidad) or "Finalidad"]
+    )
+    return problemas, sugerido
+
+
 def _validar_accion_del_nombre(texto: str, limpio: str) -> List[Hallazgo]:
     """
-    Al crear el reporte, el nombre empieza con PA_ e indica la acción (Sel, Upd,
-    Ins o Del), separada con "_". En un ALTER no se revisa: el objeto ya existe.
+    Al crear el reporte, el nombre sigue PA_GDD_Tabla_Acción_Finalidad (área de Gestión de Datos).
+    En un ALTER no se revisa: el objeto ya existe.
     """
     match = re.search(
         rf"\bCREATE\s+(?:OR\s+ALTER\s+)?PROC(?:EDURE)?\s+({_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}})",
@@ -619,30 +678,16 @@ def _validar_accion_del_nombre(texto: str, limpio: str) -> List[Hallazgo]:
     if not match:
         return []
     nombre = match.group(1).split(".")[-1].strip().strip("[]")
-    segmentos = nombre.split("_")
-    hallazgos = []
-    tiene_prefijo = segmentos[0].upper() == "PA"
-    resto = segmentos[1:] if tiene_prefijo else segmentos
-    if not tiene_prefijo:
-        hallazgos.append(_hallazgo(
-            texto, match.start(1), "PROCEDIMIENTO_SIN_PREFIJO_PA",
-            f"Se identificó que el procedimiento {nombre} no empieza con el prefijo PA_. Se recomienda "
-            f"añadirlo, ya que así se identifica que el objeto es un procedimiento almacenado "
-            f"(ej.: PA_{nombre}).",
-        ))
-    pegada = _hallazgo_accion_pegada(texto, match.start(1), nombre, ["PA"] + resto)
-    if pegada:
-        hallazgos.append(pegada)
-    elif not any(segmento.lower() in _ACCIONES_ESTANDAR for segmento in resto):
-        # Para el ejemplo, la acción va después del primer segmento (la tabla o el módulo).
-        sugerido = "_".join(["PA"] + resto[:1] + ["Sel"] + resto[1:])
-        hallazgos.append(_hallazgo(
-            texto, match.start(1), "PROCEDIMIENTO_SIN_ACCION",
-            f"Se identificó que el nombre {nombre} no indica la acción del procedimiento (Sel, Upd, Ins o "
-            f"Del). Se recomienda añadirla, ya que así se sabe qué hace el procedimiento "
-            f"(ej.: {sugerido}).",
-        ))
-    return hallazgos
+    problemas, sugerido = _problemas_nombre_reporte(nombre)
+    if not problemas:
+        return []
+    return [_hallazgo(
+        texto, match.start(1), "REPORTE_NOMBRE_FUERA_DEL_ESTANDAR",
+        f"Se identificó que el nombre del procedimiento {nombre} no cumple con la nomenclatura de reportes: "
+        f"{'; '.join(problemas)}. Se recomienda nombrarlo con el formato PA_GDD_Tabla_Acción_Finalidad "
+        f"(ej.: {sugerido}), ya que así se identifica el área de Gestión de Datos, la tabla y qué hace el "
+        f"procedimiento.",
+    )]
 
 
 def _validar_esquema_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
