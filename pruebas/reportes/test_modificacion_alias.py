@@ -48,6 +48,27 @@ class TestModificacionTablaFisica(unittest.TestCase):
         self.assertEqual(len(hallazgos), 1)
         self.assertIn("dbo.Colocacion (mediante la CTE CTE)", hallazgos[0].mensaje)
 
+    def test_update_con_case_resuelve_el_alias_en_el_from(self):
+        # Caso de la usuaria: el END (y el ELSE) del CASE cortaban la sentencia antes del FROM #ReporteA R.
+        sql = """    UPDATE R
+    SET
+        R.SaldoTCF = CASE
+                        WHEN SUBSTRING(R.NroCredito, 9, 1) = '1'
+                        THEN C.Saldo
+                        ELSE ROUND(C.Saldo * DBCMACICA.DBO.FN_ObtenerTCFijoDiario(@DFECHA), 2)
+                     END,
+        R.Moneda   = CASE
+                        WHEN SUBSTRING(R.NroCredito, 9, 1) = '1'
+                        THEN 'SOLES'
+                        ELSE 'DOLARES'
+                     END
+    FROM #ReporteA R
+"""
+        self.assertEqual(modificaciones(sql), [])
+        hallazgos = modificaciones(sql.replace("FROM #ReporteA R", "FROM dbo.Reporte R"))
+        self.assertEqual(len(hallazgos), 1)
+        self.assertIn("modifica la tabla dbo.Reporte con UPDATE", hallazgos[0].mensaje)
+
     def test_observacion_agrupada_trae_sus_lineas_para_recorrerlas(self):
         sql = "SELECT a FROM #A ORDER BY 1;\nSELECT b FROM #B ORDER BY 1;\nSELECT c FROM #C ORDER BY 1;\n"
         for verificar in (verificar_reporte, verificar_procedimiento_normal):
