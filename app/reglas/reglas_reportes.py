@@ -196,6 +196,14 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "PARAMETRO_SIN_PREFIJO_TIPO": ReglaDiccionario(
+        codigo="PARAMETRO_SIN_PREFIJO_TIPO",
+        nombre="Parámetros sin prefijo de tipo de dato",
+        severidad="bajo",
+        descripcion="Solo CREATE: el nombre del parámetro empieza con la letra de su tipo (c, n, d, b), como las columnas.",
+        alcance="reporte",
+        activo=True,
+    ),
     "PROCEDIMIENTO_SIN_PREFIJO_PA": ReglaDiccionario(
         codigo="PROCEDIMIENTO_SIN_PREFIJO_PA",
         nombre="Procedimiento sin prefijo PA_",

@@ -186,6 +186,14 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "PARAMETRO_SIN_PREFIJO_TIPO": ReglaDiccionario(
+        codigo="PARAMETRO_SIN_PREFIJO_TIPO",
+        nombre="Parámetros sin prefijo de tipo de dato",
+        severidad="bajo",
+        descripcion="Solo CREATE: el nombre del parámetro empieza con la letra de su tipo (c, n, d, b), como las columnas.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "DEPENDENCIA_BASE_BI": ReglaDiccionario(
         codigo="DEPENDENCIA_BASE_BI",
         nombre="Dependencia con la base de datos BI",

@@ -9,6 +9,7 @@ from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_
 from app.analizadores.drop_table_if_exists import mensaje_drop_if_exists, validaciones_antes_de_drop
 from app.analizadores.openjson_collate import collates_en_openjson, dentro_de_openjson, mensaje_collate_openjson
 from app.analizadores.sql_order_by import order_by_por_posicion
+from app.analizadores.parametros_prefijo import mensaje_parametros_sin_prefijo, parametros_sin_prefijo
 from app.analizadores.sql_parentesis import sin_parentesis_cerrados
 from app.analizadores.variables_sin_uso import variables_sin_uso
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
@@ -690,6 +691,17 @@ def _validar_accion_del_nombre(texto: str, limpio: str) -> List[Hallazgo]:
     )]
 
 
+
+def _validar_prefijo_parametros(texto: str, limpio: str) -> List[Hallazgo]:
+    """Solo CREATE: cada parámetro empieza con la letra de su tipo (c, n, d, b), como las columnas."""
+    casos = parametros_sin_prefijo(limpio)
+    if not casos:
+        return []
+    hallazgo = _hallazgo(texto, casos[0][3], "PARAMETRO_SIN_PREFIJO_TIPO", mensaje_parametros_sin_prefijo(casos))
+    hallazgo.lineas = sorted({_linea(texto, posicion) for *_, posicion in casos})
+    return [hallazgo]
+
+
 def _validar_esquema_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
     """El procedimiento del reporte indica su esquema, tanto al crearlo como al modificarlo."""
     match = re.search(
@@ -974,6 +986,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_transacciones(texto_sql, limpio))
     hallazgos.extend(_validar_esquema_procedimiento(texto_sql, limpio))
     hallazgos.extend(_validar_accion_del_nombre(texto_sql, limpio))
+    hallazgos.extend(_validar_prefijo_parametros(texto_sql, limpio))
     hallazgos.extend(_validar_esquema_entre_bases(texto_sql, limpio))
     hallazgos.extend(_validar_order_by_numerico(texto_sql, limpio))
     hallazgos.extend(_validar_collate_en_condiciones(texto_sql, limpio))
