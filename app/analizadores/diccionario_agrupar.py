@@ -46,6 +46,90 @@ def asignar_secciones(hallazgos: List[Hallazgo], del_objeto: set, generales: set
             hallazgo.seccion = "diccionario"
 
 
+def _enumerar(nombres: List[str]) -> str:
+    return nombres[0] if len(nombres) == 1 else f"{', '.join(nombres[:-1])} y {nombres[-1]}"
+
+
+_SINGULAR = {"procedimiento": "del procedimiento", "tabla": "de la tabla", "parámetro": "del parámetro",
+             "columna": "de la columna"}
+_PLURAL = {"procedimiento": "de los procedimientos", "tabla": "de las tablas", "parámetro": "de los parámetros",
+           "columna": "de las columnas"}
+
+
+def _partes(lugares: List[Tuple[str, str]], con_nombre_del_objeto: bool = True) -> str:
+    """«del procedimiento dbo.X y de los parámetros @a y @b»."""
+    por_tipo: Dict[str, List[str]] = {}
+    for tipo, nombre in lugares:
+        nombres = por_tipo.setdefault(tipo, [])
+        if nombre not in nombres:
+            nombres.append(nombre)
+    partes = []
+    for tipo, nombres in por_tipo.items():
+        if tipo in ("procedimiento", "tabla") and not con_nombre_del_objeto:
+            partes.append(_SINGULAR[tipo])  # ya se nombró el objeto: «en PA_X (descripción del procedimiento…)»
+        else:
+            partes.append(f"{(_SINGULAR if len(nombres) == 1 else _PLURAL)[tipo]} {_enumerar(nombres)}")
+    return _enumerar(partes)
+
+
+def _donde(lugares: List[Tuple[str, str, str]]) -> str:
+    """
+    Un objeto: «en la descripción del procedimiento dbo.X y de los parámetros @a y @b».
+    Varios: «en PA_X (descripción del procedimiento y del parámetro @a) y en PA_Y (descripción del parámetro @b)».
+    """
+    por_objeto: Dict[str, List[Tuple[str, str]]] = {}
+    for tipo, nombre, objeto in lugares:
+        por_objeto.setdefault(objeto, []).append((tipo, nombre))
+    if len(por_objeto) == 1:
+        objeto, de_uno = next(iter(por_objeto.items()))
+        # Con varios objetos en el script, un parámetro o columna dice de cuál es.
+        de_quien = f" ({objeto})" if objeto and not any(t in ("procedimiento", "tabla") for t, _ in de_uno) else ""
+        return f"en la descripción {_partes(de_uno)}{de_quien}"
+    return " y ".join(
+        f"en {objeto} (descripción {_partes(de_uno, con_nombre_del_objeto=False)})"
+        for objeto, de_uno in por_objeto.items()
+    )
+
+
+def juntar_ortografia(hallazgos: List[Hallazgo], accion: str) -> List[Hallazgo]:
+    """
+    Palabras mal escritas: una línea por palabra con todos los lugares donde aparece, en vez de una por
+    descripción («'exoneracion' → 'exoneración' (tilde) en la descripción del procedimiento dbo.X y de los
+    parámetros @a, @b y @c»). Usa hallazgo.errores ([(palabra, sugerencias)]) y hallazgo.lugar ((tipo, nombre)).
+    """
+    from app.analizadores.ortografia import formatear_cambio
+
+    ortografia = [h for h in hallazgos if h.regla == "ERROR_ORTOGRAFICO" and getattr(h, "errores", None)]
+    if len(ortografia) < 2:
+        return hallazgos
+    por_palabra: Dict[Tuple[str, Tuple[str, ...]], List[Tuple[str, str]]] = {}
+    for h in sorted(ortografia, key=lambda h: h.linea):
+        for palabra, opciones in h.errores:
+            por_palabra.setdefault((palabra, tuple(opciones or ())), []).append(
+                (*h.lugar, getattr(h, "objeto", "") or ""))
+    casos = [
+        f"{formatear_cambio(palabra, list(opciones))} {_donde(lugares)}"
+        for (palabra, opciones), lugares in por_palabra.items()
+    ]
+    cantidad = len(casos)
+    junta = Hallazgo(
+        linea=min(h.linea for h in ortografia),
+        origen=ortografia[0].origen,
+        severidad=ortografia[0].severidad,
+        regla="ERROR_ORTOGRAFICO",
+        mensaje=(
+            f"Se identificó un error de escritura: {casos[0]}. {accion}" if cantidad == 1 else
+            f"Se identificaron {cantidad} palabras mal escritas en las descripciones: {'; '.join(casos)}. {accion}"
+        ),
+    )
+    junta.lineas = sorted({h.linea for h in ortografia})
+    junta.seccion = getattr(ortografia[0], "seccion", None) or "diccionario"
+    junta.objeto = ""  # ya nombra cada procedimiento o tabla: no se antepone «En el procedimiento…»
+    primera = hallazgos.index(ortografia[0])
+    resto = [h for h in hallazgos if h not in ortografia]
+    return resto[:primera] + [junta] + resto[primera:]
+
+
 def _lineas(numeros: List[int]) -> str:
     return ("la línea " if len(numeros) == 1 else "las líneas ") + ", ".join(map(str, numeros))
 

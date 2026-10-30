@@ -189,11 +189,10 @@ class TestOrtografiaProcedimientos(unittest.TestCase):
         # Las dos descripciones con errores se reportan juntas, en sus líneas.
         self.assertEqual(len(hallazgos), 1)
         mensaje = hallazgos[0].mensaje
-        self.assertIn("en las líneas 1, 2", mensaje)
-        self.assertIn("del procedimiento dbo.PA_Cliente_Consultar", mensaje)
-        self.assertIn("'clienet' → 'cliente'", mensaje)
-        self.assertIn("del parámetro @nClienteId", mensaje)
+        self.assertEqual(hallazgos[0].lineas, [1, 2])  # las líneas van en el encabezado
+        self.assertIn("'clienet' → 'cliente' en la descripción del procedimiento dbo.PA_Cliente_Consultar", mensaje)
         self.assertIn("'Identificadodr'", mensaje)
+        self.assertIn("en la descripción del parámetro @nClienteId", mensaje)
 
 
 if __name__ == "__main__":

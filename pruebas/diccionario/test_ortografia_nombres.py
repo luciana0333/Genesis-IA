@@ -50,3 +50,21 @@ class AbreviaturasYCompuestasEnDescripcionesTest(unittest.TestCase):
         from app.analizadores.ortografia import palabras_mal_escritas
         self.assertEqual(palabras_mal_escritas("Código de la trasaccion", {"@cCodTrx"}),
                          [("trasaccion", ["transacción"])])
+
+
+class PalabrasFormadasPorReglaTest(unittest.TestCase):
+    """Palabras correctas que el diccionario es_PE no trae, formadas con reglas del español."""
+
+    def test_adjetivos_en_ional_y_sustantivos_en_acion(self):
+        from app.analizadores.ortografia import palabras_mal_escritas
+        for texto in ("Tipo de cuota concesional", "Préstamos concesionales", "Aporte previsional",
+                      "Registra la exoneración", "REGISTRA LA EXONERACION", "El financiamiento"):
+            with self.subTest(texto=texto):
+                self.assertEqual(palabras_mal_escritas(texto), [])
+
+    def test_sugerencias_correctas(self):
+        casos = {"concecional": "concesional", "previcional": "previsional", "exonerasion": "exoneración",
+                 "transacion": "transacción"}
+        for escrita, esperada in casos.items():
+            with self.subTest(escrita=escrita):
+                self.assertEqual(sugerencias(escrita), [esperada])

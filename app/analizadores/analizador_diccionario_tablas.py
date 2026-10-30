@@ -14,7 +14,7 @@ import re
 import unicodedata
 from typing import Dict, List, Optional, Set, Tuple
 
-from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, ubicar
+from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, juntar_ortografia, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_tabla
 from app.analizadores.diccionario_varios import agrupar_varios, nombres_del_script, objetos_sin_script, por_objeto
 from app.analizadores.objetos_repetidos import hallazgo_repetidos, quitar_creaciones_repetidas
@@ -651,11 +651,12 @@ def _validar_ortografia(
         if not (_es_descripcion(ll) and ll.texto("value")):
             continue
         if _es_de_columna(ll):
-            objeto = f"de la columna {ll.texto('level2name')}"
+            lugar = ("columna", ll.texto("level2name"))
         elif _es_de_tabla(ll):
-            objeto = f"de la tabla {_nombre_completo(esquema, nombre_tabla)}"
+            lugar = ("tabla", _nombre_completo(esquema, nombre_tabla))
         else:
             continue
+        objeto = f"de la {lugar[0]} {lugar[1]}"
         errores = palabras_mal_escritas(ll.texto("value"), nombres_objeto | {ll.texto("level2name")})
         if not errores:
             continue
@@ -663,6 +664,8 @@ def _validar_ortografia(
             _linea_valor(ll, texto_diccionario), "ERROR_ORTOGRAFICO",
             redactar_error_ortografico(objeto, errores, "de la tabla"),
         ), elemento_ortografico(objeto, errores)))
+        # Para juntar la misma palabra de varias descripciones en una sola línea (juntar_ortografia).
+        hallazgos[-1].errores, hallazgos[-1].lugar = errores, lugar
     return hallazgos
 
 
@@ -865,14 +868,18 @@ def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> Li
         duplicada.seccion = "objeto"
     varias = por_objeto(texto_tabla, texto_diccionario, _ENCABEZADO_TABLA, _nombre_del_encabezado)
     if varias is None:
-        hallazgos = agrupar(_revisar_tabla(texto_tabla, texto_diccionario), _PLANTILLAS_AGRUPADAS)
+        hallazgos = agrupar(
+            juntar_ortografia(_revisar_tabla(texto_tabla, texto_diccionario), ACCION_ORTOGRAFIA),
+            _PLANTILLAS_AGRUPADAS,
+        )
     else:
         hallazgos = []
         for nombre, texto, diccionario in varias:
             for hallazgo in _revisar_tabla(texto, diccionario):
                 hallazgo.objeto = nombre
                 hallazgos.append(hallazgo)
-        hallazgos = agrupar_varios(hallazgos, _PLANTILLAS_AGRUPADAS, "la tabla")
+        hallazgos = agrupar_varios(juntar_ortografia(hallazgos, ACCION_ORTOGRAFIA), _PLANTILLAS_AGRUPADAS,
+                                   "la tabla")
         hallazgos += _tablas_fuera_del_script(
             texto_diccionario, nombres_del_script(texto_tabla, _ENCABEZADO_TABLA, _nombre_del_encabezado)
         )
