@@ -1312,8 +1312,16 @@ def _fin_de_sentencia(limpio: str, inicio: int) -> int:
     """Donde termina la sentencia que empieza en `inicio`: ';', la siguiente instrucción o un SELECT
     al inicio de línea fuera de paréntesis (el SET de un UPDATE sigue siendo parte de él)."""
     profundidad = 0
+    # Dentro de un CASE, su ELSE y su END no cierran la sentencia (UPDATE R SET x = CASE ... END FROM ... WHERE).
+    casos_abiertos = 0
     for indice in range(inicio, len(limpio)):
         caracter = limpio[indice]
+        if caracter in "cCeE" and (indice == 0 or not (limpio[indice - 1].isalnum() or limpio[indice - 1] in "_@#[.")):
+            palabra = _CASE_O_END.match(limpio, indice)
+            if palabra and palabra.group(0).upper() == "CASE":
+                casos_abiertos += 1
+            elif palabra and casos_abiertos:
+                casos_abiertos -= 1
         if caracter == "(":
             profundidad += 1
         elif caracter == ")":
@@ -1326,9 +1334,12 @@ def _fin_de_sentencia(limpio: str, inicio: int) -> int:
                 r"EXECUTE|WHILE|MERGE|WITH|SELECT|GO|PRINT|THROW|RAISERROR|COMMIT|ROLLBACK)\b",
                 limpio[indice:], re.IGNORECASE,
             )
-            if siguiente:
+            if siguiente and not (casos_abiertos and siguiente.group(1).upper() in {"ELSE", "END"}):
                 return indice
     return len(limpio)
+
+
+_CASE_O_END = re.compile(r"(?:CASE|END)\b", re.IGNORECASE)
 
 
 def _a_nivel_cero(sentencia: str, patron: str) -> bool:
