@@ -32,7 +32,7 @@ class TestReportesQA(unittest.TestCase):
         tras_begin = procedimiento("    SELECT c.cNombre INTO #T FROM dbo.Cliente c WITH(NOLOCK);")
         self.assertEqual(reglas(tras_begin), [("SELECT_INTO_PROHIBIDO", 5)])
         tras_sentencia = procedimiento(
-            "    DECLARE @x INT = 1\n    SELECT c.cNombre INTO #T FROM dbo.Cliente c WITH(NOLOCK) WHERE c.nAgenciaId = @x"
+            "    DECLARE @nX INT = 1\n    SELECT c.cNombre INTO #T FROM dbo.Cliente c WITH(NOLOCK) WHERE c.nAgenciaId = @nX"
         )
         self.assertEqual(reglas(tras_sentencia), [("SELECT_INTO_PROHIBIDO", 6)])
 

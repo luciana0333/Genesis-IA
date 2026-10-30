@@ -92,3 +92,81 @@ def mensaje_parametros_sin_prefijo(casos: List[Tuple[str, str, str, int]]) -> st
             f"tipo de dato: {lista}. Renombrar los parámetros según lo indicado, utilizando el prefijo "
             f"correspondiente a su tipo de dato ({prefijos}), a fin de mantener una nomenclatura uniforme y "
             f"facilitar su identificación.")
+
+
+# Variables (DECLARE @x ...): misma regla que los parámetros, también solo al crear el procedimiento.
+_DECLARE = re.compile(r"\bDECLARE\b", re.IGNORECASE)
+# Lo que cierra la lista del DECLARE fuera de paréntesis (aunque el código no use «;»).
+_FIN_DECLARE = re.compile(
+    r"\(|\)|;|,|\b(?:CASE|END|SELECT|SET|INSERT|UPDATE|DELETE|MERGE|DECLARE|IF|ELSE|WHILE|BEGIN|RETURN|EXEC|"
+    r"EXECUTE|PRINT|THROW|RAISERROR|WITH|TRUNCATE|DROP|CREATE|ALTER|OPEN|FETCH|CLOSE|DEALLOCATE|GO)\b",
+    re.IGNORECASE,
+)
+
+
+def _variables(limpio: str) -> List[Tuple[str, str, int]]:
+    """[(nombre, tipo, posición)] de las variables de cada DECLARE (DECLARE @a INT = 0, @b VARCHAR(10))."""
+    resultado = []
+    for declare in _DECLARE.finditer(limpio):
+        posicion = declare.end()
+        while True:
+            variable = _PARAMETRO.match(limpio, posicion)
+            if not variable:
+                break
+            resultado.append((variable.group(1), variable.group(2), variable.start(1)))
+            # Se avanza hasta la coma que separa la siguiente variable (fuera de paréntesis y de un CASE).
+            profundidad, casos, siguiente = 0, 0, None
+            for token in _FIN_DECLARE.finditer(limpio, variable.end()):
+                palabra = token.group(0).upper()
+                if palabra == "(":
+                    profundidad += 1
+                elif palabra == ")":
+                    profundidad -= 1
+                elif profundidad > 0:
+                    continue
+                elif palabra == "CASE":
+                    casos += 1
+                elif palabra in ("END", "ELSE") and casos:
+                    casos -= palabra == "END"
+                elif palabra == ",":
+                    siguiente = token.end()
+                    break
+                else:
+                    break
+            if siguiente is None:
+                break
+            posicion = siguiente
+    return resultado
+
+
+def _sugerido(nombre: str, prefijo: str) -> str:
+    # Si ya trae un prefijo en minúscula (@cMonto en un INT, @pnTipo), se reemplaza.
+    resto = re.sub(r"^[a-z]{1,2}(?=[A-Z])", "", nombre[1:])
+    return f"@{prefijo}{resto[:1].upper()}{resto[1:]}"
+
+
+def variables_sin_prefijo(limpio: str) -> List[Tuple[str, str, str, int]]:
+    """[(variable, tipo, nombre sugerido, posición)]; solo si el script crea el procedimiento."""
+    if not _CREATE.search(limpio):
+        return []
+    resultado = []
+    for nombre, tipo, posicion in _variables(limpio):
+        prefijo = _prefijo_esperado(nombre, tipo)
+        if prefijo is None or re.match(rf"@{prefijo}[A-Z0-9_]", nombre):
+            continue
+        resultado.append((nombre, re.sub(r"\s+", "", tipo).upper(), _sugerido(nombre, prefijo), posicion))
+    return resultado
+
+
+def mensaje_variables_sin_prefijo(casos: List[Tuple[str, str, str, int]]) -> str:
+    """Texto de la observación (una o varias variables), igual al de los parámetros e incluye la x del XML."""
+    lista = "; ".join(f"{nombre} ({tipo}) → {sugerido}" for nombre, tipo, sugerido, _ in casos)
+    prefijos = "c para texto, n para número, d para fecha u hora, b para bit y x para XML"
+    if len(casos) == 1:
+        return (f"Se identificó una variable cuyo nombre no incluye el prefijo correspondiente a su tipo de dato: "
+                f"{lista}. Renombrar la variable según lo indicado, utilizando el prefijo correspondiente a su tipo "
+                f"de dato ({prefijos}), a fin de mantener una nomenclatura uniforme y facilitar su identificación.")
+    return (f"Se identificaron {len(casos)} variables cuyos nombres no incluyen el prefijo correspondiente a su "
+            f"tipo de dato: {lista}. Renombrar las variables según lo indicado, utilizando el prefijo "
+            f"correspondiente a su tipo de dato ({prefijos}), a fin de mantener una nomenclatura uniforme y "
+            f"facilitar su identificación.")
