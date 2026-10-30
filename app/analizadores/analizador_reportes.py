@@ -175,6 +175,8 @@ def _fin_de_sentencia(limpio: str, desde: int) -> int:
     casos_abiertos = 0
     for token in _FIN_DE_SENTENCIA.finditer(limpio, desde):
         palabra = token.group(0).upper()
+        if token.start() and limpio[token.start() - 1] in "@#[.":
+            continue  # una variable, temporal o columna que se llama así (R.[End], @End), no la palabra clave
         if palabra == "CASE":
             casos_abiertos += 1
         elif palabra == "END" and casos_abiertos:
