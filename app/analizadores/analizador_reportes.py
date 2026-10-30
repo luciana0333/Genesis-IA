@@ -4,6 +4,7 @@
 import re
 from typing import Dict, List, Optional, Set, Tuple
 
+from app.analizadores.varchar_max_html import arma_html, nombre_de_html
 from app.analizadores.collate_temporales import columnas_sin_collate
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.drop_table_if_exists import mensaje_drop_if_exists, validaciones_antes_de_drop
@@ -506,13 +507,16 @@ def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
         nombre = declarado.group(1) if declarado and declarado.group(1).upper() not in {"AS", "CAST", "CONVERT"} else None
         if nombre:
             usos = re.finditer(rf"(?<![\w@]){re.escape(nombre)}\b", limpio, re.IGNORECASE)
-            es_json_xml = re.search(r"json|xml", nombre, re.IGNORECASE) or any(
-                _USO_JSON_XML.search(_sentencia(limpio, uso.start())) for uso in usos
+            # Un HTML (cuerpo de un correo, una tabla) también puede ser largo: se justifica igual.
+            es_json_xml = re.search(r"json|xml", nombre, re.IGNORECASE) or nombre_de_html(nombre) or any(
+                _USO_JSON_XML.search(_sentencia(limpio, uso.start())) or arma_html(texto, limpio, uso.start())
+                for uso in usos
             )
             # Una lista que se separa con STRING_SPLIT (ej.: '205,307,312,...') puede ser larga: ahí se justifica.
             es_lista = re.search(rf"\bSTRING_SPLIT\s*\(\s*{re.escape(nombre)}\b", limpio, re.IGNORECASE)
         else:
-            es_json_xml = _USO_JSON_XML.search(_sentencia(limpio, match.start()))
+            es_json_xml = (_USO_JSON_XML.search(_sentencia(limpio, match.start()))
+                           or arma_html(texto, limpio, match.start()))
             es_lista = None
         if es_json_xml or es_lista:
             continue
@@ -520,8 +524,8 @@ def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
         sujeto = f"que {nombre} se declara como {tipo}" if nombre else f"el uso de {tipo}"
         hallazgos.append(_hallazgo(
             texto, match.start(), "VARCHAR_MAX_PROHIBIDO",
-            f"Se identificó {sujeto} y no guarda JSON ni XML. Se recomienda definir un tamaño fijo, ya que "
-            f"{tipo} solo se permite para JSON o XML y consume más memoria (ej.: {tipo.replace('MAX', '500')}).",
+            f"Se identificó {sujeto} y no guarda JSON, XML ni HTML. Se recomienda definir un tamaño fijo, ya que "
+            f"{tipo} solo se permite para JSON, XML o HTML y consume más memoria (ej.: {tipo.replace('MAX', '500')}).",
         ))
     return hallazgos
 
