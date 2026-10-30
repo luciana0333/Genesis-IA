@@ -380,7 +380,7 @@ END"""
                      if h.regla == "VARCHAR_MAX_PROHIBIDO"]
         self.assertEqual(len(observado), 1)
         self.assertEqual(observado[0].severidad.value, "medio")
-        self.assertIn("no guarda JSON ni XML", observado[0].mensaje)
+        self.assertIn("no guarda JSON, XML ni HTML", observado[0].mensaje)
         for sql in ("DECLARE @cJson NVARCHAR(MAX);",
                     "DECLARE @d NVARCHAR(MAX); SET @d = (SELECT a FROM #T FOR JSON PATH);"):
             with self.subTest(sql=sql):
@@ -706,6 +706,42 @@ FROM STRING_SPLIT(@cChequesParaUso,',')
         sql = ("DECLARE @cTexto VARCHAR(MAX) = 'hola';\nDECLARE @cLista VARCHAR(500) = '1,2';\n"
                "SELECT value FROM STRING_SPLIT(@cLista, ',');")
         self.assertEqual(len(self._varchar_max(sql)), 1)
+
+
+class TestVarcharMaxParaHtml(unittest.TestCase):
+    """Un HTML (cuerpo de un correo, una tabla) puede ser largo, igual que un JSON o un XML."""
+
+    @staticmethod
+    def _varchar_max(sql):
+        from app.analizadores.analizador_reportes import verificar_reporte
+        return {analizar.__name__: [h for h in analizar(sql) if h.regla == "VARCHAR_MAX_PROHIBIDO"]
+                for analizar in (verificar_procedimiento_normal, verificar_reporte)}
+
+    def test_caso_de_la_usuaria_el_nombre_dice_html(self):
+        for modulo, casos in self._varchar_max("DECLARE @TablaHTML NVARCHAR(MAX) = ''").items():
+            with self.subTest(modulo=modulo):
+                self.assertEqual(casos, [])
+
+    def test_variable_que_concatena_etiquetas(self):
+        sql = ("DECLARE @cCuerpo NVARCHAR(MAX) = '';\n"
+               "SET @cCuerpo = @cCuerpo + '<tr><td>' + cNombre + '</td></tr>' FROM #Clientes;\n")
+        for modulo, casos in self._varchar_max(sql).items():
+            with self.subTest(modulo=modulo):
+                self.assertEqual(casos, [])
+
+    def test_variable_enviada_como_correo_html(self):
+        sql = ("DECLARE @cCuerpo NVARCHAR(MAX) = '';\n"
+               "EXEC msdb.dbo.sp_send_dbmail @recipients = 'a@b.pe', @body = @cCuerpo, @body_format = 'HTML';\n")
+        for modulo, casos in self._varchar_max(sql).items():
+            with self.subTest(modulo=modulo):
+                self.assertEqual(casos, [])
+
+    def test_texto_sin_html_se_sigue_observando(self):
+        sql = "DECLARE @cTexto NVARCHAR(MAX) = 'El monto < 100';\nSELECT @cTexto;"
+        for modulo, casos in self._varchar_max(sql).items():
+            with self.subTest(modulo=modulo):
+                self.assertEqual(len(casos), 1)
+                self.assertIn("no guarda JSON, XML ni HTML", casos[0].mensaje)
 
 
 class TestCastEnJoin(unittest.TestCase):

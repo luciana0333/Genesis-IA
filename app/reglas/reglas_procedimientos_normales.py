@@ -387,7 +387,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         codigo="VARCHAR_MAX_PROHIBIDO",
         nombre="VARCHAR(MAX) prohibido",
         severidad="medio",
-        descripcion="VARCHAR(MAX) solo se permite para JSON, XML, listas que se separan con STRING_SPLIT o datos de tablas heredadas; en los demás "
+        descripcion="VARCHAR(MAX) solo se permite para JSON, XML, HTML, listas que se separan con STRING_SPLIT o datos de tablas heredadas; en los demás "
                     "casos se define una longitud acorde al dato.",
         alcance="procedimiento",
         activo=True,
