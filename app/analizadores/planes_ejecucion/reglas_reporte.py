@@ -54,7 +54,8 @@ def _conversiones_con_alerta(sentencias: List[Dict]) -> List[Dict]:
                 problema = partes[2] if len(partes) > 2 else ""
                 # Al leer un XML (OPENXML, .nodes(), .value()) sus valores llegan como texto y SQL Server los
                 # convierte al tipo de cada columna: esas conversiones de valores internos no se observan.
-                if lee_xml and _CONVERSION_INTERNA.fullmatch(partes[3] if len(partes) > 3 else ""):
+                expresion = partes[3] if len(partes) > 3 else ""
+                if _VALOR_DEL_XML.fullmatch(expresion) or (lee_xml and _CONVERSION_INTERNA.fullmatch(expresion)):
                     continue
                 casos.append({
                     "consulta": sentencia["numero"],
@@ -106,6 +107,8 @@ _RECOMENDACION_INSERTS = (
 # Conversión de un valor calculado por SQL Server ([Expr1019]): su nombre interno no le dice nada al lector,
 # así que se resume por tipo («6 a varchar(10)»). Si es sobre una columna real, se muestra la expresión.
 _CONVERSION_INTERNA = re.compile(r"CONVERT_IMPLICIT\((\w+(?:\([^()]*\))?),\[Expr\d+\],\d+\)", re.IGNORECASE)
+# El valor viene directo del lector del XML: «CONVERT_IMPLICIT(int,XML Reader with XPath filter.[value],0)».
+_VALOR_DEL_XML = re.compile(r"CONVERT_IMPLICIT\(\w+(?:\([^()]*\))?,XML Reader[^,]*\.\[\w+\],\d+\)", re.IGNORECASE)
 _OPERADORES_INSERT = {"INSERT", "TABLE INSERT", "CLUSTERED INDEX INSERT", "INDEX INSERT"}
 
 
