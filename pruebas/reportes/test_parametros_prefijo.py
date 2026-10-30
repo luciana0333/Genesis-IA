@@ -21,15 +21,23 @@ class ParametrosPrefijoTest(unittest.TestCase):
                 hallazgo = _prefijo(verificar, SU_CASO)[0]
                 self.assertEqual(hallazgo.severidad.value, "bajo")
                 self.assertEqual(hallazgo.lineas, [3, 4])
-                self.assertIn("@ProyectoId (INT) → @nProyectoId; @LoteId (INT) → @nLoteId", hallazgo.mensaje)
+                self.assertEqual(
+                    hallazgo.mensaje,
+                    "Se identificaron 2 parámetros cuyos nombres no incluyen el prefijo correspondiente a su tipo de "
+                    "dato: @ProyectoId (INT) → @nProyectoId; @LoteId (INT) → @nLoteId. Renombrar los parámetros según "
+                    "lo indicado, utilizando el prefijo correspondiente a su tipo de dato (c para texto, n para número, "
+                    "d para fecha u hora y b para bit), a fin de mantener una nomenclatura uniforme y facilitar su "
+                    "identificación.",
+                )
 
     def test_un_parametro_y_prefijo_equivocado(self):
         sql = "CREATE PROCEDURE dbo.PA_GDD_Cliente_Sel_Datos (@cMonto INT, @nId INT) AS SELECT 1"
         self.assertEqual(
             _prefijo(verificar_reporte, sql)[0].mensaje,
-            "Se identificó que el parámetro @cMonto de tipo INT no indica su tipo de dato con el prefijo "
-            "correspondiente. Se recomienda nombrarlo @nMonto, ya que el prefijo (c texto, n número, d fecha u hora, "
-            "b bit) permite identificar el tipo de dato del parámetro.",
+            "Se identificó un parámetro cuyo nombre no incluye el prefijo correspondiente a su tipo de dato: "
+            "@cMonto (INT) → @nMonto. Renombrar el parámetro según lo indicado, utilizando el prefijo correspondiente "
+            "a su tipo de dato (c para texto, n para número, d para fecha u hora y b para bit), a fin de mantener una "
+            "nomenclatura uniforme y facilitar su identificación.",
         )
 
     def test_correctos_y_tipos_sin_prefijo_no_se_observan(self):

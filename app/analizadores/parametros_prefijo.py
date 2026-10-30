@@ -81,14 +81,14 @@ def parametros_sin_prefijo(limpio: str) -> List[Tuple[str, str, str, int]]:
 
 
 def mensaje_parametros_sin_prefijo(casos: List[Tuple[str, str, str, int]]) -> str:
-    """Texto de la observación (uno o varios parámetros)."""
-    prefijos = "c texto, n número, d fecha u hora, b bit"
-    if len(casos) == 1:
-        nombre, tipo, sugerido, _ = casos[0]
-        return (f"Se identificó que el parámetro {nombre} de tipo {tipo} no indica su tipo de dato con el prefijo "
-                f"correspondiente. Se recomienda nombrarlo {sugerido}, ya que el prefijo ({prefijos}) permite "
-                f"identificar el tipo de dato del parámetro.")
+    """Texto de la observación (uno o varios parámetros). Texto de la usuaria."""
     lista = "; ".join(f"{nombre} ({tipo}) → {sugerido}" for nombre, tipo, sugerido, _ in casos)
-    return (f"Se identificaron {len(casos)} parámetros que no indican su tipo de dato con el prefijo correspondiente: "
-            f"{lista}. Se recomienda nombrar cada uno como se sugiere, ya que el prefijo ({prefijos}) permite "
-            f"identificar el tipo de dato del parámetro.")
+    prefijos = "c para texto, n para número, d para fecha u hora y b para bit"
+    if len(casos) == 1:
+        return (f"Se identificó un parámetro cuyo nombre no incluye el prefijo correspondiente a su tipo de dato: "
+                f"{lista}. Renombrar el parámetro según lo indicado, utilizando el prefijo correspondiente a su tipo "
+                f"de dato ({prefijos}), a fin de mantener una nomenclatura uniforme y facilitar su identificación.")
+    return (f"Se identificaron {len(casos)} parámetros cuyos nombres no incluyen el prefijo correspondiente a su "
+            f"tipo de dato: {lista}. Renombrar los parámetros según lo indicado, utilizando el prefijo "
+            f"correspondiente a su tipo de dato ({prefijos}), a fin de mantener una nomenclatura uniforme y "
+            f"facilitar su identificación.")

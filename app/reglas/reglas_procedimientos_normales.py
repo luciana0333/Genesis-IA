@@ -188,7 +188,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "PARAMETRO_SIN_PREFIJO_TIPO": ReglaDiccionario(
         codigo="PARAMETRO_SIN_PREFIJO_TIPO",
-        nombre="Parámetro sin prefijo de tipo",
+        nombre="Parámetros sin prefijo de tipo de dato",
         severidad="bajo",
         descripcion="Solo CREATE: el nombre del parámetro empieza con la letra de su tipo (c, n, d, b), como las columnas.",
         alcance="procedimiento",
