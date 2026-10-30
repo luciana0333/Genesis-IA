@@ -18,7 +18,7 @@ import re
 from typing import List, Set, Tuple, Dict, Optional
 
 from app.analizadores.descripcion_vs_nombre import contradice
-from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, ubicar
+from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, juntar_ortografia, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_procedimiento
 from app.analizadores.diccionario_varios import agrupar_varios, nombres_del_script, objetos_sin_script, por_objeto
 from app.analizadores.objetos_repetidos import hallazgo_repetidos, quitar_creaciones_repetidas
@@ -573,9 +573,10 @@ def _validar_ortografia(
         if not descripcion.strip():
             continue
         if "PARAMETER" in args.get("level2type", "").upper():
-            objeto = f"del parámetro {_limpiar_valor(args.get('level2name', '?'))}"
+            lugar = ("parámetro", _limpiar_valor(args.get("level2name", "?")))
         else:
-            objeto = f"del procedimiento {_nombre_completo(esquema, nombre_proc)}"
+            lugar = ("procedimiento", _nombre_completo(esquema, nombre_proc))
+        objeto = f"del {lugar[0]} {lugar[1]}"
         errores = palabras_mal_escritas(descripcion, nombres_objeto)
         if not errores:
             continue
@@ -587,6 +588,8 @@ def _validar_ortografia(
             regla="ERROR_ORTOGRAFICO",
             mensaje=redactar_error_ortografico(objeto, errores, "del procedimiento"),
         ), elemento_ortografico(objeto, errores)))
+        # Para juntar la misma palabra de varias descripciones en una sola línea (juntar_ortografia).
+        hallazgos[-1].errores, hallazgos[-1].lugar = errores, lugar
     return hallazgos
 
 
@@ -701,14 +704,18 @@ def verificar_diccionario(
         duplicado.seccion = "objeto"
     varios = por_objeto(texto_procedimiento, texto_diccionario, _ENCABEZADO, _nombre_del_encabezado)
     if varios is None:
-        hallazgos = agrupar(_revisar_procedimiento(texto_procedimiento, texto_diccionario), _PLANTILLAS_AGRUPADAS)
+        hallazgos = agrupar(
+            juntar_ortografia(_revisar_procedimiento(texto_procedimiento, texto_diccionario), ACCION_ORTOGRAFIA),
+            _PLANTILLAS_AGRUPADAS,
+        )
     else:
         hallazgos = []
         for nombre, texto, diccionario in varios:
             for hallazgo in _revisar_procedimiento(texto, diccionario):
                 hallazgo.objeto = nombre
                 hallazgos.append(hallazgo)
-        hallazgos = agrupar_varios(hallazgos, _PLANTILLAS_AGRUPADAS, "el procedimiento")
+        hallazgos = agrupar_varios(juntar_ortografia(hallazgos, ACCION_ORTOGRAFIA), _PLANTILLAS_AGRUPADAS,
+                                   "el procedimiento")
         hallazgos += _procedimientos_fuera_del_script(
             texto_diccionario, nombres_del_script(texto_procedimiento, _ENCABEZADO, _nombre_del_encabezado)
         )

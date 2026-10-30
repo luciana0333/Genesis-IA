@@ -80,9 +80,24 @@ class OrtografiaConVariosProcedimientosTest(unittest.TestCase):
                + _exec("Procedimiento almacenado que actualiza los datos.", b)
                + _exec("Mensaje de la ejecucion.", b, "@cMensaje"))
         mensaje = [h for h in verificar_diccionario(sql, dic) if h.regla == "ERROR_ORTOGRAFICO"][0].mensaje
-        self.assertIn(f"Descripción del parámetro @nId ({a}): 'cotizacion' → 'cotización' (tilde); "
-                      f"Descripción del parámetro @cMensaje ({b}): 'ejecucion' → 'ejecución' (tilde).", mensaje)
+        self.assertIn(f"'cotizacion' → 'cotización' (tilde) en la descripción del parámetro @nId ({a}); "
+                      f"'ejecucion' → 'ejecución' (tilde) en la descripción del parámetro @cMensaje ({b}).", mensaje)
         self.assertNotIn(" : ", mensaje)
+
+    def test_misma_palabra_en_varios_procedimientos_dice_de_cual_es_cada_parametro(self):
+        a, b = "PA_Uno_Sel_Datos", "PA_Dos_Upd_Datos"
+        sql = f"CREATE PROCEDURE Logistica.{a} (@nId INT)\nCREATE PROCEDURE Logistica.{b} (@cMensaje VARCHAR(10))"
+        dic = (_exec("Procedimiento que consulta la cotizacion.", a)
+               + _exec("Número de la cotizacion.", a, "@nId")
+               + _exec("Procedimiento que actualiza la cotizacion.", b)
+               + _exec("Mensaje de la cotizacion.", b, "@cMensaje"))
+        hallazgos = [h for h in verificar_diccionario(sql, dic) if h.regla == "ERROR_ORTOGRAFICO"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertEqual(hallazgos[0].lineas, [1, 2, 3, 4])
+        self.assertIn(
+            f"Se identificó un error de escritura: 'cotizacion' → 'cotización' (tilde) en {a} (descripción del "
+            f"procedimiento y del parámetro @nId) y en {b} (descripción del procedimiento y del parámetro @cMensaje).",
+            hallazgos[0].mensaje)
 
 
 if __name__ == "__main__":

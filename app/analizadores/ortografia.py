@@ -146,6 +146,9 @@ def es_palabra_valida(palabra: str) -> bool:
     n = normalizar(palabra)
     if n in validas:
         return True
+    # exoneración, bancarización…: la tilde la revisa tilde_correcta.
+    if _sustantivo_de_verbo(palabra):
+        return True
     # Prefijos comunes: si «programados» es válida, «reprogramados» también.
     for prefijo in _PREFIJOS:
         if n.startswith(prefijo) and len(n) - len(prefijo) >= 4 and es_palabra_valida(n[len(prefijo):]):
@@ -265,6 +268,21 @@ def _es_confusion_tipica(original: str, candidata: str) -> bool:
     return len(distintas) == 1 and frozenset(distintas[0]) in _CONFUSIONES
 
 
+def _sustantivo_de_verbo(palabra: str) -> Optional[str]:
+    """
+    Sustantivo que sale de un verbo en -ar y que el diccionario no trae: exonerar → exoneración(es),
+    bancarizar → bancarización, financiar → financiamiento. Devuelve la forma correcta, con su tilde.
+    """
+    if not _diccionario_es():
+        return None
+    n = normalizar(palabra)
+    for final, correcto in (("aciones", "aciones"), ("acion", "ación"), ("amientos", "amientos"), ("amiento", "amiento")):
+        raiz = n[: -len(final)]
+        if n.endswith(final) and len(raiz) >= 3 and (raiz + "ar") in _diccionario_es():
+            return raiz + correcto
+    return None
+
+
 def tilde_correcta(palabra: str) -> Optional[List[str]]:
     """
     Si la palabra está bien escrita salvo por la tilde, sus formas correctas («codigo» -> ['código'],
@@ -274,7 +292,11 @@ def tilde_correcta(palabra: str) -> Optional[List[str]]:
     if minuscula in _diccionario_es() or normalizar(palabra) in _vocabulario_tecnico():
         return None
     formas = _formas_con_tilde().get(normalizar(palabra))
-    return list(formas) if formas else None
+    if formas:
+        return list(formas)
+    # Sustantivo de un verbo que el diccionario no trae: exoneracion → exoneración.
+    derivado = _sustantivo_de_verbo(palabra)
+    return [derivado] if derivado and derivado != minuscula else None
 
 
 def _falta_una_letra(escrita: str, candidata: str) -> bool:
@@ -378,6 +400,8 @@ def sugerencias(palabra: str, maximo: int = 1) -> List[str]:
     if len(base) >= 7:
         claves |= _con_letras_faltantes(base)
     candidatas = {f for clave in claves if clave[:1] == base[:1] for f in formas[clave] if f != original}
+    # Sustantivos de un verbo que el diccionario no trae (exonerasion → exoneración).
+    candidatas |= {d for c in cercanas if (d := _sustantivo_de_verbo(c)) and d != original}
     corrector = _corrector()
     # Solo se sugiere si la corrección es casi segura: una letra de diferencia (o dos en
     # palabras largas). Si no, se pide revisar la palabra en vez de adivinar (ROJSH ≠ ROJO).
@@ -567,6 +591,11 @@ def _cambios(errores: List[Tuple[str, Optional[List[str]]]]) -> str:
         if opciones else f"'{palabra}'"
         for palabra, opciones in errores
     )
+
+
+def formatear_cambio(palabra: str, opciones: Optional[List[str]]) -> str:
+    """«'codigo' → 'código' (tilde)» o solo «'ROJSH'» si no hay sugerencia."""
+    return _cambios([(palabra, opciones)])
 
 
 def _enumerar(elementos: List[str]) -> str:
