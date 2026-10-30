@@ -110,6 +110,7 @@ export const NOMBRES_REGLAS = {
   ESQUEMA_OMITIDO_ENTRE_BASES: 'Esquema omitido entre bases',
   DEPENDENCIA_BASE_BI: 'Dependencia con la base de datos BI',
   PARAMETRO_SIN_PREFIJO_TIPO: 'Parámetros sin prefijo de tipo de dato',
+  VARIABLE_SIN_PREFIJO_TIPO: 'Variables sin prefijo de tipo de dato',
   SINTAXIS_DICCIONARIO: 'Error de sintaxis en el diccionario',
   PARAMETROS_INCOMPLETOS: 'Faltan datos en la sentencia',
   TIPO_NIVEL_INCORRECTO: 'Tipo de nivel incorrecto',

@@ -186,6 +186,14 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "VARIABLE_SIN_PREFIJO_TIPO": ReglaDiccionario(
+        codigo="VARIABLE_SIN_PREFIJO_TIPO",
+        nombre="Variables sin prefijo de tipo de dato",
+        severidad="bajo",
+        descripcion="Solo CREATE: el nombre de la variable empieza con la letra de su tipo (c, n, d, b, x), como los parámetros.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "PARAMETRO_SIN_PREFIJO_TIPO": ReglaDiccionario(
         codigo="PARAMETRO_SIN_PREFIJO_TIPO",
         nombre="Parámetros sin prefijo de tipo de dato",
