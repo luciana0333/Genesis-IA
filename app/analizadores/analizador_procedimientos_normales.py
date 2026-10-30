@@ -1081,9 +1081,10 @@ def _validar_raiserror(texto: str, limpio: str) -> List[Hallazgo]:
     for match in re.finditer(r"\bRAISERROR\b", limpio, re.IGNORECASE):
         hallazgos.append(_hallazgo(
             texto, match.start(), "RAISERROR_USAR_THROW",
-            "Se identificó RAISERROR para mostrar errores. Se recomienda usar THROW, ya que es la forma "
-            "actual de manejar errores y conserva el detalle del error original "
-            "(ej.: THROW 50001, 'No existe el cliente', 1;).",
+            # Texto de la usuaria.
+            "Se identificó el uso de RAISERROR para mostrar errores. Se recomienda reemplazar el uso de RAISERROR "
+            "por THROW, ya que es una alternativa más moderna para el manejo de errores en SQL Server y permite "
+            "conservar la información original del error.",
         ))
     return hallazgos
 
