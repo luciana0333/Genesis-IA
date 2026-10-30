@@ -162,7 +162,7 @@ def _tabla_del_alias(limpio: str, alias: str) -> str:
 
 # Lo que cierra una sentencia (fuera de paréntesis): «;», GO o el inicio de otra sentencia.
 _FIN_DE_SENTENCIA = re.compile(
-    r"\(|\)|;|\b(?:GO|INSERT|UPDATE|DELETE|MERGE|TRUNCATE|CREATE|ALTER|DROP|DECLARE|EXEC|EXECUTE|IF|ELSE|"
+    r"\(|\)|;|\b(?:CASE|GO|INSERT|UPDATE|DELETE|MERGE|TRUNCATE|CREATE|ALTER|DROP|DECLARE|EXEC|EXECUTE|IF|ELSE|"
     r"WHILE|BEGIN|END|RETURN|PRINT|SELECT|UNION|WITH)\b",
     re.IGNORECASE,
 )
@@ -171,8 +171,17 @@ _FIN_DE_SENTENCIA = re.compile(
 def _fin_de_sentencia(limpio: str, desde: int) -> int:
     """Dónde termina la sentencia que sigue en `desde`; sirve aunque el código no use «;»."""
     nivel = 0
+    # Dentro de un CASE, su ELSE y su END no cierran la sentencia (UPDATE R SET x = CASE ... END FROM #T R).
+    casos_abiertos = 0
     for token in _FIN_DE_SENTENCIA.finditer(limpio, desde):
-        if token.group(0) == "(":
+        palabra = token.group(0).upper()
+        if palabra == "CASE":
+            casos_abiertos += 1
+        elif palabra == "END" and casos_abiertos:
+            casos_abiertos -= 1
+        elif palabra == "ELSE" and casos_abiertos:
+            continue
+        elif token.group(0) == "(":
             nivel += 1
         elif token.group(0) == ")":
             nivel -= 1
