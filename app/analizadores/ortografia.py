@@ -279,7 +279,15 @@ def _sustantivo_de_verbo(palabra: str) -> Optional[str]:
     for final, correcto in (("aciones", "aciones"), ("acion", "ación"), ("amientos", "amientos"), ("amiento", "amiento")):
         raiz = n[: -len(final)]
         if n.endswith(final) and len(raiz) >= 3 and (raiz + "ar") in _diccionario_es():
+            # Si existe con -cción (transacción, de «transar»), esa es la palabra: no se inventa «transación».
+            if final.startswith("acion") and {raiz + "acción", raiz + "acciones"} & _diccionario_es():
+                return None
             return raiz + correcto
+    # Adjetivo de un sustantivo en -ión: concesión → concesional(es), previsión → previsional.
+    for final in ("ionales", "ional"):
+        raiz = n[: -len(final)]
+        if n.endswith(final) and len(raiz) >= 3 and (raiz + "ión") in _diccionario_es():
+            return raiz + final
     return None
 
 
@@ -401,7 +409,8 @@ def sugerencias(palabra: str, maximo: int = 1) -> List[str]:
         claves |= _con_letras_faltantes(base)
     candidatas = {f for clave in claves if clave[:1] == base[:1] for f in formas[clave] if f != original}
     # Sustantivos de un verbo que el diccionario no trae (exonerasion → exoneración).
-    candidatas |= {d for c in cercanas if (d := _sustantivo_de_verbo(c)) and d != original}
+    derivadas = {d for c in cercanas if (d := _sustantivo_de_verbo(c)) and d != original}
+    candidatas |= derivadas
     corrector = _corrector()
     # Solo se sugiere si la corrección es casi segura: una letra de diferencia (o dos en
     # palabras largas). Si no, se pide revisar la palabra en vez de adivinar (ROJSH ≠ ROJO).
@@ -424,9 +433,11 @@ def sugerencias(palabra: str, maximo: int = 1) -> List[str]:
         puntaje = (
             _distancia(propuesta, escrita)
             + (0.5 if _sonido(propuesta[-3:]) != _sonido(escrita[-3:]) else 0)
-            - (0.6 if solo_faltan else 0)
+            # Una letra olvidada o una confusión típica (c/s, b/v, z/s) es el error más probable.
+            - (0.6 if solo_faltan or _es_confusion_tipica(escrita, propuesta) else 0)
             + (5 if _VERBO_CON_PRONOMBRE.search(propuesta) else 0)
-            + (1.1 if hay_usadas and corrector.word_usage_frequency(candidata) == 0 else 0)
+            # Las formadas por regla (exoneración, previsional) no figuran en la lista de uso: no se castigan.
+            + (1.1 if hay_usadas and candidata not in derivadas and corrector.word_usage_frequency(candidata) == 0 else 0)
         )
         return (
             puntaje,
