@@ -773,10 +773,59 @@ class TestCastEnJoin(unittest.TestCase):
         self.assertEqual(self._lineas("SELECT 1 FROM #A a JOIN #B b ON b.d = CAST(@dFecha AS DATE)"), [])
         self.assertEqual(self._lineas("SELECT 1 FROM #A a JOIN #B b ON b.d = CONVERT(DATE, GETDATE(), 103)"), [])
 
-    def test_cast_de_una_columna_despues_de_uno_de_fecha_si_se_marca(self):
+    def test_cast_en_un_and_despues_del_between_no_se_marca(self):
+        # Decisión de la usuaria (30 oct.): solo se revisa la condición del ON; los AND que siguen, no.
         sql = ("SELECT 1 FROM #A a JOIN #B b ON CAST(GETDATE() AS DATE) BETWEEN b.i AND b.f "
                "AND CAST(b.x AS INT) = a.x")
-        self.assertEqual(self._lineas(sql), [1])
+        self.assertEqual(self._lineas(sql), [])
+
+    def test_caso_de_la_usuaria_cast_en_el_and_no_se_marca(self):
+        sql = ("SELECT 1 FROM dbo.Producto P WITH(NOLOCK)\n"
+               "INNER JOIN COLOCACSALDO CS WITH(NOLOCK)\n"
+               "    ON P.CCTACOD = CS.CCTACOD\n"
+               "    AND CAST(CS.DFECHA AS DATE) = @dFecVigenciaCredConInfRiesgo\n"
+               "WHERE P.nId = 1")
+        self.assertEqual(self._lineas(sql), [])
+
+    def test_and_y_or_despues_del_on_no_se_marcan(self):
+        for resto in ("AND CONVERT(INT, b.cTipo) = a.nTipo", "OR CAST(b.x AS INT) = a.x",
+                      "AND b.d = @d AND CAST(b.x AS INT) = a.x"):
+            with self.subTest(resto=resto):
+                self.assertEqual(self._lineas(f"SELECT 1 FROM #A a JOIN #B b ON b.n = a.n {resto}"), [])
+
+    def test_cast_en_la_condicion_del_on_con_and_despues_si_se_marca(self):
+        sql = ("SELECT 1 FROM #A a\nINNER JOIN #B b\n    ON CAST(b.cCta AS INT) = a.nCta\n"
+               "    AND b.dFecha = @dFecha\n")
+        self.assertEqual(self._lineas(sql), [3])
+
+    def test_convert_en_el_lado_derecho_de_la_igualdad_si_se_marca(self):
+        self.assertEqual(self._lineas("SELECT 1 FROM #A a JOIN #B b\nON b.c = CONVERT(VARCHAR(18), a.n) AND b.x = 1"), [2])
+
+    def test_and_dentro_de_parentesis_o_case_no_corta_la_condicion(self):
+        entre_parentesis = ("SELECT 1 FROM #A a JOIN #B b\n"
+                            "ON (CASE WHEN a.t = 1 AND a.u = 2 THEN a.c END) = CAST(b.c AS VARCHAR(5))")
+        self.assertEqual(self._lineas(entre_parentesis), [2])
+        con_case = ("SELECT 1 FROM #A a JOIN #B b\n"
+                    "ON CASE WHEN a.t = 1 AND a.u = 2 THEN a.c END = CAST(b.c AS VARCHAR(5))")
+        self.assertEqual(self._lineas(con_case), [2])
+        con_else = ("SELECT 1 FROM #A a JOIN #B b\n"
+                    "ON CASE WHEN a.t = 1 THEN a.c ELSE a.d END = CAST(b.c AS VARCHAR(5))")
+        self.assertEqual(self._lineas(con_else), [2])
+
+    def test_if_else_despues_del_join_sigue_cortando(self):
+        sql = ("IF @n = 1\n    SELECT 1 FROM #A a JOIN #B b ON b.n = a.n\nELSE\n"
+               "    SELECT CAST(x.n AS INT) FROM #X x\n")
+        self.assertEqual(self._lineas(sql), [])
+
+    def test_between_con_cast_en_la_condicion_del_on_si_se_marca(self):
+        sql = "SELECT 1 FROM #A a JOIN #B b\nON CAST(a.dFecha AS DATE) BETWEEN b.dIni AND b.dFin AND b.n = 1"
+        self.assertEqual(self._lineas(sql), [2])
+
+    def test_varios_join_cada_uno_con_su_condicion(self):
+        sql = ("SELECT 1 FROM #A a\n"
+               "INNER JOIN #B b ON b.n = a.n AND CAST(b.x AS INT) = a.x\n"
+               "LEFT JOIN #C c ON CAST(c.n AS INT) = a.n\n")
+        self.assertEqual(self._lineas(sql), [3])
 
     def test_cast_fuera_del_on_no_se_marca(self):
         self.assertEqual(self._lineas("SELECT a.c FROM #A a JOIN #B b ON b.n = a.n WHERE CAST(a.d AS DATE) = @d"), [])

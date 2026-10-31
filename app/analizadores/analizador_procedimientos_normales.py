@@ -429,7 +429,13 @@ def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
     for match in patron.finditer(limpio):
         tabla = _limpiar_nombre(match.group(1))
         termina = fin.search(limpio, match.end())
-        condicion = limpio[match.end():termina.start() if termina else len(limpio)]
+        # El ELSE y el END de un CASE del ON no cierran la condición: se busca el siguiente fin con los CASE cerrados.
+        while termina and termina.group(0).upper() in ("ELSE", "END") and (
+            len(re.findall(r"\bCASE\b", limpio[match.end():termina.start()], re.IGNORECASE))
+            > len(re.findall(r"\bEND\b", limpio[match.end():termina.start()], re.IGNORECASE))
+        ):
+            termina = fin.search(limpio, termina.end())
+        condicion = _primera_condicion(limpio[match.end():termina.start() if termina else len(limpio)])
         for conversion in re.finditer(r"\b(CAST|CONVERT)\s*\(", condicion, re.IGNORECASE):
             # Solo si convierte una columna: CAST(GETDATE() AS DATE) o CAST(@dFecha AS DATE) no impiden
             # usar los índices de la tabla.
@@ -444,6 +450,38 @@ def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
             ))
             break  # una observación por JOIN
     return hallazgos
+
+
+_CORTE_DE_CONDICION = re.compile(r"\(|\)|\b(?:AND|OR|BETWEEN|CASE|END)\b", re.IGNORECASE)
+
+
+def _primera_condicion(condicion: str) -> str:
+    """Solo la condición del ON (ON a.x = b.x): lo que sigue desde el primer AND u OR ya no se revisa.
+
+    No cortan el AND de un BETWEEN ni los AND/OR dentro de paréntesis o de un CASE.
+    """
+    profundidad, casos, en_between = 0, 0, False
+    for token in _CORTE_DE_CONDICION.finditer(condicion):
+        palabra = token.group(0).upper()
+        if palabra == "(":
+            profundidad += 1
+        elif palabra == ")":
+            profundidad -= 1
+        elif profundidad > 0:
+            continue
+        elif palabra == "CASE":
+            casos += 1
+        elif palabra == "END" and casos:
+            casos -= 1
+        elif casos:
+            continue
+        elif palabra == "BETWEEN":
+            en_between = True
+        elif palabra == "AND" and en_between:
+            en_between = False
+        elif palabra in ("AND", "OR"):
+            return condicion[:token.start()]
+    return condicion
 
 
 _NO_SON_COLUMNAS = {"AS", "NULL", "AND", "OR", "NOT", "CASE", "WHEN", "THEN", "ELSE", "END", "IS", "IN", "LIKE"}
