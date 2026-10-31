@@ -80,13 +80,19 @@ def _se_lee(limpio: str, inicio: int, fin: int) -> bool:
     return not _ANTES_DE_ESCRITURA.search(previo)
 
 
-def variables_sin_uso(limpio: str) -> List[Tuple[str, int]]:
-    """[(variable, posición de su declaración)] de las variables que nunca se leen."""
+def variables_sin_uso(limpio: str, asignar_es_usar: bool = False) -> List[Tuple[str, int]]:
+    """[(variable, posición de su declaración)] de las variables que nunca se leen.
+
+    asignar_es_usar (Procedimientos de negocio, regla de la usuaria): la variable se usa si vuelve a aparecer
+    después de su DECLARE, aunque solo reciba un valor (SET @x = …, SELECT @x = …); se observa solo la que se
+    declara y nunca más aparece.
+    """
     resultado = []
     for variable, posicion in declaraciones(limpio).items():
         patron = re.compile(rf"(?<![\w@]){re.escape(variable)}(?!\w)", re.IGNORECASE)
         lecturas = (
-            m for m in patron.finditer(limpio, posicion + len(variable)) if _se_lee(limpio, m.start(), m.end())
+            m for m in patron.finditer(limpio, posicion + len(variable))
+            if asignar_es_usar or _se_lee(limpio, m.start(), m.end())
         )
         if next(lecturas, None) is None:
             resultado.append((variable, posicion))
