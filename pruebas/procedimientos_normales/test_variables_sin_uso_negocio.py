@@ -95,6 +95,46 @@ class TestVariablesSinUsoNegocio(unittest.TestCase):
             with self.subTest(cuerpo=cuerpo):
                 self.assertEqual(_sin_uso(_pa(cuerpo)), [])
 
+    def test_mensaje_en_plural_si_son_varias(self):
+        from app.analizadores.analizador_reportes import verificar_reporte
+        sql = _pa("DECLARE @nTotal INT, @nCont INT\nDECLARE @nID2 INT\nSELECT 1")
+        esperados = {
+            verificar_procedimiento_normal:
+                "Se identificaron 3 variables que se declaran, pero no se usan: @nTotal, @nCont y @nID2. Se recomienda "
+                "eliminarlas, ya que no cumplen ninguna función dentro del procedimiento.",
+            verificar_reporte:
+                "Se identificaron 3 variables que se declaran pero no se usan en el procedimiento: @nTotal, @nCont y "
+                "@nID2. Se recomienda eliminarlas, ya que solo ocupan espacio y dificultan la lectura del código.",
+        }
+        for verificar, mensaje in esperados.items():
+            with self.subTest(modulo=verificar.__name__):
+                hallazgos = [h for h in verificar(sql) if h.regla == "VARIABLE_DECLARADA_SIN_USO"]
+                self.assertEqual(len(hallazgos), 1)
+                self.assertEqual(hallazgos[0].mensaje, mensaje)
+                self.assertEqual(hallazgos[0].lineas, [5, 6])
+
+    def test_mensaje_en_singular_si_es_una(self):
+        from app.analizadores.analizador_reportes import verificar_reporte
+        sql = _pa("DECLARE @nTotal INT\nSELECT 1")
+        esperados = {
+            verificar_procedimiento_normal:
+                "La variable @nTotal se declara, pero no se usa. Se recomienda eliminarla, ya que no cumple ninguna "
+                "función dentro del procedimiento.",
+            verificar_reporte:
+                "Se identificó que la variable @nTotal se declara pero no se usa en el procedimiento. Se recomienda "
+                "eliminarla, ya que solo ocupa espacio y dificulta la lectura del código.",
+        }
+        for verificar, mensaje in esperados.items():
+            with self.subTest(modulo=verificar.__name__):
+                hallazgos = [h for h in verificar(sql) if h.regla == "VARIABLE_DECLARADA_SIN_USO"]
+                self.assertEqual([h.mensaje for h in hallazgos], [mensaje])
+                self.assertEqual(hallazgos[0].linea, 5)
+
+    def test_dos_variables_dicen_y(self):
+        sql = _pa("DECLARE @nTotal INT, @nCont INT\nSELECT 1")
+        mensaje = [h.mensaje for h in verificar_procedimiento_normal(sql) if h.regla == "VARIABLE_DECLARADA_SIN_USO"][0]
+        self.assertIn("Se identificaron 2 variables que se declaran, pero no se usan: @nTotal y @nCont.", mensaje)
+
     def test_mayusculas_distintas_es_la_misma_variable(self):
         self.assertEqual(_sin_uso(_pa("DECLARE @nTotal INT = 1\nSELECT @NTOTAL")), [])
 

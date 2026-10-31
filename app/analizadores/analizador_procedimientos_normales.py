@@ -761,13 +761,25 @@ def _validar_comentarios(texto: str) -> List[Hallazgo]:
 
 
 def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
-    """Variables que se declaran y nunca más aparecen (una asignación como SET @x = … ya cuenta como uso)."""
-    return [
-        _hallazgo(texto, posicion, "VARIABLE_DECLARADA_SIN_USO",
-                  f"La variable {variable} se declara, pero no se usa. Se recomienda eliminarla, "
-                  f"ya que no cumple ninguna función dentro del procedimiento.")
-        for variable, posicion in variables_sin_uso(limpio)
-    ]
+    """Variables que se declaran y nunca más aparecen (una asignación como SET @x = … ya cuenta como uso).
+
+    Todas van en una sola observación: en plural si son varias, con sus líneas para recorrerlas.
+    """
+    casos = variables_sin_uso(limpio)
+    if not casos:
+        return []
+    if len(casos) == 1:
+        mensaje = (f"La variable {casos[0][0]} se declara, pero no se usa. Se recomienda eliminarla, "
+                   f"ya que no cumple ninguna función dentro del procedimiento.")
+    else:
+        nombres = [variable for variable, _ in casos]
+        lista = f"{', '.join(nombres[:-1])} y {nombres[-1]}"
+        mensaje = (f"Se identificaron {len(casos)} variables que se declaran, pero no se usan: {lista}. Se recomienda "
+                   f"eliminarlas, ya que no cumplen ninguna función dentro del procedimiento.")
+    hallazgo = _hallazgo(texto, casos[0][1], "VARIABLE_DECLARADA_SIN_USO", mensaje)
+    if len(casos) > 1:
+        hallazgo.lineas = sorted({_linea(texto, posicion) for _, posicion in casos})
+    return [hallazgo]
 
 
 # Acciones estándar del manual: la palabra completa se abrevia.
