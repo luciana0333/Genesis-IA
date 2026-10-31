@@ -13,3 +13,5 @@ htmlcov/
 pruebas/temp_inspect.py
 # Siglas aprobadas desde la pantalla en cada PC (no se suben al repositorio)
 app/reglas/siglas_locales.txt
+# Planes reales del trabajo (datos de la Caja): solo para probar en esta PC
+planes_prueba/

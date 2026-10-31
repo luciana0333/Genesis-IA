@@ -1,4 +1,5 @@
-"""Variables sin uso (deben leerse al menos una vez) y SELECT INTO con subconsultas (Reportes y Negocio)."""
+"""Variables sin uso (se observa la que se declara y nunca más aparece) y SELECT INTO con subconsultas
+(Reportes y Negocio)."""
 
 import re
 import unittest
@@ -29,20 +30,24 @@ class VariablesSinUsoTest(unittest.TestCase):
         self._en_los_dos("DECLARE @m DECIMAL(18,2), @k INT\nSELECT @m", ["@k"])
         self._en_los_dos("DECLARE @x INT = CASE WHEN @p = 1 THEN 1 END, @y INT = 2\nSELECT @x", ["@y"])
 
-    def test_solo_recibe_valores(self):
-        self._en_los_dos("DECLARE @n INT\nSET @n = 5", ["@n"])
-        self._en_los_dos("DECLARE @n INT = 0\nSET @n += 1", ["@n"])
-        self._en_los_dos("DECLARE @dMax DATE\nSELECT @dMax = MAX(dFecha) FROM dbo.Mov WITH(NOLOCK)", ["@dMax"])
-        self._en_los_dos("DECLARE @a INT, @b INT\nSELECT @a = 1, @b = 2\nSELECT @b", ["@a"])
-        self._en_los_dos("DECLARE @a INT, @b INT\nDECLARE c CURSOR FOR SELECT 1, 2\nOPEN c\n"
-                         "FETCH NEXT FROM c INTO @a, @b\nPRINT @a", ["@b"])
+    def test_si_vuelve_a_aparecer_ya_tiene_uso(self):
+        # Regla de la usuaria (30 oct.): aunque solo reciba un valor o filas, ya se usa (los dos módulos).
+        for cuerpo in (
+            "DECLARE @n INT\nSET @n = 5",
+            "DECLARE @n INT = 0\nSET @n += 1",
+            "DECLARE @dMax DATE\nSELECT @dMax = MAX(dFecha) FROM dbo.Mov WITH(NOLOCK)",
+            "DECLARE @a INT, @b INT\nSELECT @a = 1, @b = 2\nSELECT @b",
+            "DECLARE @a INT, @b INT\nDECLARE c CURSOR FOR SELECT 1, 2\nOPEN c\nFETCH NEXT FROM c INTO @a, @b\nPRINT @a",
+            "DECLARE @T TABLE (n INT)\nINSERT INTO @T (n) VALUES (1)",
+            "DECLARE @T TABLE (n INT)\nINSERT @T EXEC dbo.PA_Otro",
+            "DECLARE @T TABLE (n INT)\nUPDATE #A SET n = 1 OUTPUT inserted.n INTO @T",
+        ):
+            self._en_los_dos(cuerpo, [])
 
-    def test_variable_de_tabla_que_solo_recibe_filas(self):
-        self._en_los_dos("DECLARE @T TABLE (n INT)\nINSERT INTO @T (n) VALUES (1)", ["@T"])
-        self._en_los_dos("DECLARE @T TABLE (n INT)\nINSERT @T EXEC dbo.PA_Otro", ["@T"])
-        self._en_los_dos("DECLARE @T TABLE (n INT)\nUPDATE #A SET n = 1 OUTPUT inserted.n INTO @T", ["@T"])
+    def test_solo_en_un_comentario_o_texto_se_observa(self):
+        self._en_los_dos("DECLARE @nTotal INT\n-- SET @nTotal = 1\nSELECT 'Total: @nTotal'", ["@nTotal"])
 
-    def test_se_leen_al_menos_una_vez(self):
+    def test_se_usan_al_menos_una_vez(self):
         for cuerpo in (
             "DECLARE @i INT = 0\nWHILE @i < 10 SET @i = @i + 1",
             "DECLARE @x INT\nIF @x IS NULL SELECT 1",

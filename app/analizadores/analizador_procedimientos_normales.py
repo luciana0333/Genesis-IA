@@ -761,7 +761,7 @@ def _validar_comentarios(texto: str) -> List[Hallazgo]:
 
 
 def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
-    """Variables que nunca se leen: solo declaradas, o que solo reciben valores o filas."""
+    """Variables que se declaran y nunca más aparecen (una asignación como SET @x = … ya cuenta como uso)."""
     return [
         _hallazgo(texto, posicion, "VARIABLE_DECLARADA_SIN_USO",
                   f"La variable {variable} se declara, pero no se usa. Se recomienda eliminarla, "
