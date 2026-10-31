@@ -14,7 +14,7 @@ from app.analizadores.parametros_prefijo import (
     mensaje_parametros_sin_prefijo, mensaje_variables_sin_prefijo, parametros_sin_prefijo, variables_sin_prefijo,
 )
 from app.analizadores.sql_parentesis import sin_parentesis_cerrados
-from app.analizadores.variables_sin_uso import variables_sin_uso
+from app.analizadores.variables_sin_uso import mensaje_variables_sin_uso, variables_sin_uso
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_procedimientos_normales import REGLAS_PROCEDIMIENTOS_NORMALES
 from app.analizadores.analizador_tablas import _PASCAL_CASE, _a_pascal_case, _revisar_siglas, _texto_siglas
@@ -768,14 +768,7 @@ def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
     casos = variables_sin_uso(limpio)
     if not casos:
         return []
-    if len(casos) == 1:
-        mensaje = (f"La variable {casos[0][0]} se declara, pero no se usa. Se recomienda eliminarla, "
-                   f"ya que no cumple ninguna función dentro del procedimiento.")
-    else:
-        nombres = [variable for variable, _ in casos]
-        lista = f"{', '.join(nombres[:-1])} y {nombres[-1]}"
-        mensaje = (f"Se identificaron {len(casos)} variables que se declaran, pero no se usan: {lista}. Se recomienda "
-                   f"eliminarlas, ya que no cumplen ninguna función dentro del procedimiento.")
+    mensaje = mensaje_variables_sin_uso([variable for variable, _ in casos])
     hallazgo = _hallazgo(texto, casos[0][1], "VARIABLE_DECLARADA_SIN_USO", mensaje)
     if len(casos) > 1:
         hallazgo.lineas = sorted({_linea(texto, posicion) for _, posicion in casos})

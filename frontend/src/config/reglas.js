@@ -71,7 +71,7 @@ export const NOMBRES_REGLAS = {
   IN_CON_UN_SOLO_VALOR: 'IN con un solo valor',
   CATALOGO_SISTEMA_PROHIBIDO: 'Catálogo de sistema prohibido',
   MODIFICACION_TABLA_FISICA: 'Modificación de tabla física',
-  VARIABLE_DECLARADA_SIN_USO: 'Variable declarada sin uso',
+  VARIABLE_DECLARADA_SIN_USO: 'Variables declaradas sin uso',
   PROCEDIMIENTO_SIN_DESCRIPCION: 'Procedimiento no documentado',
   PROCEDIMIENTO_SIN_ESQUEMA: 'Procedimiento sin esquema',
   PROCEDIMIENTO_SIN_PREFIJO_PA: 'Nombre sin prefijo PA_',

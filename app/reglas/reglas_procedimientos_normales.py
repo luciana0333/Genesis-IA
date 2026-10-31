@@ -139,7 +139,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "VARIABLE_DECLARADA_SIN_USO": ReglaDiccionario(
         codigo="VARIABLE_DECLARADA_SIN_USO",
-        nombre="Variable declarada sin uso",
+        nombre="Variables declaradas sin uso",
         severidad="medio",
         descripcion="Toda variable declarada debe utilizarse en el procedimiento.",
         alcance="procedimiento",

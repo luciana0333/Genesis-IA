@@ -14,7 +14,7 @@ from app.analizadores.parametros_prefijo import (
     mensaje_parametros_sin_prefijo, mensaje_variables_sin_prefijo, parametros_sin_prefijo, variables_sin_prefijo,
 )
 from app.analizadores.sql_parentesis import sin_parentesis_cerrados
-from app.analizadores.variables_sin_uso import variables_sin_uso
+from app.analizadores.variables_sin_uso import mensaje_variables_sin_uso, variables_sin_uso
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_reportes import REGLAS_REPORTES
 
@@ -880,14 +880,7 @@ def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
     casos = variables_sin_uso(limpio)
     if not casos:
         return []
-    if len(casos) == 1:
-        mensaje = (f"Se identificó que la variable {casos[0][0]} se declara pero no se usa en el procedimiento. "
-                   f"Se recomienda eliminarla, ya que solo ocupa espacio y dificulta la lectura del código.")
-    else:
-        nombres = [variable for variable, _ in casos]
-        lista = f"{', '.join(nombres[:-1])} y {nombres[-1]}"
-        mensaje = (f"Se identificaron {len(casos)} variables que se declaran pero no se usan en el procedimiento: "
-                   f"{lista}. Se recomienda eliminarlas, ya que solo ocupan espacio y dificultan la lectura del código.")
+    mensaje = mensaje_variables_sin_uso([variable for variable, _ in casos])
     hallazgo = _hallazgo(texto, casos[0][1], "VARIABLE_DECLARADA_SIN_USO", mensaje)
     if len(casos) > 1:
         hallazgo.lineas = sorted({_linea(texto, posicion) for _, posicion in casos})
