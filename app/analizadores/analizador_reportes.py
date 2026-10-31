@@ -873,13 +873,25 @@ def _validar_funciones_reemplazables(texto: str, limpio: str) -> List[Hallazgo]:
 
 
 def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
-    """Variables que se declaran y nunca más aparecen (una asignación como SET @x = … ya cuenta como uso)."""
-    return [
-        _hallazgo(texto, posicion, "VARIABLE_DECLARADA_SIN_USO",
-                  f"Se identificó que la variable {variable} se declara pero no se usa en el procedimiento. "
-                  f"Se recomienda eliminarla, ya que solo ocupa espacio y dificulta la lectura del código.")
-        for variable, posicion in variables_sin_uso(limpio)
-    ]
+    """Variables que se declaran y nunca más aparecen (una asignación como SET @x = … ya cuenta como uso).
+
+    Todas van en una sola observación: en plural si son varias, con sus líneas para recorrerlas.
+    """
+    casos = variables_sin_uso(limpio)
+    if not casos:
+        return []
+    if len(casos) == 1:
+        mensaje = (f"Se identificó que la variable {casos[0][0]} se declara pero no se usa en el procedimiento. "
+                   f"Se recomienda eliminarla, ya que solo ocupa espacio y dificulta la lectura del código.")
+    else:
+        nombres = [variable for variable, _ in casos]
+        lista = f"{', '.join(nombres[:-1])} y {nombres[-1]}"
+        mensaje = (f"Se identificaron {len(casos)} variables que se declaran pero no se usan en el procedimiento: "
+                   f"{lista}. Se recomienda eliminarlas, ya que solo ocupan espacio y dificultan la lectura del código.")
+    hallazgo = _hallazgo(texto, casos[0][1], "VARIABLE_DECLARADA_SIN_USO", mensaje)
+    if len(casos) > 1:
+        hallazgo.lineas = sorted({_linea(texto, posicion) for _, posicion in casos})
+    return [hallazgo]
 
 
 # Reglas que, repetidas, se resumen por elemento (tabla, función): «dbo.Cliente (líneas 9, 12)».
