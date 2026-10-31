@@ -58,6 +58,21 @@ class TestTemporalNoSeObserva(unittest.TestCase):
                   "        ELSE 'B'\n    END\n")
         self.assertEqual(_modificaciones(cuerpo), [])
 
+    def test_caso_de_la_usuaria_case_en_una_linea_con_join(self):
+        cuerpo = """    UPDATE A
+        SET
+            A.dtFechaVencimiento = B.dtFechaVencimiento,
+            A.nEstado  =  CASE WHEN CAST(GETDATE() AS DATE) > CAST(B.dtFechaVencimiento AS DATE)  THEN 2050 ELSE 2020  END,
+            A.nUsoVehiculo = B.nUsoVehiculo
+        FROM #MOVCONVCOBRANZA  A
+        INNER JOIN DBCMACICA.dbo.InformacionVentaSoat B
+            ON A.NMOVNRO = B.nMovNro
+"""
+        self.assertEqual(_modificaciones(cuerpo), [])
+        fisica = _modificaciones(cuerpo.replace("#MOVCONVCOBRANZA", "dbo.MovConvCobranza"))
+        self.assertEqual(len(fisica), 1)
+        self.assertIn("modifica la tabla dbo.MovConvCobranza con UPDATE", fisica[0].mensaje)
+
     def test_columna_llamada_end(self):
         cuerpo = """    UPDATE R
     SET cTipo = CASE WHEN R.[End] = 1 THEN 'A' ELSE 'C' END
