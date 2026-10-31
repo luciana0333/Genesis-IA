@@ -1156,39 +1156,87 @@ def _desarmar_replace(expresion: str):
     return actual, pares
 
 
-def _validar_replace_anidado(texto: str, limpio: str) -> List[Hallazgo]:
-    """Tres o más REPLACE anidados que cambian caracteres sueltos: se hace con un TRANSLATE."""
+_UN_CARACTER_LITERAL = re.compile(r"(N?)'([^']|'')'", re.IGNORECASE)
+_UN_CARACTER_CHAR = re.compile(r"N?CHAR\s*\(\s*(\d+)\s*\)", re.IGNORECASE)
+
+
+def _un_caracter(argumento: str):
+    """'x', N'x', '''' (comilla), CHAR(13) o NCHAR(241) → (carácter, cómo se escribe, es N''); si no, None."""
+    literal = _UN_CARACTER_LITERAL.fullmatch(argumento)
+    if literal:
+        caracter = "'" if literal.group(2) == "''" else literal.group(2)
+        return caracter, literal.group(2), bool(literal.group(1))
+    funcion = _UN_CARACTER_CHAR.fullmatch(argumento)
+    if funcion:
+        return chr(int(funcion.group(1))), re.sub(r"\s+", "", argumento).upper(), False
+    return None
+
+
+def _armar_cadena(partes: List[tuple]) -> str:
+    """Los caracteres de TRANSLATE: '.-/' si son literales; CHAR(13) + CHAR(10) + ' ' si hay CHAR()."""
+    if all(not escrito.startswith(("CHAR(", "NCHAR(")) for _, escrito, _ in partes):
+        prefijo = "N" if any(es_n for _, _, es_n in partes) else ""
+        return f"{prefijo}'{''.join(escrito for _, escrito, _ in partes)}'"
+    return " + ".join(escrito if escrito.startswith(("CHAR(", "NCHAR(")) else f"'{escrito}'"
+                      for _, escrito, _ in partes)
+
+
+def _translate_equivalente(base: str, pares: List[tuple]):
+    """El TRANSLATE que da exactamente el mismo resultado que los REPLACE anidados; None si no lo hay.
+
+    Comprobado en SQL Server (collation de la Caja, CI_AS):
+    - solo un carácter por otro carácter: TRANSLATE no acepta palabras ('IGNORE_ON') ni eliminar (''): exige
+      el mismo número de caracteres, y el truco REPLACE(TRANSLATE(x, '()', '||'), '|', '') borra también los
+      '|' que ya traía el dato;
+    - sin cadena: REPLACE(REPLACE(x, 'a', 'b'), 'b', 'c') convierte la «a» en «c» y TRANSLATE solo en «b»
+      (al revés, primero b→c y luego a→b, sí es igual). Se compara sin mayúsculas, porque REPLACE con una
+      collation CI también cambia la «B»;
+    - sin repetir el carácter buscado (el segundo REPLACE no haría nada).
+    """
+    buscados, puestos = [], []
+    for buscar, poner in pares:
+        de, a = _un_caracter(buscar), _un_caracter(poner)
+        if not de or not a:
+            return None
+        buscados.append(de)
+        puestos.append(a)
+    claves = [caracter.casefold() for caracter, _, _ in buscados]
+    if len(set(claves)) != len(claves):
+        return None
+    for i, (puesto, _, _) in enumerate(puestos):
+        if puesto.casefold() in claves[i + 1:]:
+            return None
+    return f"TRANSLATE({base}, {_armar_cadena(buscados)}, {_armar_cadena(puestos)})"
+
+
+def _validar_replace_anidado(texto: str, con_textos: str, limpio: str) -> List[Hallazgo]:
+    """Tres o más REPLACE anidados que TRANSLATE puede hacer igual (un carácter por otro): se usa TRANSLATE.
+
+    `con_textos` trae el contenido de las comillas (los caracteres que se cambian); `limpio`, sin textos,
+    sirve para no tomar un «REPLACE(» escrito dentro de un texto.
+    """
     hallazgos = []
     usados = set()
     patron = re.compile(r"\bREPLACE\s*\(\s*REPLACE\s*\(\s*REPLACE\s*\(", re.IGNORECASE)
-    for match in patron.finditer(limpio):
+    for match in patron.finditer(con_textos):
         if any(inicio <= match.start() < fin for inicio, fin in usados):
-            continue  # es parte de una cadena de REPLACE ya reportada
-        apertura = limpio.index("(", match.start())
-        contenido = _contenido_entre_parentesis(limpio, apertura)
+            continue  # es parte de una cadena de REPLACE ya revisada
+        if not patron.match(limpio, match.start()):
+            continue  # está dentro de un texto entre comillas
+        apertura = con_textos.index("(", match.start())
+        contenido = _contenido_entre_parentesis(con_textos, apertura)
         usados.add((match.start(), apertura + len(contenido) + 2))
-        desarmado = _desarmar_replace(limpio[match.start():apertura + len(contenido) + 2])
-        cantidad = len(desarmado[1]) if desarmado else 3
-        sugerencia = ""
-        if desarmado:
-            base, pares = desarmado
-            literales = all(re.fullmatch(r"'[^']'", buscar) and re.fullmatch(r"'[^']'", poner)
-                            for buscar, poner in pares)
-            if literales:
-                origen = "".join(buscar[1] for buscar, _ in pares)
-                destino = "".join(poner[1] for _, poner in pares)
-                # Si un carácter reemplazado vuelve a reemplazarse, TRANSLATE no da el mismo resultado.
-                if not set(destino) & set(origen):
-                    sugerencia = f" (ej.: TRANSLATE({base}, '{origen}', '{destino}'))"
-            elif all(re.fullmatch(r"'[^']'", buscar) and poner == "''" for buscar, poner in pares):
-                # Todos eliminan un carácter: TRANSLATE los convierte en uno solo y un REPLACE lo quita.
-                origen = "".join(buscar[1] for buscar, _ in pares)
-                sugerencia = f" (ej.: REPLACE(TRANSLATE({base}, '{origen}', '{'|' * len(origen)}'), '|', ''))"
+        desarmado = _desarmar_replace(con_textos[match.start():apertura + len(contenido) + 2])
+        if not desarmado:
+            continue
+        base, pares = desarmado
+        translate = _translate_equivalente(base, pares)
+        if not translate:
+            continue  # TRANSLATE no daría el mismo resultado: los REPLACE se quedan
         hallazgos.append(_hallazgo(
             texto, match.start(), "REPLACE_ANIDADO_TRANSLATE",
-            f"Se identificaron {cantidad} REPLACE anidados. Usar TRANSLATE, ya que cambia "
-            f"varios caracteres en una sola función y le da más legibilidad al código"
-            f"{sugerencia}.",
+            f"Se identificaron {len(pares)} REPLACE anidados. Usar TRANSLATE, ya que cambia "
+            f"varios caracteres en una sola función y le da más legibilidad al código (ej.: {translate}).",
         ))
     return hallazgos
 
@@ -1448,7 +1496,7 @@ def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -
     hallazgos.extend(_validar_envio_correo(texto_sql, limpio))
     hallazgos.extend(_validar_in_un_valor(texto_sql, limpio))
     hallazgos.extend(_validar_left_como_like(texto_sql, con_textos))
-    hallazgos.extend(_validar_replace_anidado(texto_sql, con_textos))
+    hallazgos.extend(_validar_replace_anidado(texto_sql, con_textos, limpio))
     hallazgos.extend(_validar_esquema_entre_bases(texto_sql, limpio))
     hallazgos.extend(_validar_dependencia_bi(texto_sql, limpio))
     hallazgos.extend(_validar_prefijo_parametros(texto_sql, limpio))

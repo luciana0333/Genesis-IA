@@ -246,7 +246,8 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         codigo="REPLACE_ANIDADO_TRANSLATE",
         nombre="REPLACE anidados que pueden ser TRANSLATE",
         severidad="medio",
-        descripcion="Tres o más REPLACE anidados que cambian caracteres sueltos se reemplazan por TRANSLATE.",
+        descripcion="Tres o más REPLACE anidados que cambian un carácter por otro (sin cadena ni eliminación) "
+                    "se reemplazan por TRANSLATE, que da el mismo resultado.",
         alcance="procedimiento",
         activo=True,
     ),

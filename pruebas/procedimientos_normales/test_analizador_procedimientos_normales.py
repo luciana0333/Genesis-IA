@@ -579,16 +579,69 @@ END"""
         self.assertNotIn("LEFT_REEMPLAZABLE_POR_LIKE", {h.regla for h in verificar_procedimiento_normal(en_select)})
 
     def test_replace_anidados_sugieren_translate(self):
-        sql = "SELECT REPLACE(REPLACE(REPLACE(cTelefono, '-', ''), '(', ''), ')', '') FROM #T"
-        hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "REPLACE_ANIDADO_TRANSLATE"]
-        self.assertEqual(len(hallazgos), 1)
-        self.assertIn("3 REPLACE anidados", hallazgos[0].mensaje)
-        self.assertIn("REPLACE(TRANSLATE(cTelefono, '-()', '|||'), '|', '')", hallazgos[0].mensaje)
         exacto = "SELECT REPLACE(REPLACE(REPLACE(cTexto, 'á', 'a'), 'é', 'e'), 'í', 'i') FROM #T"
-        mensaje = [h.mensaje for h in verificar_procedimiento_normal(exacto) if h.regla == "REPLACE_ANIDADO_TRANSLATE"][0]
-        self.assertIn("TRANSLATE(cTexto, 'áéí', 'aei')", mensaje)
+        hallazgos = [h for h in verificar_procedimiento_normal(exacto) if h.regla == "REPLACE_ANIDADO_TRANSLATE"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertEqual(
+            hallazgos[0].mensaje,
+            "Se identificaron 3 REPLACE anidados. Usar TRANSLATE, ya que cambia varios caracteres en una sola "
+            "función y le da más legibilidad al código (ej.: TRANSLATE(cTexto, 'áéí', 'aei')).",
+        )
         dos = "SELECT REPLACE(REPLACE(cTexto, 'a', 'b'), 'c', 'd') FROM #T"
         self.assertNotIn("REPLACE_ANIDADO_TRANSLATE", {h.regla for h in verificar_procedimiento_normal(dos)})
+
+    def test_replace_que_translate_si_puede_hacer_igual(self):
+        # Comprobado en SQL Server con la collation de la Caja: cada TRANSLATE da lo mismo que sus REPLACE.
+        casos = {
+            "REPLACE(REPLACE(REPLACE(x, '.', ' '), '-', ' '), '/', ' ')": "TRANSLATE(x, '.-/', '   ')",
+            "REPLACE(REPLACE(REPLACE(x, N'Ñ', N'N'), N'á', N'a'), N'ú', N'u')": "TRANSLATE(x, N'Ñáú', N'Nau')",
+            "REPLACE(REPLACE(REPLACE(x, CHAR(13), ' '), CHAR(10), ' '), CHAR(9), ' ')":
+                "TRANSLATE(x, CHAR(13) + CHAR(10) + CHAR(9), '   ')",
+            "REPLACE(REPLACE(REPLACE(x, char( 13 ), ' '), '-', '_'), CHAR(9), ' ')":
+                "TRANSLATE(x, CHAR(13) + '-' + CHAR(9), ' _ ')",
+            "REPLACE(REPLACE(REPLACE(REPLACE(x, '(', '['), ')', ']'), '{', '['), '}', ']')": "TRANSLATE(x, '(){}', '[][]')",
+            # Primero b→c y luego a→b: la «a» queda en «b», igual que con TRANSLATE.
+            "REPLACE(REPLACE(REPLACE(x, 'b', 'c'), 'a', 'b'), 'x', 'y')": "TRANSLATE(x, 'bax', 'cby')",
+            # La comilla simple se escribe '''' y se mantiene así.
+            "REPLACE(REPLACE(REPLACE(x, '''', '\"'), ',', ';'), '|', '/')": "TRANSLATE(x, ''',|', '\";/')",
+        }
+        for cadena, translate in casos.items():
+            with self.subTest(cadena=cadena):
+                mensajes = [h.mensaje for h in verificar_procedimiento_normal(f"SELECT {cadena} FROM #T")
+                            if h.regla == "REPLACE_ANIDADO_TRANSLATE"]
+                self.assertEqual(len(mensajes), 1)
+                self.assertIn(f"(ej.: {translate}).", mensajes[0])
+
+    def test_replace_que_translate_no_puede_hacer_igual_no_se_observan(self):
+        # Comprobado en SQL Server: TRANSLATE daría otro resultado o daría error.
+        casos = (
+            "REPLACE(REPLACE(REPLACE(x, 'a', 'b'), 'b', 'c'), 'x', 'y')",   # cadena: REPLACE deja «c», TRANSLATE «b»
+            "REPLACE(REPLACE(REPLACE(x, 'a', 'b'), 'b', 'a'), 'x', 'y')",   # intercambio
+            "REPLACE(REPLACE(REPLACE(x, 'a', 'B'), 'b', 'c'), 'x', 'y')",   # cadena con mayúscula (collation CI)
+            "REPLACE(REPLACE(REPLACE(x, '(', ''), ')', ''), '-', '')",      # eliminar caracteres
+            "REPLACE(REPLACE(REPLACE(x, '.', ' '), '-', ''), '/', ' ')",    # uno de ellos elimina
+            "REPLACE(REPLACE(REPLACE(x, 'IGNORE_ON', ''), 'CENTER_ON', ''), 'CENTER_OFF', '')",  # palabras
+            "REPLACE(REPLACE(REPLACE(x, '[cNumero_Value]', cNumero), '[nAnio_Value]', nAnio), '[cSufijo_Value]', cSufijo)",
+            "REPLACE(REPLACE(REPLACE(x, 'ab', 'x'), 'c', 'y'), 'd', 'z')",  # dos letras
+            "REPLACE(REPLACE(REPLACE(x, 'a', '1'), 'a', '2'), 'v', '3')",   # carácter repetido
+            "REPLACE(REPLACE(REPLACE(x, @cBuscar, ' '), '-', ' '), '/', ' ')",  # variable: no se sabe su valor
+        )
+        for cadena in casos:
+            with self.subTest(cadena=cadena):
+                reglas = {h.regla for h in verificar_procedimiento_normal(f"SELECT {cadena} FROM #T")}
+                self.assertNotIn("REPLACE_ANIDADO_TRANSLATE", reglas)
+
+    def test_replace_escrito_dentro_de_un_texto_no_se_observa(self):
+        sql = "SELECT 'REPLACE(REPLACE(REPLACE(x, ''.'', '' ''), ''-'', '' ''), ''/'', '' '')' AS cTexto"
+        self.assertNotIn("REPLACE_ANIDADO_TRANSLATE", {h.regla for h in verificar_procedimiento_normal(sql)})
+
+    def test_replace_dentro_de_otra_funcion_y_dos_cadenas(self):
+        sql = ("SELECT LTRIM(RTRIM(REPLACE(REPLACE(REPLACE(x, '.', ' '), '-', ' '), '/', ' '))),\n"
+               "       REPLACE(REPLACE(REPLACE(y, 'á', 'a'), 'é', 'e'), 'í', 'i') FROM #T")
+        lineas = [h.linea for h in verificar_procedimiento_normal(sql) if h.regla == "REPLACE_ANIDADO_TRANSLATE"]
+        self.assertEqual(len(lineas), 1)  # se agrupan en una observación
+        hallazgo = [h for h in verificar_procedimiento_normal(sql) if h.regla == "REPLACE_ANIDADO_TRANSLATE"][0]
+        self.assertEqual(hallazgo.lineas, [1, 2])
 
     def test_transaccion_sin_commit(self):
         sin_commit = "BEGIN TRAN; UPDATE dbo.Cliente SET a = 1;"
