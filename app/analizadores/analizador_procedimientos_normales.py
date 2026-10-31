@@ -728,7 +728,7 @@ def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
         _hallazgo(texto, posicion, "VARIABLE_DECLARADA_SIN_USO",
                   f"La variable {variable} se declara, pero no se usa. Se recomienda eliminarla, "
                   f"ya que no cumple ninguna función dentro del procedimiento.")
-        for variable, posicion in variables_sin_uso(limpio, asignar_es_usar=True)
+        for variable, posicion in variables_sin_uso(limpio)
     ]
 
 
