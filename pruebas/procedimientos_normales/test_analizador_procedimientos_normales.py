@@ -317,8 +317,33 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             "    INSERT INTO dbo.Documento (nId, vArchivo)\n    VALUES (@nId, @vArchivo);\nEND"
         )
         hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "DOCUMENTO_GUARDADO_EN_BD")
-        self.assertEqual((hallazgo.linea, hallazgo.severidad.value), (7, "alto"))
+        # Línea del INSERT (6), donde se nombra la tabla en la que se guarda; no la del VALUES (7).
+        self.assertEqual((hallazgo.linea, hallazgo.severidad.value), (6, "alto"))
         self.assertIn("@vArchivo (VARBINARY) se escribe en la tabla dbo.Documento con INSERT", hallazgo.mensaje)
+
+    def test_documento_guardado_marca_la_linea_del_insert(self):
+        def linea(sql):
+            return [h.linea for h in verificar_procedimiento_normal(sql) if h.regla == "DOCUMENTO_GUARDADO_EN_BD"]
+
+        # Caso de la usuaria: INSERT con la lista de columnas en dos líneas y el VALUES dos líneas más abajo.
+        memorando = (
+            "DECLARE @bFirmaJefe VARBINARY(MAX), @nID INT\n"
+            "SELECT @nID = 1\n"
+            "INSERT INTO DBCMACICA.RRHH.MemorandoFirmas (nMemorandoDocPersonaId,cPerscod,cBin_ImagenPerEncar,\n"
+            "cMIMETypePerEncar,cUltimaActualizacion)\n"
+            "VALUES (@nID,'1',@bFirmaJefe,'image/jpeg','x')\n"
+        )
+        self.assertEqual(linea(memorando), [3])
+        # INSERT ... SELECT largo: la variable queda lejos, pero se marca el INSERT.
+        insert_select = ("DECLARE @vArchivo VARBINARY(MAX)\nINSERT INTO dbo.Documento\n(nId,\nvArchivo)\n"
+                         "SELECT\n    1,\n    @vArchivo\n")
+        self.assertEqual(linea(insert_select), [2])
+        # CAST a VARBINARY y OPENROWSET: también la línea del INSERT.
+        self.assertEqual(linea("INSERT INTO dbo.Documento (vArchivo)\nSELECT CAST(@c AS VARBINARY(MAX))\n"), [1])
+        self.assertEqual(linea("INSERT INTO dbo.Documento (vArchivo)\n"
+                               "SELECT BulkColumn FROM OPENROWSET(BULK 'C:\\a.pdf', SINGLE_BLOB) x\n"), [1])
+        # UPDATE: la línea del UPDATE.
+        self.assertEqual(linea("UPDATE d\nSET d.vArchivo = CONVERT(VARBINARY(MAX), @cBase64)\nFROM dbo.Documento d\n"), [1])
 
     def test_varbinary_otras_formas_de_guardar_documentos(self):
         casos = (

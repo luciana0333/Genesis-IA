@@ -1585,8 +1585,9 @@ def _validar_documentos_guardados(texto: str, limpio: str) -> List[Hallazgo]:
                 continue
             que = descripcion or f"la variable {pista.group(1)} (VARBINARY)"
             accion = "UPDATE" if escritura.group(1).upper() == "UPDATE" else "INSERT"
+            # Se marca la línea del INSERT/UPDATE (donde se nombra la tabla en la que se guarda), no la del valor.
             hallazgos.append(_hallazgo(
-                texto, escritura.end() + pista.start(), "DOCUMENTO_GUARDADO_EN_BD",
+                texto, escritura.start(), "DOCUMENTO_GUARDADO_EN_BD",
                 f"Se identificó que el procedimiento guarda un documento en la base de datos: {que} se "
                 f"escribe en la tabla {tabla} con {accion}. Se recomienda guardar el documento en la solución "
                 f"externa y registrar solo su ruta, ya que la base de datos es solo para datos transaccionales.",
