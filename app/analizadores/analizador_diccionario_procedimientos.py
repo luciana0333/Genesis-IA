@@ -727,7 +727,92 @@ def verificar_diccionario(
         hallazgos += _procedimientos_fuera_del_script(
             texto_diccionario, nombres_del_script(texto_procedimiento, _ENCABEZADO, _nombre_del_encabezado)
         )
+    hallazgos += _documentacion_existente_en_alter(texto_procedimiento, texto_diccionario)
     return ([duplicado] if duplicado else []) + hallazgos
+
+
+def _enumerar(elementos: List[str]) -> str:
+    return elementos[0] if len(elementos) == 1 else f"{', '.join(elementos[:-1])} y {elementos[-1]}"
+
+
+def _documentacion_existente_en_alter(texto_procedimiento: str, texto_diccionario: str) -> List[Hallazgo]:
+    """
+    En un ALTER PROCEDURE el procedimiento y sus parámetros ya existen: agregarles la descripción
+    (sp_addextendedproperty) falla si ya estaban documentados. Igual que en el diccionario de tablas,
+    se pide validar. Va en una sola observación para todo el script (CREATE OR ALTER cuenta como CREATE).
+    """
+    alterados: Dict[str, str] = {}
+    for encabezado in _ENCABEZADO.finditer(_sin_comentarios_ni_textos(texto_procedimiento)):
+        if encabezado.group(1).upper() != "ALTER":
+            continue
+        esquema, nombre = extraer_esquema_y_nombre(encabezado.group(0))
+        alterados.setdefault(nombre.upper(), _nombre_completo(esquema, nombre))
+
+    por_procedimiento: Dict[str, Dict[str, list]] = {}
+    lineas = set()
+    for ll in leer_propiedades_extendidas(texto_diccionario):
+        if ll.operacion != "add" or ll.texto("name").upper() != "MS_DESCRIPTION":
+            continue
+        nombre = alterados.get(ll.texto("level1name").upper())
+        if not nombre or "PROCEDURE" not in ll.texto("level1type").upper():
+            continue
+        partes = por_procedimiento.setdefault(nombre, {"procedimiento": [], "parametros": []})
+        if "PARAMETER" in ll.texto("level2type").upper():
+            if ll.texto("level2name") not in partes["parametros"]:
+                partes["parametros"].append(ll.texto("level2name"))
+        elif not ll.texto("level2type"):
+            partes["procedimiento"].append(ll.linea)
+        else:
+            continue
+        lineas.add(ll.linea)
+    if not por_procedimiento:
+        return []
+
+    def descripciones(nombre: str, partes: Dict[str, list], con_nombre: bool) -> str:
+        del_proc = f"del procedimiento {nombre}" if con_nombre else "del procedimiento"
+        parametros = partes["parametros"]
+        if not parametros:
+            return f"la descripción {del_proc}"
+        de_parametros = (f"del parámetro {parametros[0]}" if len(parametros) == 1
+                         else f"de los parámetros {_enumerar(parametros)}")
+        if partes["procedimiento"]:
+            return f"la descripción {del_proc} y {de_parametros}"
+        return f"la descripción {de_parametros}" + (f" del procedimiento {nombre}" if con_nombre else "")
+
+    accion = ("Verificar si ya cuentan con descripción en el diccionario, ya que de ser así la ejecución del "
+              "script fallará. En ese caso, retirar esas sentencias o reemplazarlas por sentencias de "
+              "actualización (sp_updateextendedproperty).")
+    if len(por_procedimiento) == 1:
+        nombre, partes = next(iter(por_procedimiento.items()))
+        una_sola = len(lineas) == 1
+        if una_sola and partes["procedimiento"]:
+            existe = "que ya existe y podría estar documentada"
+            accion = accion.replace("cuentan", "cuenta").replace("esas sentencias", "la sentencia").replace(
+                "reemplazarlas por sentencias", "reemplazarla por una")
+        elif una_sola:
+            existe = "que ya existe y podría estar documentado"
+            accion = accion.replace("cuentan", "cuenta").replace("esas sentencias", "la sentencia").replace(
+                "reemplazarlas por sentencias", "reemplazarla por una")
+        else:
+            existe = "que ya existen y podrían estar documentados"
+        mensaje = f"El diccionario agrega {descripciones(nombre, partes, True)}, {existe}. {accion}"
+    else:
+        casos = "; ".join(f"en {nombre}, {descripciones(nombre, partes, False)}"
+                          for nombre, partes in por_procedimiento.items())
+        mensaje = (f"El diccionario agrega descripciones a {len(por_procedimiento)} procedimientos que ya existen "
+                   f"y podrían estar documentados: {casos}. {accion}")
+    orden = sorted(lineas)
+    hallazgo = Hallazgo(
+        linea=orden[0],
+        origen=OrigenAnalisis.DICCIONARIO,
+        severidad=Severidad(REGLAS_DICCIONARIO_PROCEDIMIENTOS["DOCUMENTACION_EXISTENTE_EN_ALTER"].severidad),
+        regla="DOCUMENTACION_EXISTENTE_EN_ALTER",
+        mensaje=mensaje,
+    )
+    if len(orden) > 1:
+        hallazgo.lineas = orden
+    hallazgo.seccion = "diccionario"
+    return [hallazgo]
 
 
 def _procedimientos_fuera_del_script(texto_diccionario: str, nombres: List[str]) -> List[Hallazgo]:

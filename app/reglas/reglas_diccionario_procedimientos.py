@@ -220,6 +220,18 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
         alcance="procedimiento",
         activo=True,
     ),
+    "DOCUMENTACION_EXISTENTE_EN_ALTER": ReglaDiccionario(
+        codigo="DOCUMENTACION_EXISTENTE_EN_ALTER",
+        nombre="Validar documentación existente",
+        severidad="bajo",
+        descripcion=(
+            "En un ALTER PROCEDURE se agrega (sp_addextendedproperty) la descripción del procedimiento o de "
+            "sus parámetros, que ya existían. No es error, pero la sentencia falla si ya estaban documentados: "
+            "se pide verificar (igual que en el diccionario de tablas)."
+        ),
+        alcance="procedimiento",
+        activo=True,
+    ),
     "ALTER_SIN_DICCIONARIO": ReglaDiccionario(
         codigo="ALTER_SIN_DICCIONARIO",
         nombre="ALTER sin diccionario",
