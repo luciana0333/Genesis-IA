@@ -152,6 +152,14 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "GOTO_PROHIBIDO": ReglaDiccionario(
+        codigo="GOTO_PROHIBIDO",
+        nombre="Uso de GOTO",
+        severidad="medio",
+        descripcion="Un procedimiento de reporte nuevo (CREATE) no debe usar GOTO; en un ALTER no se observa.",
+        alcance="reporte",
+        activo=True,
+    ),
     "RAISERROR_USAR_THROW": ReglaDiccionario(
         codigo="RAISERROR_USAR_THROW",
         nombre="Uso de RAISERROR",

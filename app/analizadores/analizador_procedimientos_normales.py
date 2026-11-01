@@ -165,9 +165,10 @@ def _validar_control_flujo(texto: str, limpio: str) -> List[Hallazgo]:
         etiqueta = f" hacia la etiqueta {match.group(1)}" if match.group(1) else ""
         hallazgos.append(_hallazgo(
             texto, match.start(), "GOTO_PROHIBIDO",
-            f"Se identificó una instrucción GOTO{etiqueta}. Se recomienda validar si su uso está "
-            f"justificado y, de ser posible, reemplazarla por IF/ELSE o por un bloque TRY/CATCH, ya que "
-            f"GOTO salta a otra parte del código y hace difícil seguir su lógica.",
+            # «Qué hacer»: texto de la usuaria (1 nov.).
+            f"Se identificó una instrucción GOTO{etiqueta}. Se recomienda evitar el uso de GOTO, ya que altera "
+            f"el flujo de ejecución y dificulta la lectura, el mantenimiento y la depuración del procedimiento. "
+            f"Se sugiere evaluar alternativas de control de flujo.",
         ))
     for match in re.finditer(rf"\bMERGE\b(?:\s+(?:TOP\s*\([^)]*\)\s*)?(?:INTO\s+)?({_REFERENCIA}))?", limpio, re.IGNORECASE):
         tabla = f" sobre la tabla {_limpiar_nombre(match.group(1))}" if match.group(1) else ""
