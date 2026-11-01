@@ -233,6 +233,38 @@ def _sugerencia_tabla(tabla: str) -> Optional[str]:
     return sugerido if sugerido and sugerido != tabla and _PASCAL_CASE.match(sugerido) else None
 
 
+# Palabra en minúscula pegada después de una sigla: cPersIDnro («nro» tras «ID»).
+_MINUSCULA_TRAS_SIGLA = re.compile(r"(?<=[A-Z]{2})([a-z][a-z0-9]*)")
+
+
+def _cumple_nomenclatura(nombre: str) -> bool:
+    """PascalCase después del prefijo; las siglas en mayúsculas (cPersIDNro) también cumplen."""
+    return bool(_NOMBRE_COLUMNA.match(nombre) or _siglas_del_nombre(nombre, _NOMBRE_COLUMNA))
+
+
+def _corregir_tras_sigla(nombre: str) -> Optional[str]:
+    """cPersIDnro -> cPersIDNro: la palabra después de la sigla empieza con mayúscula."""
+    corregido = _MINUSCULA_TRAS_SIGLA.sub(lambda m: m.group(1).capitalize(), nombre)
+    return corregido if corregido != nombre and _cumple_nomenclatura(corregido) else None
+
+
+def _motivo_pascal(nombre: str, pegadas: bool) -> str:
+    """Qué está mal en el nombre, en concreto: «la palabra «nro» debe iniciar con mayúscula»."""
+    if "_" in nombre:
+        return "contiene guiones bajos"
+    if pegadas:
+        return "tiene palabras pegadas, sin mayúscula inicial"
+    if len(nombre) > 2 and nombre[1:].isupper():
+        return "está escrito en mayúsculas"
+    tras_sigla = _MINUSCULA_TRAS_SIGLA.findall(nombre)
+    if tras_sigla:
+        palabras = [f"«{p}»" for p in tras_sigla]
+        if len(palabras) == 1:
+            return f"la palabra {palabras[0]} debe iniciar con mayúscula"
+        return f"las palabras {', '.join(palabras[:-1])} y {palabras[-1]} deben iniciar con mayúscula"
+    return "cada palabra debe iniciar con mayúscula"
+
+
 def _sugerencia_columna(nombre: str, prefijo: Optional[str]) -> Optional[str]:
     """Propone el nombre corregido de la columna (prefijo correcto + PascalCase)."""
     tiene_prefijo = bool(re.match(r"^[a-z][A-Z_]", nombre))
@@ -624,18 +656,20 @@ def _validar_columna(
         hallazgos.append(observacion)
     elif (not _NOMBRE_COLUMNA.match(columna.nombre) and _revisar_siglas(columna.nombre, _NOMBRE_COLUMNA) is None) \
             or pegadas:
-        sugerido = pegadas or sugerido
+        sugerido = pegadas or _corregir_tras_sigla(columna.nombre) or sugerido
+        # Texto aprobado por la usuaria (1 nov.): dice qué palabra está mal y cómo queda el nombre.
+        regla_pascal = "después del prefijo cada palabra debe iniciar con mayúscula"
+        if "_" in columna.nombre:
+            regla_pascal += ", sin guiones bajos"
         accion = (
-            # Texto de la usuaria.
-            f"Renómbrela como {sugerido}, siguiendo PascalCase, que consiste en escribir cada palabra con "
-            f"mayúscula inicial y sin guiones bajos." if sugerido
-            else "Escriba cada palabra con mayúscula inicial (ej.: cPersonaNombre)."
+            f"Renombrar la columna como {sugerido}, ya que {regla_pascal}." if sugerido
+            else "Renombrar la columna escribiendo cada palabra con mayúscula inicial después del prefijo."
         )
         elementos["COLUMNA_NOMBRE_NO_PASCALCASE"] = f"{columna.nombre} → {sugerido}" if sugerido else columna.nombre
         hallazgos.append(_hallazgo(
             texto, columna.posicion, "COLUMNA_NOMBRE_NO_PASCALCASE",
-            f"El nombre de la columna {columna.nombre} no cumple la nomenclatura: después del prefijo, "
-            f"cada palabra va con mayúscula inicial y sin guiones bajos. {accion}",
+            f"El nombre de la columna {columna.nombre} no cumple la nomenclatura PascalCase: "
+            f"{_motivo_pascal(columna.nombre, bool(pegadas))}. {accion}",
         ))
 
     numeros = re.findall(r"\d+", columna.nombre)
