@@ -302,6 +302,8 @@
 /* ───────── DIAGRAMA DEL PLAN (estilo SQL Sentry Plan Explorer) ───────── */
 .plan-diagrama-seccion {
   margin-top: 28px;
+  /* «Ir al plan» baja hasta aquí sin que el menú fijo tape el título (igual que «Ver» del resumen). */
+  scroll-margin-top: 96px;
 }
 
 .plan-diagrama-seccion .plan-grilla {
@@ -562,7 +564,8 @@
 
 .plan-nodo:hover .plan-icono-fondo,
 .plan-nodo:focus-visible .plan-icono-fondo,
-.plan-nodo.activo .plan-icono-fondo {
+.plan-nodo.activo .plan-icono-fondo,
+.plan-nodo.marcado .plan-icono-fondo {
   stroke: #36c23a;
   stroke-width: 2;
 }

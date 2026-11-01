@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Botones de imagen al pie de cada hallazgo del plan: ver la captura del
- * operador (como la que se pega en el informe), copiarla o descargarla.
+ * Botones al pie de cada hallazgo del plan: ver la captura del operador (como la que se pega en el
+ * informe), copiarla o ir al diagrama del plan, con la consulta elegida y su operador marcado.
  */
-export function CapturaHallazgo({ hallazgo, sentencias = [], archivo }) {
+export function CapturaHallazgo({ hallazgo, sentencias = [], archivo, onIrAlPlan }) {
   const [captura, setCaptura] = useState(null);
   const [visible, setVisible] = useState(false);
   const [estado, setEstado] = useState('');
@@ -56,20 +56,15 @@ export function CapturaHallazgo({ hallazgo, sentencias = [], archivo }) {
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': promesa })]);
   }, 'Imagen copiada');
 
-  const alDescargar = conAviso(async () => {
-    const { url } = await obtener();
-    const enlace = document.createElement('a');
-    enlace.href = url;
-    enlace.download = `${hallazgo.regla.toLowerCase()}-consulta-${consulta}.png`;
-    enlace.click();
-  });
+  // Lleva al diagrama de abajo: la primera consulta de la observación, con sus operadores marcados.
+  const alIrAlPlan = () => onIrAlPlan?.({ consulta, nodos: grupos[0].nodoIds, clave: Date.now() });
 
   return (
     <div className="captura-hallazgo">
       <div className="captura-acciones">
         <button type="button" className="captura-boton" onClick={alVer}>{visible ? 'Ocultar imagen' : 'Ver imagen del plan'}</button>
         <button type="button" className="captura-boton" onClick={alCopiar}>Copiar imagen</button>
-        <button type="button" className="captura-boton" onClick={alDescargar}>Descargar PNG</button>
+        {onIrAlPlan && <button type="button" className="captura-boton" onClick={alIrAlPlan}>Ir al plan</button>}
         {estado && <span className="captura-estado" role="status">{estado}</span>}
       </div>
       {visible && captura && <img className="captura-imagen" src={captura.url} width={captura.ancho} alt={`Captura del plan: ${hallazgo.regla}`} />}
