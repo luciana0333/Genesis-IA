@@ -190,9 +190,8 @@ class TestOrtografiaProcedimientos(unittest.TestCase):
         self.assertEqual(len(hallazgos), 1)
         mensaje = hallazgos[0].mensaje
         self.assertEqual(hallazgos[0].lineas, [1, 2])  # las líneas van en el encabezado
-        self.assertIn("'clienet' → 'cliente' en la descripción del procedimiento dbo.PA_Cliente_Consultar", mensaje)
-        self.assertIn("'Identificadodr'", mensaje)
-        self.assertIn("en la descripción del parámetro @nClienteId", mensaje)
+        self.assertIn("Se identificaron 2 palabras mal escritas en el diccionario: 'clienet' → 'cliente' y "
+                      "'Identificadodr' → 'Identificador'.", mensaje)
 
 
 if __name__ == "__main__":
