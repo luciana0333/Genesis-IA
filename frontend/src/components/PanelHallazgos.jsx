@@ -71,6 +71,9 @@ function ResumenLateral({ conteo, total, filtro, onFiltrar }) {
   );
 }
 
+const DESCRIPCION_RIESGOS = 'Hallazgos detectados al analizar el plan de ejecución, para los que SQL Server no emite '
+  + 'alerta. Se recomienda revisarlos antes del pase a producción.';
+
 // Cajitas secundarias del formulario: la línea del hallazgo es de esa cajita.
 const SECCIONES = { indices: 'Índices' };
 
@@ -223,6 +226,9 @@ export function PanelHallazgos({
     ? ordenados
     : ordenados.filter((hallazgo) => normalizarSeveridad(hallazgo.severidad) === filtro);
   const hayHallazgos = estado === 'listo' && hallazgos.length > 0;
+  // Los riesgos identificados por Genesis (sin alerta de SQL Server) van aparte, debajo de los demás.
+  const normales = visibles.filter((hallazgo) => !hallazgo.complementario);
+  const complementarios = visibles.filter((hallazgo) => hallazgo.complementario);
 
   let contenido;
   if (estado === 'cargando') {
@@ -252,17 +258,29 @@ export function PanelHallazgos({
       />
     );
   } else if (hayHallazgos) {
+    const fichas = (grupo, prefijo) => grupo.map((hallazgo, indice) => (
+      <FilaHallazgo
+        // El backend no envía un id; regla + línea + posición es estable por resultado.
+        key={`${prefijo}-${hallazgo.regla}-${hallazgo.linea}-${indice}`}
+        hallazgo={hallazgo}
+        mostrarLinea={mostrarLinea}
+        acciones={accionesHallazgo}
+      />
+    ));
     const lista = (
       <div className="findings-list">
-        {visibles.map((hallazgo, indice) => (
-          <FilaHallazgo
-            // El backend no envía un id; regla + línea + posición es estable por resultado.
-            key={`${seccion}-${hallazgo.regla}-${hallazgo.linea}-${indice}`}
-            hallazgo={hallazgo}
-            mostrarLinea={mostrarLinea}
-            acciones={accionesHallazgo}
-          />
-        ))}
+        {fichas(normales, seccion)}
+        {complementarios.length > 0 && (
+          <div className="riesgos-genesis">
+            <EncabezadoSeccion
+              nivel={3}
+              etiqueta="Análisis complementario"
+              titulo="Riesgos identificados por Genesis"
+              descripcion={DESCRIPCION_RIESGOS}
+            />
+            {fichas(complementarios, `${seccion}-riesgo`)}
+          </div>
+        )}
       </div>
     );
     contenido = !conSecciones ? lista : (
@@ -302,7 +320,8 @@ export function PanelHallazgos({
     );
   }
 
-  const textoTodos = visibles.map((h, i) => `${i + 1}. ${textoParaCopiar(h, mostrarLinea)}`).join('\n');
+  const textoTodos = [...normales, ...complementarios]
+    .map((h, i) => `${i + 1}. ${textoParaCopiar(h, mostrarLinea)}`).join('\n');
 
   return (
     <section className="results-panel" aria-live="polite" aria-busy={estado === 'cargando'}>

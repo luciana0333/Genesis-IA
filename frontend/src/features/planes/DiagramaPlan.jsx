@@ -60,7 +60,7 @@ export function Nodo({ nodo, posicion, maximo, activo, marcado = false, soloMarc
 
   return (
     <g
-      className={`plan-nodo${activo ? ' activo' : ''}`}
+      className={`plan-nodo${activo ? ' activo' : ''}${marcado ? ' marcado' : ''}`}
       onMouseEnter={(evento) => onEntrar(nodo, evento)}
       onMouseLeave={onSalir}
       tabIndex={0}
@@ -180,8 +180,11 @@ const ZOOM_MINIMO = 0.25;
 const ZOOM_MAXIMO = 1.5;
 const PASO_ZOOM = 0.1;
 
-/** Diagrama de una sentencia del plan con zoom y detalle al pasar el mouse. */
-function Diagrama({ sentencia }) {
+/**
+ * Diagrama de una sentencia del plan con zoom y detalle al pasar el mouse.
+ * `marcados`: operadores que señala una observación («Ir al plan»): se enmarcan y el diagrama se centra en ellos.
+ */
+function Diagrama({ sentencia, marcados = [] }) {
   const [zoom, setZoom] = useState(0.8);
   const [enfocado, setEnfocado] = useState(null);
   const { posiciones, ancho, alto } = useMemo(() => calcularPosiciones(sentencia.nodos), [sentencia]);
@@ -201,6 +204,17 @@ function Diagrama({ sentencia }) {
     cierre.current = setTimeout(() => setEnfocado(null), 180);
   };
   useEffect(() => () => clearTimeout(cierre.current), []);
+  // «Ir al plan»: el primer operador marcado queda a la vista, centrado en el recuadro.
+  const primero = marcados[0];
+  useEffect(() => {
+    const lienzo = lienzoRef.current;
+    const punto = primero !== undefined ? posiciones.get(primero) : null;
+    if (!lienzo || !punto) return;
+    lienzo.scrollLeft = Math.max(punto.x * zoom - lienzo.clientWidth / 2, 0);
+    lienzo.scrollTop = Math.max(punto.y * zoom - lienzo.clientHeight / 2, 0);
+    // Solo al llegar a la observación; luego el usuario mueve el diagrama libremente.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primero, posiciones]);
   // Si la página o el diagrama se desplazan, el recuadro ya no está junto a su operador: se cierra.
   // (Bajar dentro del propio recuadro no lo cierra.)
   useEffect(() => {
@@ -268,6 +282,7 @@ function Diagrama({ sentencia }) {
               posicion={posiciones.get(nodo.id)}
               maximo={maximo}
               activo={enfocado?.nodo.id === nodo.id}
+              marcado={marcados.includes(nodo.id)}
               onEntrar={alEntrar}
               onSalir={cerrar}
             />
@@ -441,9 +456,25 @@ function TextoSentencia({ codigo, alto }) {
 }
 
 /** Sentencias del plan (como la grilla de Plan Explorer) y el diagrama de la elegida. */
-export function DiagramaPlan({ sentencias = [] }) {
+/**
+ * `foco` ({ consulta, nodos, clave }): lo envía «Ir al plan» de una observación. Se elige esa consulta, se
+ * muestra su diagrama con los operadores marcados y la página baja hasta aquí. `clave` cambia en cada clic,
+ * así el mismo botón vuelve a llevar aunque ya se haya usado.
+ */
+export function DiagramaPlan({ sentencias = [], foco = null }) {
   const [elegida, setElegida] = useState(null);
   const [pestana, setPestana] = useState('diagrama');
+  const seccionRef = useRef(null);
+  // Un foco nuevo elige su consulta y la pestaña del diagrama (se ajusta al dibujar, no en un efecto).
+  const [focoAplicado, setFocoAplicado] = useState(null);
+  if (foco && foco.clave !== focoAplicado) {
+    setFocoAplicado(foco.clave);
+    setElegida(foco.consulta);
+    setPestana('diagrama');
+  }
+  useEffect(() => {
+    if (foco) seccionRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }, [foco]);
   const [orden, setOrden] = useState({ titulo: null, direccion: null });
   const [altos, setAltos] = useState(leerAltos);
   const cambiarAlto = (panel) => (valor) => setAltos((actuales) => {
@@ -476,7 +507,7 @@ export function DiagramaPlan({ sentencias = [] }) {
   const maximoTexto = Math.max(ALTO_MINIMO, libre - altos.grilla);
 
   return (
-    <section className="plan-diagrama-seccion">
+    <section className="plan-diagrama-seccion" ref={seccionRef}>
       <EncabezadoSeccion
         nivel={3}
         etiqueta="Detalle del plan"
@@ -536,7 +567,13 @@ export function DiagramaPlan({ sentencias = [] }) {
           />
         )}
         <div className="plan-vista">
-          {pestana === 'diagrama' && <Diagrama key={sentencia.numero} sentencia={sentencia} />}
+          {pestana === 'diagrama' && (
+            <Diagrama
+              key={`${sentencia.numero}-${foco?.clave ?? ''}`}
+              sentencia={sentencia}
+              marcados={foco?.consulta === sentencia.numero ? foco.nodos : []}
+            />
+          )}
           {pestana === 'parametros' && <ParametrosPlan parametros={sentencia.parametros} />}
           {pestana === 'indices' && <IndicesFaltantes indices={sentencia.indicesFaltantes} />}
         </div>

@@ -128,6 +128,7 @@ export const NOMBRES_REGLAS = {
   VALIDAR_DOCUMENTACION_ALTER: 'Validar documentación existente',
   CONVERSION_IMPLICITA: 'Conversión implícita',
   CONVERSION_IMPLICITA_DETECTADA: 'Conversión implícita detectada',
+  CONVERSION_TEXTO_A_NUMERO: 'Conversión de texto a número',
   LECTURA_RESIDUAL_ELEVADA: 'Lectura residual elevada',
   TIEMPO_EJECUCION_SUPERADO: 'Tiempo de ejecución superado',
   TABLE_SCAN_DETECTADO: 'Table Scan detectado',

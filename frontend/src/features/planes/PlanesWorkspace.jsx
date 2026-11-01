@@ -89,6 +89,8 @@ export function PlanesWorkspace() {
     seleccionarArchivos, quitarArchivo, limpiar, analizar, analizarEjemplo,
   } = usePlanEjecucion(area, limites[area] ?? null);
   const [ordenLote, setOrdenLote] = useState(ORDEN_INICIAL);
+  // «Ir al plan» de una observación: consulta y operadores que el diagrama de abajo debe mostrar.
+  const [foco, setFoco] = useState(null);
   const hayResultado = Boolean(analisis || lote);
   const enResumenLote = Boolean(lote) && planElegido === null;
 
@@ -276,7 +278,12 @@ export function PlanesWorkspace() {
               hallazgos={analisis?.hallazgos}
               mostrarLinea={false}
               accionesHallazgo={(hallazgo) => (
-                <CapturaHallazgo hallazgo={hallazgo} sentencias={analisis?.diagrama} archivo={analisis?.archivo} />
+                <CapturaHallazgo
+                  hallazgo={hallazgo}
+                  sentencias={analisis?.diagrama}
+                  archivo={analisis?.archivo}
+                  onIrAlPlan={(destino) => setFoco({ ...destino, analisis })}
+                />
               )}
               textos={{
                 inicialTitulo: 'Listo para analizar tu plan',
@@ -291,7 +298,10 @@ export function PlanesWorkspace() {
               }}
             />
           )}
-          {analisis?.diagrama?.length > 0 && <DiagramaPlan sentencias={analisis.diagrama} />}
+          {analisis?.diagrama?.length > 0 && (
+            // El foco solo vale para el análisis desde el que se pidió (otro plan del lote o un análisis nuevo, no).
+            <DiagramaPlan sentencias={analisis.diagrama} foco={foco?.analisis === analisis ? foco : null} />
+          )}
           {analisis && <TablaOperadores operadores={analisis.operadores} />}
         </div>
       </section>
