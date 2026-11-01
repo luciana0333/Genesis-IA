@@ -508,7 +508,14 @@ END"""
             "GOTO Fin; MERGE dbo.A AS t USING #B s ON t.n = s.n WHEN MATCHED THEN DELETE;")}
         for regla in ("GOTO_PROHIBIDO", "MERGE_PROHIBIDO"):
             self.assertEqual(hallazgos[regla].severidad.value, "medio")
-            self.assertIn("validar si su uso está justificado", hallazgos[regla].mensaje)
+        self.assertIn("validar si su uso está justificado", hallazgos["MERGE_PROHIBIDO"].mensaje)
+        # Texto de la usuaria (1 nov.).
+        self.assertEqual(
+            hallazgos["GOTO_PROHIBIDO"].mensaje,
+            "Se identificó una instrucción GOTO hacia la etiqueta Fin. Se recomienda evitar el uso de GOTO, ya que "
+            "altera el flujo de ejecución y dificulta la lectura, el mantenimiento y la depuración del "
+            "procedimiento. Se sugiere evaluar alternativas de control de flujo.",
+        )
 
     def test_while_se_observa_en_create_y_en_alter(self):
         for verbo in ("CREATE", "ALTER"):
