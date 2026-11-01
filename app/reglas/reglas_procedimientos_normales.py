@@ -99,7 +99,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     "TIPO_DISTINTO_ENTRE_TEMPORALES": ReglaDiccionario(
         codigo="TIPO_DISTINTO_ENTRE_TEMPORALES",
         nombre="Misma columna con distinto tipo",
-        severidad="alto",
+        severidad="medio",
         descripcion="Una columna que se repite en varias tablas temporales con distinto tipo de dato: se pide "
                     "validar, ya que puede generar conversiones implícitas y afectar el rendimiento.",
         alcance="procedimiento",

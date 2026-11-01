@@ -262,7 +262,7 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             f"DECLARE @T TABLE (cNombre VARCHAR(40) {collate});\nSELECT t.cNombre FROM @T t;"
         )
         hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "TIPO_DISTINTO_ENTRE_TEMPORALES"]
-        self.assertEqual([(h.linea, h.severidad.value) for h in hallazgos], [(1, "alto")])
+        self.assertEqual([(h.linea, h.severidad.value) for h in hallazgos], [(1, "medio")])
         self.assertEqual(
             hallazgos[0].mensaje,
             "La columna cNombre está definida con diferentes tipos de datos en tres tablas temporales: VARCHAR(40) "
