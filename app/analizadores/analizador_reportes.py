@@ -560,6 +560,16 @@ def _validar_control_de_flujo(texto: str, limpio: str) -> List[Hallazgo]:
                 "consulta que trabaje con todos los registros a la vez, ya que el WHILE procesa uno por uno, "
                 "vuelve lento el reporte y puede quedar en un bucle infinito.",
             ))
+        # GOTO: igual que el WHILE, solo en procedimientos nuevos (decisión de la usuaria, 1 nov.).
+        for match in re.finditer(r"\bGOTO\b\s*(\w*)", limpio, re.IGNORECASE):
+            etiqueta = f" hacia la etiqueta {match.group(1)}" if match.group(1) else ""
+            hallazgos.append(_hallazgo(
+                texto, match.start(), "GOTO_PROHIBIDO",
+                # Texto de la usuaria, igual que en Procedimientos de negocio.
+                f"Se identificó una instrucción GOTO{etiqueta}. Se recomienda evitar el uso de GOTO, ya que "
+                f"altera el flujo de ejecución y dificulta la lectura, el mantenimiento y la depuración del "
+                f"procedimiento. Se sugiere evaluar alternativas de control de flujo.",
+            ))
     for match in re.finditer(r"\bRAISERROR\b", limpio, re.IGNORECASE):
         hallazgos.append(_hallazgo(
             texto, match.start(), "RAISERROR_USAR_THROW",
