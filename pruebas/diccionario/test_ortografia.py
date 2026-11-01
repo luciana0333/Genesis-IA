@@ -143,8 +143,8 @@ class TestOrtografia(unittest.TestCase):
         self.assertEqual(
             mensaje,
             "Se identificó un error de escritura en la descripción del procedimiento dbo.PA_X: 'ROJSH'. Se recomienda "
-            "corregir las palabras según las sugerencias proporcionadas o revisar su escritura si no hay sugerencias, "
-            "para mantener una documentación clara y correcta.",
+            "revisar y corregir las palabras indicadas en el diccionario, a fin de mantener una documentación clara "
+            "y correcta.",
         )
         varios = ortografia.redactar_error_ortografico("de la tabla dbo.T", [("a", ["b"]), ("c", ["d"])], "de la tabla")
         self.assertTrue(varios.startswith("Se identificaron 2 errores de escritura"))
@@ -165,8 +165,13 @@ class TestOrtografia(unittest.TestCase):
         hallazgos = verificar_diccionario_tablas(tabla, diccionario)
         self.assertEqual([h.regla for h in hallazgos], ["ERROR_ORTOGRAFICO"])
         self.assertEqual(hallazgos[0].linea, 5)  # la línea del @value con el error
-        self.assertIn("columna nEstadoId", hallazgos[0].mensaje)
-        self.assertIn("'Identificadodr'", hallazgos[0].mensaje)
+        # Mensaje corto (1 nov.): la palabra y su tipo de error, sin decir en qué columna está.
+        self.assertEqual(
+            hallazgos[0].mensaje,
+            "Se identificó una palabra mal escrita en el diccionario: 'Identificadodr' → 'Identificador'. Se "
+            "recomienda revisar y corregir las palabras indicadas en el diccionario, a fin de mantener una "
+            "documentación clara y correcta.",
+        )
 
 
 if __name__ == "__main__":

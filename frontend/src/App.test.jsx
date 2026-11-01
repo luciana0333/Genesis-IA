@@ -459,7 +459,7 @@ describe('App', () => {
 
     await usuario.click(screen.getByRole('button', { name: 'Copiar todo' }));
     const copiado = await navigator.clipboard.readText();
-    expect(copiado).toBe("1. [Medio] Palabra mal escrita en la descripción (línea 2): Palabra mal escrita: 'Indicatg' (¿quiso decir 'Indicar'?).");
+    expect(copiado).toBe("1. [Medio] Errores ortográficos en la descripción (línea 2): Palabra mal escrita: 'Indicatg' (¿quiso decir 'Indicar'?).");
   });
 
   it('alterna y recuerda el tema oscuro', async () => {

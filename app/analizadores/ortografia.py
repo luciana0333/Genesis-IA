@@ -574,10 +574,10 @@ def _opciones(palabra: str, opciones: List[str]) -> str:
     return f"'{opciones[0]}'"
 
 
-# «Qué hacer» de las faltas de ortografía (texto de la usuaria), igual en tablas y procedimientos.
+# «Qué hacer» de las faltas de ortografía (aprobado por la usuaria, 1 nov.), igual en tablas y procedimientos.
 ACCION_ORTOGRAFIA = (
-    "Se recomienda corregir las palabras según las sugerencias proporcionadas o revisar su escritura "
-    "si no hay sugerencias, para mantener una documentación clara y correcta."
+    "Se recomienda revisar y corregir las palabras indicadas en el diccionario, a fin de mantener una "
+    "documentación clara y correcta."
 )
 
 
@@ -602,6 +602,46 @@ def _cambios(errores: List[Tuple[str, Optional[List[str]]]]) -> str:
         if opciones else f"'{palabra}'"
         for palabra, opciones in errores
     )
+
+
+def _tipo_de_error(palabra: str, opciones: Optional[List[str]]) -> str:
+    """tilde (credito → crédito), redaccion (falta el «que»: varias palabras) o escritura (clienet → cliente)."""
+    if " " in palabra.strip():
+        return "redaccion"
+    return "tilde" if es_error_de_tilde(palabra, opciones) else "escritura"
+
+
+def _un_cambio(palabra: str, opciones: Optional[List[str]]) -> str:
+    """«'credito' → 'crédito'»; sin sugerencia, «'ROJSH' (revisar)»."""
+    return f"'{palabra}' → {_opciones(palabra, opciones)}" if opciones else f"'{palabra}' (revisar)"
+
+
+# (singular, plural) de cada tipo, y su título cuando se mezclan varios tipos.
+_TIPOS_DE_ERROR = {
+    "tilde": ("una palabra sin tilde", "palabras sin tilde", "Sin tilde"),
+    "escritura": ("una palabra mal escrita", "palabras mal escritas", "Mal escritas"),
+    "redaccion": ("un error de redacción", "errores de redacción", "Redacción"),
+}
+
+
+def mensaje_ortografia_diccionario(errores: List[Tuple[str, Optional[List[str]]]]) -> str:
+    """
+    Errores de ortografía del diccionario, cada palabra una vez y sin decir dónde está (eso lo muestra
+    «Ver en el código»). Dice qué tipo de error es: si todos son del mismo, en la frase («7 palabras sin
+    tilde»); si se mezclan, por tipo («Sin tilde: …; Mal escritas: …»).
+    """
+    por_tipo: Dict[str, List[str]] = {}
+    for palabra, opciones in errores:
+        por_tipo.setdefault(_tipo_de_error(palabra, opciones), []).append(_un_cambio(palabra, opciones))
+    if len(por_tipo) == 1:
+        tipo, cambios = next(iter(por_tipo.items()))
+        singular, plural, _ = _TIPOS_DE_ERROR[tipo]
+        if len(cambios) == 1:
+            return f"Se identificó {singular} en el diccionario: {cambios[0]}."
+        return f"Se identificaron {len(cambios)} {plural} en el diccionario: {_enumerar(cambios)}."
+    grupos = "; ".join(f"{_TIPOS_DE_ERROR[tipo][2]}: {_enumerar(cambios)}"
+                       for tipo in _TIPOS_DE_ERROR if (cambios := por_tipo.get(tipo)))
+    return f"Se identificaron {len(errores)} errores ortográficos en el diccionario: {grupos}."
 
 
 def formatear_cambio(palabra: str, opciones: Optional[List[str]]) -> str:

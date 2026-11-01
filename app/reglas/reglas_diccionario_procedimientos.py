@@ -189,7 +189,7 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
     ),
     "ERROR_ORTOGRAFICO": ReglaDiccionario(
         codigo="ERROR_ORTOGRAFICO",
-        nombre="Palabra mal escrita en la descripción",
+        nombre="Errores ortográficos en la descripción",
         severidad="medio",
         descripcion=(
             "La descripción del procedimiento o de un parámetro tiene palabras mal escritas. "

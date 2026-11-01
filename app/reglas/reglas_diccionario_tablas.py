@@ -193,7 +193,7 @@ REGLAS_DICCIONARIO_TABLAS = {
 
     "ERROR_ORTOGRAFICO": ReglaDiccionario(
         codigo="ERROR_ORTOGRAFICO",
-        nombre="Palabra mal escrita en la descripción",
+        nombre="Errores ortográficos en la descripción",
         severidad="medio",
         descripcion=(
             "Una descripción tiene palabras mal escritas. No exige tildes. Si marca una palabra "

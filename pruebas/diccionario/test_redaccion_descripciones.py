@@ -80,8 +80,8 @@ class OrtografiaConVariosProcedimientosTest(unittest.TestCase):
                + _exec("Procedimiento almacenado que actualiza los datos.", b)
                + _exec("Mensaje de la ejecucion.", b, "@cMensaje"))
         mensaje = [h for h in verificar_diccionario(sql, dic) if h.regla == "ERROR_ORTOGRAFICO"][0].mensaje
-        self.assertIn(f"'cotizacion' → 'cotización' (tilde) en la descripción del parámetro @nId ({a}); "
-                      f"'ejecucion' → 'ejecución' (tilde) en la descripción del parámetro @cMensaje ({b}).", mensaje)
+        self.assertIn("Se identificaron 2 palabras sin tilde en el diccionario: 'cotizacion' → 'cotización' y "
+                      "'ejecucion' → 'ejecución'.", mensaje)
         self.assertNotIn(" : ", mensaje)
 
     def test_misma_palabra_en_varios_procedimientos_dice_de_cual_es_cada_parametro(self):
@@ -94,10 +94,9 @@ class OrtografiaConVariosProcedimientosTest(unittest.TestCase):
         hallazgos = [h for h in verificar_diccionario(sql, dic) if h.regla == "ERROR_ORTOGRAFICO"]
         self.assertEqual(len(hallazgos), 1)
         self.assertEqual(hallazgos[0].lineas, [1, 2, 3, 4])
-        self.assertIn(
-            f"Se identificó un error de escritura: 'cotizacion' → 'cotización' (tilde) en {a} (descripción del "
-            f"procedimiento y del parámetro @nId) y en {b} (descripción del procedimiento y del parámetro @cMensaje).",
-            hallazgos[0].mensaje)
+        # La palabra sale una vez aunque esté en 4 descripciones; sus líneas van en el encabezado.
+        self.assertIn("Se identificó una palabra sin tilde en el diccionario: 'cotizacion' → 'cotización'.",
+                      hallazgos[0].mensaje)
 
 
 if __name__ == "__main__":
