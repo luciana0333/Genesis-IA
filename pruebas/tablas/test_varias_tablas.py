@@ -167,7 +167,7 @@ class TestVariasTablas(unittest.TestCase):
         columna = UNA_TABLA.replace("nGradoSatisfaccion VARCHAR(20) COLLATE SQL_Latin1_General_CP1_CI_AS",
                                     "nMontoaprobado DECIMAL(18,2)")
         hallazgo = _por_regla(verificar_tabla(columna))["COLUMNA_NOMBRE_NO_PASCALCASE"]
-        self.assertIn("Renómbrela como nMontoAprobado", hallazgo.mensaje)
+        self.assertIn("Renombrar la columna como nMontoAprobado", hallazgo.mensaje)
 
     @unittest.skipUnless(ortografia.disponible(), "Requiere el diccionario de español (pyspellchecker)")
     def test_nombres_correctos_no_se_parten(self):
