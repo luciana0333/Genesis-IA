@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from typing import Dict, List, Optional
 
+from app.analizadores.planes_ejecucion.riesgos_genesis import riesgos_genesis
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 
 # Basta con que la expresión tenga CONVERT_IMPLICIT( : la conversión puede llevar funciones con varios
@@ -343,4 +344,5 @@ def analizar_plan_reporte(sentencias: List[Dict], limite_s: Optional[float] = No
         _tiempo_superado(sentencias, limite_s)
         + _conversion_implicita(sentencias)
         + _lectura_residual(sentencias)
+        + riesgos_genesis(sentencias)
     )

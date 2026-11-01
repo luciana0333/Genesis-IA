@@ -54,6 +54,15 @@ REGLAS_PLANES_EJECUCION = {
         alcance="plan_ejecucion",
         activo=True,
     ),
+    "CONVERSION_TEXTO_A_NUMERO": ReglaDiccionario(
+        codigo="CONVERSION_TEXTO_A_NUMERO",
+        nombre="Conversión de texto a número",
+        severidad="medio",
+        descripcion="Riesgo identificado por Genesis (sin alerta de SQL Server): SUBSTRING, LEFT o RIGHT convertido "
+                    "implícitamente a número; si el dato no es numérico, la consulta genera un error de conversión.",
+        alcance="plan_ejecucion",
+        activo=True,
+    ),
     "CONVERSION_IMPLICITA": ReglaDiccionario(
         codigo="CONVERSION_IMPLICITA",
         nombre="Conversion implicita",

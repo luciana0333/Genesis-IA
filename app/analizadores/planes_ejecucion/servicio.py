@@ -70,6 +70,8 @@ def analizar_plan_completo(
             "mensaje": hallazgo.mensaje,
             "nodos": getattr(hallazgo, "nodos", []),
             "codigo": getattr(hallazgo, "codigo", None),
+            # Riesgo identificado por Genesis (sin alerta de SQL Server): va aparte, debajo de los demás.
+            "complementario": getattr(hallazgo, "complementario", False),
         })
 
     operadores_serializados = [

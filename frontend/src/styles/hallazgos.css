@@ -340,6 +340,18 @@
   gap: 12px;
 }
 
+/* Riesgos identificados por Genesis (sin alerta de SQL Server): debajo de las demás observaciones. */
+.riesgos-genesis {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.riesgos-genesis > .section-heading {
+  margin-bottom: 4px;
+}
+
 .finding {
   --sev: var(--text-muted);
   --sev-bg: var(--bg-subtle);

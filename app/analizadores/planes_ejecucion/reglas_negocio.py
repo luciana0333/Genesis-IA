@@ -17,6 +17,7 @@ from app.analizadores.planes_ejecucion.reglas_reporte import (
     _tiempo_superado,
 )
 from app.analizadores.planes_ejecucion.diagrama import _kb
+from app.analizadores.planes_ejecucion.riesgos_genesis import riesgos_genesis
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 
 
@@ -241,4 +242,5 @@ def analizar_plan_negocio(sentencias: List[Dict], limite_s: Optional[float] = No
         + _lectura_residual(sentencias)
         + _spill(sentencias)
         + _memoria(sentencias)
+        + riesgos_genesis(sentencias)
     )
