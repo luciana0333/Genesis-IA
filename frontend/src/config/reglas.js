@@ -118,7 +118,7 @@ export const NOMBRES_REGLAS = {
   PARAMETRO_NO_EXISTE: 'Parámetro documentado que no existe',
   DOCUMENTACION_DUPLICADA: 'Documentación duplicada',
   DESCRIPCION_TABLA_INADECUADA: 'Descripción de tabla inadecuada',
-  ERROR_ORTOGRAFICO: 'Palabra mal escrita en la descripción',
+  ERROR_ORTOGRAFICO: 'Errores ortográficos en la descripción',
   DESCRIPCION_NO_COINCIDE_CON_NOMBRE: 'Descripción que no coincide con el nombre',
   DOCUMENTACION_EXISTENTE_EN_ALTER: 'Validar documentación existente',
   ACTUALIZACION_SIN_DESCRIPCION_PREVIA: 'Actualización sin descripción previa',

@@ -768,39 +768,36 @@ def _documentacion_existente_en_alter(texto_procedimiento: str, texto_diccionari
     if not por_procedimiento:
         return []
 
-    def descripciones(nombre: str, partes: Dict[str, list], con_nombre: bool) -> str:
-        del_proc = f"del procedimiento {nombre}" if con_nombre else "del procedimiento"
+    def detalle(partes: Dict[str, list]) -> str:
+        """«el procedimiento y 12 parámetros»; con 1 o 2 parámetros se nombran: «el parámetro @cDoi»."""
         parametros = partes["parametros"]
-        if not parametros:
-            return f"la descripción {del_proc}"
-        de_parametros = (f"del parámetro {parametros[0]}" if len(parametros) == 1
-                         else f"de los parámetros {_enumerar(parametros)}")
-        if partes["procedimiento"]:
-            return f"la descripción {del_proc} y {de_parametros}"
-        return f"la descripción {de_parametros}" + (f" del procedimiento {nombre}" if con_nombre else "")
+        if len(parametros) > 2:
+            de_parametros = f"{len(parametros)} parámetros"
+        elif parametros:
+            de_parametros = (f"el parámetro {parametros[0]}" if len(parametros) == 1
+                             else f"los parámetros {_enumerar(parametros)}")
+        else:
+            return "el procedimiento"
+        return f"el procedimiento y {de_parametros}" if partes["procedimiento"] else de_parametros
 
     accion = ("Verificar si ya cuentan con descripción en el diccionario, ya que de ser así la ejecución del "
               "script fallará. En ese caso, retirar esas sentencias o reemplazarlas por sentencias de "
               "actualización (sp_updateextendedproperty).")
+    if len(lineas) == 1:
+        accion = accion.replace("cuentan", "cuenta").replace("esas sentencias", "la sentencia").replace(
+            "reemplazarlas por sentencias", "reemplazarla por una")
     if len(por_procedimiento) == 1:
         nombre, partes = next(iter(por_procedimiento.items()))
-        una_sola = len(lineas) == 1
-        if una_sola and partes["procedimiento"]:
-            existe = "que ya existe y podría estar documentada"
-            accion = accion.replace("cuentan", "cuenta").replace("esas sentencias", "la sentencia").replace(
-                "reemplazarlas por sentencias", "reemplazarla por una")
-        elif una_sola:
-            existe = "que ya existe y podría estar documentado"
-            accion = accion.replace("cuentan", "cuenta").replace("esas sentencias", "la sentencia").replace(
-                "reemplazarlas por sentencias", "reemplazarla por una")
+        if not partes["parametros"]:
+            mensaje = (f"Se identificó que el diccionario agrega la descripción del procedimiento {nombre}, que ya "
+                       f"existe (ALTER). {accion}")
         else:
-            existe = "que ya existen y podrían estar documentados"
-        mensaje = f"El diccionario agrega {descripciones(nombre, partes, True)}, {existe}. {accion}"
+            mensaje = (f"Se identificó que el diccionario agrega descripciones al procedimiento {nombre}, que ya "
+                       f"existe (ALTER): {detalle(partes)}. {accion}")
     else:
-        casos = "; ".join(f"en {nombre}, {descripciones(nombre, partes, False)}"
-                          for nombre, partes in por_procedimiento.items())
-        mensaje = (f"El diccionario agrega descripciones a {len(por_procedimiento)} procedimientos que ya existen "
-                   f"y podrían estar documentados: {casos}. {accion}")
+        casos = "; ".join(f"{nombre}: {detalle(partes)}" for nombre, partes in por_procedimiento.items())
+        mensaje = (f"Se identificaron {len(por_procedimiento)} procedimientos que ya existen (ALTER) a los que el "
+                   f"diccionario agrega descripciones: {casos}. {accion}")
     orden = sorted(lineas)
     hallazgo = Hallazgo(
         linea=orden[0],

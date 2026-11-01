@@ -39,8 +39,8 @@ class SeObservaTest(unittest.TestCase):
         self.assertEqual(hallazgos[0].lineas, [1, 2, 3])
         self.assertEqual(
             hallazgos[0].mensaje,
-            "El diccionario agrega la descripción del procedimiento DUN.PA_Solicitud_Sel_Avance y de los "
-            "parámetros @nOrigenId y @cDoi, que ya existen y podrían estar documentados. " + _ACCION,
+            "Se identificó que el diccionario agrega descripciones al procedimiento DUN.PA_Solicitud_Sel_Avance, "
+            "que ya existe (ALTER): el procedimiento y los parámetros @nOrigenId y @cDoi. " + _ACCION,
         )
 
     def test_un_solo_parametro_en_singular(self):
@@ -48,18 +48,18 @@ class SeObservaTest(unittest.TestCase):
         hallazgos = _existente(_proc("ALTER", "PA_Solicitud_Sel_Avance"), dic)
         self.assertEqual(
             hallazgos[0].mensaje,
-            "El diccionario agrega la descripción del parámetro @cDoi del procedimiento DUN.PA_Solicitud_Sel_Avance, "
-            "que ya existe y podría estar documentado. Verificar si ya cuenta con descripción en el diccionario, ya "
-            "que de ser así la ejecución del script fallará. En ese caso, retirar la sentencia o reemplazarla por "
-            "una de actualización (sp_updateextendedproperty).",
+            "Se identificó que el diccionario agrega descripciones al procedimiento DUN.PA_Solicitud_Sel_Avance, "
+            "que ya existe (ALTER): el parámetro @cDoi. Verificar si ya cuenta con descripción en el diccionario, "
+            "ya que de ser así la ejecución del script fallará. En ese caso, retirar la sentencia o reemplazarla "
+            "por una de actualización (sp_updateextendedproperty).",
         )
 
     def test_solo_la_descripcion_del_procedimiento(self):
         dic = _exec("PA_Solicitud_Sel_Avance", valor="Procedimiento que obtiene la solicitud")
         mensaje = _existente(_proc("ALTER", "PA_Solicitud_Sel_Avance"), dic)[0].mensaje
         self.assertTrue(mensaje.startswith(
-            "El diccionario agrega la descripción del procedimiento DUN.PA_Solicitud_Sel_Avance, que ya existe y "
-            "podría estar documentada. Verificar si ya cuenta con descripción"))
+            "Se identificó que el diccionario agrega la descripción del procedimiento DUN.PA_Solicitud_Sel_Avance, "
+            "que ya existe (ALTER). Verificar si ya cuenta con descripción"))
 
     def test_varios_procedimientos_en_un_solo_mensaje(self):
         sql = _proc("ALTER", "PA_Solicitud_Sel_Avance") + "\n" + _proc("ALTER", "PA_Solicitud_Sel_Detalle", ("@cPersCod",))
@@ -70,10 +70,22 @@ class SeObservaTest(unittest.TestCase):
         self.assertEqual(len(hallazgos), 1)
         self.assertEqual(
             hallazgos[0].mensaje,
-            "El diccionario agrega descripciones a 2 procedimientos que ya existen y podrían estar documentados: "
-            "en DUN.PA_Solicitud_Sel_Avance, la descripción del procedimiento y de los parámetros @nOrigenId y "
-            "@cDoi; en DUN.PA_Solicitud_Sel_Detalle, la descripción del parámetro @cPersCod. " + _ACCION,
+            "Se identificaron 2 procedimientos que ya existen (ALTER) a los que el diccionario agrega descripciones: "
+            "DUN.PA_Solicitud_Sel_Avance: el procedimiento y los parámetros @nOrigenId y @cDoi; "
+            "DUN.PA_Solicitud_Sel_Detalle: el parámetro @cPersCod. " + _ACCION,
         )
+
+
+class MuchosParametrosTest(unittest.TestCase):
+    def test_tres_o_mas_parametros_se_cuentan(self):
+        parametros = ("@nOrigenId", "@nSubOrigenId", "@cCodTrx")
+        dic = _exec("PA_Solicitud_Sel_Avance", valor="Procedimiento que obtiene la solicitud") + "".join(
+            _exec("PA_Solicitud_Sel_Avance", p) for p in parametros)
+        mensaje = _existente(_proc("ALTER", "PA_Solicitud_Sel_Avance", parametros), dic)[0].mensaje
+        self.assertTrue(mensaje.startswith(
+            "Se identificó que el diccionario agrega descripciones al procedimiento DUN.PA_Solicitud_Sel_Avance, "
+            "que ya existe (ALTER): el procedimiento y 3 parámetros. Verificar si ya cuentan"))
+        self.assertNotIn("@nOrigenId", mensaje)
 
 
 class NoSeObservaTest(unittest.TestCase):
@@ -93,7 +105,7 @@ class NoSeObservaTest(unittest.TestCase):
         dic = (_exec("PA_Solicitud_Sel_Avance", "@nOrigenId", operacion="UPDATE")
                + _exec("PA_Solicitud_Sel_Avance", "@cDoi"))
         hallazgos = _existente(_proc("ALTER", "PA_Solicitud_Sel_Avance"), dic)
-        self.assertIn("del parámetro @cDoi", hallazgos[0].mensaje)
+        self.assertIn("el parámetro @cDoi", hallazgos[0].mensaje)
         self.assertNotIn("@nOrigenId", hallazgos[0].mensaje)
 
     def test_varios_procedimientos_solo_el_alter(self):
@@ -102,7 +114,8 @@ class NoSeObservaTest(unittest.TestCase):
                + _exec("PA_Solicitud_Sel_Avance", "@cDoi"))
         hallazgos = _existente(sql, dic)
         self.assertEqual(len(hallazgos), 1)
-        self.assertIn("del parámetro @cDoi del procedimiento DUN.PA_Solicitud_Sel_Avance", hallazgos[0].mensaje)
+        self.assertIn("al procedimiento DUN.PA_Solicitud_Sel_Avance, que ya existe (ALTER): el parámetro @cDoi",
+                      hallazgos[0].mensaje)
         self.assertNotIn("PA_Solicitud_Sel_Nuevo", hallazgos[0].mensaje)
 
 
