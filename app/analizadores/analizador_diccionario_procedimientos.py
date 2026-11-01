@@ -137,8 +137,16 @@ def extraer_llamadas_extendedproperty(texto_diccionario: str) -> List[Tuple[int,
 
 
 def _limpiar_valor(valor: str) -> str:
-    """Quita comillas y el prefijo N de un valor tipo N'texto' -> texto."""
-    return valor.replace("N'", "").replace("'", "").strip()
+    """N'texto' -> texto: quita solo el prefijo N y las comillas de los extremos ('' dentro es una comilla).
+
+    Antes se quitaba todo «N'» del valor y el final de N'DUN' (la N y la comilla) también se borraba:
+    el esquema DUN se leía como DU.
+    """
+    valor = valor.strip()
+    entre_comillas = re.fullmatch(r"N?'(.*)'", valor, re.IGNORECASE | re.DOTALL)
+    if entre_comillas:
+        return entre_comillas.group(1).replace("''", "'").strip()
+    return valor.strip("'").strip()
 
 
 def _es_sentencia_de_procedimiento(args: Dict[str, str]) -> bool:
