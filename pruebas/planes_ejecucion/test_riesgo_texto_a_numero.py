@@ -59,12 +59,20 @@ class RiesgoTextoANumeroTest(unittest.TestCase):
         mensaje = _riesgos(_plan([expresion]))[0].mensaje
         self.assertIn("«10 = LEFT(cCodigo, 2)» → «'10' = LEFT(cCodigo, 2)»", mensaje)
 
-    def test_asignacion_sin_comparacion_sugiere_try_cast(self):
+    def test_asignacion_sin_comparacion_no_se_observa(self):
+        # SELECT @nMoneda = SUBSTRING(cCtaCod, 9, 1) con @nMoneda INT: suele ser intencional (decisión de la usuaria).
         expresion = "CONVERT_IMPLICIT(int,substring([DBCMACICA].[dbo].[Cuenta].[cCtaCod],(9),(1)),0)"
-        mensaje = _riesgos(_plan([expresion]))[0].mensaje
-        self.assertIn("«SUBSTRING(cCtaCod, 9, 1)» convertido a INT → «TRY_CAST(SUBSTRING(cCtaCod, 9, 1) AS INT)» "
-                      "(consulta 1)", mensaje)
-        self.assertIn("Se recomienda convertir el dato de forma segura", mensaje)
+        self.assertEqual(_riesgos(_plan([expresion])), [])
+
+    def test_misma_comparacion_en_dos_operadores_marca_uno(self):
+        # Caso de la usuaria: SQL Server calcula el mismo «= 1» en dos Compute Scalar (nodos 0 y 7).
+        from app.analizadores.planes_ejecucion.riesgos_genesis import conversion_texto_a_numero
+        predicado = {"nombre": "Defined Values", "texto": _CASE}
+        sentencias = [{"numero": 2, "nodos": [{"id": "0", "predicados": [predicado]},
+                                               {"id": "7", "predicados": [predicado]}]}]
+        hallazgos = conversion_texto_a_numero(sentencias)
+        self.assertEqual(len(hallazgos), 1)
+        self.assertEqual(hallazgos[0].nodos, [{"consulta": 2, "nodo": "0"}])
 
     def test_varios_casos_en_lista(self):
         otro = "CASE WHEN CONVERT_IMPLICIT(int,right([dbo].[Cuenta].[cCodigo],(1)),0)&lt;&gt;(0) THEN 1 END"

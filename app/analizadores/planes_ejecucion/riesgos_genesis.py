@@ -4,7 +4,7 @@ Se muestran aparte, debajo de las demás observaciones («Análisis complementar
 alerta del plan, sino del criterio de Genesis al leer sus expresiones. Lo comparten Reportes y Negocio.
 
 Conversión de texto a número: SUBSTRING, LEFT o RIGHT (siempre devuelven texto) que el plan convierte
-implícitamente a número, por ejemplo al comparar SUBSTRING(cCtaCod, 9, 1) = 1. SQL Server solo alerta las
+implícitamente a número al compararlo con un número, por ejemplo SUBSTRING(cCtaCod, 9, 1) = 1. SQL Server solo alerta las
 conversiones que cambian el plan (WHERE/JOIN); estas, en el SELECT o en un CASE, no las alerta, pero si el
 dato no es numérico la consulta se cae con «Conversion failed when converting the varchar value…».
 """
@@ -52,15 +52,15 @@ def _casos(sentencias: List[Dict]) -> Dict[Tuple[str, str], Dict]:
                         numero, operador = antes.group(1), antes.group(2)
                         clave = (f"«{numero} {operador} {expresion}»", f"'{numero}' {operador} {expresion}")
                     else:
-                        # Sin comparación (asignación a una variable numérica, cálculo): conversión segura.
-                        tipo = conversion.group("tipo").upper()
-                        clave = (f"«{expresion}» convertido a {tipo}", f"TRY_CAST({expresion} AS {tipo})")
+                        # Sin comparación (asignación a una variable numérica, cálculo): suele ser intencional y no
+                        # decide un resultado. Solo se observan las comparaciones (decisión de la usuaria, 1 nov.).
+                        continue
                     caso = casos.setdefault(clave, {"consultas": [], "nodos": []})
                     if sentencia["numero"] not in caso["consultas"]:
                         caso["consultas"].append(sentencia["numero"])
-                    marca = {"consulta": sentencia["numero"], "nodo": nodo["id"]}
-                    if marca not in caso["nodos"]:
-                        caso["nodos"].append(marca)
+                        # Un operador por consulta en la imagen: SQL Server puede calcular la misma comparación en
+                        # varios Compute Scalar (una por columna del SELECT), pero en el código es un solo cambio.
+                        caso["nodos"].append({"consulta": sentencia["numero"], "nodo": nodo["id"]})
     return casos
 
 
@@ -74,22 +74,18 @@ def conversion_texto_a_numero(sentencias: List[Dict]) -> List[Hallazgo]:
     casos = _casos(sentencias)
     if not casos:
         return []
-    comparaciones = all(" convertido a " not in encontrado for encontrado, _ in casos)
     lista = "; ".join(
         f"{encontrado} → «{correccion}» ({_consultas(caso['consultas'])})"
         for (encontrado, correccion), caso in casos.items()
     )
     if len(casos) == 1:
-        que = "una comparación en la que" if comparaciones else "un caso en el que"
-        mensaje = (f"Se identificó {que} un texto se convierte implícitamente a número: {lista}. Se recomienda "
-                   f"{'comparar con un valor de texto' if comparaciones else 'convertir el dato de forma segura'}, "
-                   f"como se indica, ya que si el dato no es numérico la consulta generará un error de conversión.")
+        mensaje = (f"Se identificó una comparación en la que un texto se convierte implícitamente a número: {lista}. "
+                   f"Se recomienda comparar con un valor de texto, como se indica, ya que si el dato no es numérico "
+                   f"la consulta generará un error de conversión.")
     else:
-        que = "comparaciones en las que" if comparaciones else "casos en los que"
-        mensaje = (f"Se identificaron {len(casos)} {que} un texto se convierte implícitamente a número: {lista}. "
-                   f"Se recomienda {'comparar con valores de texto' if comparaciones else 'corregir cada caso'}, "
-                   f"como se indica en cada uno, ya que si el dato no es numérico la consulta generará un error "
-                   f"de conversión.")
+        mensaje = (f"Se identificaron {len(casos)} comparaciones en las que un texto se convierte implícitamente a "
+                   f"número: {lista}. Se recomienda comparar con valores de texto, como se indica en cada caso, ya "
+                   f"que si el dato no es numérico la consulta generará un error de conversión.")
     hallazgo = Hallazgo(
         linea=1,
         origen=OrigenAnalisis.PLAN_EJECUCION,
