@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Dict, List, Optional, Tuple
 
-from app.analizadores.planes_ejecucion.servicio import SEVERIDADES, analizar_plan_completo
+from app.analizadores.planes_ejecucion.servicio import SEVERIDADES, analizar_plan_completo, texto_del_plan
 
 MAXIMO_PLANES = 60
 MAXIMO_POR_ARCHIVO = 25 * 1024 * 1024  # igual que un plan suelto
@@ -208,7 +208,7 @@ def nombre_procedimiento(contenido: bytes, archivo: str) -> str:
     if _ARCHIVO_CON_PROCEDIMIENTO.search(nombre_archivo):
         return nombre_archivo
     try:
-        raiz = ET.fromstring(contenido)
+        raiz = ET.fromstring(texto_del_plan(contenido))
     except ET.ParseError:
         raiz = None
     if raiz is not None:

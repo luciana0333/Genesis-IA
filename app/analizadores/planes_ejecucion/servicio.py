@@ -19,6 +19,29 @@ from app.analizadores.planes_ejecucion import (
 SEVERIDADES = ("critico", "alto", "medio", "bajo")
 
 
+def texto_del_plan(contenido: Union[str, bytes]) -> Union[str, bytes]:
+    """
+    El plan como texto, según cómo está guardado de verdad (no según lo que dice su declaración).
+
+    SSMS guarda el .sqlplan en UTF-16 y lo declara (encoding="utf-16"). Si alguien lo abre y lo vuelve a
+    guardar con otro editor queda en UTF-8, pero la declaración sigue diciendo UTF-16 y el lector de XML lo
+    rechaza («encoding specified in XML declaration is incorrect»). Con el texto ya decodificado, la
+    declaración no importa.
+    """
+    if isinstance(contenido, str):
+        return contenido
+    if contenido.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return contenido.decode("utf-16")
+    if contenido.startswith(b"\xef\xbb\xbf"):
+        return contenido.decode("utf-8-sig")
+    if contenido[:2] in (b"<\x00", b"\x00<"):  # UTF-16 sin marca
+        return contenido.decode("utf-16-le" if contenido[:1] == b"<" else "utf-16-be")
+    try:
+        return contenido.decode("utf-8")
+    except UnicodeDecodeError:
+        return contenido  # que el lector de XML decida (y avise si no es un plan)
+
+
 def analizar_plan_completo(
     nombre: str, contenido: Union[str, bytes], area: str = "negocio", limite: Optional[float] = None,
 ) -> Dict:
@@ -26,6 +49,7 @@ def analizar_plan_completo(
     Hallazgos (según el área), operadores, memoria y diagrama de un plan.
     Lanza xml.etree.ElementTree.ParseError si el contenido no es un plan XML válido.
     """
+    contenido = texto_del_plan(contenido)
     hallazgos, operadores, memoria = analizar_plan_ejecucion(contenido)
     diagrama = construir_diagrama(contenido)
     if area == "reporte":
