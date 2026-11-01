@@ -100,8 +100,8 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         codigo="TIPO_DISTINTO_ENTRE_TEMPORALES",
         nombre="Misma columna con distinto tipo",
         severidad="alto",
-        descripcion="Una columna que se repite en varias tablas temporales debe tener el mismo tipo y "
-                    "longitud (ej.: VARCHAR(40) en ambas), para no truncar los datos al pasarlos.",
+        descripcion="Una columna que se repite en varias tablas temporales con distinto tipo de dato: se pide "
+                    "validar, ya que puede generar conversiones implícitas y afectar el rendimiento.",
         alcance="procedimiento",
         activo=True,
     ),

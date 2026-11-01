@@ -643,6 +643,10 @@ def _separar_por_comas(contenido: str) -> List[tuple]:
     return partes
 
 
+_CANTIDAD_EN_LETRAS = {2: "dos", 3: "tres", 4: "cuatro", 5: "cinco", 6: "seis", 7: "siete", 8: "ocho", 9: "nueve",
+                       10: "diez"}
+
+
 def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
     """
     Una misma columna declarada en varias tablas temporales (#T) o variables de
@@ -679,15 +683,23 @@ def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
     for datos in columnas.values():
         if len(datos["tipos"]) < 2:
             continue
-        detalle = ", ".join(
-            f"{tipo} ({' y '.join(tablas) if len(tablas) <= 2 else ', '.join(tablas[:-1]) + ' y ' + tablas[-1]})"
-            for tipo, tablas in datos["tipos"].items()
-        )
+        def enumerar(elementos: List[str]) -> str:
+            return elementos[0] if len(elementos) == 1 else f"{', '.join(elementos[:-1])} y {elementos[-1]}"
+
+        partes = [f"{tipo} en {enumerar(tablas)}" for tipo, tablas in datos["tipos"].items()]
+        # «CHAR(5) en #A y VARCHAR(10) en @B»; si un tipo está en varias tablas, «;» separa los tipos.
+        un_tipo_por_tabla = all(len(tablas) == 1 for tablas in datos["tipos"].values())
+        detalle = enumerar(partes) if un_tipo_por_tabla else "; ".join(partes)
+        cantidad = sum(len(tablas) for tablas in datos["tipos"].values())
+        en_cuantas = _CANTIDAD_EN_LETRAS.get(cantidad, str(cantidad))
+        columnas_txt = "ambas columnas" if cantidad == 2 else "estas columnas"
+        # Texto de la usuaria (1 nov.).
         hallazgos.append(_hallazgo(
             texto, datos["posicion"], "TIPO_DISTINTO_ENTRE_TEMPORALES",
-            f"La columna {datos['nombre']} tiene distintos tipos en las tablas temporales: {detalle}. Usar el mismo "
-            f"tipo y longitud en todas, ya que al pasar los datos de una tabla a otra se pueden truncar o generar "
-            f"un error.",
+            f"La columna {datos['nombre']} está definida con diferentes tipos de datos en {en_cuantas} tablas "
+            f"temporales: {detalle}. Se recomienda validar si es correcto que {columnas_txt} tengan diferentes "
+            f"tipos de datos, ya que esto puede generar conversiones implícitas y afectar el rendimiento de las "
+            f"consultas.",
         ))
     return hallazgos
 
