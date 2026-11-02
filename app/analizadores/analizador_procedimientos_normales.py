@@ -1081,9 +1081,10 @@ def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
         sujeto = f"que {nombre} se declara como {tipo}" if nombre else f"el uso de {tipo}"
         hallazgos.append(_hallazgo(
             texto, match.start(), "VARCHAR_MAX_PROHIBIDO",
-            f"Se detectó {sujeto} y no guarda JSON, XML ni HTML. Definir una longitud acorde al "
-            f"dato, salvo que provenga de una tabla heredada con {tipo}, ya que solo se justifica para JSON, "
-            f"XML, HTML o tablas heredadas y reserva más memoria de la necesaria (ej.: {tipo.replace('MAX', '500')}).",
+            # «Qué hacer» con el texto de la usuaria (2 nov.).
+            f"Se detectó {sujeto} y no guarda JSON, XML ni HTML. Evitar el uso de {tipo}, salvo para tipos de "
+            f"datos JSON, XML, HTML o tablas heredadas. En los demás casos, definir una longitud adecuada al "
+            f"contenido que se almacenará (ej.: {tipo.replace('MAX', '500')}).",
         ))
     return hallazgos
 

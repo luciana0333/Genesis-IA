@@ -305,8 +305,12 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
     def test_varchar_max_menciona_tablas_heredadas(self):
         hallazgo = next(h for h in verificar_procedimiento_normal("DECLARE @cSQL NVARCHAR(MAX);\nSELECT @cSQL;")
                         if h.regla == "VARCHAR_MAX_PROHIBIDO")
-        self.assertIn("@cSQL se declara como NVARCHAR(MAX)", hallazgo.mensaje)
-        self.assertIn("tabla heredada", hallazgo.mensaje)
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se detectó que @cSQL se declara como NVARCHAR(MAX) y no guarda JSON, XML ni HTML. Evitar el uso de "
+            "NVARCHAR(MAX), salvo para tipos de datos JSON, XML, HTML o tablas heredadas. En los demás casos, definir "
+            "una longitud adecuada al contenido que se almacenará (ej.: NVARCHAR(500)).",
+        )
 
     def test_hints_de_bloqueo(self):
         sql = "SELECT c.cNombre FROM dbo.Cliente c WITH (UPDLOCK, HOLDLOCK) WHERE c.nId = 1;"
