@@ -8,6 +8,9 @@ from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html
 from app.analizadores.collate_temporales import columnas_sin_collate
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.left_like import left_reemplazable_por_like
+from app.analizadores.hints_compartidos import (
+    HINTS_BLOQUEO_NUEVOS, QUE_HACE_EL_AISLAMIENTO, hint_en_temporal, niveles_de_aislamiento,
+)
 from app.analizadores.drop_table_if_exists import (
     eliminaciones_con_procedimiento, mensaje_drop_if_exists, mensaje_eliminacion_con_procedimiento,
     validaciones_antes_de_drop,
@@ -27,8 +30,9 @@ _IDENTIFICADOR = r"(?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)"
 _TIPOS_TEXTO = r"(?:N?VARCHAR|N?CHAR|TEXT|NTEXT)\b"
 _HINTS_PROHIBIDOS = (
     r"\bOPTION\s*\([^)]*\)|\bDBCC\b|\bFORCESEEK\b|\bFORCESCAN\b|\bFORCE\s+ORDER\b|\bRECOMPILE\b|"
-    r"\bNOEXPAND\b|\bINDEX\s*\(|\b(?:LOOP|HASH|MERGE)\s+JOIN\b|\bOPTIMIZE\s+FOR\b|\bMAXDOP\b|"
-    r"\bFAST\s+\d+|\bUSE\s+PLAN\b|\bKEEP(?:FIXED)?\s+PLAN\b|\bQUERYTRACEON\b"
+    r"\bNOEXPAND\b|\bINDEX\s*\(|\bINDEX\s*=\s*(?:\[[^\]]+\]|\w+)|\b(?:LOOP|HASH|MERGE|REMOTE)\s+JOIN\b|"
+    r"\bOPTIMIZE\s+FOR\b|\bMAXDOP\b|\bFAST\s+\d+|\bUSE\s+PLAN\b|\bKEEP(?:FIXED)?\s+PLAN\b|\bQUERYTRACEON\b|"
+    r"\bSET\s+FORCEPLAN\s+ON\b"
 )
 # Hints de bloqueo: no cambian el plan, cambian cómo se bloquean las filas
 # leídas. Cada uno con lo que hace, para explicarlo en el mensaje.
@@ -45,6 +49,7 @@ _HINTS_BLOQUEO = {
     "PAGLOCK": "obliga al motor a bloquear páginas completas",
     "ROWLOCK": "obliga al motor a bloquear fila por fila",
     "READPAST": "salta las filas que otro proceso tiene bloqueadas",
+    **HINTS_BLOQUEO_NUEVOS,
 }
 _PATRON_BLOQUEO = re.compile(r"\b(" + "|".join(_HINTS_BLOQUEO) + r")\b", re.IGNORECASE)
 # Palabras que pueden ir antes de un hint de bloqueo dentro del mismo paréntesis.
@@ -293,6 +298,8 @@ def _validar_hints_bloqueo(texto: str, sin_comentarios: str) -> List[Hallazgo]:
             continue
         if any(palabra.upper() not in _HINTS_DE_TABLA for palabra in re.findall(r"[A-Za-z]+", previo)):
             continue
+        if hint_en_temporal(sin_comentarios, abre):
+            continue  # en una temporal o variable de tabla no bloquea a otros procesos
         grupo = 1
         hint = match.group(grupo).upper()
         if hint == "READPAST":
@@ -304,6 +311,13 @@ def _validar_hints_bloqueo(texto: str, sin_comentarios: str) -> List[Hallazgo]:
         hallazgos.append(_hallazgo(
             texto, match.start(grupo), "HINT_BLOQUEO_PROHIBIDO",
             f"Se identificó el uso de '{hint}', que {_HINTS_BLOQUEO[hint]}. {accion}",
+        ))
+    for posicion, instruccion in niveles_de_aislamiento(sin_comentarios):
+        hallazgos.append(_hallazgo(
+            texto, posicion, "HINT_BLOQUEO_PROHIBIDO",
+            f"Se identificó el uso de '{instruccion}', que {QUE_HACE_EL_AISLAMIENTO}. Se recomienda retirarlo y "
+            f"usar WITH(NOLOCK), ya que un reporte solo consulta datos y bloquear filas detiene a los procesos que "
+            f"están registrando operaciones.",
         ))
     return hallazgos
 
