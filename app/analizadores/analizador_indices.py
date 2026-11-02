@@ -613,8 +613,9 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
     if not tabla_script or tabla.split(".")[-1].lower() != tabla_script.nombre.lower():
         hallazgos.append(_hallazgo(
             texto, indice.posicion_tabla, "INDICE_TABLA_EXISTENTE",
-            f"Se identificó que el índice {indice.nombre} es para la tabla {tabla}, que ya existe (su CREATE "
-            f"TABLE no está en el script de la tabla). Se recomienda validar que la tabla realmente necesite este "
+            # Primera oración: texto de la usuaria (2 nov.).
+            f"Se identificó que el índice {indice.nombre} se crea sobre una tabla que ya existe ({tabla}). "
+            f"Se recomienda validar que la tabla realmente necesite este "
             f"índice, revisando las consultas que lo usarán y los índices que ya tiene, ya que en una tabla con "
             f"datos un índice nuevo ocupa espacio, vuelve más lentas las inserciones y podría repetir uno existente.",
         ))

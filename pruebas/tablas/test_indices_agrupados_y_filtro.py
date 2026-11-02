@@ -37,7 +37,8 @@ class TestTablasExistentesJuntas(unittest.TestCase):
         texto = "CREATE NONCLUSTERED INDEX IXN_Cliente_cCodigo ON dbo.Cliente (cCodigo);"
         hallazgos = _reglas(texto, "INDICE_TABLA_EXISTENTE")
         self.assertEqual(len(hallazgos), 1)
-        self.assertTrue(hallazgos[0].mensaje.startswith("Se identificó que el índice IXN_Cliente_cCodigo es para la tabla"))
+        self.assertTrue(hallazgos[0].mensaje.startswith(
+            "Se identificó que el índice IXN_Cliente_cCodigo se crea sobre una tabla que ya existe (dbo.Cliente)."))
 
 
 class TestColumnaFijaEnFiltro(unittest.TestCase):

@@ -299,7 +299,9 @@ class TestIndices(unittest.TestCase):
         for tabla in ("ALTER TABLE CLICKTOPAY.Cliente ADD cX VARCHAR(5) NULL;", ""):
             with self.subTest(tabla=tabla):
                 self.assertEqual(reglas(indices, tabla), [("INDICE_TABLA_EXISTENTE", 1)])
-                self.assertIn("que ya existe (su CREATE TABLE no está en el script de la tabla)", mensaje(indices, tabla))
+                self.assertTrue(mensaje(indices, tabla).startswith(
+                    "Se identificó que el índice IXN_Cliente_cDocumento se crea sobre una tabla que ya existe "
+                    "(CLICKTOPAY.Cliente). Se recomienda validar"))
                 self.assertIn("validar que la tabla realmente necesite este índice", mensaje(indices, tabla))
         con_errores = "CREATE INDEX idx ON Cliente (cX);"
         self.assertEqual([r for r, _ in reglas(con_errores, "")],
