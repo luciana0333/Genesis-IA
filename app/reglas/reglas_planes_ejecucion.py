@@ -25,7 +25,7 @@ REGLAS_PLANES_EJECUCION = {
         codigo="MEMORIA_SOBREESTIMADA",
         nombre="Sobreestimación de memoria",
         severidad="medio",
-        descripcion="La sentencia trae la alerta Excessive Grant: reserva mucha más memoria de la que usa.",
+        descripcion="Desde 80 MB reservados y usando menos del 50 % de lo reservado, con o sin la alerta Excessive Grant.",
         alcance="plan_ejecucion",
         activo=True,
     ),
