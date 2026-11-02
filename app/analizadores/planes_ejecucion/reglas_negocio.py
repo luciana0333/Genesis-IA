@@ -165,23 +165,24 @@ def _spill(sentencias: List[Dict]) -> List[Hallazgo]:
 # --- Sobreestimación de memoria ------------------------------------------------
 
 # En un entorno muy transaccional, reservar poca memoria no es un problema: solo se observa a partir de
-# 80 MB reservados y si se usó el 75 % o menos de lo reservado (ej.: 80 MB reservados y 1 MB usado, o
-# 1000 MB y 400 MB), tenga o no la alerta Excessive Grant de SQL Server. Si usa más del 75 %, está bien.
+# 80 MB reservados y si se usó MENOS del 50 % de lo reservado (ej.: 80 MB reservados y 1 MB usado, o
+# 1000 MB y 400 MB), tenga o no la alerta Excessive Grant de SQL Server (decisión de la usuaria, 2 nov.).
+# Si usa la mitad o más, la reserva es razonable.
 MEMORIA_MINIMA_KB = 80 * 1024
-PORCENTAJE_MAXIMO_USADO = 0.75
+PORCENTAJE_MINIMO_USADO = 0.50
 
 
 def _reserva_desproporcionada(memoria: Optional[Dict]) -> bool:
     if not memoria or memoria.get("concedida") is None or memoria.get("usada") is None:
         return False
-    return memoria["concedida"] >= MEMORIA_MINIMA_KB and memoria["usada"] <= memoria["concedida"] * PORCENTAJE_MAXIMO_USADO
+    return memoria["concedida"] >= MEMORIA_MINIMA_KB and memoria["usada"] < memoria["concedida"] * PORCENTAJE_MINIMO_USADO
 
 
 def _memoria(sentencias: List[Dict]) -> List[Hallazgo]:
     """
     Consultas con la memoria reservada muy por encima de la usada: la alerta Excessive Grant del XML
     o, aunque no la traiga, una reserva desproporcionada: en ambos casos, desde MEMORIA_MINIMA_KB
-    reservados y usando PORCENTAJE_MAXIMO_USADO o menos.
+    reservados y usando menos de PORCENTAJE_MINIMO_USADO.
     """
     varias = len({s["numero"] for s in sentencias}) > 1
     casos = []
@@ -196,7 +197,7 @@ def _memoria(sentencias: List[Dict]) -> List[Hallazgo]:
         if concedida is None:
             concedida = (s.get("memoria") or {}).get("concedida")
         usada = (s.get("memoria") or {}).get("usada")
-        uso_razonable = concedida is not None and usada is not None and usada > concedida * PORCENTAJE_MAXIMO_USADO
+        uso_razonable = concedida is not None and usada is not None and usada >= concedida * PORCENTAJE_MINIMO_USADO
         if alerta and concedida is not None and concedida >= MEMORIA_MINIMA_KB and not uso_razonable:
             casos.append({"consulta": s["numero"], "nodo": raiz, "datos": alerta.get("datos", {})})
         elif _reserva_desproporcionada(s.get("memoria")):

@@ -50,8 +50,10 @@ class TestMemoriaDesproporcionada(unittest.TestCase):
         self.assertEqual(_memoria(_plan(79 * 1024, 10)), [])
 
     def test_limites_exactos(self):
-        self.assertEqual(len(_memoria(_plan(80 * 1024, 60 * 1024))), 1)  # 80 MB y 75 %: se marca
-        self.assertEqual(_memoria(_plan(80 * 1024, 60 * 1024 + 1)), [])  # un poco más del 75 %
+        # Desde 80 MB y usando MENOS del 50 % (decisión de la usuaria, 2 nov.).
+        self.assertEqual(len(_memoria(_plan(80 * 1024, 40 * 1024 - 1))), 1)  # un poco menos del 50 %: se marca
+        self.assertEqual(_memoria(_plan(80 * 1024, 40 * 1024)), [])  # justo el 50 %: no se marca
+        self.assertEqual(_memoria(_plan(100 * 1024, 74 * 1024)), [])  # 74 %: antes (75 %) se marcaba, ya no
 
     def test_ejemplo_de_la_usuaria_80_mb_y_1_mb(self):
         self.assertEqual(len(_memoria(_plan(80 * 1024, 1024))), 1)
@@ -68,8 +70,13 @@ class TestMemoriaDesproporcionada(unittest.TestCase):
     def test_alerta_desde_80_mb_se_marca(self):
         self.assertEqual(len(_memoria(_plan(80 * 1024, 16, con_alerta=True))), 1)
 
-    def test_alerta_con_uso_mayor_al_75_no_se_marca(self):
+    def test_alerta_con_uso_de_la_mitad_o_mas_no_se_marca(self):
         self.assertEqual(_memoria(_plan(100 * 1024, 90 * 1024, con_alerta=True)), [])
+        self.assertEqual(_memoria(_plan(100 * 1024, 50 * 1024, con_alerta=True)), [])  # justo el 50 %
+
+    def test_alerta_desde_80_mb_y_menos_de_la_mitad_se_marca(self):
+        self.assertEqual(len(_memoria(_plan(100 * 1024, 49 * 1024, con_alerta=True))), 1)
+        self.assertEqual(len(_memoria(_plan(80 * 1024, 39 * 1024, con_alerta=True))), 1)
 
 
 if __name__ == "__main__":
