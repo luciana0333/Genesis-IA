@@ -361,6 +361,66 @@ def _propiedades(relop: ET.Element, propio: float, costo_pct: float, contadores:
     return [fila for fila in filas if fila[1]]
 
 
+def _propiedades_consulta(sentencia: ET.Element, plan: ET.Element, superiores: List[ET.Element]) -> List[List[str]]:
+    """
+    Recuadro de la consulta (el primer ícono: SELECT, INSERT, UPDATE...) con los datos de la sentencia,
+    del plan, de la memoria concedida y del optimizador, con los nombres y el orden de Plan Explorer.
+    """
+    memoria = next((e for e in plan if _local(e) == "MemoryGrantInfo"), None)
+    hardware = next((e for e in plan if _local(e) == "OptimizerHardwareDependentProperties"), None)
+    primero = superiores[0] if superiores else None
+    hilos = [e for e in _propios(primero) if _local(e) == "RunTimeCountersPerThread"] if primero is not None else []
+    contadores = _contadores(primero) if primero is not None else {}
+    modo = (hilos[0].attrib.get("ActualExecutionMode", "") if hilos else "") or (
+        primero.attrib.get("EstimatedExecutionMode", "") if primero is not None else "")
+
+    def entero(elemento: Optional[ET.Element], nombre: str, unidad: str = "") -> str:
+        valor = _numero(elemento, nombre)
+        return "" if valor is None else f"{valor:,.0f}{unidad}"
+
+    def cifra(valor: Optional[float]) -> str:
+        return "" if valor is None else f"{valor:,.0f}"
+
+    # Memory Grant: el del plan; si no viene, el concedido (MemoryGrantInfo).
+    concedida = entero(plan, "MemoryGrant", " KB") or entero(memoria, "GrantedMemory", " KB")
+    filas = [
+        ["Execution Mode", modo],
+        ["Actual Rows", cifra(contadores.get("filasReales"))],
+        ["Actual Rows Read", cifra(contadores.get("filasLeidas"))],
+        ["Estimated Rows", entero(sentencia, "StatementEstRows")],
+        ["Estimated Subtree Cost", _decimal(_numero(sentencia, "StatementSubTreeCost"))],
+        ["Cached Plan Size", entero(plan, "CachedPlanSize", " KB")],
+        ["Compile CPU", entero(plan, "CompileCPU")],
+        ["Compile Memory", entero(plan, "CompileMemory")],
+        ["Compile Time", entero(plan, "CompileTime")],
+        ["Degree of Parallelism", entero(plan, "DegreeOfParallelism")],
+        ["Memory Grant", concedida],
+        ["Desired Memory", entero(memoria, "DesiredMemory", " KB")],
+        ["Granted Memory", entero(memoria, "GrantedMemory", " KB")],
+        ["Grant Wait Time", entero(memoria, "GrantWaitTime")],
+        ["Max Used Memory", entero(memoria, "MaxUsedMemory", " KB")],
+        ["Requested Memory", entero(memoria, "RequestedMemory", " KB")],
+        ["Required Memory", entero(memoria, "RequiredMemory", " KB")],
+        ["Serial Desired Memory", entero(memoria, "SerialDesiredMemory", " KB")],
+        ["Serial Required Memory", entero(memoria, "SerialRequiredMemory", " KB")],
+        ["Estimated Degree of Parallelism", entero(hardware, "EstimatedAvailableDegreeOfParallelism")],
+        ["Estimated Available Memory Grant", entero(hardware, "EstimatedAvailableMemoryGrant", " KB")],
+        ["Estimated Pages Cached", entero(hardware, "EstimatedPagesCached")],
+        ["Retrieved from Cache", sentencia.attrib.get("RetrievedFromCache", "")],
+        ["Optimization Level", sentencia.attrib.get("StatementOptmLevel", "")],
+    ]
+    return [fila for fila in filas if fila[1]]
+
+
+def _opciones_set(sentencia: ET.Element) -> List[Dict]:
+    """Opciones SET con que se compiló la sentencia (ANSI_NULLS=TRUE, ...), como las muestra Plan Explorer."""
+    opciones = next((e for e in sentencia if _local(e) == "StatementSetOptions"), None)
+    if opciones is None or not opciones.attrib:
+        return []
+    texto = ", ".join(f"{nombre}={valor.upper()}" for nombre, valor in sorted(opciones.attrib.items()))
+    return [{"nombre": "Set Options", "texto": texto}]
+
+
 def _parametros(plan: ET.Element) -> List[Dict]:
     """ParameterList: cada parámetro con su tipo y sus valores al compilar y al ejecutar."""
     lista = next((e for e in plan if _local(e) == "ParameterList"), None)
@@ -551,7 +611,9 @@ def construir_diagrama(contenido: Union[str, bytes]) -> List[Dict]:
             "costoPct": 0.0, "filasEstimadas": _numero(sentencia, "StatementEstRows"),
             "filasReales": None, "filasLeidas": None, "ejecuciones": None, "lecturas": None,
             "lecturasFisicas": None, "duracionMs": None, "cpuMs": None,
-            "advertencias": advertencias, "predicados": [],
+            "advertencias": advertencias, "predicados": _opciones_set(sentencia),
+            # Recuadro de la consulta: memoria, compilación, costo... como Plan Explorer.
+            "propiedades": _propiedades_consulta(sentencia, plan, superiores),
         }]
         for relop in superiores:
             _nodos_de(relop, "raiz", costo_total, nodos)
