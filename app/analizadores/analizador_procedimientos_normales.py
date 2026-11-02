@@ -8,7 +8,10 @@ from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html
 from app.analizadores.collate_temporales import columnas_sin_collate
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.left_like import left_reemplazable_por_like
-from app.analizadores.drop_table_if_exists import mensaje_drop_if_exists, validaciones_antes_de_drop
+from app.analizadores.drop_table_if_exists import (
+    eliminaciones_con_procedimiento, mensaje_drop_if_exists, mensaje_eliminacion_con_procedimiento,
+    validaciones_antes_de_drop,
+)
 from app.analizadores.openjson_collate import collates_en_openjson, dentro_de_openjson, mensaje_collate_openjson
 from app.analizadores.sql_order_by import order_by_por_posicion
 from app.analizadores.parametros_prefijo import (
@@ -1050,6 +1053,19 @@ def _validar_drop_table_if_exists(texto: str) -> List[Hallazgo]:
     return [hallazgo]
 
 
+def _validar_eliminacion_temporal_con_procedimiento(texto: str) -> List[Hallazgo]:
+    """EXEC PA_NET_EliminaTablaTemporal 'TEMPDB.dbo.#T': se escribe DROP TABLE IF EXISTS #T."""
+    casos = eliminaciones_con_procedimiento(texto)
+    if not casos:
+        return []
+    hallazgo = _hallazgo(texto, casos[0][0], "ELIMINACION_TEMPORAL_CON_PROCEDIMIENTO",
+                         mensaje_eliminacion_con_procedimiento(casos))
+    lineas = sorted({_linea(texto, posicion) for posicion, _, _ in casos})
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas  # para recorrerlas con la barra «1 de N»
+    return [hallazgo]
+
+
 def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
     """VARCHAR(MAX) solo se permite para JSON, XML, listas para STRING_SPLIT o datos de una tabla heredada."""
     hallazgos = []
@@ -1541,6 +1557,7 @@ def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -
     hallazgos.extend(_validar_sintaxis_prohibida(texto_sql, limpio))
     hallazgos.extend(_validar_varchar_max(texto_sql, limpio))
     hallazgos.extend(_validar_drop_table_if_exists(texto_sql))
+    hallazgos.extend(_validar_eliminacion_temporal_con_procedimiento(texto_sql))
     hallazgos.extend(_validar_waitfor(texto_sql, con_textos))
     hallazgos.extend(_validar_raiserror(texto_sql, limpio))
     hallazgos.extend(_validar_transacciones(texto_sql, limpio))

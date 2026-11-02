@@ -402,6 +402,15 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "ELIMINACION_TEMPORAL_CON_PROCEDIMIENTO": ReglaDiccionario(
+        codigo="ELIMINACION_TEMPORAL_CON_PROCEDIMIENTO",
+        nombre="Eliminación de temporales con un procedimiento",
+        severidad="bajo",
+        descripcion="Una tabla temporal se elimina llamando a un procedimiento (EXEC PA_NET_EliminaTablaTemporal "
+                    "'TEMPDB.dbo.#Temp'); se usa DROP TABLE IF EXISTS #Temp.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "VARCHAR_MAX_PROHIBIDO": ReglaDiccionario(
         codigo="VARCHAR_MAX_PROHIBIDO",
         nombre="VARCHAR(MAX) prohibido",
