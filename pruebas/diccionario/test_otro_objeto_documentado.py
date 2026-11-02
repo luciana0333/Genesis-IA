@@ -76,3 +76,46 @@ class OtroProcedimientoDocumentadoTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+NOMBRES_20 = ["Cliente", "Agencia", "Producto", "Credito", "CreditoDetalle", "Cuenta", "CuentaMovimiento", "Moneda",
+              "Tasa", "TasaHistorico", "Garantia", "GarantiaTipo", "Persona", "PersonaDireccion", "Usuario",
+              "UsuarioPerfil", "Perfil", "Zona", "Area", "Cargo"]
+
+
+def _tabla(nombre):
+    return (f"CREATE TABLE dbo.{nombre} (\n n{nombre}Id INT IDENTITY(1,1) NOT NULL,\n"
+            f" cDescripcion VARCHAR(100) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,\n nEstado INT NOT NULL,\n"
+            f" CONSTRAINT PK_{nombre}_n{nombre}Id PRIMARY KEY CLUSTERED (n{nombre}Id))\nGO\n")
+
+
+def _diccionario(nombre):
+    return (_descripcion(f"Registro de {nombre}", "TABLE", nombre)
+            + _descripcion("Identificador del registro", "TABLE", nombre, "COLUMN", f"n{nombre}Id")
+            + _descripcion("Descripción del registro", "TABLE", nombre, "COLUMN", "cDescripcion")
+            + _descripcion("Estado del registro", "TABLE", nombre, "COLUMN", "nEstado"))
+
+
+class VeinteTablasTest(unittest.TestCase):
+    """20 tablas con las mismas columnas: cada sentencia del diccionario va a su tabla."""
+
+    def setUp(self):
+        self.tablas = "".join(_tabla(n) for n in NOMBRES_20)
+        self.diccionario = "".join(_diccionario(n) for n in NOMBRES_20)
+
+    def test_bien_documentadas_en_cualquier_orden(self):
+        self.assertEqual(verificar_diccionario_tablas(self.tablas, self.diccionario), [])
+        al_reves = "".join(_diccionario(n) for n in reversed(NOMBRES_20))
+        self.assertEqual(verificar_diccionario_tablas(self.tablas, al_reves), [])
+
+    def test_tabla_mal_escrita_va_a_la_mas_parecida_y_no_a_la_anterior(self):
+        # GarantiaTipos se parece a GarantiaTipo, no a la tabla anterior (Garantia).
+        diccionario = self.diccionario.replace("N'GarantiaTipo'", "N'GarantiaTipos'")
+        hallazgos = verificar_diccionario_tablas(self.tablas, diccionario)
+        self.assertEqual([h.regla for h in hallazgos], ["NOMBRE_TABLA_NO_COINCIDE"])
+        self.assertIn("'GarantiaTipos', pero la tabla se llama 'GarantiaTipo'", hallazgos[0].mensaje)
+
+    def test_tabla_extra_y_tabla_sin_documentar(self):
+        diccionario = "".join(_diccionario(n) for n in NOMBRES_20 if n != "Zona") + _diccionario("Proveedor")
+        reglas = sorted(h.regla for h in verificar_diccionario_tablas(self.tablas, diccionario))
+        self.assertEqual(reglas, ["COLUMNA_FALTANTE", "TABLA_FUERA_DEL_SCRIPT", "TABLA_SIN_DESCRIPCION"])

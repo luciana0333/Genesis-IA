@@ -88,8 +88,9 @@ def objetos_sin_script(texto_diccionario: str, nombres: List[str]) -> List[Tuple
 def repartir_diccionario(texto_diccionario: str, nombres: List[str]) -> List[List[Rango]]:
     """
     Rangos del diccionario de cada objeto (en el orden de `nombres`). Cada sentencia va al
-    objeto de su @level1name; si ese nombre no es de ningún objeto (mal escrito o vacío), va
-    con la sentencia anterior, para que la revisión de ese objeto diga que el nombre no coincide.
+    objeto de su @level1name; si ese nombre está mal escrito, va al objeto al que más se parece
+    (GarantiaTipos → GarantiaTipo, no a la tabla anterior Garantia), para que la revisión de ese
+    objeto diga que el nombre no coincide. Con el nombre vacío va con la sentencia anterior.
     Lo que no es una sentencia (comentarios del inicio) va con el primer objeto.
     """
     claves = [_limpiar(n) for n in nombres]
@@ -99,10 +100,15 @@ def repartir_diccionario(texto_diccionario: str, nombres: List[str]) -> List[Lis
         rangos[0].append((0, len(texto_diccionario)))
         return rangos
 
-    duenos: List[Optional[int]] = [
-        claves.index(_limpiar(ll.texto("level1name"))) if _limpiar(ll.texto("level1name")) in claves else None
-        for ll in llamadas
-    ]
+    def dueno_de(nombre: str) -> Optional[int]:
+        clave = _limpiar(nombre)
+        if clave in claves:
+            return claves.index(clave)
+        if not clave or es_otro_objeto(nombre, claves):
+            return None
+        return max(range(len(claves)), key=lambda i: difflib.SequenceMatcher(None, clave, claves[i]).ratio())
+
+    duenos: List[Optional[int]] = [dueno_de(ll.texto("level1name")) for ll in llamadas]
     anterior = next((d for d in duenos if d is not None), 0)
     for i, ll in enumerate(llamadas):
         if duenos[i] is None and es_otro_objeto(ll.texto("level1name"), claves):
