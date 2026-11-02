@@ -65,6 +65,43 @@ def validaciones_antes_de_drop(texto: str) -> List[Tuple[int, str, str]]:
     return sorted(encontradas)
 
 
+# EXEC de un procedimiento que elimina temporales (PA_NET_EliminaTablaTemporal, PA_EliminaTemporal...):
+# nombre con «Elimina...Temporal» o «Drop...Temp», y sus argumentos hasta el fin de la línea o el «;».
+_EXEC_ELIMINA_TEMPORAL = re.compile(
+    r"\bEXEC(?:UTE)?\s+(?P<proc>(?:\[?\w+\]?\s*\.\s*){0,2}\[?\w*(?:Elimina\w*Temp|Drop\w*Temp)\w*\]?)"
+    r"(?P<args>[^;\n]*)",
+    re.IGNORECASE,
+)
+_TEMPORAL_EN_TEXTO = re.compile(r"'[^']*?(#[\w#$]+)[^']*'")
+
+
+def eliminaciones_con_procedimiento(texto: str) -> List[Tuple[int, str, str]]:
+    """
+    [(posición, procedimiento, tabla temporal)] de cada EXEC a un procedimiento que elimina una tabla
+    temporal que se le pasa como texto ('TEMPDB.dbo.#TempXml'). Sin la tabla en el texto (por ejemplo,
+    en una variable) no se marca: no se sabe si es una temporal.
+    """
+    codigo = _SIN_COMENTARIOS.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), texto or "")
+    encontradas = []
+    for llamada in _EXEC_ELIMINA_TEMPORAL.finditer(codigo):
+        procedimiento = re.sub(r"[\s\[\]]", "", llamada.group("proc"))
+        for tabla in _TEMPORAL_EN_TEXTO.finditer(llamada.group("args")):
+            encontradas.append((llamada.start(), procedimiento, tabla.group(1)))
+    return encontradas
+
+
+def mensaje_eliminacion_con_procedimiento(casos: List[Tuple[int, str, str]]) -> str:
+    """Una sola observación con todas las tablas; el «Qué hacer» es el texto de la usuaria."""
+    procedimientos = list(dict.fromkeys(procedimiento for _, procedimiento, _ in casos))
+    tablas = list(dict.fromkeys(tabla for _, _, tabla in casos))
+    uso = (f"del procedimiento {procedimientos[0]}" if len(procedimientos) == 1
+           else f"de los procedimientos {_enumerar(procedimientos)}")
+    sobre = (f"la tabla temporal {tablas[0]}" if len(tablas) == 1
+             else f"las tablas temporales {_enumerar(tablas)}")
+    return (f"Se identificó el uso {uso} para eliminar {sobre}. Se recomienda evitar el uso de procedimientos "
+            f"almacenados para la eliminación de tablas temporales y optar por el uso de DROP TABLE IF EXISTS.")
+
+
 def _enumerar(partes: List[str]) -> str:
     return partes[0] if len(partes) == 1 else f"{', '.join(partes[:-1])} y {partes[-1]}"
 

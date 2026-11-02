@@ -104,6 +104,7 @@ export const NOMBRES_REGLAS = {
   VARCHAR_MAX_PROHIBIDO: 'VARCHAR(MAX) prohibido',
   OPENJSON_COLLATE_INNECESARIO: 'COLLATE innecesario en OPENJSON',
   DROP_TABLE_CON_VALIDACION: 'Sintaxis antigua para eliminar tablas',
+  ELIMINACION_TEMPORAL_CON_PROCEDIMIENTO: 'Eliminación de temporales con un procedimiento',
   RAISERROR_USAR_THROW: 'Uso de RAISERROR',
   WAITFOR_DELAY_PROHIBIDO: 'WAITFOR prohibido',
   TRANSACCION_SIN_CIERRE: 'Transacción sin COMMIT',
