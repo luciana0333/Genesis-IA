@@ -14,7 +14,7 @@ from app.analizadores.sql_order_by import order_by_por_posicion
 from app.analizadores.parametros_prefijo import (
     mensaje_parametros_sin_prefijo, mensaje_variables_sin_prefijo, parametros_sin_prefijo, variables_sin_prefijo,
 )
-from app.analizadores.sql_parentesis import sin_parentesis_cerrados
+from app.analizadores.sql_parentesis import expresion_antes, sin_parentesis_cerrados
 from app.analizadores.variables_sin_uso import mensaje_variables_sin_uso, variables_sin_uso
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_reportes import REGLAS_REPORTES
@@ -407,11 +407,9 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
 
 
 def _columna_antes(limpio: str, posicion: int) -> str:
-    """Columna que se compara con IN (c.cEstado IN (...)); nEstado si no se reconoce."""
-    columna = re.search(r"([\w\[\].@]+)\s+(?:NOT\s+)?$", limpio[:posicion], re.IGNORECASE)
-    if columna and columna.group(1).upper() not in {"WHERE", "AND", "OR", "ON", "WHEN", "NOT"}:
-        return columna.group(1)
-    return "nEstado"
+    """Columna o función que se compara con IN (c.cEstado, UPPER(cRhCod)); nEstado si no se reconoce."""
+    expresion = expresion_antes(limpio, posicion)
+    return re.sub(r"\s+", " ", expresion[1]) if expresion else "nEstado"
 
 
 def _objeto_select_estrella(match: re.Match, limpio: str) -> str:
@@ -1048,6 +1046,13 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_left_como_like(texto_sql, sin_comentarios))
     hallazgos.extend(_validar_modificaciones_fisicas(texto_sql, limpio))
     hallazgos.extend(_validar_variables(texto_sql, limpio))
+    # LEFT(col, 1) IN ('A') ya se observa como LIKE (que reemplaza también al IN): no se repite.
+    lineas_like = {h.linea for h in hallazgos if h.regla == "LEFT_REEMPLAZABLE_POR_LIKE"}
+    hallazgos = [
+        h for h in hallazgos
+        if not (h.regla == "IN_CON_UN_SOLO_VALOR" and h.linea in lineas_like
+                and re.search(r"\(ej\.: WHERE (?:LEFT|SUBSTRING)\s*\(", h.mensaje, re.IGNORECASE))
+    ]
     # Las reglas desactivadas en el catálogo no se reportan.
     hallazgos = [h for h in hallazgos if REGLAS_REPORTES[h.regla].activo]
     return _agrupar_hallazgos_repetidos(hallazgos)
