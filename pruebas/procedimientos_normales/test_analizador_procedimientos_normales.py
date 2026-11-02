@@ -601,6 +601,14 @@ END"""
             "IF EXISTS (SELECT 1 FROM #U WHERE LEFT(cCtaCod, 3) = '109') PRINT 1": "por LIKE '109%',",
             "CREATE PROCEDURE dbo.PA_X @pcPref VARCHAR(5) AS SELECT a FROM #T WHERE LEFT(cCtaCod, 5) = @pcPref":
                 "por LIKE @pcPref + '%',",
+            # Un CASE ... END antes, en el mismo WHERE.
+            "SELECT a FROM T WHERE CASE WHEN x = 1 THEN 1 ELSE 0 END = 1 AND LEFT(cCod, 3) = '701'": "por LIKE '701%',",
+            # El COLLATE se conserva.
+            "SELECT a FROM T WHERE LEFT(cCod, 3) = '701' COLLATE SQL_Latin1_General_CP1_CI_AS":
+                "por LIKE '701%' COLLATE SQL_Latin1_General_CP1_CI_AS,",
+            # Casos reales: LEFT(cRHCod, 1) en el ON de un JOIN.
+            "SELECT a FROM #R b INNER JOIN #C c ON b.cPersCod = c.cPersCod AND LEFT(b.cRHCod,1) IN ('E','A')":
+                "por (b.cRHCod LIKE 'E%' OR b.cRHCod LIKE 'A%'),",
         }
         for sql, sugerencia in casos.items():
             with self.subTest(sql=sql):
@@ -636,6 +644,18 @@ END"""
             "SELECT a FROM #T WHERE LEFT(cCtaCod, 4) = 10.5",
             "SELECT a FROM #T WHERE SUBSTRING(cCtaCod, 6, 3) = '232'",
             "SELECT a FROM #A a JOIN #B b ON LEFT(a.cCtaCod, 5) = b.cPrefijo",
+            # CHECK de una temporal: no toma el WHERE de la sentencia anterior.
+            "UPDATE #A SET x = 1 WHERE y = 2\nCREATE TABLE #T (cCod CHAR(3) CHECK (LEFT(cCod, 1) = 'A'))",
+            # Dentro de una función (IIF, CAST) o de un NOT de varias condiciones.
+            "SELECT a FROM T WHERE IIF(LEFT(cCod, 3) = '701', 1, 0) = 1",
+            "SELECT a FROM T WHERE NOT (x = 1 AND LEFT(cCod, 3) = '701')",
+            # Columna que por su prefijo no es de texto (nCodigo, dFecha).
+            "SELECT a FROM T WHERE LEFT(nCodigo, 2) = '10'",
+            "SELECT a FROM T WHERE LEFT(dFecha, 4) = '2026'",
+            # Número con cero adelante: como número también vale ' 1' o '1 '.
+            "SELECT a FROM T WHERE LEFT(cCod, 2) = 01",
+            # Dentro de un texto.
+            "PRINT 'Revise WHERE LEFT(cCod, 3) = 701 en el reporte'",
         )
         for sql in casos:
             with self.subTest(sql=sql):
