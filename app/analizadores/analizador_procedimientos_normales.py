@@ -8,6 +8,9 @@ from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html
 from app.analizadores.collate_temporales import columnas_sin_collate
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.left_like import left_reemplazable_por_like
+from app.analizadores.hints_compartidos import (
+    HINTS_BLOQUEO_NUEVOS, QUE_HACE_EL_AISLAMIENTO, hint_en_temporal, niveles_de_aislamiento,
+)
 from app.analizadores.drop_table_if_exists import mensaje_drop_if_exists, validaciones_antes_de_drop
 from app.analizadores.openjson_collate import collates_en_openjson, dentro_de_openjson, mensaje_collate_openjson
 from app.analizadores.sql_order_by import order_by_por_posicion
@@ -22,10 +25,11 @@ from app.analizadores.analizador_tablas import _PASCAL_CASE, _a_pascal_case, _re
 
 
 _IDENTIFICADOR = r"(?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)"
+# Palabras completas (\b): «RECOMPILE» o «FAST» dentro de un nombre (cRecompileFlag, nFastId) no son hints.
 _HINTS_PROHIBIDOS = (
-    r"FORCESEEK|FORCESCAN|RECOMPILE|NOEXPAND|"
-    r"LOOP\s+JOIN|HASH\s+JOIN|MERGE\s+JOIN|OPTIMIZE\s+FOR|MAXDOP\s*\(|FAST\s+\d+|"
-    r"OPTION\s*\([^)]*\)"
+    r"\bOPTION\s*\([^)]*\)|\bFORCESEEK\b|\bFORCESCAN\b|\bRECOMPILE\b|\bNOEXPAND\b|"
+    r"\b(?:LOOP|HASH|MERGE|REMOTE)\s+JOIN\b|\bOPTIMIZE\s+FOR\b|\bMAXDOP\s*\(|\bFAST\s+\d+\b|"
+    r"\bSET\s+FORCEPLAN\s+ON\b"
 )
 # Hints de bloqueo: fuerzan al motor a bloquear de una forma determinada.
 # Cada uno con lo que hace, para explicarlo en el mensaje.
@@ -42,6 +46,7 @@ _HINTS_BLOQUEO = {
     "PAGLOCK": "obliga al motor a bloquear páginas completas",
     "ROWLOCK": "obliga al motor a bloquear fila por fila",
     "READPAST": "salta las filas que otro proceso tiene bloqueadas",
+    **HINTS_BLOQUEO_NUEVOS,
 }
 # Palabras que pueden ir antes de un hint de bloqueo dentro del mismo paréntesis.
 _HINTS_DE_TABLA = set(_HINTS_BLOQUEO) | {
@@ -232,14 +237,25 @@ def _validar_hints_bloqueo(texto: str, limpio: str) -> List[Hallazgo]:
             continue
         if any(palabra.upper() not in _HINTS_DE_TABLA for palabra in re.findall(r"[A-Za-z]+", previo)):
             continue
+        if hint_en_temporal(limpio, abre):
+            continue  # en una temporal o variable de tabla no bloquea a otros procesos
         hint = match.group(1).upper()
         hallazgos.append(_hallazgo(
             texto, match.start(1), "HINT_BLOQUEO_PROHIBIDO",
-            f"Se detectó el uso de '{hint}', que {_HINTS_BLOQUEO[hint]}. Se recomienda retirarlo y dejar que "
-            f"el motor gestione los bloqueos, ya que forzarlo no está permitido por las buenas prácticas y "
-            f"detiene a los demás procesos que usan la tabla.",
+            f"Se detectó el uso de '{hint}', que {_HINTS_BLOQUEO[hint]}. {_ACCION_HINT_BLOQUEO}",
+        ))
+    for posicion, instruccion in niveles_de_aislamiento(limpio):
+        hallazgos.append(_hallazgo(
+            texto, posicion, "HINT_BLOQUEO_PROHIBIDO",
+            f"Se detectó el uso de '{instruccion}', que {QUE_HACE_EL_AISLAMIENTO}. {_ACCION_HINT_BLOQUEO}",
         ))
     return hallazgos
+
+
+_ACCION_HINT_BLOQUEO = (
+    "Se recomienda retirarlo y dejar que el motor gestione los bloqueos, ya que forzarlo no está permitido por las "
+    "buenas prácticas y detiene a los demás procesos que usan la tabla."
+)
 
 
 # Palabras que pueden seguir al nombre de una tabla y que no son un alias.
@@ -250,9 +266,12 @@ _NO_ALIAS = (
 
 
 def _tiene_nolock_despues(texto: str, posicion: int) -> bool:
-    """WITH(NOLOCK) justo después de la tabla o de su alias (no más adelante en el código)."""
+    """
+    WITH(NOLOCK) justo después de la tabla o de su alias (no más adelante en el código). READUNCOMMITTED
+    es lo mismo que NOLOCK.
+    """
     return bool(re.match(
-        rf"(?:\s+(?:AS\s+)?(?!(?:{_NO_ALIAS})\b)[A-Za-z_@#][\w$#]*)?\s*(?:WITH\s*)?\(\s*NOLOCK\b",
+        rf"(?:\s+(?:AS\s+)?(?!(?:{_NO_ALIAS})\b)[A-Za-z_@#][\w$#]*)?\s*(?:WITH\s*)?\(\s*(?:NOLOCK|READUNCOMMITTED)\b",
         texto[posicion:], re.IGNORECASE,
     ))
 
