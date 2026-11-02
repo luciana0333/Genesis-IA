@@ -101,7 +101,7 @@ export const NOMBRES_REGLAS = {
   ENVIO_CORREO_DESDE_BD: 'Envío de correo desde la base de datos',
   REPLACE_ANIDADO_TRANSLATE: 'REPLACE anidados que pueden ser TRANSLATE',
   SQL_DINAMICO_PROHIBIDO: 'SQL dinámico prohibido',
-  VARCHAR_MAX_PROHIBIDO: 'VARCHAR(MAX) prohibido',
+  VARCHAR_MAX_PROHIBIDO: 'Uso de VARCHAR(MAX)',
   OPENJSON_COLLATE_INNECESARIO: 'COLLATE innecesario en OPENJSON',
   DROP_TABLE_CON_VALIDACION: 'Sintaxis antigua para eliminar tablas',
   ELIMINACION_TEMPORAL_CON_PROCEDIMIENTO: 'Eliminación de temporales con un procedimiento',

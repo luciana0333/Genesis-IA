@@ -130,9 +130,9 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
 
     def test_select_top_y_alias_estrella(self):
         casos = {
-            "SELECT TOP 10 * FROM dbo.Cliente c;": "SELECT * sobre la tabla dbo.Cliente",
-            "SELECT TOP (10) PERCENT * FROM dbo.Cliente c;": "SELECT * sobre la tabla dbo.Cliente",
-            "SELECT c.*, z.cNombre FROM dbo.Cliente AS c JOIN dbo.Zona z ON z.n = c.n;": "SELECT c.* sobre la tabla dbo.Cliente",
+            "SELECT TOP 10 * FROM dbo.Cliente c;": "todas las columnas de dbo.Cliente mediante SELECT *",
+            "SELECT TOP (10) PERCENT * FROM dbo.Cliente c;": "todas las columnas de dbo.Cliente mediante SELECT *",
+            "SELECT c.*, z.cNombre FROM dbo.Cliente AS c JOIN dbo.Zona z ON z.n = c.n;": "todas las columnas de dbo.Cliente mediante SELECT c.*",
         }
         for sql, esperado in casos.items():
             with self.subTest(sql=sql):
@@ -145,7 +145,7 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
     def test_select_estrella_sobre_base_sin_esquema(self):
         hallazgo = next(h for h in verificar_procedimiento_normal("SELECT * FROM DBCMAICA..Cliente c WHERE c.n = 1;")
                         if h.regla == "SELECT_ESTRELLA_PROHIBIDO")
-        self.assertIn("sobre la tabla DBCMAICA..Cliente", hallazgo.mensaje)
+        self.assertIn("todas las columnas de DBCMAICA..Cliente mediante SELECT *", hallazgo.mensaje)
 
     def test_texto_entre_comillas_no_se_revisa_como_codigo(self):
         sql = ("SELECT 'Revisar SELECT * FROM sys.objects' AS cNota, 'COLLATE Modern_Spanish_CI_AS' AS cOtra,\n"
@@ -305,8 +305,12 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
     def test_varchar_max_menciona_tablas_heredadas(self):
         hallazgo = next(h for h in verificar_procedimiento_normal("DECLARE @cSQL NVARCHAR(MAX);\nSELECT @cSQL;")
                         if h.regla == "VARCHAR_MAX_PROHIBIDO")
-        self.assertIn("@cSQL se declara como NVARCHAR(MAX)", hallazgo.mensaje)
-        self.assertIn("tabla heredada", hallazgo.mensaje)
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se detectó que @cSQL se declara como NVARCHAR(MAX) y no guarda JSON, XML ni HTML. Evitar el uso de "
+            "NVARCHAR(MAX), salvo para tipos de datos JSON, XML, HTML o tablas heredadas. En los demás casos, definir "
+            "una longitud adecuada al contenido que se almacenará (ej.: NVARCHAR(500)).",
+        )
 
     def test_hints_de_bloqueo(self):
         sql = "SELECT c.cNombre FROM dbo.Cliente c WITH (UPDLOCK, HOLDLOCK) WHERE c.nId = 1;"
@@ -504,8 +508,8 @@ SELECT * FROM #TMP_Clientes t;
 SELECT a.x FROM #A a INNER JOIN dbo.B b ON a.n = b.n WHERE a.cNombre COLLATE SQL_Latin1_General_CP1_CI_AS = 'x';
 END"""
         hallazgos = {h.regla: h.mensaje for h in verificar_procedimiento_normal(sql)}
-        self.assertIn("sobre la tabla dbo.TB_Estado", hallazgos["SELECT_ESTRELLA_PROHIBIDO"])
-        self.assertIn("sobre la tabla #TMP_Clientes", hallazgos["SELECT_ESTRELLA_PROHIBIDO"])
+        self.assertIn("todas las columnas de dbo.TB_Estado", hallazgos["SELECT_ESTRELLA_PROHIBIDO"])
+        self.assertIn("todas las columnas de #TMP_Clientes", hallazgos["SELECT_ESTRELLA_PROHIBIDO"])
         self.assertIn("sobre a.cNombre en la condición del WHERE", hallazgos["COLLATE_EN_PREDICADO"])
 
     def test_collate_en_temporales_y_variables_de_tabla(self):
@@ -991,6 +995,20 @@ class TestCastEnJoin(unittest.TestCase):
     def test_cast_fuera_del_on_no_se_marca(self):
         self.assertEqual(self._lineas("SELECT a.c FROM #A a JOIN #B b ON b.n = a.n WHERE CAST(a.d AS DATE) = @d"), [])
         self.assertEqual(self._lineas("SELECT a.c FROM #A a CROSS JOIN #B b\nSELECT CAST(1 AS INT)"), [])
+
+
+class TextoSelectEstrellaNegocioTest(unittest.TestCase):
+    """Texto de la usuaria (2 nov.) para SELECT * en Negocio."""
+
+    def test_texto_de_la_usuaria(self):
+        hallazgo = next(h for h in verificar_procedimiento_normal("SELECT * FROM #Resultado")
+                        if h.regla == "SELECT_ESTRELLA_PROHIBIDO")
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se identificó que se están consultando todas las columnas de #Resultado mediante SELECT *. Definir "
+            "explícitamente las columnas necesarias y evitar el uso de SELECT *, ya que recuperar columnas que no se "
+            "utilizan aumenta el consumo de recursos y puede afectar el rendimiento (ej.: SELECT cNombre, dFecha).",
+        )
 
 
 if __name__ == "__main__":

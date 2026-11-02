@@ -512,6 +512,13 @@ _CLAUSULAS_COLLATE = re.compile(
 )
 
 
+# «Qué hacer» de SELECT * con el texto de la usuaria (2 nov.).
+_ACCION_SELECT_ESTRELLA = (
+    "Definir explícitamente las columnas necesarias y evitar el uso de SELECT *, ya que recuperar columnas que no "
+    "se utilizan aumenta el consumo de recursos y puede afectar el rendimiento (ej.: {ejemplo})."
+)
+
+
 def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     # Cada SELECT seguido de INTO sin pasar por otra sentencia ni por su FROM: así se
@@ -537,12 +544,11 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     )
     for match in re.finditer(patron_estrella, limpio, re.IGNORECASE):
         tabla = _tabla_del_from(limpio, match.start())
-        sobre = f" sobre la tabla {tabla}" if tabla else ""
+        de = f" de {tabla}" if tabla else ""
         hallazgos.append(_hallazgo(
             texto, match.start(), "SELECT_ESTRELLA_PROHIBIDO",
-            f"Se identificó un SELECT *{sobre}, que trae todas sus columnas. Se recomienda escribir solo las "
-            f"columnas necesarias, ya que traer columnas de más consume memoria y vuelve más lento el "
-            f"procedimiento (ej.: SELECT cNombre, dFecha).",
+            f"Se identificó que se están consultando todas las columnas{de} mediante SELECT *. "
+            f"{_ACCION_SELECT_ESTRELLA.format(ejemplo='SELECT cNombre, dFecha')}",
         ))
     # SELECT c.*: todas las columnas de la tabla del alias c.
     for match in re.finditer(r"(?<![\w.@#])([A-Za-z_]\w*)\s*\.\s*\*(?=\s*(?:,|\bFROM\b))", limpio, re.IGNORECASE):
@@ -555,9 +561,8 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
         tabla = _limpiar_nombre(origen.group(1)) if origen else alias
         hallazgos.append(_hallazgo(
             texto, match.start(), "SELECT_ESTRELLA_PROHIBIDO",
-            f"Se identificó un SELECT {alias}.* sobre la tabla {tabla}, que trae todas sus columnas. Se recomienda "
-            f"escribir solo las columnas necesarias, ya que traer columnas de más consume memoria y vuelve más "
-            f"lento el procedimiento (ej.: SELECT {alias}.cNombre, {alias}.dFecha).",
+            f"Se identificó que se están consultando todas las columnas de {tabla} mediante SELECT {alias}.*. "
+            f"{_ACCION_SELECT_ESTRELLA.format(ejemplo=f'SELECT {alias}.cNombre, {alias}.dFecha')}",
         ))
     for match in re.finditer(r"([\w.\[\]@#]+)\s+COLLATE\s+\w+", limpio, re.IGNORECASE):
         # La cláusula que manda es la más cercana al COLLATE (puede haber un ON antes del WHERE). Una
@@ -1092,9 +1097,10 @@ def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
         sujeto = f"que {nombre} se declara como {tipo}" if nombre else f"el uso de {tipo}"
         hallazgos.append(_hallazgo(
             texto, match.start(), "VARCHAR_MAX_PROHIBIDO",
-            f"Se detectó {sujeto} y no guarda JSON, XML ni HTML. Definir una longitud acorde al "
-            f"dato, salvo que provenga de una tabla heredada con {tipo}, ya que solo se justifica para JSON, "
-            f"XML, HTML o tablas heredadas y reserva más memoria de la necesaria (ej.: {tipo.replace('MAX', '500')}).",
+            # «Qué hacer» con el texto de la usuaria (2 nov.).
+            f"Se detectó {sujeto} y no guarda JSON, XML ni HTML. Evitar el uso de {tipo}, salvo para tipos de "
+            f"datos JSON, XML, HTML o tablas heredadas. En los demás casos, definir una longitud adecuada al "
+            f"contenido que se almacenará (ej.: {tipo.replace('MAX', '500')}).",
         ))
     return hallazgos
 

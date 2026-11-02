@@ -146,7 +146,7 @@ REGLAS_REPORTES = {
     ),
     "VARCHAR_MAX_PROHIBIDO": ReglaDiccionario(
         codigo="VARCHAR_MAX_PROHIBIDO",
-        nombre="VARCHAR(MAX) prohibido",
+        nombre="Uso de VARCHAR(MAX)",
         severidad="alto",
         descripcion="VARCHAR(MAX) solo se permite para guardar JSON, XML, HTML o listas que se separan con STRING_SPLIT; "
                     "en otro caso se define una longitud.",

@@ -413,7 +413,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "VARCHAR_MAX_PROHIBIDO": ReglaDiccionario(
         codigo="VARCHAR_MAX_PROHIBIDO",
-        nombre="VARCHAR(MAX) prohibido",
+        nombre="Uso de VARCHAR(MAX)",
         severidad="medio",
         descripcion="VARCHAR(MAX) solo se permite para JSON, XML, HTML, listas que se separan con STRING_SPLIT o datos de tablas heredadas; en los demás "
                     "casos se define una longitud acorde al dato.",
