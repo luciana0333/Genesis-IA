@@ -43,7 +43,9 @@ export function Flecha({ desde, hasta, filas, filasMaximas, desviada = false }) 
 
 const ANCHO_LETRA = 6.3; // ancho aproximado de un carácter a 11.5 px (Segoe UI)
 
-export function Nodo({ nodo, posicion, maximo, activo, marcado = false, soloMarcado = false, onEntrar, onSalir }) {
+export function Nodo({
+  nodo, posicion, maximo, activo, marcado = false, soloMarcado = false, completo = false, onEntrar, onSalir,
+}) {
   const tono = tonoCosto(nodo.costoPct, maximo);
   const conAdvertencia = nodo.advertencias.length > 0;
   const nombre = nodo.padre === null ? nodo.fisica.toUpperCase() : nodo.fisica;
@@ -53,7 +55,9 @@ export function Nodo({ nodo, posicion, maximo, activo, marcado = false, soloMarc
     nodo.indice || null,
   ].filter(Boolean);
   const costo = `${nodo.costoPct.toFixed(1)}%`;
-  const anchoNombre = Math.min(nombre.length, MAX_TEXTO) * ANCHO_LETRA + 10;
+  // `completo` (imagen de una observación): nombres sin recortar, para que se lea la tabla completa.
+  const corto = (texto) => (completo ? texto : recortar(texto));
+  const anchoNombre = (completo ? nombre.length : Math.min(nombre.length, MAX_TEXTO)) * ANCHO_LETRA + 10;
   const anchoPastilla = costo.length * 7 + 14;
   const { x, y } = posicion;
   const mitad = ICONO / 2;
@@ -88,12 +92,12 @@ export function Nodo({ nodo, posicion, maximo, activo, marcado = false, soloMarc
         <rect x={x - anchoNombre / 2} y={y + mitad + 5} width={anchoNombre} height={16} rx={8} className="plan-resaltado" />
       )}
       <text x={x} y={y + mitad + 17} textAnchor="middle" className="plan-nombre">
-        {recortar(nombre)}
+        {corto(nombre)}
         <title>{nombre}</title>
       </text>
       {lineas.map((linea, indice) => (
         <text key={linea} x={x} y={y + mitad + 32 + indice * 14} textAnchor="middle" className="plan-detalle">
-          {recortar(linea)}
+          {corto(linea)}
           <title>{linea}</title>
         </text>
       ))}
