@@ -16,7 +16,9 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, juntar_ortografia, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_tabla
-from app.analizadores.diccionario_varios import agrupar_varios, nombres_del_script, objetos_sin_script, por_objeto
+from app.analizadores.diccionario_varios import (
+    agrupar_varios, es_otro_objeto, nombres_del_script, objetos_sin_script, por_objeto,
+)
 from app.analizadores.objetos_repetidos import hallazgo_repetidos, quitar_creaciones_repetidas
 from app.analizadores.ortografia import (
     ACCION_ORTOGRAFIA, elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico,
@@ -355,6 +357,23 @@ def _validar_nombres_vacios(
     return hallazgos
 
 
+def _tabla_documentada_con_su_nombre(llamadas: List[LlamadaPropiedad], nombre_tabla: str) -> bool:
+    return any(
+        ll.texto("level1type").upper() == "TABLE" and ll.texto("level1name").upper() == nombre_tabla.upper()
+        for ll in llamadas
+    )
+
+
+def _de_otra_tabla(ll: LlamadaPropiedad, llamadas: List[LlamadaPropiedad], nombre_tabla: str) -> bool:
+    """
+    La sentencia documenta otra tabla que no vino en el script (se avisa como «tabla fuera del script»):
+    la tabla del script ya está documentada con su nombre y este nombre no se le parece. Un nombre
+    parecido (EsquemaSupervisor por EsquemaSupervisores) sí es un error al escribirlo.
+    """
+    return (_tabla_documentada_con_su_nombre(llamadas, nombre_tabla)
+            and es_otro_objeto(ll.texto("level1name"), [nombre_tabla.strip("[]").upper()]))
+
+
 def _validar_nombre_tabla(llamadas: List[LlamadaPropiedad], nombre_tabla: str) -> List[Hallazgo]:
     return [
         _hallazgo(
@@ -368,6 +387,7 @@ def _validar_nombre_tabla(llamadas: List[LlamadaPropiedad], nombre_tabla: str) -
         if ll.texto("level1type").upper() == "TABLE"
         and ll.texto("level1name")
         and ll.texto("level1name").upper() != nombre_tabla.upper()
+        and not _de_otra_tabla(ll, llamadas, nombre_tabla)
     ]
 
 
@@ -502,6 +522,8 @@ def _validar_columnas_inexistentes(
     if tipo_sentencia != "CREATE":
         return []
     reales = {c.upper() for c in columnas_reales}
+    # Las columnas de otras tablas (que no vinieron en el script) no se comparan con las de esta.
+    llamadas = [ll for ll in llamadas if not _de_otra_tabla(ll, llamadas, nombre_tabla)]
     return [
         con_elemento(_hallazgo(
             ll.linea, "COLUMNA_NO_EXISTE",
@@ -872,6 +894,12 @@ def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> Li
             juntar_ortografia(_revisar_tabla(texto_tabla, texto_diccionario), ACCION_ORTOGRAFIA),
             _PLANTILLAS_AGRUPADAS,
         )
+        _, nombre_tabla = extraer_esquema_y_nombre(texto_tabla)
+        if nombre_tabla and _tabla_documentada_con_su_nombre(leer_propiedades_extendidas(texto_diccionario),
+                                                             nombre_tabla):
+            hallazgos += _tablas_fuera_del_script(
+                texto_diccionario, nombres_del_script(texto_tabla, _ENCABEZADO_TABLA, _nombre_del_encabezado)
+            )
     else:
         hallazgos = []
         for nombre, texto, diccionario in varias:
@@ -969,7 +997,12 @@ def _revisar_tabla(texto_tabla: str, texto_diccionario: str) -> List[Hallazgo]:
     # nombre vacío): no se marca además como «tabla sin descripción».
     if any("@level1name" in h.mensaje for h in vacios):
         hallazgos = [h for h in hallazgos if h.regla != "TABLA_SIN_DESCRIPCION"]
-    hallazgos += _validar_nombre_tabla(llamadas, nombre_tabla)
+    nombre_mal_escrito = _validar_nombre_tabla(llamadas, nombre_tabla)
+    # Igual si la descripción de la tabla está con el nombre mal escrito: basta con decir que no coincide.
+    if any(_es_de_tabla(ll) and not _es_de_columna(ll) and ll.texto("level1name").upper() != nombre_tabla.upper()
+           and not _de_otra_tabla(ll, llamadas, nombre_tabla) for ll in llamadas):
+        hallazgos = [h for h in hallazgos if h.regla != "TABLA_SIN_DESCRIPCION"]
+    hallazgos += nombre_mal_escrito
     hallazgos += _validar_descripciones_vacias(llamadas)
     hallazgos += _validar_ortografia(llamadas, esquema, nombre_tabla, columnas_reales, texto_diccionario)
     hallazgos += _validar_valores_sin_comillas(llamadas)

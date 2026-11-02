@@ -52,6 +52,28 @@ def es_otro_objeto(nombre: str, claves: List[str]) -> bool:
     return max((difflib.SequenceMatcher(None, clave, otra).ratio() for otra in claves), default=0) < 0.85
 
 
+def sin_otros_objetos(texto_diccionario: str, nombre: str) -> Optional[str]:
+    """
+    Con un solo objeto en el script: si el diccionario lo documenta con su nombre y además documenta
+    otros objetos (que no se le parecen), devuelve el diccionario con las sentencias de esos otros en
+    blanco (mismas líneas), para revisar el objeto solo con lo suyo. None si no hay otros objetos.
+    """
+    clave = _limpiar(nombre)
+    llamadas = leer_propiedades_extendidas(texto_diccionario)
+    if not any(_limpiar(ll.texto("level1name")) == clave for ll in llamadas):
+        return None  # el objeto no está documentado con su nombre: un nombre distinto puede ser un error
+    caracteres, hubo_otros = list(texto_diccionario), False
+    for indice, ll in enumerate(llamadas):
+        if not es_otro_objeto(ll.texto("level1name"), [clave]):
+            continue
+        hubo_otros = True
+        fin = llamadas[indice + 1].posicion if indice + 1 < len(llamadas) else len(texto_diccionario)
+        for posicion in range(ll.posicion, fin):
+            if caracteres[posicion] != "\n":
+                caracteres[posicion] = " "
+    return "".join(caracteres) if hubo_otros else None
+
+
 def objetos_sin_script(texto_diccionario: str, nombres: List[str]) -> List[Tuple[str, List[int]]]:
     """[(nombre, líneas)] de los objetos que el diccionario documenta pero que no están en el script."""
     claves = [_limpiar(n) for n in nombres]
