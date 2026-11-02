@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Set, Tuple
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
 from app.analizadores.collate_temporales import columnas_sin_collate
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
+from app.analizadores.left_like import left_reemplazable_por_like
 from app.analizadores.drop_table_if_exists import mensaje_drop_if_exists, validaciones_antes_de_drop
 from app.analizadores.openjson_collate import collates_en_openjson, dentro_de_openjson, mensaje_collate_openjson
 from app.analizadores.sql_order_by import order_by_por_posicion
@@ -851,6 +852,14 @@ def _validar_collate_en_condiciones(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _validar_left_como_like(texto: str, con_textos: str) -> List[Hallazgo]:
+    """LEFT(col, n) = 'abc' en un filtro: con LIKE 'abc%' se aprovechan los índices (ver left_like)."""
+    return [
+        _hallazgo(texto, posicion, "LEFT_REEMPLAZABLE_POR_LIKE", mensaje)
+        for posicion, mensaje in left_reemplazable_por_like(con_textos)
+    ]
+
+
 def _validar_funciones_reemplazables(texto: str, limpio: str) -> List[Hallazgo]:
     """Funciones con una alternativa nativa mejor: TRIM, STRING_AGG y STRING_SPLIT."""
     hallazgos = []
@@ -1036,6 +1045,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_collate_en_condiciones(texto_sql, limpio))
     hallazgos.extend(_validar_collate_database_default(texto_sql, limpio))
     hallazgos.extend(_validar_funciones_reemplazables(texto_sql, limpio))
+    hallazgos.extend(_validar_left_como_like(texto_sql, sin_comentarios))
     hallazgos.extend(_validar_modificaciones_fisicas(texto_sql, limpio))
     hallazgos.extend(_validar_variables(texto_sql, limpio))
     # Las reglas desactivadas en el catálogo no se reportan.

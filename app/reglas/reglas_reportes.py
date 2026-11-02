@@ -160,6 +160,16 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "LEFT_REEMPLAZABLE_POR_LIKE": ReglaDiccionario(
+        codigo="LEFT_REEMPLAZABLE_POR_LIKE",
+        nombre="LEFT que puede ser LIKE",
+        severidad="medio",
+        descripcion="En un filtro (WHERE, ON, HAVING), LEFT(col, n) = 'abc' o SUBSTRING(col, 1, n) = 'abc' se "
+                    "reemplaza por col LIKE 'abc%' para usar los índices; solo si LIKE devuelve lo mismo (el texto "
+                    "tiene n caracteres y la columna es de texto).",
+        alcance="reporte",
+        activo=True,
+    ),
     "RAISERROR_USAR_THROW": ReglaDiccionario(
         codigo="RAISERROR_USAR_THROW",
         nombre="Uso de RAISERROR",
