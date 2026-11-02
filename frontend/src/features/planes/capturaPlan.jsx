@@ -199,27 +199,45 @@ function recuadro(nodo, regla, sentencia) {
   return { marcado, ancho, alto };
 }
 
+/**
+ * Ancho del cuadrito compacto: el de una columna del diagrama o, si el nombre de la tabla o del índice es más
+ * largo, lo que haga falta para leerlo completo.
+ */
+function anchoCompacto(nodo) {
+  const textos = [
+    nodo.padre === null ? nodo.fisica.toUpperCase() : nodo.fisica,
+    nodo.logica && nodo.logica !== nodo.fisica ? `(${nodo.logica})` : '',
+    nodo.objeto || '',
+    nodo.indice || '',
+  ];
+  return Math.max(COLUMNA, Math.ceil(Math.max(...textos.map((texto) => medir(texto))) + 28));
+}
+
 /** Recorte del diagrama alrededor de un operador, con el recuadro encima. */
 function bloque(sentencia, nodo, posiciones, ancho, y, regla, x = 0) {
   const compacto = REGLAS_COMPACTAS.has(regla);
-  const anchoRecorte = compacto ? COLUMNA : ANCHO_RECORTE;
+  const anchoRecorte = compacto ? anchoCompacto(nodo) : ANCHO_RECORTE;
   const objetivo = posiciones.get(nodo.id);
   const maximo = Math.max(...sentencia.nodos.map((n) => n.costoPct), 0);
   const filasDe = (n) => n.filasReales ?? n.filasEstimadas;
   const filasMaximas = Math.max(...sentencia.nodos.map((n) => filasDe(n) ?? 0), 1);
   const recorteX = compacto
-    ? objetivo.x - COLUMNA / 2
+    ? objetivo.x - anchoRecorte / 2
     : Math.max(0, Math.min(objetivo.x - COLUMNA * 1.5, ancho - ANCHO_RECORTE));
+  // Compacto: solo el operador marcado y sus flechas (al ensancharse no asoman los operadores vecinos).
+  const visibles = compacto ? sentencia.nodos.filter((n) => n.id === nodo.id) : sentencia.nodos;
+  const flechas = sentencia.nodos.filter((n) => n.padre !== null
+    && (!compacto || n.id === nodo.id || n.padre === nodo.id));
   const altoRecorte = compacto ? ALTO_COMPACTO : ALTO_RECORTE;
   const recorteY = objetivo.y - (compacto ? 48 : 58);
 
   const diagrama = renderToStaticMarkup(
     <g>
       <DefinicionesIconos />
-      {sentencia.nodos.filter((n) => n.padre !== null).map((n) => (
+      {flechas.map((n) => (
         <Flecha key={`f-${n.id}`} desde={posiciones.get(n.id)} hasta={posiciones.get(n.padre)} filas={filasDe(n)} filasMaximas={filasMaximas} desviada={filasDesviadas(n)} />
       ))}
-      {sentencia.nodos.map((n) => (
+      {visibles.map((n) => (
         <Nodo
           key={n.id}
           nodo={n}
@@ -227,6 +245,7 @@ function bloque(sentencia, nodo, posiciones, ancho, y, regla, x = 0) {
           maximo={maximo}
           activo={n.id === nodo.id}
           marcado={n.id === nodo.id}
+          completo={n.id === nodo.id}
           soloMarcado
           onEntrar={() => {}}
           onSalir={() => {}}
@@ -278,11 +297,13 @@ export async function crearCapturaPlan({ grupos, archivo, regla }) {
   let y = ALTO_PESTANA + 8;
   let anchoTotal = compacto ? 0 : ANCHO_RECORTE;
   const etiquetaAlto = variasConsultas ? 20 : 0;
+  let xFila = 0; // compacto: cada cuadrito empieza donde terminó el anterior (cada uno con su ancho)
   const bloques = casos.map(({ sentencia, nodo }, indice) => {
     if (!geometrias.has(sentencia.numero)) geometrias.set(sentencia.numero, calcularPosiciones(sentencia.nodos));
     const { posiciones, ancho } = geometrias.get(sentencia.numero);
     // Compacto: cuadritos en filas de 4; si no, recortes uno debajo de otro.
-    const x = compacto ? (indice % POR_FILA_COMPACTA) * (COLUMNA + SEPARACION) : 0;
+    if (compacto && indice % POR_FILA_COMPACTA === 0) xFila = 0;
+    const x = compacto ? xFila : 0;
     const yBloque = compacto
       ? ALTO_PESTANA + 8 + Math.floor(indice / POR_FILA_COMPACTA) * (ALTO_COMPACTO + etiquetaAlto + SEPARACION)
       : y;
@@ -293,6 +314,7 @@ export async function crearCapturaPlan({ grupos, archivo, regla }) {
     if (compacto) {
       y = Math.max(y, yBloque + etiquetaAlto + resultado.alto + SEPARACION);
       anchoTotal = Math.max(anchoTotal, x + resultado.ancho);
+      xFila = x + resultado.ancho + SEPARACION;
     } else {
       y += etiquetaAlto + resultado.alto + SEPARACION;
       anchoTotal = Math.max(anchoTotal, resultado.ancho);
