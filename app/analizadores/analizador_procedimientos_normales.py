@@ -7,13 +7,14 @@ from typing import Dict, List, Set, Tuple
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
 from app.analizadores.collate_temporales import columnas_sin_collate
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
+from app.analizadores.left_like import left_reemplazable_por_like
 from app.analizadores.drop_table_if_exists import mensaje_drop_if_exists, validaciones_antes_de_drop
 from app.analizadores.openjson_collate import collates_en_openjson, dentro_de_openjson, mensaje_collate_openjson
 from app.analizadores.sql_order_by import order_by_por_posicion
 from app.analizadores.parametros_prefijo import (
     mensaje_parametros_sin_prefijo, mensaje_variables_sin_prefijo, parametros_sin_prefijo, variables_sin_prefijo,
 )
-from app.analizadores.sql_parentesis import sin_parentesis_cerrados
+from app.analizadores.sql_parentesis import expresion_antes, sin_parentesis_cerrados
 from app.analizadores.variables_sin_uso import mensaje_variables_sin_uso, variables_sin_uso
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.reglas.reglas_procedimientos_normales import REGLAS_PROCEDIMIENTOS_NORMALES
@@ -1153,20 +1154,27 @@ def _validar_raiserror(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
-def _validar_in_un_valor(texto: str, limpio: str) -> List[Hallazgo]:
+def _validar_in_un_valor(texto: str, limpio: str, con_textos: str) -> List[Hallazgo]:
     """IN se usa con dos o más valores; con uno solo corresponde = (o <> si es NOT IN)."""
     hallazgos = []
-    patron = re.compile(r"([\w.\[\]@#]+)\s+(NOT\s+)?IN\s*\(\s*([^,()]+?)\s*\)", re.IGNORECASE)
+    # LEFT(col, 1) IN ('A') ya se observa como LIKE (que reemplaza también al IN): no se repite.
+    con_like = {posicion for posicion, _ in left_reemplazable_por_like(con_textos)}
+    patron = re.compile(r"\b(NOT\s+)?IN\s*\(\s*([^,()]+?)\s*\)", re.IGNORECASE)
     for match in patron.finditer(limpio):
-        columna, negado = match.group(1), bool(match.group(2))
+        # Lo que se compara: una columna (c.cEstado) o una función (UPPER(cRhCod)).
+        expresion = expresion_antes(limpio, match.start())
+        if not expresion or expresion[0] in con_like:
+            continue
+        columna, negado = texto[expresion[0]:expresion[0] + len(expresion[1])], bool(match.group(1))
+        columna = re.sub(r"\s+", " ", columna)
         # El valor se toma del código original: en "limpio" el contenido de los textos va en blanco.
-        valor = texto[match.start(3):match.end(3)]
+        valor = texto[match.start(2):match.end(2)]
         if re.match(r"SELECT\b", valor, re.IGNORECASE):
             continue  # IN (SELECT ...) es una subconsulta, no una lista de valores
         operador_in = "NOT IN" if negado else "IN"
         operador = "<>" if negado else "="
         hallazgos.append(_hallazgo(
-            texto, match.start(), "IN_CON_UN_SOLO_VALOR",
+            texto, expresion[0], "IN_CON_UN_SOLO_VALOR",
             f"Se identificó el uso del operador {operador_in} para comparar un único valor en "
             f"{columna} {operador_in} ({valor}). Se recomienda reemplazar {operador_in} por {operador}, ya que se "
             f"está comparando un solo valor. El operador {operador_in} es más apropiado para comparar múltiples "
@@ -1176,25 +1184,11 @@ def _validar_in_un_valor(texto: str, limpio: str) -> List[Hallazgo]:
 
 
 def _validar_left_como_like(texto: str, limpio: str) -> List[Hallazgo]:
-    """LEFT(col, n) = 'abc' en una condición: con LIKE 'abc%' se aprovechan los índices."""
-    hallazgos = []
-    columna = r"[\w.\[\]@#]+"
-    valor = r"'[^']*'|@\w+"
-    patrones = (
-        rf"\bLEFT\s*\(\s*(?P<col>{columna})\s*,\s*(?P<n>\d+)\s*\)\s*=\s*(?P<val>{valor})",
-        rf"(?P<val>{valor})\s*=\s*LEFT\s*\(\s*(?P<col>{columna})\s*,\s*(?P<n>\d+)\s*\)",
-    )
-    for patron in patrones:
-        for match in re.finditer(patron, limpio, re.IGNORECASE):
-            col, n, val = match.group("col"), match.group("n"), match.group("val")
-            like = f"{col} LIKE '{val[1:-1]}%'" if val.startswith("'") else f"{col} LIKE {val} + '%'"
-            hallazgos.append(_hallazgo(
-                texto, match.start(), "LEFT_REEMPLAZABLE_POR_LIKE",
-                f"Se encontró LEFT({col}, {n}) = {val} en una condición. Emplear LIKE, ya que "
-                f"aplicar LEFT a la columna impide usar sus índices y LIKE con el comodín al final sí los "
-                f"aprovecha (ej.: {like}).",
-            ))
-    return hallazgos
+    """LEFT(col, n) = 'abc' en un filtro: con LIKE 'abc%' se aprovechan los índices (ver left_like)."""
+    return [
+        _hallazgo(texto, posicion, "LEFT_REEMPLAZABLE_POR_LIKE", mensaje)
+        for posicion, mensaje in left_reemplazable_por_like(limpio)
+    ]
 
 
 def _desarmar_replace(expresion: str):
@@ -1551,7 +1545,7 @@ def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -
     hallazgos.extend(_validar_raiserror(texto_sql, limpio))
     hallazgos.extend(_validar_transacciones(texto_sql, limpio))
     hallazgos.extend(_validar_envio_correo(texto_sql, limpio))
-    hallazgos.extend(_validar_in_un_valor(texto_sql, limpio))
+    hallazgos.extend(_validar_in_un_valor(texto_sql, limpio, con_textos))
     hallazgos.extend(_validar_left_como_like(texto_sql, con_textos))
     hallazgos.extend(_validar_replace_anidado(texto_sql, con_textos, limpio))
     hallazgos.extend(_validar_esquema_entre_bases(texto_sql, limpio))

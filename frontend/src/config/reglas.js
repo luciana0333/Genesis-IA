@@ -96,7 +96,7 @@ export const NOMBRES_REGLAS = {
   ORDER_BY_NUMERICO_PROHIBIDO: 'ORDER BY numérico prohibido',
   CAST_EN_JOIN_PROHIBIDO: 'CAST o CONVERT en JOIN',
   TABLA_REPETIDA_EN_CONSULTA: 'Misma tabla en varios JOIN',
-  LEFT_REEMPLAZABLE_POR_LIKE: 'LEFT que puede ser LIKE',
+  LEFT_REEMPLAZABLE_POR_LIKE: 'LEFT que puede reemplazarse por LIKE',
   TRANSACCION_SIN_COMMIT: 'Transacción sin COMMIT',
   ENVIO_CORREO_DESDE_BD: 'Envío de correo desde la base de datos',
   REPLACE_ANIDADO_TRANSLATE: 'REPLACE anidados que pueden ser TRANSLATE',

@@ -20,7 +20,9 @@ from typing import List, Set, Tuple, Dict, Optional
 from app.analizadores.descripcion_vs_nombre import contradice
 from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, juntar_ortografia, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_procedimiento
-from app.analizadores.diccionario_varios import agrupar_varios, nombres_del_script, objetos_sin_script, por_objeto
+from app.analizadores.diccionario_varios import (
+    agrupar_varios, nombres_del_script, objetos_sin_script, por_objeto, sin_otros_objetos,
+)
 from app.analizadores.objetos_repetidos import hallazgo_repetidos, quitar_creaciones_repetidas
 from app.analizadores.ortografia import (
     ACCION_ORTOGRAFIA, elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico,
@@ -712,10 +714,17 @@ def verificar_diccionario(
         duplicado.seccion = "objeto"
     varios = por_objeto(texto_procedimiento, texto_diccionario, _ENCABEZADO, _nombre_del_encabezado)
     if varios is None:
+        # Si el diccionario documenta además otros procedimientos (que no vinieron en el script), se
+        # revisa solo lo de este y los otros se avisan una vez como «procedimiento fuera del script».
+        nombres = nombres_del_script(texto_procedimiento, _ENCABEZADO, _nombre_del_encabezado)
+        propio = sin_otros_objetos(texto_diccionario, nombres[0]) if len(nombres) == 1 else None
         hallazgos = agrupar(
-            juntar_ortografia(_revisar_procedimiento(texto_procedimiento, texto_diccionario), ACCION_ORTOGRAFIA),
+            juntar_ortografia(_revisar_procedimiento(texto_procedimiento, propio or texto_diccionario),
+                              ACCION_ORTOGRAFIA),
             _PLANTILLAS_AGRUPADAS,
         )
+        if propio is not None:
+            hallazgos += _procedimientos_fuera_del_script(texto_diccionario, nombres)
     else:
         hallazgos = []
         for nombre, texto, diccionario in varios:

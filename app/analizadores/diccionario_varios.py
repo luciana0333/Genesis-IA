@@ -52,6 +52,28 @@ def es_otro_objeto(nombre: str, claves: List[str]) -> bool:
     return max((difflib.SequenceMatcher(None, clave, otra).ratio() for otra in claves), default=0) < 0.85
 
 
+def sin_otros_objetos(texto_diccionario: str, nombre: str) -> Optional[str]:
+    """
+    Con un solo objeto en el script: si el diccionario lo documenta con su nombre y además documenta
+    otros objetos (que no se le parecen), devuelve el diccionario con las sentencias de esos otros en
+    blanco (mismas líneas), para revisar el objeto solo con lo suyo. None si no hay otros objetos.
+    """
+    clave = _limpiar(nombre)
+    llamadas = leer_propiedades_extendidas(texto_diccionario)
+    if not any(_limpiar(ll.texto("level1name")) == clave for ll in llamadas):
+        return None  # el objeto no está documentado con su nombre: un nombre distinto puede ser un error
+    caracteres, hubo_otros = list(texto_diccionario), False
+    for indice, ll in enumerate(llamadas):
+        if not es_otro_objeto(ll.texto("level1name"), [clave]):
+            continue
+        hubo_otros = True
+        fin = llamadas[indice + 1].posicion if indice + 1 < len(llamadas) else len(texto_diccionario)
+        for posicion in range(ll.posicion, fin):
+            if caracteres[posicion] != "\n":
+                caracteres[posicion] = " "
+    return "".join(caracteres) if hubo_otros else None
+
+
 def objetos_sin_script(texto_diccionario: str, nombres: List[str]) -> List[Tuple[str, List[int]]]:
     """[(nombre, líneas)] de los objetos que el diccionario documenta pero que no están en el script."""
     claves = [_limpiar(n) for n in nombres]
@@ -66,8 +88,9 @@ def objetos_sin_script(texto_diccionario: str, nombres: List[str]) -> List[Tuple
 def repartir_diccionario(texto_diccionario: str, nombres: List[str]) -> List[List[Rango]]:
     """
     Rangos del diccionario de cada objeto (en el orden de `nombres`). Cada sentencia va al
-    objeto de su @level1name; si ese nombre no es de ningún objeto (mal escrito o vacío), va
-    con la sentencia anterior, para que la revisión de ese objeto diga que el nombre no coincide.
+    objeto de su @level1name; si ese nombre está mal escrito, va al objeto al que más se parece
+    (GarantiaTipos → GarantiaTipo, no a la tabla anterior Garantia), para que la revisión de ese
+    objeto diga que el nombre no coincide. Con el nombre vacío va con la sentencia anterior.
     Lo que no es una sentencia (comentarios del inicio) va con el primer objeto.
     """
     claves = [_limpiar(n) for n in nombres]
@@ -77,10 +100,15 @@ def repartir_diccionario(texto_diccionario: str, nombres: List[str]) -> List[Lis
         rangos[0].append((0, len(texto_diccionario)))
         return rangos
 
-    duenos: List[Optional[int]] = [
-        claves.index(_limpiar(ll.texto("level1name"))) if _limpiar(ll.texto("level1name")) in claves else None
-        for ll in llamadas
-    ]
+    def dueno_de(nombre: str) -> Optional[int]:
+        clave = _limpiar(nombre)
+        if clave in claves:
+            return claves.index(clave)
+        if not clave or es_otro_objeto(nombre, claves):
+            return None
+        return max(range(len(claves)), key=lambda i: difflib.SequenceMatcher(None, clave, claves[i]).ratio())
+
+    duenos: List[Optional[int]] = [dueno_de(ll.texto("level1name")) for ll in llamadas]
     anterior = next((d for d in duenos if d is not None), 0)
     for i, ll in enumerate(llamadas):
         if duenos[i] is None and es_otro_objeto(ll.texto("level1name"), claves):

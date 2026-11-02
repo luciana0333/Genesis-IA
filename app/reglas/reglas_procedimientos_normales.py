@@ -236,9 +236,11 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "LEFT_REEMPLAZABLE_POR_LIKE": ReglaDiccionario(
         codigo="LEFT_REEMPLAZABLE_POR_LIKE",
-        nombre="LEFT que puede ser LIKE",
+        nombre="LEFT que puede reemplazarse por LIKE",
         severidad="medio",
-        descripcion="En una condición, LEFT(col, n) = 'abc' se reemplaza por col LIKE 'abc%' para usar los índices.",
+        descripcion="En un filtro (WHERE, ON, HAVING), LEFT(col, n) = 'abc' o SUBSTRING(col, 1, n) = 'abc' se "
+                    "reemplaza por col LIKE 'abc%' para usar los índices; solo si LIKE devuelve lo mismo (el texto "
+                    "tiene n caracteres y la columna es de texto).",
         alcance="procedimiento",
         activo=True,
     ),
