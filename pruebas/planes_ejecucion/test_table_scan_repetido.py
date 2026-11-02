@@ -41,8 +41,10 @@ class TestTableScanRepetido(unittest.TestCase):
         self.assertEqual(
             hallazgos[0].mensaje,
             "Se ha identificado un Table Scan dentro del procedimiento sobre la tabla [dbo].[Agencias]: se leen "
-            "86 filas y se devuelven 13. Evaluar agregar la PK CLUSTERED en la tabla, ya que forma parte de las "
-            "buenas prácticas y ayuda a agilizar la búsqueda.",
+            "86 filas y se devuelven 13. "
+            "Evaluar agregar una PK CLUSTERED en la tabla, ya que, según nuestras buenas prácticas, toda tabla debe "
+            "contar con una. Esto permite identificar los registros de forma única y facilita su búsqueda mediante "
+            "índices.",
         )
         # Una sola imagen: la del recorrido más costoso.
         self.assertEqual(hallazgos[0].nodos, [{"consulta": 2, "nodo": "1"}])
@@ -55,8 +57,9 @@ class TestTableScanRepetido(unittest.TestCase):
             hallazgo.mensaje,
             "Se identificaron 2 Table Scan dentro del procedimiento, en las consultas 2, 3: La tabla "
             "[dbo].[Agencias]: se leen 86 filas y se devuelven 13; La tabla [dbo].[Monedas] (consulta 3): se leen "
-            "86 filas y se devuelven 2. Evaluar agregar la PK CLUSTERED en las tablas con Table Scan, ya que forma "
-            "parte de las buenas prácticas y ayuda a agilizar la búsqueda.",
+            "86 filas y se devuelven 2. Evaluar agregar una PK CLUSTERED en cada tabla con Table Scan, ya que, según "
+            "nuestras buenas prácticas, toda tabla debe contar con una. Esto permite identificar los registros de "
+            "forma única y facilita su búsqueda mediante índices.",
         )
         self.assertEqual(hallazgo.nodos, [{"consulta": 2, "nodo": "1"}, {"consulta": 3, "nodo": "1"}])
 

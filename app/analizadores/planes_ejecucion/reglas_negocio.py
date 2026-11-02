@@ -62,6 +62,13 @@ def _funciones_de_tabla(sentencia: Dict) -> set:
     return {n["objeto"] for n in sentencia["nodos"] if n["fisica"] == "Table-valued function" and n.get("objeto")}
 
 
+# «Qué hacer» del Table Scan: texto de la usuaria (2 nov.).
+_ACCION_PK = (
+    "Evaluar agregar una PK CLUSTERED {donde}, ya que, según nuestras buenas prácticas, toda tabla debe contar con "
+    "una. Esto permite identificar los registros de forma única y facilita su búsqueda mediante índices."
+)
+
+
 def _table_scan(sentencias: List[Dict]) -> List[Hallazgo]:
     """Table Scan sobre tablas físicas: en un procedimiento de negocio se recorre la tabla completa."""
     varias = len({s["numero"] for s in sentencias}) > 1
@@ -110,16 +117,14 @@ def _table_scan(sentencias: List[Dict]) -> List[Hallazgo]:
         inicio = ("Se ha identificado un Table Scan" if len(mostrados) == 1
                   else f"Se identificaron {len(mostrados)} Table Scan")
         mensaje = (
-            f"{inicio} dentro del procedimiento sobre {describir(next(iter(por_tabla)), con_veces=False)}. Evaluar "
-            f"agregar la PK CLUSTERED en la tabla, ya que forma parte de las buenas prácticas y ayuda a agilizar la "
-            f"búsqueda."
+            f"{inicio} dentro del procedimiento sobre {describir(next(iter(por_tabla)), con_veces=False)}. "
+            f"{_ACCION_PK.format(donde='en la tabla')}"
         )
     else:
         detalle = "; ".join(d[:1].upper() + d[1:] for d in (describir(tabla) for tabla in por_tabla))
         mensaje = (
             f"Se identificaron {len(mostrados)} Table Scan dentro del procedimiento, en {_encabezado(mostrados)}: "
-            f"{detalle}. Evaluar agregar la PK CLUSTERED en las tablas con Table Scan, ya que forma parte de las "
-            f"buenas prácticas y ayuda a agilizar la búsqueda."
+            f"{detalle}. {_ACCION_PK.format(donde='en cada tabla con Table Scan')}"
         )
     return [_hallazgo("TABLE_SCAN_DETECTADO", Severidad.ALTO, mensaje, mostrados)]
 
