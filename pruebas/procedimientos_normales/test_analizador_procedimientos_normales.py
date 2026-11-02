@@ -588,19 +588,19 @@ END"""
 
     def test_left_en_condicion_sugiere_like(self):
         casos = {
-            "SELECT a FROM #T WHERE LEFT(cCodigo, 3) = 'ABC'": "cCodigo LIKE 'ABC%'",
+            "SELECT a FROM #T WHERE LEFT(cCodigo, 3) = 'ABC'": "por LIKE 'ABC%', ya que aplicar LEFT()",
             "DECLARE @cPrefijo CHAR(4) SELECT a FROM #A a JOIN #B b ON LEFT(a.cCuenta, 4) = @cPrefijo":
-                "a.cCuenta LIKE @cPrefijo + '%'",
-            "SELECT a FROM #T WHERE SUBSTRING(cCtaCod, 1, 5) = '10901'": "cCtaCod LIKE '10901%'",
+                "por LIKE @cPrefijo + '%',",
+            "SELECT a FROM #T WHERE SUBSTRING(cCtaCod, 1, 5) = '10901'": "por LIKE '10901%', ya que aplicar SUBSTRING()",
             "SELECT a FROM #T WHERE LEFT(cCtaCod, 5) IN ('10901','10902')":
                 "(cCtaCod LIKE '10901%' OR cCtaCod LIKE '10902%')",
-            "SELECT a FROM #T WHERE LEFT(cCtaCod, 5) = N'10901'": "cCtaCod LIKE N'10901%'",
-            "SELECT a FROM #T WHERE LEFT(cCtaCod, 2) = 10": "cCtaCod LIKE '10%'",
-            "SELECT a FROM #T WHERE LEFT(cCodigo, 3) = 'A_B'": "cCodigo LIKE 'A[_]B%'",
-            "SELECT a FROM #T WHERE '109' = LEFT(cCtaCod, 3)": "cCtaCod LIKE '109%'",
-            "IF EXISTS (SELECT 1 FROM #U WHERE LEFT(cCtaCod, 3) = '109') PRINT 1": "cCtaCod LIKE '109%'",
+            "SELECT a FROM #T WHERE LEFT(cCtaCod, 5) = N'10901'": "por LIKE N'10901%',",
+            "SELECT a FROM #T WHERE LEFT(cCtaCod, 2) = 10": "por LIKE '10%',",
+            "SELECT a FROM #T WHERE LEFT(cCodigo, 3) = 'A_B'": "por LIKE 'A[_]B%',",
+            "SELECT a FROM #T WHERE '109' = LEFT(cCtaCod, 3)": "por LIKE '109%',",
+            "IF EXISTS (SELECT 1 FROM #U WHERE LEFT(cCtaCod, 3) = '109') PRINT 1": "por LIKE '109%',",
             "CREATE PROCEDURE dbo.PA_X @pcPref VARCHAR(5) AS SELECT a FROM #T WHERE LEFT(cCtaCod, 5) = @pcPref":
-                "cCtaCod LIKE @pcPref + '%'",
+                "por LIKE @pcPref + '%',",
         }
         for sql, sugerencia in casos.items():
             with self.subTest(sql=sql):

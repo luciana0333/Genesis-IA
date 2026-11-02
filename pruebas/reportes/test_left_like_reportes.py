@@ -1,4 +1,4 @@
-"""Reportes, LEFT que puede ser LIKE (2 nov.): la misma regla de Negocio (módulo compartido left_like)."""
+"""Reportes, LEFT que puede reemplazarse por LIKE (2 nov.): la misma regla de Negocio (módulo compartido left_like)."""
 
 import unittest
 
@@ -19,16 +19,16 @@ class LeftLikeEnReportesTest(unittest.TestCase):
         self.assertEqual(hallazgos[0].linea, 6)
         self.assertEqual(
             hallazgos[0].mensaje,
-            "Se encontró LEFT(cCtaCod, 5) = '10901' en una condición. Emplear LIKE, ya que aplicar LEFT a la "
-            "columna impide usar sus índices y LIKE con el comodín al final sí los aprovecha "
-            "(ej.: cCtaCod LIKE '10901%').",
+            "Se identificó el uso de LEFT(cCtaCod, 5) = '10901' en una condición. Se recomienda evaluar "
+            "reemplazarlo por LIKE '10901%', ya que aplicar LEFT() sobre la columna puede impedir el "
+            "aprovechamiento de sus índices y afectar el rendimiento de la consulta.",
         )
 
     def test_substring_in_y_parametro(self):
         casos = {
-            "WHERE SUBSTRING(cCtaCod, 1, 5) = '10901'": "cCtaCod LIKE '10901%'",
+            "WHERE SUBSTRING(cCtaCod, 1, 5) = '10901'": "por LIKE '10901%', ya que aplicar SUBSTRING()",
             "WHERE LEFT(cCtaCod, 5) IN ('10901', '10902')": "(cCtaCod LIKE '10901%' OR cCtaCod LIKE '10902%')",
-            "WHERE LEFT(cCtaCod, 5) = @pcPrefijo": "cCtaCod LIKE @pcPrefijo + '%'",
+            "WHERE LEFT(cCtaCod, 5) = @pcPrefijo": "por LIKE @pcPrefijo + '%',",
         }
         for filtro, sugerencia in casos.items():
             with self.subTest(filtro=filtro):

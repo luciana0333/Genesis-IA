@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""LEFT que puede ser LIKE (compartido por Reportes y Procedimientos de negocio).
+"""LEFT que puede reemplazarse por LIKE (compartido por Reportes y Procedimientos de negocio).
 
     WHERE LEFT(cCtaCod, 5) = '10901'   →   WHERE cCtaCod LIKE '10901%'
 
@@ -128,12 +128,13 @@ def left_reemplazable_por_like(limpio: str) -> List[Tuple[int, str]]:
                 continue
             funcion = re.sub(r"\s+", " ", match.group("funcion"))
             condicion = re.sub(r"\s+", " ", match.group(0).strip())
-            ejemplo = likes[0] if len(likes) == 1 else "(" + " OR ".join(likes) + ")"
+            # Un valor: «LIKE '701%'» (como lo escribe la usuaria); varios (IN): la condición completa con OR.
+            reemplazo = likes[0][len(col) + 1:] if len(likes) == 1 else "(" + " OR ".join(likes) + ")"
             nombre = "SUBSTRING" if funcion.upper().startswith("SUBSTRING") else "LEFT"
             encontrados.append((
                 match.start(),
-                f"Se encontró {condicion} en una condición. Emplear LIKE, ya que "
-                f"aplicar {nombre} a la columna impide usar sus índices y LIKE con el comodín al final sí los "
-                f"aprovecha (ej.: {ejemplo}).",
+                f"Se identificó el uso de {condicion} en una condición. Se recomienda evaluar reemplazarlo por "
+                f"{reemplazo}, ya que aplicar {nombre}() sobre la columna puede impedir el aprovechamiento de sus "
+                f"índices y afectar el rendimiento de la consulta.",
             ))
     return encontrados
