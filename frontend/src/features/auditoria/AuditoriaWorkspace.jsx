@@ -15,7 +15,7 @@ import { BarraRecorrido, VerEnCodigo } from './VerEnCodigo';
 import { nombreRegla } from '../../config/reglas';
 import { GeneradorDiccionario } from './GeneradorDiccionario';
 import { MetricasSeveridad } from './MetricasSeveridad';
-import { detectarTipoDiccionario, extraerNombreObjeto } from '../../utils/deteccionObjeto';
+import { detectarTipoDiccionario, extraerNombresObjetos, resumirNombresObjetos } from '../../utils/deteccionObjeto';
 import { useAuditoria } from './useAuditoria';
 import { useAlPedirEjemplo } from '../../hooks/useVerEjemplo';
 
@@ -71,16 +71,18 @@ export function AuditoriaWorkspace({ vista }) {
   // procedimiento), para que nunca se apliquen las reglas equivocadas.
   const alCambiarSql = (valor) => {
     actualizarCampo('sqlObject', valor);
-    // El nombre se completa con el del CREATE/ALTER pegado, salvo que el
-    // usuario lo haya escrito a mano (distinto del que traía el SQL anterior).
-    const nombreSql = extraerNombreObjeto(valor);
-    const nombreAnterior = extraerNombreObjeto(campos.sqlObject);
+    // El nombre se completa con el del CREATE/ALTER pegado (con varios objetos,
+    // el primero y cuántos más hay), salvo que el usuario lo haya escrito a mano
+    // (distinto del que traía el SQL anterior).
+    const nombreSql = resumirNombresObjetos(extraerNombresObjetos(valor));
+    const nombreAnterior = resumirNombresObjetos(extraerNombresObjetos(campos.sqlObject));
     const nombreEsAutomatico = !campos.objetoNombre.trim() || campos.objetoNombre === nombreAnterior;
     if (nombreSql && nombreEsAutomatico && nombreSql !== campos.objetoNombre) actualizarCampo('objetoNombre', nombreSql);
     if (!esSelectorVisible) return;
     const detectado = detectarTipoDiccionario(valor);
     if (detectado && detectado !== tipoRevision) ajustarTipo(detectado);
   };
+  const nombresDelSql = extraerNombresObjetos(campos.sqlObject);
   const tieneDiccionario = Boolean(revision.diccionario);
   const tieneIndices = Boolean(revision.indices);
   // La cajita de índices está plegada: se abre con «Agregar índices» o si ya trae código.
@@ -219,6 +221,8 @@ export function AuditoriaWorkspace({ vista }) {
                 type="text"
                 autoComplete="off"
                 value={campos.objetoNombre}
+                // Con varios objetos, al pasar el mouse se ven todos los nombres.
+                title={nombresDelSql.length > 1 ? nombresDelSql.join('\n') : undefined}
                 onChange={(evento) => actualizarCampo('objetoNombre', evento.target.value)}
               />
             </div>
