@@ -589,7 +589,18 @@ END"""
     def test_left_en_condicion_sugiere_like(self):
         casos = {
             "SELECT a FROM #T WHERE LEFT(cCodigo, 3) = 'ABC'": "cCodigo LIKE 'ABC%'",
-            "SELECT a FROM #A a JOIN #B b ON LEFT(a.cCuenta, 4) = @cPrefijo": "a.cCuenta LIKE @cPrefijo + '%'",
+            "DECLARE @cPrefijo CHAR(4) SELECT a FROM #A a JOIN #B b ON LEFT(a.cCuenta, 4) = @cPrefijo":
+                "a.cCuenta LIKE @cPrefijo + '%'",
+            "SELECT a FROM #T WHERE SUBSTRING(cCtaCod, 1, 5) = '10901'": "cCtaCod LIKE '10901%'",
+            "SELECT a FROM #T WHERE LEFT(cCtaCod, 5) IN ('10901','10902')":
+                "(cCtaCod LIKE '10901%' OR cCtaCod LIKE '10902%')",
+            "SELECT a FROM #T WHERE LEFT(cCtaCod, 5) = N'10901'": "cCtaCod LIKE N'10901%'",
+            "SELECT a FROM #T WHERE LEFT(cCtaCod, 2) = 10": "cCtaCod LIKE '10%'",
+            "SELECT a FROM #T WHERE LEFT(cCodigo, 3) = 'A_B'": "cCodigo LIKE 'A[_]B%'",
+            "SELECT a FROM #T WHERE '109' = LEFT(cCtaCod, 3)": "cCtaCod LIKE '109%'",
+            "IF EXISTS (SELECT 1 FROM #U WHERE LEFT(cCtaCod, 3) = '109') PRINT 1": "cCtaCod LIKE '109%'",
+            "CREATE PROCEDURE dbo.PA_X @pcPref VARCHAR(5) AS SELECT a FROM #T WHERE LEFT(cCtaCod, 5) = @pcPref":
+                "cCtaCod LIKE @pcPref + '%'",
         }
         for sql, sugerencia in casos.items():
             with self.subTest(sql=sql):
@@ -598,6 +609,37 @@ END"""
                 self.assertIn(sugerencia, hallazgos[0].mensaje)
         en_select = "SELECT LEFT(cNombre, 10) AS cCorto FROM #T LEFT JOIN #U u ON u.n = 1"
         self.assertNotIn("LEFT_REEMPLAZABLE_POR_LIKE", {h.regla for h in verificar_procedimiento_normal(en_select)})
+
+    def test_left_no_se_marca_cuando_like_no_aplica(self):
+        casos = (
+            # Longitud distinta: LIKE no devuelve lo mismo (o la condición nunca se cumple).
+            "SELECT a FROM #T WHERE LEFT(cCtaCod, 3) = '10901'",
+            "SELECT a FROM #T WHERE LEFT(cCtaCod, 5) = '109'",
+            "SELECT a FROM #T WHERE LEFT(cCtaCod, 3) IN ('109', '10')",
+            # Con = se ignoran los espacios del final; con LIKE no.
+            "SELECT a FROM #T WHERE LEFT(cCtaCod, 3) = 'AB '",
+            # No es un filtro: asignaciones, columnas del SELECT, CASE.
+            "SELECT @x = LEFT(cCtaCod, 5) FROM #T",
+            "SET @x = LEFT(@cCadena, 3)",
+            "SELECT CASE WHEN LEFT(cCtaCod,1)='1' THEN 1 ELSE 0 END FROM #T",
+            # LEFT sobre una variable: no hay índice que perder.
+            "SELECT a FROM #T WHERE LEFT(@cCadena, 3) = 'ABC'",
+            # Variable sin declarar o de otra longitud: su valor puede no tener n caracteres.
+            "SELECT a FROM #T WHERE LEFT(cCtaCod, 5) = @cPref",
+            "DECLARE @cPref VARCHAR(20) SELECT a FROM #T WHERE LEFT(cCtaCod, 5) = @cPref",
+            # Columna que no es texto.
+            "CREATE TABLE #T (nCodigo INT) SELECT a FROM #T WHERE LEFT(nCodigo, 2) = '10'",
+            # Negado, distinto, valor que sigue (concatenado o decimal), otra posición, otra columna.
+            "SELECT a FROM #T WHERE nEstado = 1 AND NOT LEFT(cCtaCod, 2) = '10'",
+            "SELECT a FROM #T WHERE LEFT(cCtaCod, 5) <> '10901'",
+            "SELECT a FROM #T WHERE LEFT(cCtaCod, 2) = '10' + @x",
+            "SELECT a FROM #T WHERE LEFT(cCtaCod, 4) = 10.5",
+            "SELECT a FROM #T WHERE SUBSTRING(cCtaCod, 6, 3) = '232'",
+            "SELECT a FROM #A a JOIN #B b ON LEFT(a.cCtaCod, 5) = b.cPrefijo",
+        )
+        for sql in casos:
+            with self.subTest(sql=sql):
+                self.assertNotIn("LEFT_REEMPLAZABLE_POR_LIKE", {h.regla for h in verificar_procedimiento_normal(sql)})
 
     def test_replace_anidados_sugieren_translate(self):
         exacto = "SELECT REPLACE(REPLACE(REPLACE(cTexto, 'á', 'a'), 'é', 'e'), 'í', 'i') FROM #T"
