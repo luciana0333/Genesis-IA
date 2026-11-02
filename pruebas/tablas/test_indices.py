@@ -105,8 +105,17 @@ class TestIndices(unittest.TestCase):
         for indices in (con_include, sin_include, sin_corchetes):
             with self.subTest(indices=indices):
                 self.assertEqual(reglas(indices, persona), [])
+        # Decisión de la usuaria (2 nov.): INC2 e INC02 son lo mismo; no se observa.
         inc_un_digito = con_include.replace("_INC02", "_INC2")
-        self.assertIn("Renombrarlo como IXN_PERSONA_CPERSCOD_NPERSCLASIFICACION_CPERSESTADO_INC02", mensaje(inc_un_digito, persona))
+        self.assertEqual(reglas(inc_un_digito, persona), [])
+        # Pero el número sigue siendo la cantidad de columnas incluidas: INC3 con dos columnas sí se observa.
+        inc_equivocado = con_include.replace("_INC02", "_INC3")
+        self.assertIn("Renombrarlo como IXN_PERSONA_CPERSCOD_NPERSCLASIFICACION_CPERSESTADO_INC02", mensaje(inc_equivocado, persona))
+
+    def test_caso_de_la_usuaria_inc1_solo_pide_validar_el_indice(self):
+        indice = ("-- ÍNDICE\nCREATE NONCLUSTERED INDEX [IXN_PersonaVinculoProducto_cCtaCod_INC1]\n"
+                  "ON [dbo].[PersonaVinculoProducto] ([cCtaCod] ASC)\nINCLUDE ([nIDPersonaVinculo])\nGO\n")
+        self.assertEqual([h.regla for h in verificar_indices(indice)], ["INDICE_TABLA_EXISTENTE"])
 
     def test_sintaxis(self):
         casos = {

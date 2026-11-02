@@ -225,6 +225,12 @@ def _nombre_esperado(indice: _Indice, estandar: bool = False) -> str:
     return "_".join(partes)
 
 
+def _sin_ceros_inc(nombre: str) -> str:
+    """Para comparar nombres: INC1 e INC01 son lo mismo (decisión de la usuaria, 2 nov.: no hay diferencia).
+    El número sigue siendo la cantidad de columnas incluidas: INC3 con una sola columna no coincide."""
+    return re.sub(r"_inc0*(\d+)$", r"_inc\1", nombre.lower())
+
+
 _SENTENCIA = re.compile(r"\bCREATE\s+(?:UNIQUE\s+)?(?:CLUSTERED\s+|NONCLUSTERED\s+)?INDEX\b", re.IGNORECASE)
 
 
@@ -481,7 +487,7 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
     tabla_nueva = bool(tabla_script) and tabla.split(".")[-1].lower() == tabla_script.nombre.lower()
     esperado = _nombre_esperado(indice, estandar=tabla_nueva)
     # Con el nombre real de la tabla el índice también se considera correcto.
-    validos = {esperado.lower(), _nombre_esperado(indice).lower()}
+    validos = {_sin_ceros_inc(esperado), _sin_ceros_inc(_nombre_esperado(indice))}
 
     # Columnas repetidas en la clave, o columnas clave repetidas en el INCLUDE: SQL Server
     # no crea el índice ("Cannot use duplicate column names in index").
@@ -527,7 +533,7 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
                 f"{tipo.lower()}), por ejemplo: {esperado}."
             ),
         ))
-    elif indice.nombre.lower() not in validos and not hay_repetidas:
+    elif _sin_ceros_inc(indice.nombre) not in validos and not hay_repetidas:
         formato = f"{prefijo}_Tabla_Columnas{'_INC' + esperado.rsplit('_INC', 1)[1] if '_INC' in esperado else ''}"
         hallazgos.append(_hallazgo(
             texto, indice.posicion, "INDICE_NOMBRE_NO_ESTANDAR",
