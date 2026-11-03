@@ -4,7 +4,7 @@ import { Boton } from '../../components/Boton';
 import { EditorCodigo } from '../../components/EditorCodigo';
 import { EncabezadoSeccion } from '../../components/EncabezadoSeccion';
 import {
-  IconoBaseDatos, IconoCandado, IconoEjecutar, IconoErrorCirculo, IconoEscudoCheck, IconoLimpiar, IconoRestaurar,
+  IconoBaseDatos, IconoEjecutar, IconoErrorCirculo, IconoEscudoCheck, IconoLimpiar, IconoRestaurar,
 } from '../../components/Iconos';
 import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
@@ -202,7 +202,7 @@ export function ValidacionWorkspace() {
   );
 }
 
-/** Estado del lector: si esta PC tiene ScriptDom, con qué versión lee y que el código no sale de la PC. */
+/** Estado del lector: si esta PC tiene ScriptDom y con qué versión de SQL Server lee. */
 function EstadoLector({ lector }) {
   if (lector.cargando) {
     return <div className="estado-lector"><span className="estado-lector-chip">Buscando ScriptDom en esta PC...</span></div>;
@@ -221,7 +221,6 @@ function EstadoLector({ lector }) {
         </span>
       )}
       <span className="estado-lector-chip"><IconoBaseDatos />Lee como SQL Server 2022</span>
-      <span className="estado-lector-chip"><IconoCandado />El código no sale de esta PC</span>
     </div>
   );
 }
