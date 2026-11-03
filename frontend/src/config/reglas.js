@@ -14,6 +14,8 @@ export const ETIQUETAS_SEVERIDAD = {
 };
 
 export const NOMBRES_REGLAS = {
+  // Validación SQL Server (ScriptDom).
+  ERROR_SINTAXIS: 'Error de sintaxis',
   OBJETO_SIN_ESQUEMA: 'Objeto sin esquema',
   ESQUEMA_NO_COINCIDE: 'Esquema no coincide',
   NOMBRE_NO_COINCIDE: 'Nombre del procedimiento no coincide',

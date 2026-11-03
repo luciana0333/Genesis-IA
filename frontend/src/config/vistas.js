@@ -82,6 +82,22 @@ export const VISTAS = [
       accion: 'Cargar plan',
     },
   },
+  {
+    id: 'validacion',
+    ruta: 'validacion',
+    etiqueta: 'Validación SQL Server',
+    esValidacion: true,
+    hero: {
+      titulo: 'Validación con SQL Server',
+      descripcion: 'Lee tu código con el lector oficial de SQL Server, el mismo que usa SSMS, y detecta los errores de estructura antes de ejecutarlo.',
+      puntos: [
+        'Comas, paréntesis, comillas y BEGIN/END',
+        'Mismo mensaje y línea que SQL Server 2022',
+        'Análisis local: el código no sale de tu equipo',
+      ],
+      accion: 'Comenzar validación',
+    },
+  },
 ];
 
 export const VISTA_INICIAL = VISTAS[0];

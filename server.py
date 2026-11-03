@@ -21,6 +21,7 @@ from app.analizadores.planes_ejecucion.servicio import analizar_plan_completo
 from app.analizadores import ortografia
 from app.analizadores.siglas import aprobar_sigla, significado as significado_sigla
 from app.analizadores.planes_ejecucion.lote import analizar_lote
+from app.analizadores.scriptdom import LECTOR_SCRIPTDOM, validar_estructura
 
 
 # Compilación de producción del frontend React (cd frontend && npm run build).
@@ -66,6 +67,10 @@ class GenesisHandler(SimpleHTTPRequestHandler):
         if parsed.path == '/api/health':
             self._send_json({'status': 'ok'})
             return
+        if parsed.path == '/api/validacion-sql/estado':
+            # ¿Esta PC tiene ScriptDom (viene con SSMS) y PowerShell lo puede cargar?
+            self._send_json(LECTOR_SCRIPTDOM.estado())
+            return
         if not (DIRECTORIO_FRONTEND / 'index.html').is_file():
             self._send_frontend_no_compilado()
             return
@@ -81,6 +86,9 @@ class GenesisHandler(SimpleHTTPRequestHandler):
             return
         if parsed.path == '/api/siglas':
             self._aprobar_sigla()
+            return
+        if parsed.path == '/api/validar-sql':
+            self._validar_sql()
             return
         if parsed.path != '/api/analizar':
             self.send_error(404, 'Ruta no encontrada')
@@ -184,6 +192,33 @@ class GenesisHandler(SimpleHTTPRequestHandler):
             'hallazgos': hallazgos_serializados,
             # «Generar diccionario faltante»: script de lo que falta documentar (o None).
             'diccionarioFaltante': faltante,
+        })
+
+    def _validar_sql(self):
+        """Validación SQL Server: errores de estructura que haría SQL Server, leídos con ScriptDom."""
+        try:
+            longitud = int(self.headers.get('Content-Length', '0'))
+            datos = json.loads(self.rfile.read(longitud).decode('utf-8') or '{}') if longitud > 0 else {}
+        except (ValueError, json.JSONDecodeError):
+            self._send_json({'error': 'JSON inválido'}, status=400)
+            return
+        sql_text = datos.get('sql') or ''
+        if not sql_text.strip():
+            self._send_json({'error': 'Debes pegar el código SQL.'}, status=400)
+            return
+        hallazgos = validar_estructura(sql_text)
+        estado = LECTOR_SCRIPTDOM.estado()
+        if hallazgos is None:
+            self._send_json({'error': estado.get('motivo') or 'ScriptDom no está disponible en esta PC.',
+                             'estado': estado}, status=503)
+            return
+        self._send_json({
+            'estado': estado,
+            'hallazgos': [
+                {'linea': h.linea, 'origen': h.origen.value, 'severidad': h.severidad.value, 'regla': h.regla,
+                 'mensaje': h.mensaje}
+                for h in hallazgos
+            ],
         })
 
     def _aprobar_sigla(self):
