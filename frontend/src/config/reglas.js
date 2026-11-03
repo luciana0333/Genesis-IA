@@ -16,6 +16,13 @@ export const ETIQUETAS_SEVERIDAD = {
 export const NOMBRES_REGLAS = {
   // Validación SQL Server (ScriptDom).
   ERROR_SINTAXIS: 'Error de sintaxis',
+  INSERT_COLUMNAS_NO_COINCIDEN: 'INSERT con columnas y valores distintos',
+  COLUMNA_REPETIDA_EN_TABLA: 'Columna repetida en la tabla',
+  TEMPORAL_CREADA_DOS_VECES: 'Tabla temporal creada dos veces',
+  DOS_PRIMARY_KEY: 'Más de una PRIMARY KEY',
+  ALIAS_REPETIDO_EN_FROM: 'Alias repetido en el FROM',
+  PUNTO_Y_COMA_FALTANTE: 'Falta «;» antes de WITH o THROW',
+  THROW_TOMADO_COMO_ALIAS: 'THROW que no relanza el error',
   OBJETO_SIN_ESQUEMA: 'Objeto sin esquema',
   ESQUEMA_NO_COINCIDE: 'Esquema no coincide',
   NOMBRE_NO_COINCIDE: 'Nombre del procedimiento no coincide',

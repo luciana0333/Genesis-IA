@@ -33,7 +33,9 @@ DLL = "Microsoft.SqlServer.TransactSql.ScriptDom.dll"
 # marca lo que solo existe en versiones más nuevas.
 LECTOR = "TSql160Parser"
 VERSION_SQL = "SQL Server 2022"
-ESPERA_INICIO_S = 30
+ESPERA_INICIO_S = 60
+# Revisor sobre el árbol de ScriptDom (C#), para lo que es sintaxis válida pero SQL Server rechaza.
+REVISOR = Path(__file__).with_name("scriptdom_revisor.cs")
 ESPERA_PEDIDO_S = 20
 
 # Dónde suele estar la DLL: SSMS 18 a 22 y las herramientas de SQL Server (DacFx).
@@ -50,7 +52,19 @@ try {
   $ensamblado = [System.Reflection.Assembly]::LoadFrom($env:GENESIS_SCRIPTDOM_DLL)
   $tipo = $ensamblado.GetType('Microsoft.SqlServer.TransactSql.ScriptDom.' + $env:GENESIS_SCRIPTDOM_LECTOR)
   if ($tipo -eq $null) { throw 'La versión de ScriptDom no trae el lector ' + $env:GENESIS_SCRIPTDOM_LECTOR }
-  [Console]::Out.WriteLine((ConvertTo-Json -Compress -InputObject @{ listo = $true; version = $ensamblado.GetName().Version.ToString() }))
+  # Revisor sobre el árbol (C#): se compila una vez. Si no se puede, sigue solo la sintaxis.
+  $revisor = $true
+  $motivoRevisor = ''
+  try {
+    $referencias = @($env:GENESIS_SCRIPTDOM_DLL, 'System.Core')
+    $netstandard = Join-Path ([System.Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory()) 'netstandard.dll'
+    if (Test-Path $netstandard) { $referencias += $netstandard }
+    Add-Type -TypeDefinition ([System.IO.File]::ReadAllText($env:GENESIS_SCRIPTDOM_REVISOR)) -ReferencedAssemblies $referencias
+  } catch {
+    $revisor = $false
+    $motivoRevisor = $_.Exception.Message
+  }
+  [Console]::Out.WriteLine((ConvertTo-Json -Compress -InputObject @{ listo = $true; version = $ensamblado.GetName().Version.ToString(); revisor = $revisor; motivoRevisor = $motivoRevisor }))
 } catch {
   [Console]::Out.WriteLine((ConvertTo-Json -Compress -InputObject @{ listo = $false; error = $_.Exception.Message }))
   exit
@@ -62,10 +76,13 @@ while ($true) {
     $sql = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($pedido))
     $lector = [Activator]::CreateInstance($tipo, @($true))
     $errores = $null
-    $null = $lector.Parse((New-Object System.IO.StringReader($sql)), [ref]$errores)
+    $arbol = $lector.Parse((New-Object System.IO.StringReader($sql)), [ref]$errores)
     $lista = New-Object System.Collections.ArrayList
     foreach ($e in $errores) { $null = $lista.Add(@{ numero = $e.Number; linea = $e.Line; columna = $e.Column; mensaje = $e.Message }) }
-    [Console]::Out.WriteLine((ConvertTo-Json -Compress -Depth 4 -InputObject @{ errores = $lista.ToArray() }))
+    # Con errores de sintaxis el árbol está incompleto: primero se corrige la sintaxis.
+    $hechos = @()
+    if ($revisor -and $lista.Count -eq 0) { $hechos = @([GenesisRevisor]::Revisar($arbol)) }
+    [Console]::Out.WriteLine((ConvertTo-Json -Compress -Depth 5 -InputObject @{ errores = $lista.ToArray(); hechos = $hechos }))
   } catch {
     [Console]::Out.WriteLine((ConvertTo-Json -Compress -InputObject @{ fallo = $_.Exception.Message }))
   }
@@ -106,7 +123,8 @@ class _LectorScriptDom:
             }
             return
         comando = base64.b64encode(_PROGRAMA.encode("utf-16-le")).decode("ascii")
-        entorno = {**os.environ, "GENESIS_SCRIPTDOM_DLL": str(dll), "GENESIS_SCRIPTDOM_LECTOR": LECTOR}
+        entorno = {**os.environ, "GENESIS_SCRIPTDOM_DLL": str(dll), "GENESIS_SCRIPTDOM_LECTOR": LECTOR,
+                   "GENESIS_SCRIPTDOM_REVISOR": str(REVISOR)}
         try:
             self._proceso = subprocess.Popen(
                 ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
@@ -127,6 +145,7 @@ class _LectorScriptDom:
             return
         self._estado = {
             "disponible": True, "dll": str(dll), "version": inicio.get("version"), "lector": VERSION_SQL,
+            "revisor": bool(inicio.get("revisor")), "motivoRevisor": inicio.get("motivoRevisor") or None,
         }
 
     @staticmethod
@@ -157,8 +176,11 @@ class _LectorScriptDom:
                 self._iniciar()
             return dict(self._estado)
 
-    def errores_de_sintaxis(self, sql: str) -> Optional[List[Dict]]:
-        """[{numero, linea, columna, mensaje}] de SQL Server; None si ScriptDom no está disponible."""
+    def leer(self, sql: str) -> Optional[Dict[str, List[Dict]]]:
+        """
+        {errores: [{numero, linea, columna, mensaje}], hechos: [{tipo, linea, ...}]} de ScriptDom; None si
+        no está disponible. Los hechos solo se revisan cuando no hay errores de sintaxis.
+        """
         with self._candado:
             if not self._activo():
                 self._iniciar()
@@ -175,9 +197,19 @@ class _LectorScriptDom:
                 # Sin respuesta (o un fallo inesperado): se reinicia en el próximo pedido.
                 self._cerrar()
                 return None
-            errores = respuesta["errores"]
-            # ConvertTo-Json de PowerShell 5.1 escribe una lista de un solo elemento como el elemento.
-            return [errores] if isinstance(errores, dict) else list(errores or [])
+            return {"errores": _lista(respuesta.get("errores")), "hechos": _lista(respuesta.get("hechos"))}
+
+    def errores_de_sintaxis(self, sql: str) -> Optional[List[Dict]]:
+        """[{numero, linea, columna, mensaje}] de SQL Server; None si ScriptDom no está disponible."""
+        lectura = self.leer(sql)
+        return None if lectura is None else lectura["errores"]
+
+
+def _lista(valor) -> List[Dict]:
+    # ConvertTo-Json de PowerShell 5.1 escribe una lista de un solo elemento como el elemento.
+    if not valor:
+        return []
+    return [valor] if isinstance(valor, dict) else list(valor)
 
 
 LECTOR_SCRIPTDOM = _LectorScriptDom()
@@ -194,18 +226,79 @@ def mensaje_error_sintaxis(error: Dict) -> str:
     )
 
 
+def _cantidad(numero: int, singular: str, plural: str) -> str:
+    return f"{numero} {singular if numero == 1 else plural}"
+
+
+def mensaje_hecho(hecho: Dict) -> Optional[str]:
+    """Mensaje de cada caso que es sintaxis válida pero que SQL Server rechaza (o que falla en silencio)."""
+    tipo = hecho.get("tipo")
+    if tipo == "INSERT_COLUMNAS_NO_COINCIDEN":
+        columnas, valores = int(hecho["columnas"]), int(hecho["valores"])
+        es_select = hecho.get("origen") == "SELECT"
+        if es_select:
+            error = 121 if valores > columnas else 120
+            envia = f"su SELECT devuelve {_cantidad(valores, 'columna', 'columnas')}"
+        else:
+            error = 110 if valores > columnas else 109
+            envia = f"envía {_cantidad(valores, 'valor', 'valores')}"
+        tabla = f" {hecho['tabla']}" if hecho.get("tabla") else ""
+        return (f"Se identificó un INSERT INTO{tabla} que indica {_cantidad(columnas, 'columna', 'columnas')}, "
+                f"pero {envia}. Igualar la cantidad de "
+                f"{'columnas del INSERT y del SELECT' if es_select else 'columnas y de valores'}, ya que SQL Server "
+                f"no ejecutará el INSERT (error {error}).")
+    if tipo == "COLUMNA_REPETIDA_EN_TABLA":
+        lineas = (f"línea {hecho['linea']}" if hecho["primera"] == hecho["linea"]
+                  else f"líneas {hecho['primera']} y {hecho['linea']}")
+        return (f"Se identificó que la columna {hecho['columna']} se define dos veces en la tabla {hecho['tabla']} "
+                f"({lineas}). Retirar la columna repetida, ya que SQL Server no podrá crear la tabla (error 2705).")
+    if tipo == "TEMPORAL_CREADA_DOS_VECES":
+        return (f"Se identificó que la tabla temporal {hecho['tabla']} se crea dos veces en el mismo bloque "
+                f"(líneas {hecho['primera']} y {hecho['linea']}). Usar un nombre distinto para cada una, ya que "
+                f"SQL Server no permite crear dos veces la misma temporal en un procedimiento, aunque se elimine "
+                f"antes o esté en un IF / ELSE (error 2714).")
+    if tipo == "DOS_PRIMARY_KEY":
+        return (f"Se identificó que la tabla {hecho['tabla']} define {hecho['cantidad']} PRIMARY KEY. Dejar una "
+                f"sola, ya que una tabla solo puede tener una clave primaria y SQL Server no podrá crearla "
+                f"(error 8110).")
+    if tipo == "ALIAS_REPETIDO_EN_FROM":
+        if hecho.get("esAlias"):
+            return (f"Se identificó que el alias {hecho['nombre']} se usa dos veces en el mismo FROM. Usar un alias "
+                    f"distinto para cada tabla, ya que SQL Server no ejecutará la consulta (error 1011).")
+        return (f"Se identificó que {hecho['nombre']} aparece dos veces en el mismo FROM con el mismo nombre. "
+                f"Asignar un alias distinto a cada una, ya que SQL Server no ejecutará la consulta (error 1013).")
+    if tipo == "PUNTO_Y_COMA_FALTANTE":
+        instruccion = hecho["instruccion"]
+        error = 319 if instruccion == "WITH" else 102
+        return (f"Se identificó que la instrucción anterior al {instruccion} (línea {hecho['anterior']}) no termina "
+                f"en «;». Agregar «;» al final de esa instrucción, ya que SQL Server necesita el «;» antes de un "
+                f"{instruccion} y no ejecutará el código sin él (error {error}).")
+    if tipo == "THROW_TOMADO_COMO_ALIAS":
+        return ("Se identificó un THROW justo después de un SELECT sin «;», por lo que SQL Server lo toma como el "
+                "nombre de una columna del SELECT y el error nunca se relanza. Agregar «;» al final del SELECT, ya "
+                "que, sin él, el error se pierde en silencio y el procedimiento continúa como si no hubiera fallado.")
+    return None
+
+
+def _hallazgo(linea, regla: str, mensaje: str) -> Hallazgo:
+    return Hallazgo(linea=int(linea or 1), origen=OrigenAnalisis.REGLAS_ESTATICAS, severidad=Severidad.CRITICO,
+                    regla=regla, mensaje=mensaje)
+
+
 def validar_estructura(sql: str) -> Optional[List[Hallazgo]]:
-    """Errores de sintaxis que haría SQL Server al crear el objeto; None si ScriptDom no está disponible."""
-    errores = LECTOR_SCRIPTDOM.errores_de_sintaxis(sql)
-    if errores is None:
+    """
+    Lo que haría fallar el script en SQL Server: errores de sintaxis y, si no hay, lo que es sintaxis válida
+    pero SQL Server rechaza (INSERT descuadrado, columna repetida, temporal creada dos veces, dos PK, alias
+    repetido, «;» faltante). None si ScriptDom no está disponible.
+    """
+    lectura = LECTOR_SCRIPTDOM.leer(sql)
+    if lectura is None:
         return None
-    return [
-        Hallazgo(
-            linea=int(error.get("linea") or 1),
-            origen=OrigenAnalisis.REGLAS_ESTATICAS,
-            severidad=Severidad.CRITICO,
-            regla="ERROR_SINTAXIS",
-            mensaje=mensaje_error_sintaxis(error),
-        )
-        for error in errores
+    hallazgos = [
+        _hallazgo(error.get("linea"), "ERROR_SINTAXIS", mensaje_error_sintaxis(error)) for error in lectura["errores"]
     ]
+    for hecho in lectura["hechos"]:
+        mensaje = mensaje_hecho(hecho)
+        if mensaje:
+            hallazgos.append(_hallazgo(hecho.get("linea"), hecho["tipo"], mensaje))
+    return hallazgos
