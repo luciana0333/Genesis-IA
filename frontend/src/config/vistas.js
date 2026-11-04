@@ -89,11 +89,11 @@ export const VISTAS = [
     esValidacion: true,
     hero: {
       titulo: 'Validación con SQL Server',
-      descripcion: 'Lee tu código con el lector oficial de SQL Server, el mismo que usa SSMS, y detecta los errores de estructura antes de ejecutarlo.',
+      descripcion: 'Lee tu código con el lector oficial de SQL Server, el mismo que usa SSMS, y detecta errores, resultados equivocados y problemas de rendimiento antes de ejecutarlo.',
       puntos: [
-        'Comas, paréntesis, comillas y BEGIN/END',
-        'Mismo mensaje y línea que SQL Server 2022',
-        'Análisis local: el código no sale de tu equipo',
+        'Lo que haría fallar el script, con el error de SQL Server',
+        'Errores silenciosos: textos cortados, NULL, fechas',
+        'Rendimiento, seguridad y mantenibilidad',
       ],
       accion: 'Comenzar validación',
     },

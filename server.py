@@ -216,7 +216,7 @@ class GenesisHandler(SimpleHTTPRequestHandler):
             'estado': estado,
             'hallazgos': [
                 {'linea': h.linea, 'origen': h.origen.value, 'severidad': h.severidad.value, 'regla': h.regla,
-                 'mensaje': h.mensaje}
+                 'mensaje': h.mensaje, 'lineas': getattr(h, 'lineas', None)}
                 for h in hallazgos
             ],
         })

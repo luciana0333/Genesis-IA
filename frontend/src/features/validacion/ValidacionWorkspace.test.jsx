@@ -30,7 +30,7 @@ describe('ValidacionWorkspace', () => {
     render(<ValidacionWorkspace />);
 
     expect(await screen.findByText(/ScriptDom listo · versión 18.0.0.0/)).toBeInTheDocument();
-    await usuario.click(screen.getByRole('button', { name: /Validar estructura/ }));
+    await usuario.click(screen.getByRole('button', { name: /Validar código/ }));
 
     const titulo = await screen.findByRole('heading', { name: 'Error de sintaxis' });
     const ficha = titulo.closest('article');

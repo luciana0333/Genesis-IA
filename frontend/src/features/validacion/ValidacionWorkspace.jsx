@@ -9,6 +9,7 @@ import {
 import { PanelHallazgos } from '../../components/PanelHallazgos';
 import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { useAlPedirEjemplo } from '../../hooks/useVerEjemplo';
+import { nombreRegla } from '../../config/reglas';
 import { BarraRecorrido, VerEnCodigo } from '../auditoria/VerEnCodigo';
 
 // Ejemplo con los errores de estructura más comunes (coma de más, paréntesis sin cerrar, BEGIN sin END).
@@ -86,11 +87,11 @@ export function ValidacionWorkspace() {
 
   // «Ver en el código»: la marca vale solo para el resultado en el que se pidió.
   const marca = marcaPedida?.resultado === resultado ? marcaPedida : null;
-  const lineasDe = (hallazgos) => [...new Set(hallazgos.map((h) => h.linea).filter(Boolean))].sort((a, b) => a - b);
-  const verEnCodigo = (linea) => {
-    const lineas = lineasDe(resultado.hallazgos);
+  // Una observación que junta varios casos recorre sus líneas con la barra «1 de N».
+  const verEnCodigo = (hallazgo) => {
+    const lineas = hallazgo.lineas?.length ? hallazgo.lineas : [hallazgo.linea];
     setMarca((anterior) => ({
-      lineas, indice: Math.max(lineas.indexOf(linea), 0), resultado, clave: (anterior?.clave ?? 0) + 1,
+      lineas, indice: 0, resultado, titulo: nombreRegla(hallazgo.regla), clave: (anterior?.clave ?? 0) + 1,
     }));
   };
   const irALinea = (paso) => {
@@ -152,7 +153,7 @@ export function ValidacionWorkspace() {
           <div className="action-bar">
             <div className="btn-group">
               <Boton type="submit" icono={<IconoEjecutar />} cargando={cargando} atajo={['Ctrl', 'Enter']}>
-                Validar estructura
+                Validar código
               </Boton>
               <Boton variante="secundario" icono={<IconoLimpiar />} onClick={() => { setSql(''); setMarca(null); setResultado(RESULTADO_INICIAL); }}>
                 Limpiar
@@ -167,7 +168,7 @@ export function ValidacionWorkspace() {
 
         {marca && marca.lineas.length > 1 && (
           <BarraRecorrido
-            titulo="Errores de sintaxis"
+            titulo={marca.titulo}
             linea={marca.lineas[marca.indice]}
             posicion={marca.indice + 1}
             total={marca.lineas.length}
@@ -179,20 +180,20 @@ export function ValidacionWorkspace() {
 
         <div className="panel-footer" ref={resultadosRef}>
           <PanelHallazgos
-            titulo="Haría fallar el script"
+            titulo="Resultados de la validación"
             estado={resultado.estado}
             hallazgos={resultado.hallazgos}
             mensajeError={resultado.mensaje}
-            accionesHallazgo={(hallazgo) => <VerEnCodigo onVer={() => verEnCodigo(hallazgo.linea)} />}
+            accionesHallazgo={(hallazgo) => <VerEnCodigo onVer={() => verEnCodigo(hallazgo)} />}
             textos={{
-              inicialTitulo: 'Listo para validar la estructura',
+              inicialTitulo: 'Listo para validar el código',
               pasos: [
                 'Pega el código en el editor',
                 <>Presiona «Validar estructura» o <kbd>Ctrl</kbd> + <kbd>Enter</kbd></>,
-                'Corrige cada error en la línea que indica SQL Server',
+                'Revisa cada observación en la línea que indica',
               ],
               cargando: 'Leyendo el código como SQL Server...',
-              sinHallazgos: 'SQL Server no encuentra errores de estructura en este código.',
+              sinHallazgos: 'La validación terminó sin observaciones.',
               tituloError: 'No se pudo validar el código',
             }}
           />

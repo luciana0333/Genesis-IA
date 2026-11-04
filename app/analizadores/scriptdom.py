@@ -26,6 +26,7 @@ import threading
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from app.analizadores.scriptdom_mensajes import MENSAJES, mensaje_agrupado, mensaje_hecho, severidad
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 
 DLL = "Microsoft.SqlServer.TransactSql.ScriptDom.dll"
@@ -226,70 +227,16 @@ def mensaje_error_sintaxis(error: Dict) -> str:
     )
 
 
-def _cantidad(numero: int, singular: str, plural: str) -> str:
-    return f"{numero} {singular if numero == 1 else plural}"
-
-
-def mensaje_hecho(hecho: Dict) -> Optional[str]:
-    """Mensaje de cada caso que es sintaxis válida pero que SQL Server rechaza (o que falla en silencio)."""
-    tipo = hecho.get("tipo")
-    if tipo == "INSERT_COLUMNAS_NO_COINCIDEN":
-        columnas, valores = int(hecho["columnas"]), int(hecho["valores"])
-        es_select = hecho.get("origen") == "SELECT"
-        if es_select:
-            error = 121 if valores > columnas else 120
-            envia = f"su SELECT devuelve {_cantidad(valores, 'columna', 'columnas')}"
-        else:
-            error = 110 if valores > columnas else 109
-            envia = f"envía {_cantidad(valores, 'valor', 'valores')}"
-        tabla = f" {hecho['tabla']}" if hecho.get("tabla") else ""
-        return (f"Se identificó un INSERT INTO{tabla} que indica {_cantidad(columnas, 'columna', 'columnas')}, "
-                f"pero {envia}. Igualar la cantidad de "
-                f"{'columnas del INSERT y del SELECT' if es_select else 'columnas y de valores'}, ya que SQL Server "
-                f"no ejecutará el INSERT (error {error}).")
-    if tipo == "COLUMNA_REPETIDA_EN_TABLA":
-        lineas = (f"línea {hecho['linea']}" if hecho["primera"] == hecho["linea"]
-                  else f"líneas {hecho['primera']} y {hecho['linea']}")
-        return (f"Se identificó que la columna {hecho['columna']} se define dos veces en la tabla {hecho['tabla']} "
-                f"({lineas}). Retirar la columna repetida, ya que SQL Server no podrá crear la tabla (error 2705).")
-    if tipo == "TEMPORAL_CREADA_DOS_VECES":
-        return (f"Se identificó que la tabla temporal {hecho['tabla']} se crea dos veces en el mismo bloque "
-                f"(líneas {hecho['primera']} y {hecho['linea']}). Usar un nombre distinto para cada una, ya que "
-                f"SQL Server no permite crear dos veces la misma temporal en un procedimiento, aunque se elimine "
-                f"antes o esté en un IF / ELSE (error 2714).")
-    if tipo == "DOS_PRIMARY_KEY":
-        return (f"Se identificó que la tabla {hecho['tabla']} define {hecho['cantidad']} PRIMARY KEY. Dejar una "
-                f"sola, ya que una tabla solo puede tener una clave primaria y SQL Server no podrá crearla "
-                f"(error 8110).")
-    if tipo == "ALIAS_REPETIDO_EN_FROM":
-        if hecho.get("esAlias"):
-            return (f"Se identificó que el alias {hecho['nombre']} se usa dos veces en el mismo FROM. Usar un alias "
-                    f"distinto para cada tabla, ya que SQL Server no ejecutará la consulta (error 1011).")
-        return (f"Se identificó que {hecho['nombre']} aparece dos veces en el mismo FROM con el mismo nombre. "
-                f"Asignar un alias distinto a cada una, ya que SQL Server no ejecutará la consulta (error 1013).")
-    if tipo == "PUNTO_Y_COMA_FALTANTE":
-        instruccion = hecho["instruccion"]
-        error = 319 if instruccion == "WITH" else 102
-        return (f"Se identificó que la instrucción anterior al {instruccion} (línea {hecho['anterior']}) no termina "
-                f"en «;». Agregar «;» al final de esa instrucción, ya que SQL Server necesita el «;» antes de un "
-                f"{instruccion} y no ejecutará el código sin él (error {error}).")
-    if tipo == "THROW_TOMADO_COMO_ALIAS":
-        return ("Se identificó un THROW justo después de un SELECT sin «;», por lo que SQL Server lo toma como el "
-                "nombre de una columna del SELECT y el error nunca se relanza. Agregar «;» al final del SELECT, ya "
-                "que, sin él, el error se pierde en silencio y el procedimiento continúa como si no hubiera fallado.")
-    return None
-
-
-def _hallazgo(linea, regla: str, mensaje: str) -> Hallazgo:
-    return Hallazgo(linea=int(linea or 1), origen=OrigenAnalisis.REGLAS_ESTATICAS, severidad=Severidad.CRITICO,
+def _hallazgo(linea, regla: str, mensaje: str, severidad: Severidad = Severidad.CRITICO) -> Hallazgo:
+    return Hallazgo(linea=int(linea or 1), origen=OrigenAnalisis.REGLAS_ESTATICAS, severidad=severidad,
                     regla=regla, mensaje=mensaje)
 
 
 def validar_estructura(sql: str) -> Optional[List[Hallazgo]]:
     """
-    Lo que haría fallar el script en SQL Server: errores de sintaxis y, si no hay, lo que es sintaxis válida
-    pero SQL Server rechaza (INSERT descuadrado, columna repetida, temporal creada dos veces, dos PK, alias
-    repetido, «;» faltante). None si ScriptDom no está disponible.
+    Validación SQL Server: errores de sintaxis y, si no hay, lo que revisa el árbol de ScriptDom (lo que hace
+    fallar el script, errores silenciosos, rendimiento, seguridad y mantenibilidad). Varios casos del mismo
+    tipo van en una sola observación. None si ScriptDom no está disponible.
     """
     lectura = LECTOR_SCRIPTDOM.leer(sql)
     if lectura is None:
@@ -297,8 +244,17 @@ def validar_estructura(sql: str) -> Optional[List[Hallazgo]]:
     hallazgos = [
         _hallazgo(error.get("linea"), "ERROR_SINTAXIS", mensaje_error_sintaxis(error)) for error in lectura["errores"]
     ]
+    por_tipo: Dict[str, List[Dict]] = {}
     for hecho in lectura["hechos"]:
-        mensaje = mensaje_hecho(hecho)
-        if mensaje:
-            hallazgos.append(_hallazgo(hecho.get("linea"), hecho["tipo"], mensaje))
+        if hecho.get("tipo") in MENSAJES:
+            por_tipo.setdefault(hecho["tipo"], []).append(hecho)
+    for tipo, hechos in por_tipo.items():
+        mensaje = mensaje_agrupado(hechos)
+        if not mensaje:
+            continue
+        lineas = sorted({int(h["linea"]) for h in hechos if mensaje_hecho(h)})
+        hallazgo = _hallazgo(lineas[0], tipo, mensaje, severidad(tipo))
+        if len(lineas) > 1:
+            hallazgo.lineas = lineas  # para recorrerlas con la barra «1 de N»
+        hallazgos.append(hallazgo)
     return hallazgos
