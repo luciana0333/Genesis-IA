@@ -82,6 +82,22 @@ export const VISTAS = [
       accion: 'Cargar plan',
     },
   },
+  {
+    id: 'validacion',
+    ruta: 'validacion',
+    etiqueta: 'Validación SQL Server',
+    esValidacion: true,
+    hero: {
+      titulo: 'Validación con SQL Server',
+      descripcion: 'Lee tu código con el lector oficial de SQL Server, el mismo que usa SSMS, y detecta errores, resultados equivocados y problemas de rendimiento antes de ejecutarlo.',
+      puntos: [
+        'Lo que haría fallar el script, con el error de SQL Server',
+        'Errores silenciosos: textos cortados, NULL, fechas',
+        'Rendimiento, seguridad y mantenibilidad',
+      ],
+      accion: 'Comenzar validación',
+    },
+  },
 ];
 
 export const VISTA_INICIAL = VISTAS[0];

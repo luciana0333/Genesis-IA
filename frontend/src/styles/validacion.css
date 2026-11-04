@@ -1,0 +1,45 @@
+/* Validación SQL Server: estado del lector (ScriptDom) sobre el editor. */
+.estado-lector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.estado-lector-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+}
+
+.estado-lector-chip svg {
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+}
+
+.estado-lector-chip.ok {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.estado-lector-chip.ok svg {
+  color: var(--red-main);
+}
+
+.estado-lector-chip.error {
+  border-color: var(--sev-alto);
+  background: var(--sev-alto-bg);
+  color: var(--sev-alto-text);
+}
+
+.estado-lector-chip.error svg {
+  color: var(--sev-alto);
+}

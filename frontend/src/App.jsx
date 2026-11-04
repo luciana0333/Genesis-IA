@@ -3,6 +3,7 @@ import { Hero } from './components/Hero';
 import { PiePagina } from './components/PiePagina';
 import { AuditoriaWorkspace } from './features/auditoria/AuditoriaWorkspace';
 import { PlanesWorkspace } from './features/planes/PlanesWorkspace';
+import { ValidacionWorkspace } from './features/validacion/ValidacionWorkspace';
 import { useTema } from './hooks/useTema';
 import { useVistaActiva } from './hooks/useVistaActiva';
 
@@ -21,7 +22,9 @@ export default function App() {
           <PlanesWorkspace />
         </div>
 
-        {!vista.esPlan && (
+        {vista.esValidacion && <ValidacionWorkspace />}
+
+        {!vista.esPlan && !vista.esValidacion && (
           // La key reinicia el formulario y los resultados al cambiar de pestaña.
           <AuditoriaWorkspace key={vista.id} vista={vista} />
         )}
