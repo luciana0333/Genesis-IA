@@ -96,6 +96,12 @@ public class GenesisVisitante : TSqlFragmentVisitor
     private int profundidadWhile, profundidadCondicion, profundidadCase, profundidadExists, profundidadTry,
                 profundidadCatch, profundidadGuarda, profundidadAnidamiento;
     private readonly Stack<Dictionary<string, string>> tablasDelFrom = new Stack<Dictionary<string, string>>();
+    private readonly Stack<HashSet<string>> opcionalesDelFrom = new Stack<HashSet<string>>();
+    // ISNULL sobre columnas: columnas NOT NULL de las temporales del script (tabla -> columna -> línea) y de dónde
+    // se llena cada columna de una temporal (tabla -> columna -> tabla física y columna de origen).
+    private Dictionary<string, Dictionary<string, int>> columnasNoNulas;
+    private Dictionary<string, Dictionary<string, Tuple<string, string>>> origenes;
+    private readonly HashSet<int> isnullRevisados = new HashSet<int>();
     private readonly Stack<bool> consultasConFrom = new Stack<bool>();
 
     private void Agregar(string tipo, int linea, params object[] pares)
@@ -254,26 +260,86 @@ public class GenesisVisitante : TSqlFragmentVisitor
 
     private static Dictionary<string, string> MapaDelFrom(FromClause from)
     {
+        return MapaDelFrom(from, null);
+    }
+
+    // `opcionales`: nombres (alias) de las tablas del lado opcional de un LEFT / RIGHT / FULL JOIN u OUTER APPLY,
+    // cuyas columnas pueden llegar en NULL aunque en la tabla sean NOT NULL.
+    private static Dictionary<string, string> MapaDelFrom(FromClause from, HashSet<string> opcionales)
+    {
         var mapa = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (from != null) foreach (var referencia in from.TableReferences) LlenarMapa(referencia, mapa);
+        if (from != null) foreach (var referencia in from.TableReferences) LlenarMapa(referencia, mapa, opcionales, false);
         return mapa;
     }
 
     private static void LlenarMapa(TableReference referencia, Dictionary<string, string> mapa)
     {
+        LlenarMapa(referencia, mapa, null, false);
+    }
+
+    private static void LlenarMapa(TableReference referencia, Dictionary<string, string> mapa, HashSet<string> opcionales,
+                                   bool opcional)
+    {
         var calificado = referencia as QualifiedJoin;
         var sinCalificar = referencia as UnqualifiedJoin;
         var parentesis = referencia as JoinParenthesisTableReference;
-        if (calificado != null) { LlenarMapa(calificado.FirstTableReference, mapa); LlenarMapa(calificado.SecondTableReference, mapa); return; }
-        if (sinCalificar != null) { LlenarMapa(sinCalificar.FirstTableReference, mapa); LlenarMapa(sinCalificar.SecondTableReference, mapa); return; }
-        if (parentesis != null) { LlenarMapa(parentesis.Join, mapa); return; }
+        if (calificado != null)
+        {
+            var tipo = calificado.QualifiedJoinType;
+            LlenarMapa(calificado.FirstTableReference, mapa, opcionales,
+                       opcional || tipo == QualifiedJoinType.RightOuter || tipo == QualifiedJoinType.FullOuter);
+            LlenarMapa(calificado.SecondTableReference, mapa, opcionales,
+                       opcional || tipo == QualifiedJoinType.LeftOuter || tipo == QualifiedJoinType.FullOuter);
+            return;
+        }
+        if (sinCalificar != null)
+        {
+            LlenarMapa(sinCalificar.FirstTableReference, mapa, opcionales, opcional);
+            LlenarMapa(sinCalificar.SecondTableReference, mapa, opcionales,
+                       opcional || sinCalificar.UnqualifiedJoinType == UnqualifiedJoinType.OuterApply);
+            return;
+        }
+        if (parentesis != null) { LlenarMapa(parentesis.Join, mapa, opcionales, opcional); return; }
         var nombrada = referencia as NamedTableReference;
         var variable = referencia as VariableTableReference;
         var conAlias = referencia as TableReferenceWithAlias;
         string tabla = nombrada != null ? Nombre(nombrada.SchemaObject) : variable != null ? variable.Variable.Name : "(subconsulta)";
-        if (conAlias != null && conAlias.Alias != null) mapa[conAlias.Alias.Value] = tabla;
-        else if (nombrada != null) { mapa[tabla] = tabla; mapa[nombrada.SchemaObject.BaseIdentifier.Value] = tabla; }
-        else if (variable != null) mapa[tabla] = tabla;
+        var nombres = new List<string>();
+        if (conAlias != null && conAlias.Alias != null) nombres.Add(conAlias.Alias.Value);
+        else if (nombrada != null) { nombres.Add(tabla); nombres.Add(nombrada.SchemaObject.BaseIdentifier.Value); }
+        else if (variable != null) nombres.Add(tabla);
+        foreach (var nombre in nombres)
+        {
+            mapa[nombre] = tabla;
+            if (opcional && opcionales != null) opcionales.Add(nombre);
+        }
+    }
+
+    // Tabla de la columna y si está del lado opcional de un OUTER JOIN, según los FROM que la rodean.
+    private string TablaDe(ColumnReferenceExpression columna, out bool opcional)
+    {
+        opcional = false;
+        if (columna.MultiPartIdentifier == null || tablasDelFrom.Count == 0) return null;
+        var partes = columna.MultiPartIdentifier.Identifiers;
+        var mapas = tablasDelFrom.ToArray();
+        var opcionales = opcionalesDelFrom.ToArray();
+        if (partes.Count >= 2)
+        {
+            string calificador = partes[partes.Count - 2].Value;
+            for (int i = 0; i < mapas.Length; i++)
+            {
+                string tabla;
+                if (!mapas[i].TryGetValue(calificador, out tabla)) continue;
+                opcional = opcionales[i].Contains(calificador);
+                return tabla;
+            }
+            return null;
+        }
+        if (mapas[0].Count == 0) return null;
+        var unica = mapas[0].Values.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (unica.Count != 1) return null;
+        opcional = opcionales[0].Count > 0;
+        return unica[0];
     }
 
     // --- Bloque (entre GO): se reinicia el estado y al final se revisan las variables --------------------
@@ -282,6 +348,8 @@ public class GenesisVisitante : TSqlFragmentVisitor
         temporales = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         declaraciones = new Dictionary<string, GenesisDeclaracion>(StringComparer.OrdinalIgnoreCase);
         columnasDeTablas = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+        columnasNoNulas = new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase);
+        origenes = new Dictionary<string, Dictionary<string, Tuple<string, string>>>(StringComparer.OrdinalIgnoreCase);
         objetivos = new HashSet<int>();
         ignoradas = new HashSet<int>();
         lecturasNulas = new HashSet<int>();
@@ -452,6 +520,14 @@ public class GenesisVisitante : TSqlFragmentVisitor
     public override void Visit(FunctionCall funcion)
     {
         string nombre = funcion.FunctionName.Value;
+        // ISNULL(columna, ...) fuera de una comparación (en el SELECT, un SET, un IN...): validar si la columna
+        // acepta NULL. Las de una comparación se revisan con su condición (RevisarFuncionSobreColumna).
+        if (funcion.CallTarget == null && string.Equals(nombre, "ISNULL", StringComparison.OrdinalIgnoreCase)
+            && funcion.Parameters.Count == 2 && !isnullRevisados.Contains(funcion.StartOffset))
+        {
+            var columnaIsnull = SinParentesis(funcion.Parameters[0]) as ColumnReferenceExpression;
+            if (columnaIsnull != null) RevisarIsnull(funcion, columnaIsnull, profundidadCondicion > 0 ? "condicion" : "select", "");
+        }
         if (funcion.CallTarget == null && string.Equals(nombre, "ISNULL", StringComparison.OrdinalIgnoreCase) && funcion.Parameters.Count == 2)
         {
             var primera = SinParentesis(funcion.Parameters[0]) as VariableReference;
@@ -501,8 +577,14 @@ public class GenesisVisitante : TSqlFragmentVisitor
         var vistas = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var tipos = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         int primaryKeys = 0, lineaSegundaPk = 0, identidades = 0, lineaSegundaIdentidad = 0;
+        var noNulas = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         foreach (var columna in definicion.ColumnDefinitions)
         {
+            // NOT NULL, IDENTITY o PRIMARY KEY: la columna nunca tiene NULL.
+            bool noNula = columna.IdentityOptions != null || columna.Constraints.Any(r =>
+                (r is NullableConstraintDefinition && !((NullableConstraintDefinition)r).Nullable)
+                || (r is UniqueConstraintDefinition && ((UniqueConstraintDefinition)r).IsPrimaryKey));
+            if (noNula) noNulas[columna.ColumnIdentifier.Value] = columna.StartLine;
             string nombre = columna.ColumnIdentifier.Value;
             int primera;
             if (vistas.TryGetValue(nombre, out primera))
@@ -523,7 +605,14 @@ public class GenesisVisitante : TSqlFragmentVisitor
         {
             var unica = restriccion as UniqueConstraintDefinition;
             if (unica != null && unica.IsPrimaryKey && ++primaryKeys == 2) lineaSegundaPk = restriccion.StartLine;
+            if (unica != null && unica.IsPrimaryKey)
+                foreach (var columnaPk in unica.Columns)
+                {
+                    string nombre = NombreColumna(columnaPk.Column);
+                    if (!noNulas.ContainsKey(nombre)) noNulas[nombre] = restriccion.StartLine;
+                }
         }
+        if (EsTemporal(tabla)) columnasNoNulas[tabla] = noNulas;
         if (primaryKeys > 1) Agregar("DOS_PRIMARY_KEY", lineaSegundaPk, "tabla", tabla, "cantidad", primaryKeys);
         if (identidades > 1) Agregar("DOS_IDENTITY", lineaSegundaIdentidad, "tabla", tabla, "cantidad", identidades);
         if (EsTemporal(tabla)) columnasDeTablas[tabla] = tipos;
@@ -582,32 +671,41 @@ public class GenesisVisitante : TSqlFragmentVisitor
     // --- Consultas -------------------------------------------------------------------------------------
     public override void ExplicitVisit(QuerySpecification consulta)
     {
-        tablasDelFrom.Push(MapaDelFrom(consulta.FromClause));
+        var opcionales = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        tablasDelFrom.Push(MapaDelFrom(consulta.FromClause, opcionales));
+        opcionalesDelFrom.Push(opcionales);
         consultasConFrom.Push(consulta.FromClause != null);
         base.ExplicitVisit(consulta);
         consultasConFrom.Pop();
+        opcionalesDelFrom.Pop();
         tablasDelFrom.Pop();
     }
 
     public override void ExplicitVisit(UpdateSpecification actualizacion)
     {
-        var mapa = MapaDelFrom(actualizacion.FromClause);
+        var opcionales = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var mapa = MapaDelFrom(actualizacion.FromClause, opcionales);
         if (actualizacion.Target != null) LlenarMapa(actualizacion.Target, mapa);
         tablasDelFrom.Push(mapa);
+        opcionalesDelFrom.Push(opcionales);
         consultasConFrom.Push(false);
         base.ExplicitVisit(actualizacion);
         consultasConFrom.Pop();
+        opcionalesDelFrom.Pop();
         tablasDelFrom.Pop();
     }
 
     public override void ExplicitVisit(DeleteSpecification eliminacion)
     {
-        var mapa = MapaDelFrom(eliminacion.FromClause);
+        var opcionales = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var mapa = MapaDelFrom(eliminacion.FromClause, opcionales);
         if (eliminacion.Target != null) LlenarMapa(eliminacion.Target, mapa);
         tablasDelFrom.Push(mapa);
+        opcionalesDelFrom.Push(opcionales);
         consultasConFrom.Push(false);
         base.ExplicitVisit(eliminacion);
         consultasConFrom.Pop();
+        opcionalesDelFrom.Pop();
         tablasDelFrom.Pop();
     }
 
@@ -756,6 +854,13 @@ public class GenesisVisitante : TSqlFragmentVisitor
         }
 
         int columnas = insert.Columns.Count;
+        if (EsTemporal(tabla) && columnas > 0 && consulta is QuerySpecification)
+        {
+            var especificacion = (QuerySpecification)consulta;
+            if (especificacion.SelectElements.Count == columnas)
+                for (int i = 0; i < columnas; i++)
+                    GuardarOrigen(tabla, NombreColumna(insert.Columns[i]), especificacion.SelectElements[i], especificacion.FromClause);
+        }
         if (columnas == 0) return;  // sin lista de columnas se necesitaría la tabla real
         var valores = insert.InsertSource as ValuesInsertSource;
         if (valores != null)
@@ -781,7 +886,48 @@ public class GenesisVisitante : TSqlFragmentVisitor
     public override void Visit(SelectStatement sentencia)
     {
         if (sentencia.Into != null) CreaTemporal(sentencia.Into, sentencia.Into.StartLine);
+        var especificacion = sentencia.QueryExpression as QuerySpecification;
+        string destino = sentencia.Into != null ? Nombre(sentencia.Into) : null;
+        if (destino != null && EsTemporal(destino) && especificacion != null)
+            foreach (var elemento in especificacion.SelectElements.OfType<SelectScalarExpression>())
+            {
+                var columna = SinParentesis(elemento.Expression) as ColumnReferenceExpression;
+                string nombre = elemento.ColumnName != null ? elemento.ColumnName.Value : columna != null ? NombreColumna(columna) : null;
+                if (nombre != null) GuardarOrigen(destino, nombre, elemento, especificacion.FromClause);
+            }
         GuardarSentencia(sentencia, "SELECT");
+    }
+
+    // La columna de la temporal se llena directo desde una columna de una tabla física (no de un cálculo, una
+    // temporal ni el lado opcional de un OUTER JOIN): para el ISNULL se valida esa columna de origen.
+    private void GuardarOrigen(string temporal, string columnaTemporal, SelectElement elemento, FromClause from)
+    {
+        var escalar = elemento as SelectScalarExpression;
+        var columna = escalar != null ? SinParentesis(escalar.Expression) as ColumnReferenceExpression : null;
+        Tuple<string, string> origen = null;
+        if (columna != null && columna.MultiPartIdentifier != null)
+        {
+            var opcionales = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var mapa = MapaDelFrom(from, opcionales);
+            var partes = columna.MultiPartIdentifier.Identifiers;
+            string clave = partes.Count >= 2 ? partes[partes.Count - 2].Value : null;
+            string tabla = null;
+            if (clave != null) mapa.TryGetValue(clave, out tabla);
+            else if (mapa.Values.Distinct(StringComparer.OrdinalIgnoreCase).Count() == 1) { tabla = mapa.Values.First(); clave = mapa.Keys.First(); }
+            if (tabla != null && !EsTemporal(tabla) && tabla != "(subconsulta)" && !opcionales.Contains(clave))
+                origen = Tuple.Create(tabla, NombreColumna(columna));
+        }
+        Dictionary<string, Tuple<string, string>> deLaTabla;
+        if (!origenes.TryGetValue(temporal, out deLaTabla))
+            origenes[temporal] = deLaTabla = new Dictionary<string, Tuple<string, string>>(StringComparer.OrdinalIgnoreCase);
+        Tuple<string, string> anterior;
+        // Si dos INSERT llenan la columna desde orígenes distintos, ya no se sabe cuál validar.
+        if (deLaTabla.TryGetValue(columnaTemporal, out anterior))
+        {
+            if (anterior == null || origen == null || !string.Equals(anterior.Item1 + "." + anterior.Item2,
+                origen.Item1 + "." + origen.Item2, StringComparison.OrdinalIgnoreCase)) deLaTabla[columnaTemporal] = null;
+        }
+        else deLaTabla[columnaTemporal] = origen;
     }
 
     public override void Visit(InsertStatement sentencia) { GuardarSentencia(sentencia, "INSERT"); }
@@ -967,7 +1113,7 @@ public class GenesisVisitante : TSqlFragmentVisitor
         var convert = lado as ConvertCall;
         if (cast != null) { funcion = "CAST"; columna = SinParentesis(cast.Parameter) as ColumnReferenceExpression; }
         if (convert != null) { funcion = "CONVERT"; columna = SinParentesis(convert.Parameter) as ColumnReferenceExpression; }
-        if (funcion == null || columna == null || EsTemporal(TablaDe(columna))) return;
+        if (funcion == null || columna == null) return;
         // ISNULL(col, r) op v: sin la función queda «(col op v OR col IS NULL)» si r es el mismo valor, o
         // «(col op v OR (col IS NULL AND r op v))» en general; así no se pierden las filas con NULL.
         string ejemplo = "";
@@ -978,8 +1124,50 @@ public class GenesisVisitante : TSqlFragmentVisitor
                 ? "(" + col + " = " + valor + " OR " + col + " IS NULL)"
                 : "(" + col + " " + op + " " + valor + " OR (" + col + " IS NULL AND " + reemplazo + " " + op + " " + valor + "))";
         }
+        if (funcion == "ISNULL")
+        {
+            // Primero se valida si la columna acepta NULL (con la consulta); si no se puede saber de qué tabla
+            // física es, queda como función sobre la columna.
+            isnullRevisados.Add(llamada.StartOffset);
+            if (RevisarIsnull(llamada, columna, "condicion", ejemplo)) return;
+        }
+        if (EsTemporal(TablaDe(columna))) return;
         Agregar("FUNCION_SOBRE_COLUMNA", comparacion.StartLine, "funcion", funcion, "columna", Texto(columna),
                 "expresion", Texto(lado), "comparacion", Texto(comparacion), "ejemplo", ejemplo);
+    }
+
+    // ISNULL sobre una columna: si es de una tabla física (o de una temporal que se llena desde una), se pide
+    // validar si acepta NULL con una consulta; si es de una temporal definida NOT NULL, ya se sabe que sobra.
+    // No se marca la columna del lado opcional de un OUTER JOIN: ahí el NULL llega aunque la tabla no lo tenga.
+    private bool RevisarIsnull(FunctionCall isnull, ColumnReferenceExpression columna, string contexto, string ejemplo)
+    {
+        bool opcional;
+        string tabla = TablaDe(columna, out opcional);
+        if (tabla == null || opcional || tabla == "(subconsulta)") return false;
+        string nombre = NombreColumna(columna);
+        string tipo = contexto == "condicion" ? "ISNULL_EN_CONDICION" : "ISNULL_VALIDAR_NULOS";
+        if (!EsTemporal(tabla))
+        {
+            Agregar(tipo, isnull.StartLine, "tabla", tabla, "columna", nombre, "expresion", Texto(isnull), "ejemplo", ejemplo);
+            return true;
+        }
+        Dictionary<string, int> noNulas;
+        int lineaDefinicion;
+        if (columnasNoNulas.TryGetValue(tabla, out noNulas) && noNulas.TryGetValue(nombre, out lineaDefinicion))
+        {
+            Agregar("ISNULL_EN_COLUMNA_NOT_NULL", isnull.StartLine, "tabla", tabla, "columna", nombre,
+                    "expresion", Texto(isnull), "definicion", lineaDefinicion, "contexto", contexto);
+            return true;
+        }
+        Dictionary<string, Tuple<string, string>> deLaTabla;
+        Tuple<string, string> origen;
+        if (origenes.TryGetValue(tabla, out deLaTabla) && deLaTabla.TryGetValue(nombre, out origen) && origen != null)
+        {
+            Agregar(tipo, isnull.StartLine, "tabla", origen.Item1, "columna", origen.Item2, "expresion", Texto(isnull),
+                    "ejemplo", ejemplo, "temporal", tabla, "columnaTemporal", nombre);
+            return true;
+        }
+        return false;
     }
 
     // Conversión implícita previsible: la columna de texto se convierte para compararla con un número o con

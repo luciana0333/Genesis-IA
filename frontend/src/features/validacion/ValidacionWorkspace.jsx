@@ -11,6 +11,7 @@ import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { useAlPedirEjemplo } from '../../hooks/useVerEjemplo';
 import { nombreRegla } from '../../config/reglas';
 import { BarraRecorrido, VerEnCodigo } from '../auditoria/VerEnCodigo';
+import { CopiarConsulta } from './CopiarConsulta';
 
 // Ejemplo con los errores de estructura más comunes (coma de más, paréntesis sin cerrar, BEGIN sin END).
 export const EJEMPLO_VALIDACION = `CREATE PROCEDURE dbo.PA_Credito_Sel_Resumen
@@ -184,7 +185,12 @@ export function ValidacionWorkspace() {
             estado={resultado.estado}
             hallazgos={resultado.hallazgos}
             mensajeError={resultado.mensaje}
-            accionesHallazgo={(hallazgo) => <VerEnCodigo onVer={() => verEnCodigo(hallazgo)} />}
+            accionesHallazgo={(hallazgo) => (
+              <>
+                <VerEnCodigo onVer={() => verEnCodigo(hallazgo)} />
+                {hallazgo.consulta && <CopiarConsulta consulta={hallazgo.consulta} />}
+              </>
+            )}
             textos={{
               inicialTitulo: 'Listo para validar el código',
               pasos: [

@@ -151,8 +151,8 @@ class GruposTest(unittest.TestCase):
 
     def test_isnull_se_reescribe_sin_perder_los_null(self):
         hallazgo = next(h for h in validar_estructura("SELECT a FROM dbo.T WHERE ISNULL(bEvaluado, 0) = 0")
-                        if h.regla == "FUNCION_SOBRE_COLUMNA")
-        self.assertIn("(ej.: (bEvaluado = 0 OR bEvaluado IS NULL))", hallazgo.mensaje)
+                        if h.regla == "ISNULL_EN_CONDICION")
+        self.assertIn("se puede reescribir sin la función: (bEvaluado = 0 OR bEvaluado IS NULL)", hallazgo.mensaje)
 
     def test_mensajes_de_errores_silenciosos(self):
         mensajes = {h.regla: h.mensaje for h in validar_estructura(

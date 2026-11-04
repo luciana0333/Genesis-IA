@@ -348,6 +348,64 @@ def _orden_insert(h: Dict) -> Partes:
             "trabajo.")
 
 
+# --- ISNULL sobre columnas: validar si la columna acepta NULL -----------------------------------------
+def _de_la_columna(h: Dict) -> str:
+    if h.get("temporal"):
+        return (f"sobre la columna {h['columnaTemporal']} de {h['temporal']}, que se llena desde "
+                f"{h['tabla']}.{h['columna']}")
+    return f"sobre la columna {h['columna']} de {h['tabla']}"
+
+
+def _isnull_validar(h: Dict) -> Partes:
+    return (f"Se identificó {h['expresion']} {_de_la_columna(h)}.",
+            "Se recomienda validar si la columna acepta valores nulos con la consulta adjunta, ya que, si no los "
+            "acepta, el ISNULL no es necesario.")
+
+
+def _isnull_condicion(h: Dict) -> Partes:
+    reescrita = f" (si los acepta, se puede reescribir sin la función: {h['ejemplo']})" if h.get("ejemplo") else ""
+    return (f"Se identificó {h['expresion']} en una condición, {_de_la_columna(h)}.",
+            f"Se recomienda validar si la columna acepta valores nulos con la consulta adjunta, ya que, si no los "
+            f"acepta, el ISNULL no es necesario y en una condición impide usar el índice{reescrita}.")
+
+
+def _isnull_not_null(h: Dict) -> Partes:
+    indice = " y en una condición impide usar el índice" if h.get("contexto") == "condicion" else ""
+    return (f"Se identificó {h['expresion']} sobre la columna {h['columna']} de {h['tabla']}, que se define NOT NULL "
+            f"(línea {h['definicion']}).",
+            f"Se recomienda retirar el ISNULL, ya que la columna no acepta valores nulos{indice}.")
+
+
+def consulta_de_nulos(hechos: List[Dict]) -> Optional[str]:
+    """
+    Consulta lista para copiar: si cada columna acepta NULL, según la definición de su tabla física. Una sola
+    consulta con todas las columnas; las tablas de otra base (DBCMACICA.dbo.T) se consultan en esa base.
+    """
+    por_base: Dict[str, Dict[Tuple[str, str], List[str]]] = {}
+    for hecho in hechos:
+        partes = [p.strip("[]") for p in str(hecho["tabla"]).split(".")]
+        base, esquema, tabla = ([""] * (3 - len(partes)) + partes)[-3:]
+        columnas = por_base.setdefault(base, {}).setdefault((esquema, tabla), [])
+        if hecho["columna"] not in columnas:
+            columnas.append(hecho["columna"])
+    if not por_base:
+        return None
+    consultas = []
+    for base, tablas in por_base.items():
+        condiciones = []
+        for (esquema, tabla), columnas in tablas.items():
+            filtro = f"TABLE_SCHEMA = '{esquema}' AND " if esquema else ""
+            lista = ", ".join(f"'{c}'" for c in columnas)
+            condiciones.append(f"({filtro}TABLE_NAME = '{tabla}' AND COLUMN_NAME IN ({lista}))")
+        origen = f"{base}.INFORMATION_SCHEMA.COLUMNS" if base else "INFORMATION_SCHEMA.COLUMNS"
+        consultas.append(
+            f"SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, IS_NULLABLE\nFROM {origen}\nWHERE "
+            + "\n   OR ".join(condiciones)
+        )
+    return "-- IS_NULLABLE = NO: la columna no acepta NULL y el ISNULL no es necesario\n" \
+        + "\nUNION ALL\n".join(consultas) + "\nORDER BY TABLE_NAME, COLUMN_NAME;"
+
+
 # --- 4 · Seguridad (alto) ------------------------------------------------------------------------------
 def _inyeccion(h: Dict) -> Partes:
     return (f"Se identificó SQL dinámico armado concatenando el parámetro {h['variable']}.",
@@ -439,6 +497,9 @@ MENSAJES: Dict[str, Tuple[Severidad, Callable[[Dict], Optional[Partes]]]] = {
     "SUBCONSULTAS_A_APPLY": (Severidad.MEDIO, _apply),
     "FUNCION_SOBRE_COLUMNA": (Severidad.MEDIO, _funcion_columna),
     "COUNT_EN_LUGAR_DE_EXISTS": (Severidad.MEDIO, _count),
+    "ISNULL_EN_CONDICION": (Severidad.MEDIO, _isnull_condicion),
+    "ISNULL_EN_COLUMNA_NOT_NULL": (Severidad.MEDIO, _isnull_not_null),
+    "ISNULL_VALIDAR_NULOS": (Severidad.BAJO, _isnull_validar),
     "FUNCION_ESCALAR_POR_FILA": (Severidad.MEDIO, _funcion_escalar),
     "CONVERSION_PREVISIBLE": (Severidad.MEDIO, _conversion),
     "LIKE_COMODIN_INICIO": (Severidad.BAJO, _like),

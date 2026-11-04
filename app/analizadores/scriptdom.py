@@ -26,7 +26,9 @@ import threading
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from app.analizadores.scriptdom_mensajes import MENSAJES, mensaje_agrupado, mensaje_hecho, severidad
+from app.analizadores.scriptdom_mensajes import (
+    MENSAJES, consulta_de_nulos, mensaje_agrupado, mensaje_hecho, severidad,
+)
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 
 DLL = "Microsoft.SqlServer.TransactSql.ScriptDom.dll"
@@ -215,6 +217,9 @@ def _lista(valor) -> List[Dict]:
 
 LECTOR_SCRIPTDOM = _LectorScriptDom()
 
+# Observaciones que traen la consulta para validar si las columnas aceptan NULL.
+CON_CONSULTA_DE_NULOS = {"ISNULL_VALIDAR_NULOS", "ISNULL_EN_CONDICION"}
+
 
 def mensaje_error_sintaxis(error: Dict) -> str:
     mensaje = str(error.get("mensaje", "")).strip()
@@ -256,5 +261,7 @@ def validar_estructura(sql: str) -> Optional[List[Hallazgo]]:
         hallazgo = _hallazgo(lineas[0], tipo, mensaje, severidad(tipo))
         if len(lineas) > 1:
             hallazgo.lineas = lineas  # para recorrerlas con la barra «1 de N»
+        if tipo in CON_CONSULTA_DE_NULOS:
+            hallazgo.consulta = consulta_de_nulos(hechos)  # botón «Copiar consulta de validación»
         hallazgos.append(hallazgo)
     return hallazgos

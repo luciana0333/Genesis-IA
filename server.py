@@ -216,7 +216,9 @@ class GenesisHandler(SimpleHTTPRequestHandler):
             'estado': estado,
             'hallazgos': [
                 {'linea': h.linea, 'origen': h.origen.value, 'severidad': h.severidad.value, 'regla': h.regla,
-                 'mensaje': h.mensaje, 'lineas': getattr(h, 'lineas', None)}
+                 'mensaje': h.mensaje, 'lineas': getattr(h, 'lineas', None),
+                 # Consulta para validar si las columnas aceptan NULL (ISNULL sobre columnas).
+                 'consulta': getattr(h, 'consulta', None)}
                 for h in hallazgos
             ],
         })

@@ -50,3 +50,33 @@ describe('ValidacionWorkspace', () => {
     expect(await screen.findByText(/No se encontró ScriptDom en esta PC/)).toBeInTheDocument();
   });
 });
+
+describe('Copiar consulta de validación', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('aparece en el ISNULL sobre una columna y copia la consulta', async () => {
+    const usuario = userEvent.setup();
+    const consulta = 'SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS';
+    vi.spyOn(globalThis, 'fetch').mockImplementation((ruta) => Promise.resolve(
+      ruta === '/api/validacion-sql/estado'
+        ? respuesta(LECTOR)
+        : respuesta({
+          estado: LECTOR,
+          hallazgos: [{
+            linea: 3, severidad: 'bajo', regla: 'ISNULL_VALIDAR_NULOS', origen: 'reglas_estaticas', consulta,
+            mensaje: 'Se identificó ISNULL(c.nSaldo, 0) sobre la columna nSaldo de dbo.Credito. Se recomienda validar '
+              + 'si la columna acepta valores nulos con la consulta adjunta, ya que, si no los acepta, el ISNULL no es necesario.',
+          }],
+        }),
+    ));
+    const copiar = vi.fn().mockResolvedValue();
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: copiar }, configurable: true });
+    render(<ValidacionWorkspace />);
+
+    await usuario.click(await screen.findByRole('button', { name: /Validar código/ }));
+    await usuario.click(await screen.findByRole('button', { name: /Copiar consulta de validación/ }));
+
+    expect(copiar).toHaveBeenCalledWith(consulta);
+    expect(await screen.findByRole('button', { name: /Consulta copiada/ })).toBeInTheDocument();
+  });
+});
