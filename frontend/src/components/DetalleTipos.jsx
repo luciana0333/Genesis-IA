@@ -62,7 +62,7 @@ export function PanelDetalleTipos({ nombre, detalle, onIrALinea }) {
                 {fila.tablas.map((tabla, i) => {
                   const linea = fila.lineas?.[i];
                   return (
-                    <tr key={tabla} className="detalle-tipos-temporal">
+                    <tr key={tabla} className={`detalle-tipos-temporal${i % 2 ? ' alterna' : ''}`}>
                       <td><code>{tabla}</code></td>
                       <td className="detalle-tipos-linea">{linea ?? '—'}</td>
                       <td className="detalle-tipos-accion">

@@ -1073,10 +1073,10 @@
 
 /* ───────── «Misma columna con distinto tipo» como tabla (diseño de la usuaria, 7 nov.) ───────── */
 /* La tabla ocupa todo el ancho de la tarjeta; la cabecera es la misma de las demás observaciones. */
-.tabla-tipos { width: calc(100% + 40px); margin: 12px -20px 6px; border-top: 1px solid var(--border); border-collapse: collapse; }
+/* Blanco puro y sin líneas: filas alternadas en gris azulado muy suave (referencia de la usuaria). */
+.tabla-tipos { width: calc(100% + 40px); margin: 12px -20px 6px; border-collapse: collapse; }
 .tabla-tipos > thead > tr > th {
   padding: 14px 20px 12px;
-  border-bottom: 1px solid var(--border);
   color: var(--text-secondary);
   font-size: 0.66rem;
   font-weight: 700;
@@ -1084,11 +1084,12 @@
   text-align: left;
   text-transform: uppercase;
 }
-.tabla-tipos > tbody > tr > td { padding: 12px 20px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.tabla-tipos > tbody > tr > td { padding: 13px 20px; vertical-align: middle; }
 .tabla-tipos > thead > tr > th:first-child { width: 160px; }
 .tabla-tipos > * > tr > .tabla-tipos-detalles { width: 130px; text-align: right; }
 .tabla-tipos-fila { transition: background-color var(--dur-fast) ease; }
-.tabla-tipos-fila:hover { background: #fafbfc; }
+.tabla-tipos-fila.alterna { background: #f5f7fb; }
+.tabla-tipos-fila:hover { background: #eef2f8; }
 .tabla-tipos-fila.activa { background: #fff5f6; }
 :root[data-theme="dark"] .tabla-tipos-fila:hover,
 :root[data-theme="dark"] .tabla-tipos-fila.activa { background: rgba(255, 255, 255, 0.03); }
@@ -1096,9 +1097,8 @@
 .tabla-tipos-columna {
   display: inline-block;
   padding: 3px 9px;
-  border: 1px solid var(--border);
   border-radius: 4px;
-  background: var(--bg-subtle);
+  background: #eaeef5;
   color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: 0.76rem;
@@ -1115,33 +1115,33 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: 6px;
-  background: var(--bg-card);
+  background: #ffffff;
   color: var(--text-primary);
   font: inherit;
   font-size: 0.78rem;
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(17, 17, 26, 0.05);
-  transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 2px 8px -2px rgba(16, 24, 40, 0.12);
+  transition: box-shadow var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 .tabla-tipos-boton svg { width: 14px; height: 14px; color: var(--text-secondary); }
-.tabla-tipos-boton:hover, .tabla-tipos-boton.abierto { border-color: #be123c; color: #be123c; }
+.tabla-tipos-boton:hover, .tabla-tipos-boton.abierto { color: #be123c; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08), 0 4px 12px -2px rgba(16, 24, 40, 0.18); }
 .tabla-tipos-boton:hover svg, .tabla-tipos-boton.abierto svg { color: #be123c; }
 .tabla-tipos-boton:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.tabla-tipos > tbody > .tabla-tipos-panel > td { padding: 4px 20px 16px; background: #fafbfc; }
+.tabla-tipos > tbody > .tabla-tipos-panel > td { padding: 6px 20px 18px; background: #ffffff; }
 .tabla-tipos-panel .detalle-tipos { margin: 6px 0 0; }
 
 .detalle-tipos {
   margin: 10px 0 8px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
+  background: #ffffff;
   color: var(--text-primary);
-  box-shadow: 0 1px 2px rgba(17, 17, 26, 0.04), 0 14px 32px -18px rgba(17, 17, 26, 0.22);
+  box-shadow: 0 2px 4px -2px rgba(16, 24, 40, 0.06), 0 12px 28px -8px rgba(16, 24, 40, 0.16);
 }
-.detalle-tipos-cabecera { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); }
+:root[data-theme="dark"] .detalle-tipos { background: var(--bg-card); }
+.detalle-tipos-cabecera { display: flex; align-items: stretch; }
 .detalle-tipos-titulo {
   display: flex;
   flex: 1;
@@ -1164,13 +1164,12 @@
 .detalle-tipos-diferencia {
   margin-left: 10px;
   padding: 2px 8px;
-  border: 1px solid transparent;
   font-size: 0.62rem;
   font-weight: 600;
   letter-spacing: 0.05em;
 }
-.detalle-tipos-diferencia.longitud { border-color: #f3d38d; background: #fdf6e6; color: #7a4a06; }
-.detalle-tipos-diferencia.tipo { border-color: #f6c2c5; background: var(--red-light); color: var(--red-dark); }
+.detalle-tipos-diferencia.longitud { background: #fdf3dc; color: #7a4a06; }
+.detalle-tipos-diferencia.tipo { background: var(--red-light); color: var(--red-dark); }
 .detalle-tipos-indicador {
   display: flex;
   flex-direction: column;
@@ -1178,8 +1177,7 @@
   gap: 4px;
   min-width: 80px;
   padding: 10px 18px;
-  border-left: 1px solid var(--border);
-  background: var(--bg-subtle);
+  background: #f5f7fb;
   text-align: right;
 }
 .detalle-tipos-indicador .detalle-tipos-rotulo { justify-content: flex-end; font-size: 0.6rem; }
@@ -1187,8 +1185,7 @@
 /* Lista del detalle (referencia de la usuaria): una franja roja por tipo y, debajo, sus temporales. */
 .detalle-tipos-lista { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
 .detalle-tipos-lista thead th {
-  padding: 9px 18px;
-  border-bottom: 1px solid var(--border);
+  padding: 12px 18px 9px;
   color: var(--text-secondary);
   font-size: 0.64rem;
   font-weight: 700;
@@ -1208,15 +1205,17 @@
 }
 .detalle-tipos-franja code { margin-right: 10px; font-family: var(--font-mono); font-size: 0.82rem; font-weight: 700; }
 .detalle-tipos-franja span { opacity: 0.92; }
-.detalle-tipos-temporal td { padding: 8px 18px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.detalle-tipos-temporal td { padding: 9px 18px; vertical-align: middle; }
+.detalle-tipos-temporal.alterna td { background: #f5f7fb; }
 .detalle-tipos-temporal code { color: #c0392b; font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600; }
 .detalle-tipos-linea { color: var(--text-secondary); font-family: var(--font-mono); font-size: 0.76rem; }
 .detalle-tipos-accion { text-align: right; }
 .detalle-tipos-ir {
   padding: 4px 12px;
-  border: 1px solid var(--border-strong, #cfcfd6);
+  border: 0;
   border-radius: 6px;
-  background: var(--bg-card);
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 2px 8px -2px rgba(16, 24, 40, 0.12);
   color: var(--text-primary);
   font: inherit;
   font-size: 0.68rem;
@@ -1225,9 +1224,9 @@
   text-transform: uppercase;
   white-space: nowrap;
   cursor: pointer;
-  transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: box-shadow var(--dur-fast) ease, color var(--dur-fast) ease;
 }
-.detalle-tipos-ir:hover { border-color: #e04b59; color: #c0392b; }
+.detalle-tipos-ir:hover { color: #c0392b; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08), 0 4px 12px -2px rgba(16, 24, 40, 0.18); }
 .detalle-tipos-ir:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 /* La viñeta de la tabla que se está recorriendo en el código. */

@@ -39,7 +39,7 @@ export function TablaTiposColumnas({ grupos, filaActiva = null, onIrALinea }) {
           const abierta = abiertas.has(indice);
           return (
             <Fragment key={grupo.nombre}>
-              <tr className={indice === filaActiva ? 'tabla-tipos-fila activa' : 'tabla-tipos-fila'}>
+              <tr className={`tabla-tipos-fila${indice % 2 ? ' alterna' : ''}${indice === filaActiva ? ' activa' : ''}`}>
                 <td><code className="tabla-tipos-columna">{grupo.nombre}</code></td>
                 <td>
                   <span className="tabla-tipos-desglose">
