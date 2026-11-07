@@ -1079,7 +1079,7 @@
   position: relative;
   z-index: 1;
   /* Sombra suave bajo el encabezado, en vez de línea (pedido de la usuaria). */
-  box-shadow: 0 8px 12px -10px rgba(16, 24, 40, 0.22);
+  background: #ffffff;
   padding: 14px 20px 12px;
   color: var(--text-secondary);
   font-size: 0.66rem;
@@ -1087,6 +1087,18 @@
   letter-spacing: 0.08em;
   text-align: left;
   text-transform: uppercase;
+}
+/* La sombra del encabezado es una franja degradada bajo cada celda: se ve igual en todos los navegadores
+   (la sombra normal de una celda de tabla a veces no se pinta). */
+.tabla-tipos > thead > tr > th::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -10px;
+  left: 0;
+  height: 10px;
+  background: linear-gradient(180deg, rgba(16, 24, 40, 0.09), rgba(16, 24, 40, 0));
+  pointer-events: none;
 }
 .tabla-tipos > tbody > tr > td { padding: 13px 20px; vertical-align: middle; }
 .tabla-tipos > thead > tr > th:first-child { width: 160px; }
