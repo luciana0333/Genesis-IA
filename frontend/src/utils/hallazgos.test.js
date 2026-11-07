@@ -82,6 +82,22 @@ describe('desglosarGrupo', () => {
     });
   });
 
+  it('lista las tablas de «Múltiples JOIN sobre la misma tabla» bajo su introducción', () => {
+    const mensaje =
+      "Se identificó el uso repetido de las siguientes tablas en los JOIN: 'T1' se utiliza en 4 JOIN (líneas 2, 5, 8, 11); "
+      + "'T2' se utiliza en 4 JOIN (líneas 3, 6, 9, 12). Se recomienda evitar los JOIN repetidos sobre una misma tabla.";
+    const { problema, solucion } = separarMensaje(mensaje);
+    expect(solucion).toBe('Se recomienda evitar los JOIN repetidos sobre una misma tabla.');
+    expect(desglosarGrupo(problema)).toEqual({
+      lineas: null,
+      intro: 'Se identificó el uso repetido de las siguientes tablas en los JOIN:',
+      ocurrencias: [
+        "'T1' se utiliza en 4 JOIN (líneas 2, 5, 8, 11)",
+        "'T2' se utiliza en 4 JOIN (líneas 3, 6, 9, 12)",
+      ],
+    });
+  });
+
   it('lista los nombres de un grupo con introducción, sin cambiar sus mayúsculas', () => {
     const mensaje =
       'Se identificaron 2 columnas sin documentar, en las líneas 2, 3: cCodPersona; nClienteId. '

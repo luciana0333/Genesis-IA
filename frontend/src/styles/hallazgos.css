@@ -1020,12 +1020,34 @@
 .ver-en-codigo svg,
 .aprobar-siglas-boton svg { width: 14px; height: 14px; }
 
+/* «Ver en el código»: blanco con sombra suave, redondeo de 8 px, letra oscura e ícono rojo de la marca;
+   al pasar el mouse sube un poco y la sombra crece (pedido de la usuaria, 7 nov.). */
 .ver-en-codigo {
-  border: 1px solid var(--border-strong);
-  background: var(--bg-subtle);
+  position: relative;
+  height: 36px;
+  padding: 0 18px 0 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #ffffff; /* blanco con sombra suave (pedido de la usuaria) */
   color: var(--text-primary);
+  letter-spacing: 0.01em;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.06),
+    0 4px 12px -4px rgba(16, 24, 40, 0.16),
+    0 0 0 1px rgba(16, 24, 40, 0.04);
+  transition: box-shadow var(--dur-fast) ease, transform var(--dur-fast) ease, color var(--dur-fast) ease;
 }
-.ver-en-codigo:hover { border-color: var(--text-secondary); }
+:root[data-theme="dark"] .ver-en-codigo { background: var(--bg-card); }
+.ver-en-codigo svg { width: 15px; height: 15px; color: var(--red-main); }
+.ver-en-codigo:hover {
+  transform: translateY(-1px);
+  color: var(--red-dark);
+  box-shadow:
+    0 2px 4px rgba(16, 24, 40, 0.08),
+    0 10px 20px -8px rgba(16, 24, 40, 0.24),
+    0 0 0 1px rgba(16, 24, 40, 0.04);
+}
+.ver-en-codigo:active { transform: translateY(0) scale(0.98); }
 
 .aprobar-siglas-boton { background: var(--red-main); }
 .aprobar-siglas-boton:hover,
@@ -1062,6 +1084,206 @@
 }
 
 .barra-recorrido-titulo { margin-right: 6px; font-weight: 600; white-space: nowrap; }
+.barra-recorrido-tabla { color: #ffe3e5; font-weight: 400; }
+.barra-recorrido-vez {
+  margin-left: 10px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.35);
+  color: #ffe3e5;
+  font-weight: 400;
+}
+
+/* ───────── «Misma columna con distinto tipo» como tabla (diseño de la usuaria, 7 nov.) ───────── */
+/* La tabla ocupa todo el ancho de la tarjeta; la cabecera es la misma de las demás observaciones. */
+/* Blanco puro y sin líneas: filas alternadas en gris azulado muy suave (referencia de la usuaria). */
+.tabla-tipos { width: calc(100% + 40px); margin: 12px -20px 6px; border-collapse: collapse; }
+.tabla-tipos > thead > tr > th {
+  position: relative;
+  z-index: 1;
+  /* Sombra suave bajo el encabezado, en vez de línea (pedido de la usuaria). */
+  background: #ffffff;
+  padding: 14px 20px 12px;
+  color: var(--text-secondary);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+}
+/* La sombra del encabezado es una franja degradada bajo cada celda: se ve igual en todos los navegadores
+   (la sombra normal de una celda de tabla a veces no se pinta). */
+.tabla-tipos > thead > tr > th::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -10px;
+  left: 0;
+  height: 10px;
+  background: linear-gradient(180deg, rgba(16, 24, 40, 0.09), rgba(16, 24, 40, 0));
+  pointer-events: none;
+}
+.tabla-tipos > tbody > tr > td { padding: 13px 20px; vertical-align: middle; }
+.tabla-tipos > thead > tr > th:first-child { width: 160px; }
+.tabla-tipos > * > tr > .tabla-tipos-detalles { width: 130px; text-align: right; }
+.tabla-tipos-fila { transition: background-color var(--dur-fast) ease; }
+.tabla-tipos-fila.alterna { background: #f5f7fb; }
+.tabla-tipos-fila:hover { background: #eef2f8; }
+.tabla-tipos-fila.activa { background: #fff5f6; }
+:root[data-theme="dark"] .tabla-tipos-fila:hover,
+:root[data-theme="dark"] .tabla-tipos-fila.activa { background: rgba(255, 255, 255, 0.03); }
+
+.tabla-tipos-columna {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 4px;
+  background: #eaeef5;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+.tabla-tipos-desglose { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 0; }
+/* Desglose solo en letra, sin colores (pedido de la usuaria): el tipo en código y en negrita. */
+.tabla-tipos-tipo { color: var(--text-secondary); font-size: 0.8rem; white-space: nowrap; }
+.tabla-tipos-tipo b { color: var(--text-primary); font-family: var(--font-mono); font-size: 0.78rem; font-weight: 700; }
+.tabla-tipos-vs { margin: 0 10px; color: var(--text-muted); font-size: 0.74rem; }
+
+.tabla-tipos-boton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 2px 8px -2px rgba(16, 24, 40, 0.12);
+  transition: box-shadow var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.tabla-tipos-boton svg { width: 14px; height: 14px; color: var(--text-secondary); }
+.tabla-tipos-boton:hover, .tabla-tipos-boton.abierto { color: #be123c; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08), 0 4px 12px -2px rgba(16, 24, 40, 0.18); }
+.tabla-tipos-boton:hover svg, .tabla-tipos-boton.abierto svg { color: #be123c; }
+.tabla-tipos-boton:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.tabla-tipos > tbody > .tabla-tipos-panel > td { padding: 6px 20px 18px; background: #ffffff; }
+.tabla-tipos-panel .detalle-tipos { margin: 6px 0 0; }
+
+.detalle-tipos {
+  margin: 10px 0 8px;
+  background: #ffffff;
+  color: var(--text-primary);
+  box-shadow: 0 2px 4px -2px rgba(16, 24, 40, 0.06), 0 12px 28px -8px rgba(16, 24, 40, 0.16);
+}
+:root[data-theme="dark"] .detalle-tipos { background: var(--bg-card); }
+.detalle-tipos-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 10px 0;
+  background: #ffffff; /* blanco (pedido de la usuaria) */
+}
+:root[data-theme="dark"] .detalle-tipos-cabecera { background: var(--bg-card); }
+.detalle-tipos-titulo {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 18px;
+}
+.detalle-tipos-rotulo {
+  display: flex;
+  align-items: center;
+  color: var(--text-secondary);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.detalle-tipos-columna { font-family: var(--font-mono); font-size: 1.05rem; font-weight: 700; }
+.detalle-tipos-diferencia {
+  margin-left: 10px;
+  padding: 2px 8px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.detalle-tipos-diferencia.longitud { background: #fdf3dc; color: #7a4a06; }
+.detalle-tipos-diferencia.tipo { background: var(--red-light); color: var(--red-dark); }
+.detalle-tipos-indicador {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 82px;
+  padding: 8px 16px;
+  background: #ffffff; /* tarjetita blanca separada por sombra, sin fondo gris */
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px -4px rgba(16, 24, 40, 0.14);
+  text-align: right;
+}
+:root[data-theme="dark"] .detalle-tipos-indicador { background: var(--bg-card); }
+.detalle-tipos-indicador .detalle-tipos-rotulo { justify-content: flex-end; font-size: 0.6rem; }
+.detalle-tipos-indicador strong { font-size: 1.25rem; font-weight: 700; line-height: 1.1; }
+/* Lista del detalle (referencia de la usuaria): una franja roja por tipo y, debajo, sus temporales. */
+.detalle-tipos-lista { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+/* Encabezado en rojo con letra blanca; el cuerpo, todo blanco (pedido de la usuaria). */
+.detalle-tipos-lista thead th {
+  padding: 10px 18px;
+  background: #e04b59;
+  color: #ffffff;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+}
+.detalle-tipos-lista thead th:first-child { width: 190px; }
+.detalle-tipos-franja {
+  padding: 12px 18px;
+  background: #ffffff;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-align: left;
+  vertical-align: top;
+}
+.detalle-tipos-franja code { display: block; color: var(--text-primary); font-family: var(--font-mono); font-size: 0.84rem; font-weight: 700; }
+.detalle-tipos-franja span { display: block; margin-top: 3px; }
+.detalle-tipos-fila > th, .detalle-tipos-fila > td { position: relative; }
+.detalle-tipos-fila > td { padding: 12px 18px 8px; background: #ffffff; vertical-align: top; }
+/* Entre una fila y otra, una sombra suave en vez de línea (pedido de la usuaria). */
+.detalle-tipos-fila:not(:last-child) > th::after,
+.detalle-tipos-fila:not(:last-child) > td::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -8px;
+  left: 0;
+  z-index: 1;
+  height: 8px;
+  background: linear-gradient(180deg, rgba(16, 24, 40, 0.08), rgba(16, 24, 40, 0));
+  pointer-events: none;
+}
+/* Cada temporal: solo su nombre en texto negro normal. */
+.detalle-tipos-temporal {
+  display: inline-block;
+  margin: 0 16px 6px 0;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+/* La viñeta de la tabla que se está recorriendo en el código. */
+.finding-list li.ocurrencia-activa {
+  background: #fdecee;
+  color: var(--red-dark);
+  outline: 1px solid #f6c9cd;
+}
 
 .barra-recorrido-linea {
   padding: 0 10px;

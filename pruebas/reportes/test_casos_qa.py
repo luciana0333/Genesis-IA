@@ -37,7 +37,7 @@ class TestReportesQA(unittest.TestCase):
         self.assertEqual(reglas(tras_sentencia), [("SELECT_INTO_PROHIBIDO", 6)])
 
     def test_insert_into_select_no_es_select_into(self):
-        sql = procedimiento("    INSERT INTO #T (n) SELECT c.nId FROM dbo.Cliente c WITH(NOLOCK);")
+        sql = procedimiento("    CREATE TABLE #T (n INT);\n    INSERT INTO #T (n) SELECT c.nId FROM dbo.Cliente c WITH(NOLOCK);")
         self.assertEqual(reglas(sql), [])
 
     def test_select_top_y_alias_estrella(self):
@@ -68,7 +68,7 @@ class TestReportesQA(unittest.TestCase):
     def test_modificar_temporal_por_alias_es_valido(self):
         for sentencia in ("DELETE t FROM #T t WHERE t.nId = 1;", "UPDATE t SET t.n = 1 FROM #T t;"):
             with self.subTest(sentencia=sentencia):
-                self.assertEqual(reglas(procedimiento(f"    {sentencia}")), [])
+                self.assertEqual(reglas(procedimiento(f"    CREATE TABLE #T (nId INT, n INT);\n    {sentencia}")), [])
 
     def test_merge_join_es_hint_y_no_modificacion(self):
         sql = procedimiento("    SELECT c.cNombre FROM dbo.Cliente c WITH(NOLOCK) INNER MERGE JOIN dbo.Agencia a WITH(NOLOCK) ON a.nId = c.nId;")

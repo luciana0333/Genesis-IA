@@ -313,38 +313,54 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         self.assertEqual([(h.linea, h.severidad.value) for h in hallazgos], [(1, "medio")])
         self.assertEqual(
             hallazgos[0].mensaje,
-            "La columna cNombre está definida con diferentes tipos de datos en tres tablas temporales: VARCHAR(40) "
-            "en #Clientes y @T; VARCHAR(30) en #Resumen. Se recomienda validar si es correcto que estas columnas "
-            "tengan diferentes tipos de datos, ya que esto puede generar conversiones implícitas y afectar el "
-            "rendimiento de las consultas.",
+            "Se identificó la siguiente columna con diferentes tipos de datos o longitudes entre las tablas "
+            "temporales: 'cNombre': VARCHAR(40) en 2 tablas temporales y VARCHAR(30) en #Resumen. Se recomienda "
+            "validar los tipos de datos y longitudes definidos para cada columna, ya que las diferencias pueden "
+            "generar conversiones implícitas. De confirmarse que cumplen el mismo propósito, se recomienda "
+            "homologarlos.",
         )
+        # El recorrido para una vez por tipo; la tablita «Ver tablas» trae las temporales de cada tipo.
+        self.assertEqual(hallazgos[0].grupos, [{
+            "nombre": "cNombre", "tipo": "Columna", "lineas": [1, 3, 2],
+            "etiquetas": ["VARCHAR(40)", "VARCHAR(40)", "VARCHAR(30)"],
+            "detalle": [{"tipo": "VARCHAR(40)", "tablas": ["#Clientes", "@T"], "lineas": [1, 3]},
+                        {"tipo": "VARCHAR(30)", "tablas": ["#Resumen"], "lineas": [2]}],
+        }])
 
-    def test_caso_de_la_usuaria_texto_validar(self):
+    def test_caso_de_la_usuaria_un_tipo_por_tabla(self):
         collate = "COLLATE SQL_Latin1_General_CP1_CI_AS"
         sql = (f"CREATE TABLE #ColocConfigInfRiesgos (cCalifInt CHAR(5) {collate});\n"
                f"DECLARE @tCalifPrioridad TABLE (cCalifInt VARCHAR(10) {collate});\nSELECT 1")
         mensajes = [h.mensaje for h in verificar_procedimiento_normal(sql) if h.regla == "TIPO_DISTINTO_ENTRE_TEMPORALES"]
-        self.assertEqual(mensajes, [
-            "La columna cCalifInt está definida con diferentes tipos de datos en dos tablas temporales: CHAR(5) en "
-            "#ColocConfigInfRiesgos y VARCHAR(10) en @tCalifPrioridad. Se recomienda validar si es correcto que "
-            "ambas columnas tengan diferentes tipos de datos, ya que esto puede generar conversiones implícitas y "
-            "afectar el rendimiento de las consultas.",
-        ])
+        self.assertEqual(len(mensajes), 1)
+        self.assertIn(": 'cCalifInt': CHAR(5) en #ColocConfigInfRiesgos y VARCHAR(10) en @tCalifPrioridad. ", mensajes[0])
 
-    def test_una_observacion_por_columna_aunque_este_en_muchas_tablas(self):
-        # Caso de la usuaria: cCodZona en 5 temporales salía 4 veces (una por cada par).
+    def test_una_observacion_con_una_vineta_corta_por_columna(self):
+        # Caso de la usuaria (7 nov.): con muchas temporales, la lista de nombres no se leía.
         sql = ("CREATE TABLE #Data (cCodZona VARCHAR(10), cDesZona VARCHAR(150));\n"
                "CREATE TABLE #Zona (cCodZona CHAR(2), cDesZona VARCHAR(40));\n"
                "CREATE TABLE #ZonaAgencia (cCodZona CHAR(2), cCodAge CHAR(2));\n"
                "CREATE TABLE #TB_AGENCIA (cCodZona VARCHAR(2), cDesZona VARCHAR(40));\n"
                "CREATE TABLE #TB_ZONAX (cCodZona VARCHAR(2), cDesZona VARCHAR(40));\n")
-        mensajes = [h.mensaje for h in verificar_procedimiento_normal(sql) if h.regla == "TIPO_DISTINTO_ENTRE_TEMPORALES"]
-        self.assertEqual(len(mensajes), 1)  # se agrupan en una observación con dos casos (cCodZona y cDesZona)
-        self.assertIn("la columna cCodZona está definida con diferentes tipos de datos en cinco tablas temporales: "
-                      "VARCHAR(10) en #Data; CHAR(2) en #Zona y #ZonaAgencia; VARCHAR(2) en #TB_AGENCIA y #TB_ZONAX",
-                      mensajes[0])
-        self.assertIn("la columna cDesZona está definida con diferentes tipos de datos en cuatro tablas temporales: "
-                      "VARCHAR(150) en #Data; VARCHAR(40) en #Zona, #TB_AGENCIA y #TB_ZONAX", mensajes[0])
+        hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "TIPO_DISTINTO_ENTRE_TEMPORALES"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertTrue(hallazgos[0].mensaje.startswith(
+            "Se identificaron las siguientes columnas con diferentes tipos de datos o longitudes entre las tablas "
+            "temporales: 'cCodZona': VARCHAR(10) en #Data, CHAR(2) en 2 tablas temporales y VARCHAR(2) en 2; "
+            "'cDesZona': VARCHAR(150) en #Data y VARCHAR(40) en 3 tablas temporales. Se recomienda validar"))
+        # «Ver en el código» recorre columna por columna (como en los JOIN): primero todas las temporales de la
+        # primera columna, tipo por tipo, y luego las de la siguiente; cada parada dice su tipo.
+        grupos = hallazgos[0].grupos
+        self.assertEqual([(g["nombre"], g["lineas"], g["etiquetas"]) for g in grupos], [
+            ("cCodZona", [1, 2, 3, 4, 5], ["VARCHAR(10)", "CHAR(2)", "CHAR(2)", "VARCHAR(2)", "VARCHAR(2)"]),
+            ("cDesZona", [1, 2, 4, 5], ["VARCHAR(150)", "VARCHAR(40)", "VARCHAR(40)", "VARCHAR(40)"]),
+        ])
+        # Cada temporal con la línea donde define la columna («Ir a la línea»).
+        self.assertEqual(grupos[1]["detalle"], [
+            {"tipo": "VARCHAR(150)", "tablas": ["#Data"], "lineas": [1]},
+            {"tipo": "VARCHAR(40)", "tablas": ["#Zona", "#TB_AGENCIA", "#TB_ZONAX"], "lineas": [2, 4, 5]},
+        ])
+        self.assertEqual(hallazgos[0].lineas, [1, 2, 3, 4, 5, 1, 2, 4, 5])
 
     def test_misma_columna_con_el_mismo_tipo_es_valida(self):
         sql = "CREATE TABLE #A (nId INT, nMonto DECIMAL(18, 2));\nCREATE TABLE #B (nId INT, nMonto DECIMAL(18,2));"
@@ -569,6 +585,33 @@ END"""
             self.assertIn(columna, hallazgo.mensaje)
         self.assertIn("variable de tabla @V", hallazgo.mensaje)
 
+    def test_collate_en_temporales_agrupado_por_tabla(self):
+        # Caso de la usuaria (7 nov.): el mismo mensaje, una viñeta por temporal con todas sus columnas.
+        sql = ("CREATE TABLE #FILT (Num_correlativo VARCHAR(7), nDebe MONEY,\n"
+               "  dFechaContable VARCHAR(10), TipoReporte VARCHAR(1))\n"
+               "CREATE TABLE #FILT2 (Num_correlativo VARCHAR(7),\n  TipoReporte VARCHAR(1))")
+        hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "TEMPORAL_TEXTO_SIN_COLLATE"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertEqual(
+            hallazgos[0].mensaje,
+            "Se encontraron 2 observaciones de este tipo, en las líneas 1, 3: las columnas de texto Num_correlativo, "
+            "dFechaContable y TipoReporte de la tabla temporal #FILT no definen COLLATE; las columnas de texto "
+            "Num_correlativo y TipoReporte de la tabla temporal #FILT2 no definen COLLATE. Se recomienda añadir el "
+            "COLLATE correspondiente en las columnas de tipo texto de las tablas temporales. Por favor, revisar y "
+            "aplicarlo donde corresponda.",
+        )
+        # «Ver en el código» recorre tabla por tabla, columna por columna.
+        self.assertEqual(hallazgos[0].grupos, [
+            {"nombre": "#FILT", "tipo": "Tabla", "lineas": [1, 2, 2],
+             "etiquetas": ["Num_correlativo", "dFechaContable", "TipoReporte"]},
+            {"nombre": "#FILT2", "tipo": "Tabla", "lineas": [3, 4], "etiquetas": ["Num_correlativo", "TipoReporte"]},
+        ])
+        una = "CREATE TABLE #T (cA VARCHAR(10))"
+        mensaje = [h.mensaje for h in verificar_procedimiento_normal(una) if h.regla == "TEMPORAL_TEXTO_SIN_COLLATE"]
+        self.assertEqual(mensaje, ["La columna de texto cA de la tabla temporal #T no define COLLATE. Se recomienda "
+                                   "añadir el COLLATE correspondiente en las columnas de tipo texto de las tablas "
+                                   "temporales. Por favor, revisar y aplicarlo donde corresponda."])
+
     def test_goto_y_merge_son_medios_y_piden_validar(self):
         hallazgos = {h.regla: h for h in verificar_procedimiento_normal(
             "GOTO Fin; MERGE dbo.A AS t USING #B s ON t.n = s.n WHEN MATCHED THEN DELETE;")}
@@ -591,19 +634,47 @@ END"""
     def test_waitfor_esquema_omitido_y_convert_en_join(self):
         reglas = {h.regla for h in verificar_procedimiento_normal(
             "WAITFOR DELAY '00:00:01'; SELECT a.x FROM DBCMACICA..Agencias a; "
-            "SELECT a.x FROM #A a JOIN #B b ON CONVERT(INT, a.n) = b.n;")}
+            "SELECT a.x FROM dbo.TA a JOIN dbo.TB b ON CONVERT(INT, a.n) = b.n;")}
         self.assertTrue({"WAITFOR_DELAY_PROHIBIDO", "ESQUEMA_OMITIDO_ENTRE_BASES", "CAST_EN_JOIN_PROHIBIDO"} <= reglas)
 
-    def test_tabla_consultada_mas_de_tres_veces(self):
+    def test_tabla_en_mas_de_tres_join(self):
         sql = """SELECT c1.x FROM dbo.Cliente c1
 JOIN dbo.Cliente c2 ON c2.n = c1.n
 JOIN [dbo].[Cliente] c3 ON c3.n = c1.n
-JOIN Cliente c4 ON c4.n = c1.n;"""
+JOIN Cliente c4 ON c4.n = c1.n
+JOIN dbo.Cliente c5 ON c5.n = c1.n;"""
         hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "TABLA_REPETIDA_EN_CONSULTA"]
         self.assertEqual(len(hallazgos), 1)
-        self.assertIn("4 veces", hallazgos[0].mensaje)
-        tres = "SELECT c1.x FROM dbo.Cliente c1 JOIN dbo.Cliente c2 ON c2.n = c1.n JOIN dbo.Cliente c3 ON c3.n = c1.n;"
-        self.assertNotIn("TABLA_REPETIDA_EN_CONSULTA", {h.regla for h in verificar_procedimiento_normal(tres)})
+        self.assertEqual(hallazgos[0].severidad.value, "medio")
+        self.assertEqual(
+            hallazgos[0].mensaje,
+            "Se identificó el uso repetido de la siguiente tabla en los JOIN: 'dbo.Cliente' se utiliza en 4 JOIN "
+            "(líneas 2, 3, 4, 5). Se recomienda evitar los JOIN repetidos sobre una misma tabla y evaluar la "
+            "reutilización de sus resultados, para reducir accesos innecesarios y mejorar el rendimiento de la consulta.",
+        )
+
+    def test_el_from_no_se_cuenta_como_join(self):
+        # FROM + 3 JOIN: son solo 3 JOIN sobre la tabla.
+        sql = """SELECT c1.x FROM dbo.Cliente c1
+JOIN dbo.Cliente c2 ON c2.n = c1.n
+JOIN dbo.Cliente c3 ON c3.n = c1.n
+JOIN dbo.Cliente c4 ON c4.n = c1.n;"""
+        self.assertNotIn("TABLA_REPETIDA_EN_CONSULTA", {h.regla for h in verificar_procedimiento_normal(sql)})
+
+    def test_tabla_repetida_varias_tablas_en_una_observacion_y_tabla_por_tabla(self):
+        # Dos tablas con 4 JOIN cada una, intercaladas: una viñeta por tabla y «Ver en el código» va primero por
+        # todos los JOIN de la primera tabla y luego por los de la segunda.
+        bloque = ("UNION SELECT 1 FROM T0 z WITH (NOLOCK)\nJOIN T1 a WITH (NOLOCK) ON a.n = z.n\n"
+                  "JOIN T2 b WITH (NOLOCK) ON b.n = a.n\n")
+        sql = bloque[len("UNION "):] + bloque * 3 + ";"
+        hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "TABLA_REPETIDA_EN_CONSULTA"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertTrue(hallazgos[0].mensaje.startswith(
+            "Se identificó el uso repetido de las siguientes tablas en los JOIN: 'T1' se utiliza en 4 JOIN "
+            "(líneas 2, 5, 8, 11); 'T2' se utiliza en 4 JOIN (líneas 3, 6, 9, 12). Se recomienda evitar"))
+        self.assertEqual(hallazgos[0].grupos, [{"nombre": "T1", "lineas": [2, 5, 8, 11]},
+                                               {"nombre": "T2", "lineas": [3, 6, 9, 12]}])
+        self.assertEqual(hallazgos[0].lineas, [2, 5, 8, 11, 3, 6, 9, 12])
 
     def test_recomienda_throw_en_lugar_de_raiserror(self):
         hallazgo = [h for h in verificar_procedimiento_normal("RAISERROR('Error', 16, 1);")
@@ -849,7 +920,7 @@ END CATCH"""
             ("SELECT_INTO_PROHIBIDO", "SELECT a FROM #T WHERE n = @n;\nSELECT a\nINTO #Y\nFROM #T;", 5),
             ("STUFF_FOR_XML_PATH_PROHIBIDO", "SELECT STUFF((SELECT ',' + c FROM #T\nFOR XML PATH('')), 1, 1, '');", 4),
             ("COLLATE_EN_PREDICADO", "SELECT a FROM #T\nWHERE n = @n\n  AND c COLLATE SQL_Latin1_General_CP1_CI_AS = 'x';", 6),
-            ("CAST_EN_JOIN_PROHIBIDO", "SELECT a FROM #A a\nJOIN #B b\n  ON CAST(a.n AS INT) = b.n;", 6),
+            ("CAST_EN_JOIN_PROHIBIDO", "SELECT a FROM dbo.TA a\nJOIN #B b\n  ON CAST(a.n AS INT) = b.n;", 6),
         ]
         for regla, cuerpo, esperada in casos:
             with self.subTest(regla=regla):
@@ -973,9 +1044,41 @@ class TestCastEnJoin(unittest.TestCase):
         self.assertEqual(self._lineas(sql), [])
 
     def test_cast_en_la_condicion_del_join_si_se_marca(self):
-        self.assertEqual(self._lineas("SELECT a.c FROM #A a\nINNER JOIN #B b ON CAST(b.n AS INT) = a.n\n"), [2])
+        self.assertEqual(self._lineas("SELECT a.c FROM dbo.TA a\nINNER JOIN dbo.TB b ON CAST(b.n AS INT) = a.n\n"), [2])
         self.assertEqual(self._lineas(
-            "SELECT a.c FROM #A a\nLEFT JOIN dbo.B b WITH(NOLOCK) ON b.c = CONVERT(VARCHAR(10), a.n)\nWHERE a.n = 1"), [2])
+            "SELECT a.c FROM dbo.TA a\nLEFT JOIN dbo.B b WITH(NOLOCK) ON b.c = CONVERT(VARCHAR(10), a.n)\nWHERE a.n = 1"), [2])
+
+    def test_solo_se_marca_el_cast_sobre_columnas_de_tablas_fisicas(self):
+        # Pedido de la usuaria (7 nov.): CAST en el JOIN solo se observa sobre columnas de tablas físicas.
+        temporales = (
+            "SELECT 1 FROM #A a\nINNER JOIN #B b ON CAST(b.n AS INT) = a.n",
+            "SELECT 1 FROM @V v\nINNER JOIN #B b ON CONVERT(INT, v.n) = b.n",
+            ";WITH C AS (SELECT 1 AS n) SELECT 1 FROM C c\nINNER JOIN #B b ON CAST(c.n AS INT) = b.n",
+            # La columna convertida es de la temporal, aunque el JOIN sea con una física.
+            "SELECT 1 FROM #A a\nINNER JOIN dbo.B b WITH (NOLOCK) ON b.c = CONVERT(VARCHAR(10), a.n)",
+        )
+        for sql in temporales:
+            with self.subTest(sql=sql):
+                self.assertEqual(self._lineas(sql), [])
+        fisicas = (
+            "SELECT 1 FROM dbo.A a\nINNER JOIN #B b ON CAST(a.n AS INT) = b.n",
+            "SELECT 1 FROM #A a\nINNER JOIN dbo.Cliente AS c ON CAST(c.cId AS INT) = a.n",
+            "SELECT 1 FROM dbo.A\nINNER JOIN dbo.B ON CAST(dbo.A.n AS INT) = dbo.B.n",
+        )
+        for sql in fisicas:
+            with self.subTest(sql=sql):
+                self.assertEqual(self._lineas(sql), [2])
+
+    def test_caso_de_la_usuaria_libro_caja(self):
+        # El JOIN con #TipoCambio convierte T.dFecCamb (temporal) y a.dFecha (física: AsientoDNHistorico): se marca
+        # por la física. El JOIN entre CTE no se marca.
+        sql = ("INSERT INTO #TEMPDN (dFecha)\nSELECT a.dFecha\n  FROM AsientoDNHistorico A WITH(NOLOCK)\n"
+               "  INNER JOIN #TipoCambio T ON CAST(T.dFecCamb AS DATE) = CAST(a.dFecha AS DATE)\n"
+               "  WHERE cCodAge=@cCodAge\n"
+               ";WITH TipoCambioPreparado AS (SELECT CAST(T.dFecCamb AS DATE) AS dFechaDia FROM #TipoCambio T),\n"
+               "TempDNBase AS (SELECT CAST(A.dFecha AS DATE) AS dFechaDia FROM #TEMPDN A)\n"
+               "SELECT 1 FROM TempDNBase A\nINNER JOIN TipoCambioPreparado T ON CAST(T.dFechaDia AS DATE) = A.dFechaDia\n")
+        self.assertEqual(self._lineas(sql), [4])
 
     def test_cast_de_una_fecha_o_variable_no_se_marca(self):
         # Caso de la usuaria: CAST(GETDATE() AS DATE) en el ON no convierte una columna: no afecta los índices.
@@ -1007,21 +1110,21 @@ class TestCastEnJoin(unittest.TestCase):
                 self.assertEqual(self._lineas(f"SELECT 1 FROM #A a JOIN #B b ON b.n = a.n {resto}"), [])
 
     def test_cast_en_la_condicion_del_on_con_and_despues_si_se_marca(self):
-        sql = ("SELECT 1 FROM #A a\nINNER JOIN #B b\n    ON CAST(b.cCta AS INT) = a.nCta\n"
+        sql = ("SELECT 1 FROM dbo.TA a\nINNER JOIN dbo.TB b\n    ON CAST(b.cCta AS INT) = a.nCta\n"
                "    AND b.dFecha = @dFecha\n")
         self.assertEqual(self._lineas(sql), [3])
 
     def test_convert_en_el_lado_derecho_de_la_igualdad_si_se_marca(self):
-        self.assertEqual(self._lineas("SELECT 1 FROM #A a JOIN #B b\nON b.c = CONVERT(VARCHAR(18), a.n) AND b.x = 1"), [2])
+        self.assertEqual(self._lineas("SELECT 1 FROM dbo.TA a JOIN dbo.TB b\nON b.c = CONVERT(VARCHAR(18), a.n) AND b.x = 1"), [2])
 
     def test_and_dentro_de_parentesis_o_case_no_corta_la_condicion(self):
-        entre_parentesis = ("SELECT 1 FROM #A a JOIN #B b\n"
+        entre_parentesis = ("SELECT 1 FROM dbo.TA a JOIN dbo.TB b\n"
                             "ON (CASE WHEN a.t = 1 AND a.u = 2 THEN a.c END) = CAST(b.c AS VARCHAR(5))")
         self.assertEqual(self._lineas(entre_parentesis), [2])
-        con_case = ("SELECT 1 FROM #A a JOIN #B b\n"
+        con_case = ("SELECT 1 FROM dbo.TA a JOIN dbo.TB b\n"
                     "ON CASE WHEN a.t = 1 AND a.u = 2 THEN a.c END = CAST(b.c AS VARCHAR(5))")
         self.assertEqual(self._lineas(con_case), [2])
-        con_else = ("SELECT 1 FROM #A a JOIN #B b\n"
+        con_else = ("SELECT 1 FROM dbo.TA a JOIN dbo.TB b\n"
                     "ON CASE WHEN a.t = 1 THEN a.c ELSE a.d END = CAST(b.c AS VARCHAR(5))")
         self.assertEqual(self._lineas(con_else), [2])
 
@@ -1031,13 +1134,13 @@ class TestCastEnJoin(unittest.TestCase):
         self.assertEqual(self._lineas(sql), [])
 
     def test_between_con_cast_en_la_condicion_del_on_si_se_marca(self):
-        sql = "SELECT 1 FROM #A a JOIN #B b\nON CAST(a.dFecha AS DATE) BETWEEN b.dIni AND b.dFin AND b.n = 1"
+        sql = "SELECT 1 FROM dbo.TA a JOIN dbo.TB b\nON CAST(a.dFecha AS DATE) BETWEEN b.dIni AND b.dFin AND b.n = 1"
         self.assertEqual(self._lineas(sql), [2])
 
     def test_varios_join_cada_uno_con_su_condicion(self):
-        sql = ("SELECT 1 FROM #A a\n"
-               "INNER JOIN #B b ON b.n = a.n AND CAST(b.x AS INT) = a.x\n"
-               "LEFT JOIN #C c ON CAST(c.n AS INT) = a.n\n")
+        sql = ("SELECT 1 FROM dbo.TA a\n"
+               "INNER JOIN dbo.TB b ON b.n = a.n AND CAST(b.x AS INT) = a.x\n"
+               "LEFT JOIN dbo.TC c ON CAST(c.n AS INT) = a.n\n")
         self.assertEqual(self._lineas(sql), [3])
 
     def test_cast_fuera_del_on_no_se_marca(self):

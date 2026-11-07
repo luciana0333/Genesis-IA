@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { SEVERIDADES, etiquetaSeveridad, nombreRegla } from '../config/reglas';
+import { etiquetaDeGrupos } from '../utils/recorrido';
 import { tokenizarSql } from '../utils/resaltadoSql';
 import { contarPorSeveridad, desglosarGrupo, normalizarSeveridad, ordenarHallazgos, separarMensaje } from '../utils/hallazgos';
+import { TablaTiposColumnas } from './TablaTiposColumnas';
 import { EncabezadoSeccion } from './EncabezadoSeccion';
 import { EstadoInicial } from './EstadoInicial';
 import { EstadoVacio } from './EstadoVacio';
@@ -123,7 +125,7 @@ function BotonCopiar({ texto, etiqueta, conTexto = false }) {
  * que se encontró y, tras una línea punteada, qué hacer. Si el hallazgo agrupa
  * varias ocurrencias, cada una se lista por separado.
  */
-function FilaHallazgo({ hallazgo, mostrarLinea, acciones }) {
+function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null }) {
   const severidad = normalizarSeveridad(hallazgo.severidad);
   const titulo = nombreRegla(hallazgo.regla);
   const mensaje = hallazgo.mensaje || 'Revisa este hallazgo.';
@@ -135,12 +137,17 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones }) {
   const seccion = SECCIONES[hallazgo.seccion];
   // Hasta 4 líneas se muestran; con más, la cantidad de casos («20 casos»): se recorren desde «Ver en el código».
   const cantidadLineas = lineas ? lineas.split(',').length : 1;
-  const etiquetaLinea = (seccion ? `${seccion} · ` : '') + (lineas
+  // Viñetas con sus propias líneas (tablas, columnas): se cuentan las viñetas, no las líneas («11 columnas»).
+  const porGrupos = etiquetaDeGrupos(hallazgo.grupos);
+  const etiquetaLinea = (seccion ? `${seccion} · ` : '') + (porGrupos || (lineas
     ? (cantidadLineas > 4 ? `${cantidadLineas} casos` : `${lineas.includes(',') ? 'Líneas' : 'Línea'} ${lineas}`)
-    : `Línea ${hallazgo.linea || 1}`);
+    : `Línea ${hallazgo.linea || 1}`));
+
+  // Columnas con su desglose de tipos («Misma columna con distinto tipo»): se muestran como tabla.
+  const enTabla = Boolean(hallazgo.grupos?.length && hallazgo.grupos.every((grupo) => grupo.detalle));
 
   return (
-    <article className={`finding sev-${severidad}`}>
+    <article className={`finding sev-${severidad}${enTabla ? ' finding-tabla' : ''}`}>
       <header className="finding-head">
         <h4 className="finding-title">{titulo}</h4>
         <span className="finding-head-side">
@@ -152,12 +159,22 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones }) {
 
       <div className="finding-body">
         {intro && <p className="finding-message">{intro}</p>}
-        {ocurrencias.length > 1 ? (
-          <ul className="finding-list">
-            {ocurrencias.map((texto) => <li key={texto}><MensajeResaltado texto={texto} /></li>)}
-          </ul>
+        {enTabla ? (
+          <TablaTiposColumnas grupos={hallazgo.grupos} filaActiva={vinetaActiva} />
         ) : (
-          <p className="finding-message"><MensajeResaltado texto={ocurrencias[0]} /></p>
+          <>
+            {ocurrencias.length > 1 ? (
+              <ul className="finding-list">
+                {ocurrencias.map((texto, indice) => (
+                  <li key={texto} className={indice === vinetaActiva ? 'ocurrencia-activa' : undefined}>
+                    <MensajeResaltado texto={texto} />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="finding-message"><MensajeResaltado texto={ocurrencias[0]} /></p>
+            )}
+          </>
         )}
         {solucion && (
           <p className="finding-fix">
@@ -194,6 +211,7 @@ function EsqueletoCarga() {
  * estado: 'inicial' | 'cargando' | 'listo' | 'error'
  * textos: { inicial, cargando, sinHallazgos, tituloError } — mensajes por estado.
  * accionesHallazgo: (hallazgo) => contenido extra al pie de cada ficha (opcional).
+ * vinetaActiva: (hallazgo) => índice de la viñeta que se está recorriendo en el código, o null (opcional).
  */
 export function PanelHallazgos({
   titulo,
@@ -204,6 +222,7 @@ export function PanelHallazgos({
   textos,
   mostrarLinea = true,
   accionesHallazgo,
+  vinetaActiva,
 }) {
   const [filtroElegido, setFiltro] = useState('todos');
   const [seccionElegida, setSeccion] = useState('tabla');
@@ -265,6 +284,7 @@ export function PanelHallazgos({
         hallazgo={hallazgo}
         mostrarLinea={mostrarLinea}
         acciones={accionesHallazgo}
+        vinetaActiva={vinetaActiva?.(hallazgo) ?? null}
       />
     ));
     const lista = (

@@ -114,9 +114,18 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "TEMPORAL_SIN_CREAR": ReglaDiccionario(
+        codigo="TEMPORAL_SIN_CREAR",
+        nombre="Tabla temporal usada sin crear",
+        severidad="critico",
+        descripcion="Una tabla temporal que se usa debe crearse en el procedimiento (o en el que lo llama); si no, "
+                    "falla al ejecutarse.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "TEMPORAL_TEXTO_SIN_COLLATE": ReglaDiccionario(
         codigo="TEMPORAL_TEXTO_SIN_COLLATE",
-        nombre="Columna de texto sin COLLATE en tabla temporal",
+        nombre="COLLATE no especificado en tabla temporal",
         severidad="alto",
         descripcion="Las columnas de texto de tablas temporales deben declarar COLLATE.",
         alcance="procedimiento",
@@ -221,9 +230,9 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "TABLA_REPETIDA_EN_CONSULTA": ReglaDiccionario(
         codigo="TABLA_REPETIDA_EN_CONSULTA",
-        nombre="Misma tabla en varios JOIN",
+        nombre="Múltiples JOIN sobre la misma tabla",
         severidad="medio",
-        descripcion="Una misma tabla no debe leerse más de 3 veces (FROM/JOIN) en la misma consulta.",
+        descripcion="Una misma tabla no debe unirse con más de 3 JOIN en la misma consulta.",
         alcance="procedimiento",
         activo=True,
     ),

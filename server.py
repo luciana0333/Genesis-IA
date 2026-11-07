@@ -179,6 +179,8 @@ class GenesisHandler(SimpleHTTPRequestHandler):
                 'seccion': getattr(hallazgo, 'seccion', None),
                 # Líneas de una observación que junta varias (p. ej. tablas sin NOLOCK).
                 'lineas': getattr(hallazgo, 'lineas', None),
+                # Líneas de cada viñeta ([{nombre, lineas}]): «Ver en el código» las recorre viñeta por viñeta.
+                'grupos': getattr(hallazgo, 'grupos', None),
                 # Siglas por validar de la observación («Aprobar siglas»).
                 'siglas': getattr(hallazgo, 'siglas', None),
                 # En cuántos nombres aparece cada sigla («En 2 tablas · 11 columnas»).

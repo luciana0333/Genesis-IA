@@ -58,6 +58,12 @@ export function desglosarGrupo(problema) {
   const grupo = problema.match(
     /^(Se (?:encontraron|identificaron) (?:\d+|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez) [^:]+?)(?:, en (?:la línea|las líneas|los nodos|la consulta|las consultas) ([\d, ]+))?: ([\s\S]+)$/,
   );
+  // «Se identificó el uso repetido de las siguientes tablas en los JOIN: 'A' se utiliza…; 'B' se utiliza…»
+  // o «Se identificaron las siguientes columnas con diferentes tipos…: 'cCodAge': …; 'cTipo': …»
+  const conLista = problema.match(/^(Se identific(?:ó|aron) [^:]*\bsiguientes? [^:]+): ([\s\S]+)$/);
+  if (!grupo && conLista) {
+    return { lineas: null, intro: `${conLista[1]}:`, ocurrencias: conLista[2].replace(/\.$/, '').split(/;\s+/) };
+  }
   if (!grupo) return { lineas: null, intro: null, ocurrencias: [problema] };
   // "Se identificaron 2 parámetros sin documentar" se muestra como introducción
   // de la lista; el resumen genérico ("observaciones de este tipo") no.

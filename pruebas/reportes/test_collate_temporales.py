@@ -1,4 +1,4 @@
-"""Columna de texto sin COLLATE en tabla temporal: tablas #T y variables @T (Reportes y Negocio)."""
+"""COLLATE no especificado en tabla temporal: tablas #T y variables @T (Reportes y Negocio)."""
 
 import unittest
 
@@ -7,7 +7,7 @@ from app.analizadores.analizador_reportes import verificar_reporte
 
 MODULOS = (verificar_reporte, verificar_procedimiento_normal)
 QUE_HACER = (
-    "Se recomienda añadir el COLLATE establecido en las columnas de tipo texto de las tablas temporales. "
+    "Se recomienda añadir el COLLATE correspondiente en las columnas de tipo texto de las tablas temporales. "
     "Por favor, revisar y aplicarlo donde corresponda."
 )
 
@@ -36,9 +36,11 @@ class CollateTemporalesTest(unittest.TestCase):
             with self.subTest(modulo=verificar.__name__):
                 hallazgo = _collate(verificar, sql)[0]
                 self.assertEqual(hallazgo.lineas, [3, 4])
-                self.assertIn("cNombre de la tabla temporal #Temp no define COLLATE", hallazgo.mensaje)
-                self.assertIn("cTexto de la tabla temporal #Temp", hallazgo.mensaje)
-                self.assertTrue(hallazgo.mensaje.endswith(QUE_HACER))
+                # Negocio y Reportes agrupan por tabla (pedido de la usuaria, 7 nov.).
+                self.assertEqual(hallazgo.mensaje, "Las columnas de texto cNombre y cTexto de la tabla temporal "
+                                                   f"#Temp no definen COLLATE. {QUE_HACER}")
+                self.assertEqual(hallazgo.grupos, [{"nombre": "#Temp", "tipo": "Tabla", "lineas": [3, 4],
+                                                    "etiquetas": ["cNombre", "cTexto"]}])
 
     def test_con_collate_o_sin_texto_no_se_observa(self):
         sql = ("DECLARE @V AS TABLE (cA VARCHAR(10) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, nB INT)\n"

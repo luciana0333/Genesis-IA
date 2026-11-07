@@ -14,10 +14,21 @@ export function VerEnCodigo({ onVer }) {
  * Barra flotante para recorrer una a una las líneas de una observación en el editor
  * («Línea 135 · 4 de 20 ‹ ›»). Queda fija abajo mientras la página está en el código.
  */
-export function BarraRecorrido({ titulo, linea, posicion, total, onAnterior, onSiguiente, onCerrar }) {
+export function BarraRecorrido({ titulo, linea, posicion, total, grupo, onAnterior, onSiguiente, onCerrar }) {
   return (
     <div className="barra-recorrido" role="toolbar" aria-label={`Recorrer las líneas de ${titulo}`}>
-      <span className="barra-recorrido-titulo">{titulo}</span>
+      {grupo ? (
+        // Observación con varias tablas o columnas: «Tabla 2 de 4: OpeCtaPreparada · Vez 1 de 4».
+        <span className="barra-recorrido-titulo barra-recorrido-grupo">
+          <span className="barra-recorrido-tabla">{grupo.tipo} {grupo.numero} de {grupo.total}:</span> {grupo.nombre}
+          <span className="barra-recorrido-vez">
+            {/* «VARCHAR(5) · Vez 3 de 16» cuando cada parada dice su tipo; si no, «Vez 1 de 4». */}
+            {grupo.etiqueta ? `${grupo.etiqueta} · Vez ${grupo.vez} de ${grupo.veces}` : `Vez ${grupo.vez} de ${grupo.veces}`}
+          </span>
+        </span>
+      ) : (
+        <span className="barra-recorrido-titulo">{titulo}</span>
+      )}
       <span className="barra-recorrido-linea">Línea {linea}</span>
       <span className="barra-recorrido-posicion" aria-live="polite">{posicion} de {total}</span>
       <button type="button" onClick={onAnterior} aria-label="Línea anterior"><IconoAnterior /></button>

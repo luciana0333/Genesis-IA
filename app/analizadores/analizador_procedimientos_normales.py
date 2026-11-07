@@ -5,7 +5,8 @@ import re
 from typing import Dict, List, Set, Tuple
 
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
-from app.analizadores.collate_temporales import columnas_sin_collate
+from app.analizadores.collate_temporales import collate_agrupado
+from app.analizadores.temporales_sin_crear import temporales_sin_crear
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.left_like import left_reemplazable_por_like
 from app.analizadores.hints_compartidos import (
@@ -504,6 +505,8 @@ def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
     )
     patron = re.compile(rf"\bJOIN\s+({_REFERENCIA})(?:(?!{fin_del_on}).)*?\bON\b", re.IGNORECASE | re.DOTALL)
     fin = re.compile(fin_del_on, re.IGNORECASE)
+    ctes = {n.strip("[]").lower() for n in re.findall(
+        rf"(?:\bWITH|,)\s*({_IDENTIFICADOR})\s*(?:\([^()]*\)\s*)?AS\s*\(", limpio, re.IGNORECASE)}
     for match in patron.finditer(limpio):
         tabla = _limpiar_nombre(match.group(1))
         termina = fin.search(limpio, match.end())
@@ -514,11 +517,19 @@ def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
         ):
             termina = fin.search(limpio, termina.end())
         condicion = _primera_condicion(limpio[match.end():termina.start() if termina else len(limpio)])
+        # Tablas de esta consulta (desde su FROM hasta el fin del ON), por alias, para saber de cuál es cada columna.
+        froms = [m.start() for m in re.finditer(r"\bFROM\b", limpio[:match.start()], re.IGNORECASE)]
+        desde = froms[-1] if froms else 0
+        tablas = _tablas_por_alias(limpio[desde:termina.start() if termina else len(limpio)])
         for conversion in re.finditer(r"\b(CAST|CONVERT)\s*\(", condicion, re.IGNORECASE):
             # Solo si convierte una columna: CAST(GETDATE() AS DATE) o CAST(@dFecha AS DATE) no impiden
             # usar los índices de la tabla.
             argumento = _contenido_entre_parentesis(condicion, conversion.end() - 1)
             if not _usa_columna(argumento, conversion.group(1)):
+                continue
+            # Solo en columnas de tablas físicas (pedido de la usuaria, 7 nov.): en una temporal, variable de tabla
+            # o CTE no se observa.
+            if not _convierte_columna_fisica(argumento, conversion.group(1), tablas, ctes):
                 continue
             hallazgos.append(_hallazgo(
                 texto, match.end() + conversion.start(), "CAST_EN_JOIN_PROHIBIDO",
@@ -563,6 +574,49 @@ def _primera_condicion(condicion: str) -> str:
 
 
 _NO_SON_COLUMNAS = {"AS", "NULL", "AND", "OR", "NOT", "CASE", "WHEN", "THEN", "ELSE", "END", "IS", "IN", "LIKE"}
+
+
+_NO_ES_ALIAS = {"ON", "WITH", "INNER", "LEFT", "RIGHT", "FULL", "CROSS", "OUTER", "JOIN", "WHERE", "GROUP",
+                "ORDER", "UNION", "OPTION", "APPLY", "AS", "SELECT", "SET"}
+
+
+def _tablas_por_alias(tramo: str) -> Dict[str, str]:
+    """{alias o nombre en minúsculas: tabla} de las tablas del FROM/JOIN del tramo de una consulta."""
+    tablas: Dict[str, str] = {}
+    for m in re.finditer(rf"\b(?:FROM|JOIN)\s+({_REFERENCIA})(?:\s+(?:AS\s+)?([A-Za-z_][\w$]*))?", tramo, re.IGNORECASE):
+        tabla = _limpiar_nombre(m.group(1))
+        tablas[tabla.lower()] = tabla
+        tablas[tabla.split(".")[-1].strip("[]").lower()] = tabla
+        if m.group(2) and m.group(2).upper() not in _NO_ES_ALIAS:
+            tablas[m.group(2).lower()] = tabla
+    return tablas
+
+
+def _convierte_columna_fisica(argumento: str, funcion: str, tablas: Dict[str, str], ctes: Set[str]) -> bool:
+    """¿El CAST/CONVERT convierte una columna de una tabla física (no temporal, variable de tabla ni CTE)?"""
+    if funcion.upper() == "CONVERT":
+        partes = [p for p, _ in _separar_por_comas(argumento)]
+        dato = partes[1] if len(partes) > 1 else argumento
+    else:
+        dato = re.split(r"\bAS\b", argumento, maxsplit=1, flags=re.IGNORECASE)[0]
+    dato = re.sub(r"\b[A-Za-z_]\w*\s*(?=\()", " ", dato)  # fuera los nombres de función
+
+    def es_fisica(tabla: str) -> bool:
+        return not _es_temporal(tabla) and tabla.split(".")[-1].strip("[]").lower() not in ctes
+
+    distintas = set(tablas.values())
+    # alias.columna o tabla.columna (también dbo.Tabla.columna): todo lo que va antes del último punto.
+    for referencia in re.findall(
+            r"(?<![@#\w])([A-Za-z_\[][\w\]]*(?:\s*\.\s*[A-Za-z_\[][\w\]]*)*)\s*\.\s*[A-Za-z_\[][\w\]]*", dato):
+        nombre = re.sub(r"[\s\[\]]", "", referencia).lower()
+        tabla = tablas.get(nombre) or tablas.get(nombre.split(".")[-1])
+        if tabla and es_fisica(tabla):
+            return True
+    # Columna sin alias: solo se sabe de qué tabla es si en la consulta hay una sola.
+    sueltas = re.findall(r"(?<![@#\w.])[A-Za-z_\[][\w\]]*(?!\s*\.)", dato)
+    if any(s.upper() not in _NO_SON_COLUMNAS for s in sueltas) and len(distintas) == 1:
+        return es_fisica(next(iter(distintas)))
+    return False
 
 
 def _usa_columna(argumento: str, funcion: str) -> bool:
@@ -726,10 +780,6 @@ def _separar_por_comas(contenido: str) -> List[tuple]:
     return partes
 
 
-_CANTIDAD_EN_LETRAS = {2: "dos", 3: "tres", 4: "cuatro", 5: "cinco", 6: "seis", 7: "siete", 8: "ocho", 9: "nueve",
-                       10: "diez"}
-
-
 def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
     """
     Una misma columna declarada en varias tablas temporales (#T) o variables de
@@ -756,35 +806,61 @@ def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
             nombre = columna.group(1).strip("[]")
             tipo = re.sub(r"\s+", "", columna.group(2)).upper()
             posicion = apertura + 1 + desplazamiento + columna.start(1)
-            datos = columnas.setdefault(nombre.lower(), {"nombre": nombre, "tipos": {}, "posicion": posicion})
+            datos = columnas.setdefault(nombre.lower(), {"nombre": nombre, "tipos": {}, "posicion": posicion,
+                                                         "linea_de_tabla": {}})
             tablas = datos["tipos"].setdefault(tipo, [])
             if tabla.lower() not in (t.lower() for t in tablas):
                 tablas.append(tabla)
+                # Línea donde la temporal define la columna («Ir a la línea» del detalle).
+                datos["linea_de_tabla"][(tipo, tabla.lower())] = _linea(texto, posicion)
 
-    # Una observación por columna (no por cada par de tablas), con todos sus tipos y en qué tablas está cada uno.
-    hallazgos = []
-    for datos in columnas.values():
-        if len(datos["tipos"]) < 2:
-            continue
-        def enumerar(elementos: List[str]) -> str:
-            return elementos[0] if len(elementos) == 1 else f"{', '.join(elementos[:-1])} y {elementos[-1]}"
+    # Todas las columnas en una sola observación, una viñeta corta por columna (texto de la usuaria, 7 nov.):
+    # «'cCodAge': VARCHAR(3) en 8 tablas temporales y VARCHAR(5) en #FIN». Un tipo en una sola tabla lleva su
+    # nombre; en varias, la cantidad («tablas temporales» solo la primera vez).
+    distintas = [datos for datos in columnas.values() if len(datos["tipos"]) > 1]
+    if not distintas:
+        return []
 
-        partes = [f"{tipo} en {enumerar(tablas)}" for tipo, tablas in datos["tipos"].items()]
-        # «CHAR(5) en #A y VARCHAR(10) en @B»; si un tipo está en varias tablas, «;» separa los tipos.
-        un_tipo_por_tabla = all(len(tablas) == 1 for tablas in datos["tipos"].values())
-        detalle = enumerar(partes) if un_tipo_por_tabla else "; ".join(partes)
-        cantidad = sum(len(tablas) for tablas in datos["tipos"].values())
-        en_cuantas = _CANTIDAD_EN_LETRAS.get(cantidad, str(cantidad))
-        columnas_txt = "ambas columnas" if cantidad == 2 else "estas columnas"
-        # Texto de la usuaria (1 nov.).
-        hallazgos.append(_hallazgo(
-            texto, datos["posicion"], "TIPO_DISTINTO_ENTRE_TEMPORALES",
-            f"La columna {datos['nombre']} está definida con diferentes tipos de datos en {en_cuantas} tablas "
-            f"temporales: {detalle}. Se recomienda validar si es correcto que {columnas_txt} tengan diferentes "
-            f"tipos de datos, ya que esto puede generar conversiones implícitas y afectar el rendimiento de las "
-            f"consultas.",
-        ))
-    return hallazgos
+    def enumerar(elementos: List[str]) -> str:
+        return elementos[0] if len(elementos) == 1 else f"{', '.join(elementos[:-1])} y {elementos[-1]}"
+
+    vinetas = []
+    for datos in distintas:
+        partes, con_sustantivo = [], False
+        for tipo, tablas in datos["tipos"].items():
+            if len(tablas) == 1:
+                partes.append(f"{tipo} en {tablas[0]}")
+            else:
+                partes.append(f"{tipo} en {len(tablas)}" + ("" if con_sustantivo else " tablas temporales"))
+                con_sustantivo = True
+        vinetas.append(f"'{datos['nombre']}': {enumerar(partes)}")
+    sujeto = "Se identificaron las siguientes columnas" if len(distintas) > 1 else "Se identificó la siguiente columna"
+    hallazgo = _hallazgo(
+        texto, distintas[0]["posicion"], "TIPO_DISTINTO_ENTRE_TEMPORALES",
+        f"{sujeto} con diferentes tipos de datos o longitudes entre las tablas temporales: "
+        f"{'; '.join(vinetas)}. Se recomienda validar los tipos de datos y longitudes definidos para cada columna, "
+        f"ya que las diferencias pueden generar conversiones implícitas. De confirmarse que cumplen el mismo "
+        f"propósito, se recomienda homologarlos.",
+    )
+    # «Ver en el código» recorre columna por columna, como en los JOIN: primero todas las temporales de esta
+    # columna (tipo por tipo) y luego las de la siguiente; la barra dice el tipo de cada parada («etiquetas»).
+    # «detalle» es la tabla de «Ver tablas» (Tipo de dato | Tablas temporales).
+    hallazgo.grupos = []
+    for datos in distintas:
+        detalle = [
+            {"tipo": tipo, "tablas": tablas,
+             "lineas": [datos["linea_de_tabla"][(tipo, tabla.lower())] for tabla in tablas]}
+            for tipo, tablas in datos["tipos"].items()
+        ]
+        hallazgo.grupos.append({
+            "nombre": datos["nombre"],
+            "tipo": "Columna",
+            "lineas": [linea for fila in detalle for linea in fila["lineas"]],
+            "etiquetas": [fila["tipo"] for fila in detalle for _ in fila["lineas"]],
+            "detalle": detalle,
+        })
+    hallazgo.lineas = [n for grupo in hallazgo.grupos for n in grupo["lineas"]]
+    return [hallazgo]
 
 
 _COLLATE_EMPRESA = "SQL_Latin1_General_CP1_CI_AS"
@@ -829,11 +905,18 @@ def _validar_collate_usado(texto: str, limpio: str) -> List[Hallazgo]:
 
 
 def _validar_collate_temporales(texto: str, limpio: str) -> List[Hallazgo]:
-    """Toda columna de texto de una tabla temporal (#T) o variable de tabla (@T) lleva COLLATE."""
-    return [
-        _hallazgo(texto, posicion, "TEMPORAL_TEXTO_SIN_COLLATE", mensaje)
-        for posicion, mensaje in columnas_sin_collate(limpio)
-    ]
+    """Toda columna de texto de una tabla temporal (#T) o variable de tabla (@T) lleva COLLATE.
+
+    El mismo mensaje de siempre, agrupado por tabla (pedido de la usuaria, 7 nov.): una viñeta por tabla con
+    todas sus columnas; «Ver en el código» recorre tabla por tabla, columna por columna.
+    """
+    agrupado = collate_agrupado(limpio, lambda posicion: _linea(texto, posicion))
+    if not agrupado:
+        return []
+    posicion, mensaje, grupos, lineas = agrupado
+    hallazgo = _hallazgo(texto, posicion, "TEMPORAL_TEXTO_SIN_COLLATE", mensaje)
+    hallazgo.grupos, hallazgo.lineas = grupos, lineas
+    return [hallazgo]
 
 
 def _validar_comentarios(texto: str) -> List[Hallazgo]:
@@ -1499,8 +1582,11 @@ _VECES_MAXIMAS_MISMA_TABLA = 3
 
 
 def _validar_tabla_repetida(texto: str, limpio: str) -> List[Hallazgo]:
-    """Una misma tabla leída más de 3 veces (FROM/JOIN) dentro de una misma consulta."""
-    hallazgos = []
+    """Una misma tabla unida con más de 3 JOIN dentro de una misma consulta (el FROM no se cuenta).
+
+    Todas las tablas van en una sola observación, una viñeta por tabla (texto de la usuaria, 7 nov.).
+    """
+    casos: List[Tuple[int, str, List[int], int]] = []  # (posición del 1.er JOIN, tabla, líneas, cuántos JOIN)
     cortes = [m.start() for m in _INICIO_SENTENCIA.finditer(limpio)]
     # Un SELECT al inicio de línea y fuera de paréntesis también es una consulta
     # nueva (procedimientos sin ";"); dentro de paréntesis es una subconsulta.
@@ -1511,7 +1597,7 @@ def _validar_tabla_repetida(texto: str, limpio: str) -> List[Hallazgo]:
     for inicio, fin in zip(cortes, cortes[1:]):
         accesos: Dict[str, List[int]] = {}
         nombres: Dict[str, str] = {}
-        for match in re.finditer(rf"\b(?:FROM|JOIN)\s+({_REFERENCIA})(?![\w$#.\]])(?!\s*\()",
+        for match in re.finditer(rf"\bJOIN\s+({_REFERENCIA})(?![\w$#.\]])(?!\s*\()",
                                  limpio[inicio:fin], re.IGNORECASE):
             nombre = _limpiar_nombre(match.group(1))
             clave = nombre.split(".")[-1].strip("[]").lower()  # dbo.Cliente y [Cliente] son la misma
@@ -1520,15 +1606,26 @@ def _validar_tabla_repetida(texto: str, limpio: str) -> List[Hallazgo]:
         for clave, posiciones in accesos.items():
             if len(posiciones) <= _VECES_MAXIMAS_MISMA_TABLA:
                 continue
-            lineas = ", ".join(str(n) for n in sorted({_linea(texto, pos) for pos in posiciones}))
-            hallazgos.append(_hallazgo(
-                texto, posiciones[0], "TABLA_REPETIDA_EN_CONSULTA",
-                f"La tabla {nombres[clave]} se consulta {len(posiciones)} veces en la misma "
-                f"consulta ({'líneas' if ',' in lineas else 'línea'} {lineas}). Se recomienda revisar si se puede leer una sola vez (por ejemplo, "
-                f"cargándola antes en una tabla temporal o combinando las condiciones), ya que acceder "
-                f"muchas veces a la misma tabla vuelve lenta la consulta.",
-            ))
-    return hallazgos
+            casos.append((posiciones[0], nombres[clave], sorted({_linea(texto, pos) for pos in posiciones}),
+                          len(posiciones)))
+    if not casos:
+        return []
+    casos.sort()
+    vinetas = []
+    for _, tabla, numeros, cantidad in casos:
+        donde = ("líneas " if len(numeros) > 1 else "línea ") + ", ".join(map(str, numeros))
+        vinetas.append(f"'{tabla}' se utiliza en {cantidad} JOIN ({donde})")
+    sujeto = "las siguientes tablas" if len(casos) > 1 else "la siguiente tabla"
+    hallazgo = _hallazgo(
+        texto, casos[0][0], "TABLA_REPETIDA_EN_CONSULTA",
+        f"Se identificó el uso repetido de {sujeto} en los JOIN: {'; '.join(vinetas)}. Se recomienda evitar los "
+        f"JOIN repetidos sobre una misma tabla y evaluar la reutilización de sus resultados, para reducir accesos "
+        f"innecesarios y mejorar el rendimiento de la consulta.",
+    )
+    # «Ver en el código» recorre tabla por tabla, en el orden de las viñetas (barra «Tabla 1 de 4: …»).
+    hallazgo.grupos = [{"nombre": tabla, "lineas": numeros} for _, tabla, numeros, _ in casos]
+    hallazgo.lineas = [n for grupo in hallazgo.grupos for n in grupo["lineas"]]
+    return [hallazgo]
 
 
 def _fin_de_sentencia(limpio: str, inicio: int) -> int:
@@ -1611,6 +1708,17 @@ def _validar_modificacion_sin_where(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _validar_temporales_sin_crear(texto: str, limpio: str) -> List[Hallazgo]:
+    """Tabla temporal que se usa pero nunca se crea: el procedimiento falla al ejecutarse (crítico)."""
+    resultado = temporales_sin_crear(limpio, lambda posicion: _linea(texto, posicion))
+    if not resultado:
+        return []
+    posicion, mensaje, grupos, lineas = resultado
+    hallazgo = _hallazgo(texto, posicion, "TEMPORAL_SIN_CREAR", mensaje)
+    hallazgo.grupos, hallazgo.lineas = grupos, lineas
+    return [hallazgo]
+
+
 def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -> List[Hallazgo]:
     """
     Aplica exclusivamente las reglas de procedimientos normales. Si el
@@ -1650,6 +1758,7 @@ def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -
     hallazgos.extend(_validar_prefijo_variables(texto_sql, limpio))
     hallazgos.extend(_validar_tabla_repetida(texto_sql, limpio))
     hallazgos.extend(_validar_collate_temporales(texto_sql, limpio))
+    hallazgos.extend(_validar_temporales_sin_crear(texto_sql, limpio))
     hallazgos.extend(_validar_collate_usado(texto_sql, limpio))
     hallazgos.extend(_validar_collate_openjson(texto_sql, limpio))
     hallazgos.extend(_validar_tipos_entre_temporales(texto_sql, limpio))

@@ -200,7 +200,8 @@ class TestAnalizadorReportes(unittest.TestCase):
         hallazgos = {h.regla: h for h in verificar_reporte("UPDATE dbo.Cliente SET a = 1; DECLARE @doc VARBINARY(MAX);")}
         self.assertEqual(hallazgos["MODIFICACION_TABLA_FISICA"].severidad.value, "critico")
         self.assertEqual(hallazgos["VARBINARY_DOCUMENTO_IDENTIFICADO"].severidad.value, "medio")
-        self.assertEqual(verificar_reporte("SELECT * FROM #T")[0].severidad.value, "alto")
+        estrella = [h for h in verificar_reporte("SELECT * FROM #T") if h.regla == "SELECT_ESTRELLA_PROHIBIDO"]
+        self.assertEqual(estrella[0].severidad.value, "alto")
 
 
     def test_exige_esquema_al_consultar_otra_base(self):

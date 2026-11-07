@@ -17,6 +17,7 @@ import { nombreRegla } from '../../config/reglas';
 import { GeneradorDiccionario } from './GeneradorDiccionario';
 import { MetricasSeveridad } from './MetricasSeveridad';
 import { detectarTipoDiccionario, extraerNombresObjetos, resumirNombresObjetos } from '../../utils/deteccionObjeto';
+import { grupoDelRecorrido } from '../../utils/recorrido';
 import { useAuditoria } from './useAuditoria';
 import { useAlPedirEjemplo } from '../../hooks/useVerEjemplo';
 
@@ -126,10 +127,14 @@ export function AuditoriaWorkspace({ vista }) {
   const marca = marcaPedida?.resultado === resultado ? marcaPedida : null;
   // Cajita de la línea de cada observación: sin sección es el código principal; «general» no apunta a una línea.
   const CAJITAS = { objeto: 'objeto', diccionario: 'diccionario', indices: 'indices' };
-  const verEnCodigo = (seccion, lineas, recorrido = null) => {
+  const verEnCodigo = (seccion, lineas, recorrido = null, hallazgo = null) => {
     // La clave cambia en cada clic, para volver a llevar a la línea aunque sea la misma.
-    setMarca((anterior) => ({ seccion, lineas, resultado, recorrido, indice: 0, clave: (anterior?.clave ?? 0) + 1 }));
+    setMarca((anterior) => ({
+      seccion, lineas, resultado, recorrido, hallazgo, indice: 0, clave: (anterior?.clave ?? 0) + 1,
+    }));
   };
+  // Si la observación trae las líneas de cada viñeta (una tabla y sus usos), en cuál se está.
+  const grupoActual = marca?.hallazgo ? grupoDelRecorrido(marca.hallazgo.grupos, marca.indice) : null;
   // Recorrer una a una las líneas de la observación (barra flotante «4 de 20 ‹ ›»).
   const irALinea = (paso) => {
     setMarca((anterior) => anterior && ({
@@ -144,9 +149,13 @@ export function AuditoriaWorkspace({ vista }) {
     const lineas = hallazgo.lineas?.length ? hallazgo.lineas : [hallazgo.linea];
     // Con varias líneas, la barra «1 de N ‹ ›» permite ir de un error al otro.
     const recorrido = lineas.length > 1 ? nombreRegla(hallazgo.regla) : null;
-    return <VerEnCodigo onVer={() => verEnCodigo(seccion, lineas, recorrido)} />;
+    return <VerEnCodigo onVer={() => verEnCodigo(seccion, lineas, recorrido, hallazgo)} />;
   };
-  const marcadasEn = (seccion) => (marca?.seccion === seccion ? marca.lineas : []);
+  // Con viñetas por tabla, solo se marcan en rojo las líneas de la tabla que se está recorriendo.
+  const marcadasEn = (seccion) => {
+    if (marca?.seccion !== seccion) return [];
+    return grupoActual ? marca.hallazgo.grupos[grupoActual.vineta].lineas : marca.lineas;
+  };
   const enfocarEn = (seccion) => (
     marca?.seccion === seccion ? { linea: marca.lineas[marca.indice], clave: marca.clave } : null
   );
@@ -395,6 +404,7 @@ export function AuditoriaWorkspace({ vista }) {
             linea={marca.lineas[marca.indice]}
             posicion={marca.indice + 1}
             total={marca.lineas.length}
+            grupo={grupoActual}
             onAnterior={() => irALinea(-1)}
             onSiguiente={() => irALinea(1)}
             onCerrar={() => setMarca(null)}
@@ -418,6 +428,7 @@ export function AuditoriaWorkspace({ vista }) {
             hallazgos={resultado.hallazgos}
             mensajeError={resultado.mensaje}
             accionesHallazgo={accionesHallazgo}
+            vinetaActiva={(hallazgo) => (hallazgo === marca?.hallazgo ? grupoActual?.vineta ?? null : null)}
             textos={{
               inicialTitulo: 'Listo para iniciar la revisión',
               pasos: [
