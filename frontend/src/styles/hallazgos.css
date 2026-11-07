@@ -1162,9 +1162,9 @@
   align-items: center;
   gap: 10px;
   padding: 10px 12px 10px 0;
-  background: #fdf3f4; /* rojo muy suave (pedido de la usuaria) */
+  background: #ffffff; /* blanco (pedido de la usuaria) */
 }
-:root[data-theme="dark"] .detalle-tipos-cabecera { background: rgba(227, 6, 19, 0.08); }
+:root[data-theme="dark"] .detalle-tipos-cabecera { background: var(--bg-card); }
 .detalle-tipos-titulo {
   display: flex;
   flex: 1;
