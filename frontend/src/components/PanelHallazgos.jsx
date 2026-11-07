@@ -149,14 +149,7 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
   return (
     <article className={`finding sev-${severidad}${enTabla ? ' finding-tabla' : ''}`}>
       <header className="finding-head">
-        {enTabla ? (
-          <div className="finding-tabla-titulo">
-            <h4 className="finding-title">{titulo}</h4>
-            {intro && <p className="finding-tabla-intro">{intro}</p>}
-          </div>
-        ) : (
-          <h4 className="finding-title">{titulo}</h4>
-        )}
+        <h4 className="finding-title">{titulo}</h4>
         <span className="finding-head-side">
           {mostrarLinea && <span className="finding-line">{etiquetaLinea}</span>}
           <span className={`sev-pill sev-${severidad}`}>{etiquetaSeveridad(severidad)}</span>
@@ -165,11 +158,11 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
       </header>
 
       <div className="finding-body">
+        {intro && <p className="finding-message">{intro}</p>}
         {enTabla ? (
           <TablaTiposColumnas grupos={hallazgo.grupos} filaActiva={vinetaActiva} />
         ) : (
           <>
-            {intro && <p className="finding-message">{intro}</p>}
             {ocurrencias.length > 1 ? (
               <ul className="finding-list">
                 {ocurrencias.map((texto, indice) => (
