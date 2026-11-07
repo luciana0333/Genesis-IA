@@ -1075,24 +1075,25 @@
 .ver-tablas {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   margin-left: 8px;
-  padding: 2px 9px 2px 6px;
-  border: 1px solid var(--red-main);
-  border-radius: 0;
-  background: transparent;
-  color: var(--red-dark);
+  padding: 4px 12px 4px 9px;
+  border: 0;
+  border-radius: 6px; /* este botón sí va redondeado (pedido de la usuaria, 7 nov.) */
+  background: var(--red-main);
+  color: #ffffff;
   font: inherit;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   cursor: pointer;
   vertical-align: 1px;
+  box-shadow: 0 6px 14px -8px var(--red-shadow);
   transition: background-color var(--dur-fast) ease;
 }
-.ver-tablas svg { width: 13px; height: 13px; }
-.ver-tablas:hover, .ver-tablas.abierto { background: var(--red-light); }
+.ver-tablas svg { width: 14px; height: 14px; }
+.ver-tablas:hover, .ver-tablas.abierto { background: var(--red-dark); }
 .ver-tablas:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .detalle-tipos {
