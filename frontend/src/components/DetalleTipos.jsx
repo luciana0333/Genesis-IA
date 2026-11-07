@@ -1,5 +1,3 @@
-import { Fragment } from 'react';
-
 /** Tipo sin su longitud: VARCHAR(3) → VARCHAR. */
 const tipoBase = (tipo) => tipo.replace(/\(.*$/, '');
 
@@ -8,8 +6,8 @@ export const tieneDetalle = (detalle) => Boolean(detalle?.some((fila) => fila.ta
 
 /**
  * Panel «Detalle de tipos» de una columna (ej.: «Misma columna con distinto tipo»): cabecera con la
- * columna, el tipo de diferencia y los indicadores; debajo, una franja roja por tipo con sus temporales,
- * la línea donde definen la columna y «Ir a la línea» (diseño de referencia de la usuaria, 7 nov.).
+ * columna, el tipo de diferencia y los indicadores; debajo, una fila por tipo (bloque rojo) con sus temporales;
+ * cada temporal muestra su línea y lleva el editor a ella (diseño de la usuaria, 7 nov.).
  */
 export function PanelDetalleTipos({ nombre, detalle, onIrALinea }) {
   const totalTablas = detalle.reduce((suma, fila) => suma + fila.tablas.length, 0);
@@ -37,45 +35,51 @@ export function PanelDetalleTipos({ nombre, detalle, onIrALinea }) {
           <strong>{totalTablas}</strong>
         </div>
       </div>
-      {/* Una franja por tipo de dato y, debajo, sus temporales con la línea donde definen la columna. */}
+      {/* Una fila por tipo: a la izquierda el tipo en su bloque rojo; a la derecha sus temporales, cada una con
+          su línea y, al hacer clic, lleva el editor a esa línea (compacto, pedido de la usuaria). */}
       <table className="detalle-tipos-lista">
         <thead>
           <tr>
-            <th scope="col">Tabla temporal</th>
-            <th scope="col">Línea</th>
-            <th scope="col"><span className="sr-only">Ir a la línea</span></th>
+            <th scope="col">Tipo de dato</th>
+            <th scope="col">Tablas temporales</th>
           </tr>
         </thead>
         <tbody>
-          {detalle.map((fila) => {
+          {detalle.map((fila, indice) => {
             const porcentaje = Math.round((fila.tablas.length / totalTablas) * 100);
             return (
-              <Fragment key={fila.tipo}>
-                <tr className="detalle-tipos-franja">
-                  <th scope="rowgroup" colSpan={3}>
-                    <code>{fila.tipo}</code>
-                    <span>
-                      {fila.tablas.length} {fila.tablas.length === 1 ? 'tabla temporal' : 'tablas temporales'} · {porcentaje}%
-                    </span>
-                  </th>
-                </tr>
-                {fila.tablas.map((tabla, i) => {
-                  const linea = fila.lineas?.[i];
-                  return (
-                    <tr key={tabla} className={`detalle-tipos-temporal${i % 2 ? ' alterna' : ''}`}>
-                      <td><code>{tabla}</code></td>
-                      <td className="detalle-tipos-linea">{linea ?? '—'}</td>
-                      <td className="detalle-tipos-accion">
-                        {linea && onIrALinea && (
-                          <button type="button" className="detalle-tipos-ir" onClick={() => onIrALinea(linea)}>
-                            Ir a la línea
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </Fragment>
+              <tr key={fila.tipo} className={`detalle-tipos-fila${indice % 2 ? ' alterna' : ''}`}>
+                <th scope="row" className="detalle-tipos-franja">
+                  <code>{fila.tipo}</code>
+                  <span>
+                    {fila.tablas.length} {fila.tablas.length === 1 ? 'tabla' : 'tablas'} · {porcentaje}%
+                  </span>
+                </th>
+                <td>
+                  {fila.tablas.map((tabla, i) => {
+                    const linea = fila.lineas?.[i];
+                    const contenido = (
+                      <>
+                        <code>{tabla}</code>
+                        {linea && <small>L{linea}</small>}
+                      </>
+                    );
+                    return linea && onIrALinea ? (
+                      <button
+                        key={tabla}
+                        type="button"
+                        className="detalle-tipos-temporal"
+                        title={`Ir a la línea ${linea}`}
+                        onClick={() => onIrALinea(linea)}
+                      >
+                        {contenido}
+                      </button>
+                    ) : (
+                      <span key={tabla} className="detalle-tipos-temporal">{contenido}</span>
+                    );
+                  })}
+                </td>
+              </tr>
             );
           })}
         </tbody>

@@ -89,17 +89,14 @@ describe('PanelHallazgos · «Misma columna con distinto tipo» como tabla', () 
     expect(screen.getByText('Distinta longitud')).toBeInTheDocument();
     expect(screen.getByText('Tipos').nextSibling).toHaveTextContent('2');
     expect(screen.getByText('Tablas').nextSibling).toHaveTextContent('3');
-    // Una franja por tipo y, debajo, cada temporal con su línea e «Ir a la línea».
+    // Una fila por tipo: el tipo en su bloque y sus temporales con su línea; cada una lleva a esa línea.
     const detalle = screen.getAllByRole('table')[1];
     expect(within(detalle).getAllByRole('row').map((fila) => fila.textContent)).toEqual([
-      'Tabla temporalLíneaIr a la línea',
-      'VARCHAR(3)2 tablas temporales · 67%',
-      '#TEMPDN3Ir a la línea',
-      '#MOVCS6Ir a la línea',
-      'VARCHAR(5)1 tabla temporal · 33%',
-      '#FIN9Ir a la línea',
+      'Tipo de datoTablas temporales',
+      'VARCHAR(3)2 tablas · 67%#TEMPDNL3#MOVCSL6',
+      'VARCHAR(5)1 tabla · 33%#FINL9',
     ]);
-    await usuario.click(within(detalle).getAllByRole('button', { name: 'Ir a la línea' })[1]);
+    await usuario.click(within(detalle).getByRole('button', { name: /^#MOVCS/ }));
     expect(irALinea).toHaveBeenCalledWith(TIPOS, 6);
     await usuario.click(screen.getByRole('button', { name: 'Ocultar tablas' }));
     expect(screen.queryByText('Distinta longitud')).not.toBeInTheDocument();
