@@ -87,12 +87,12 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
-    "TABLA_PESADA_SIN_NOLOCK": ReglaDiccionario(
-        codigo="TABLA_PESADA_SIN_NOLOCK",
-        nombre="Tabla de movimientos sin NOLOCK",
-        severidad="medio",
-        descripcion="El WITH(NOLOCK) es opcional en las tablas físicas, pero se recomienda evaluarlo al leer "
-                    "tablas de movimientos (Mov).",
+    "NOLOCK_POR_EVALUAR": ReglaDiccionario(
+        codigo="NOLOCK_POR_EVALUAR",
+        nombre="Evaluar uso de WITH (NOLOCK)",
+        severidad="bajo",
+        descripcion="Las demás tablas físicas que solo se leen (movimientos, clientes...) sin WITH (NOLOCK): se "
+                    "recomienda evaluar agregarlo, validando que no afecte la consistencia de los datos.",
         alcance="procedimiento",
         activo=True,
     ),
