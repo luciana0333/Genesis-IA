@@ -5,9 +5,7 @@ import re
 from typing import Dict, List, Set, Tuple
 
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
-from app.analizadores.collate_temporales import (
-    ACCION_COLLATE_TEMPORAL, columnas_sin_collate_por_tabla, hecho_por_tabla,
-)
+from app.analizadores.collate_temporales import collate_agrupado
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.left_like import left_reemplazable_por_like
 from app.analizadores.hints_compartidos import (
@@ -804,26 +802,12 @@ def _validar_collate_temporales(texto: str, limpio: str) -> List[Hallazgo]:
     El mismo mensaje de siempre, agrupado por tabla (pedido de la usuaria, 7 nov.): una viñeta por tabla con
     todas sus columnas; «Ver en el código» recorre tabla por tabla, columna por columna.
     """
-    por_tabla = columnas_sin_collate_por_tabla(limpio)
-    if not por_tabla:
+    agrupado = collate_agrupado(limpio, lambda posicion: _linea(texto, posicion))
+    if not agrupado:
         return []
-    hechos = [hecho_por_tabla(tipo, tabla, [c for _, c in columnas]) for tipo, tabla, columnas in por_tabla]
-    if len(hechos) == 1:
-        mensaje = f"{hechos[0]}. {ACCION_COLLATE_TEMPORAL}"
-    else:
-        primeras = [_linea(texto, columnas[0][0]) for _, _, columnas in por_tabla]
-        donde = ("la línea " if len(set(primeras)) == 1 else "las líneas ") + ", ".join(map(str, sorted(set(primeras))))
-        detalle = "; ".join(h[:1].lower() + h[1:] for h in hechos)
-        mensaje = (f"Se encontraron {len(hechos)} observaciones de este tipo, en {donde}: {detalle}. "
-                   f"{ACCION_COLLATE_TEMPORAL}")
-    hallazgo = _hallazgo(texto, por_tabla[0][2][0][0], "TEMPORAL_TEXTO_SIN_COLLATE", mensaje)
-    hallazgo.grupos = [
-        {"nombre": tabla, "tipo": "Tabla",
-         "lineas": [_linea(texto, posicion) for posicion, _ in columnas],
-         "etiquetas": [columna for _, columna in columnas]}
-        for _, tabla, columnas in por_tabla
-    ]
-    hallazgo.lineas = [n for grupo in hallazgo.grupos for n in grupo["lineas"]]
+    posicion, mensaje, grupos, lineas = agrupado
+    hallazgo = _hallazgo(texto, posicion, "TEMPORAL_TEXTO_SIN_COLLATE", mensaje)
+    hallazgo.grupos, hallazgo.lineas = grupos, lineas
     return [hallazgo]
 
 

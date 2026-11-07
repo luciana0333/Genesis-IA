@@ -5,7 +5,7 @@ import re
 from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
-from app.analizadores.collate_temporales import columnas_sin_collate
+from app.analizadores.collate_temporales import collate_agrupado
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.left_like import left_reemplazable_por_like
 from app.analizadores.hints_compartidos import (
@@ -349,11 +349,15 @@ def _validar_comentarios_codigo(texto: str) -> List[Hallazgo]:
 
 
 def _validar_tablas_temporales(texto: str, limpio: str) -> List[Hallazgo]:
-    """Columnas de texto de tablas temporales (#T) y variables de tabla (@T) sin COLLATE."""
-    return [
-        _hallazgo(texto, posicion, "TEMPORAL_TEXTO_SIN_COLLATE", mensaje)
-        for posicion, mensaje in columnas_sin_collate(limpio)
-    ]
+    """Columnas de texto de tablas temporales (#T) y variables de tabla (@T) sin COLLATE: una sola observación,
+    agrupada por tabla, igual que en Negocio (pedido de la usuaria, 7 nov.)."""
+    agrupado = collate_agrupado(limpio, lambda posicion: _linea(texto, posicion))
+    if not agrupado:
+        return []
+    posicion, mensaje, grupos, lineas = agrupado
+    hallazgo = _hallazgo(texto, posicion, "TEMPORAL_TEXTO_SIN_COLLATE", mensaje)
+    hallazgo.grupos, hallazgo.lineas = grupos, lineas
+    return [hallazgo]
 
 
 def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:

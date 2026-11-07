@@ -549,7 +549,7 @@ END"""
             "Se encontraron 2 observaciones de este tipo, en las líneas 1, 3: las columnas de texto Num_correlativo, "
             "dFechaContable y TipoReporte de la tabla temporal #FILT no definen COLLATE; las columnas de texto "
             "Num_correlativo y TipoReporte de la tabla temporal #FILT2 no definen COLLATE. Se recomienda añadir el "
-            "COLLATE establecido en las columnas de tipo texto de las tablas temporales. Por favor, revisar y "
+            "COLLATE correspondiente en las columnas de tipo texto de las tablas temporales. Por favor, revisar y "
             "aplicarlo donde corresponda.",
         )
         # «Ver en el código» recorre tabla por tabla, columna por columna.
@@ -561,7 +561,7 @@ END"""
         una = "CREATE TABLE #T (cA VARCHAR(10))"
         mensaje = [h.mensaje for h in verificar_procedimiento_normal(una) if h.regla == "TEMPORAL_TEXTO_SIN_COLLATE"]
         self.assertEqual(mensaje, ["La columna de texto cA de la tabla temporal #T no define COLLATE. Se recomienda "
-                                   "añadir el COLLATE establecido en las columnas de tipo texto de las tablas "
+                                   "añadir el COLLATE correspondiente en las columnas de tipo texto de las tablas "
                                    "temporales. Por favor, revisar y aplicarlo donde corresponda."])
 
     def test_goto_y_merge_son_medios_y_piden_validar(self):
