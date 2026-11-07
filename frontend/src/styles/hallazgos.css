@@ -1020,12 +1020,34 @@
 .ver-en-codigo svg,
 .aprobar-siglas-boton svg { width: 14px; height: 14px; }
 
+/* «Ver en el código»: botón con brillo, inspirado en la referencia de la usuaria (7 nov.), en el rojo de
+   la marca: degradado rojo, luz arriba, borde claro y un resplandor rojo suave que crece al pasar el mouse. */
 .ver-en-codigo {
-  border: 1px solid var(--border-strong);
-  background: var(--bg-subtle);
-  color: var(--text-primary);
+  position: relative;
+  height: 36px;
+  padding: 0 20px 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f0323e 0%, #e30613 55%, #c4050f 100%);
+  color: #ffffff;
+  letter-spacing: 0.01em;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -2px 6px rgba(120, 0, 8, 0.25),
+    0 6px 16px -6px rgba(227, 6, 19, 0.55),
+    0 0 0 4px rgba(227, 6, 19, 0.08);
+  transition: box-shadow var(--dur-fast) ease, transform var(--dur-fast) ease;
 }
-.ver-en-codigo:hover { border-color: var(--text-secondary); }
+.ver-en-codigo svg { width: 15px; height: 15px; filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.6)); }
+.ver-en-codigo:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -2px 6px rgba(120, 0, 8, 0.25),
+    0 10px 24px -6px rgba(227, 6, 19, 0.65),
+    0 0 0 5px rgba(227, 6, 19, 0.12);
+}
+.ver-en-codigo:active { transform: translateY(0) scale(0.98); }
 
 .aprobar-siglas-boton { background: var(--red-main); }
 .aprobar-siglas-boton:hover,
