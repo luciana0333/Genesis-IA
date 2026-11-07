@@ -1,3 +1,5 @@
+import { Fragment } from 'react';
+
 /** Tipo sin su longitud: VARCHAR(3) → VARCHAR. */
 const tipoBase = (tipo) => tipo.replace(/\(.*$/, '');
 
@@ -6,9 +8,10 @@ export const tieneDetalle = (detalle) => Boolean(detalle?.some((fila) => fila.ta
 
 /**
  * Panel «Detalle de tipos» de una columna (ej.: «Misma columna con distinto tipo»): cabecera con la
- * columna, el tipo de diferencia y los indicadores; debajo, Tipo de dato | Tablas temporales.
+ * columna, el tipo de diferencia y los indicadores; debajo, una franja roja por tipo con sus temporales,
+ * la línea donde definen la columna y «Ir a la línea» (diseño de referencia de la usuaria, 7 nov.).
  */
-export function PanelDetalleTipos({ nombre, detalle }) {
+export function PanelDetalleTipos({ nombre, detalle, onIrALinea }) {
   const totalTablas = detalle.reduce((suma, fila) => suma + fila.tablas.length, 0);
   // VARCHAR(3) y VARCHAR(5): misma familia, distinta longitud; INT y VARCHAR: tipo distinto (obliga a convertir).
   const mismaFamilia = new Set(detalle.map((fila) => tipoBase(fila.tipo))).size === 1;
@@ -34,26 +37,45 @@ export function PanelDetalleTipos({ nombre, detalle }) {
           <strong>{totalTablas}</strong>
         </div>
       </div>
-      <table>
+      {/* Una franja por tipo de dato y, debajo, sus temporales con la línea donde definen la columna. */}
+      <table className="detalle-tipos-lista">
         <thead>
-          <tr><th scope="col">Tipo de dato</th><th scope="col">Tablas temporales</th></tr>
+          <tr>
+            <th scope="col">Tabla temporal</th>
+            <th scope="col">Línea</th>
+            <th scope="col"><span className="sr-only">Ir a la línea</span></th>
+          </tr>
         </thead>
         <tbody>
           {detalle.map((fila) => {
             const porcentaje = Math.round((fila.tablas.length / totalTablas) * 100);
             return (
-              <tr key={fila.tipo}>
-                <td>
-                  <code className="detalle-tipos-tipo">{fila.tipo}</code>
-                  <span className="detalle-tipos-peso">
-                    {fila.tablas.length} {fila.tablas.length === 1 ? 'tabla' : 'tablas'} · <b>{porcentaje}%</b>
-                  </span>
-                  <span className="detalle-tipos-barra" aria-hidden="true"><i style={{ width: `${porcentaje}%` }} /></span>
-                </td>
-                <td>
-                  {fila.tablas.map((tabla) => <code key={tabla} className="detalle-tipos-tabla">{tabla}</code>)}
-                </td>
-              </tr>
+              <Fragment key={fila.tipo}>
+                <tr className="detalle-tipos-franja">
+                  <th scope="rowgroup" colSpan={3}>
+                    <code>{fila.tipo}</code>
+                    <span>
+                      {fila.tablas.length} {fila.tablas.length === 1 ? 'tabla temporal' : 'tablas temporales'} · {porcentaje}%
+                    </span>
+                  </th>
+                </tr>
+                {fila.tablas.map((tabla, i) => {
+                  const linea = fila.lineas?.[i];
+                  return (
+                    <tr key={tabla} className="detalle-tipos-temporal">
+                      <td><code>{tabla}</code></td>
+                      <td className="detalle-tipos-linea">{linea ?? '—'}</td>
+                      <td className="detalle-tipos-accion">
+                        {linea && onIrALinea && (
+                          <button type="button" className="detalle-tipos-ir" onClick={() => onIrALinea(linea)}>
+                            Ir a la línea
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </Fragment>
             );
           })}
         </tbody>

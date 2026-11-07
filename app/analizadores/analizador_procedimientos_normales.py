@@ -699,11 +699,13 @@ def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
             tipo = re.sub(r"\s+", "", columna.group(2)).upper()
             posicion = apertura + 1 + desplazamiento + columna.start(1)
             datos = columnas.setdefault(nombre.lower(), {"nombre": nombre, "tipos": {}, "posicion": posicion,
-                                                         "primera_de_tipo": {}})
+                                                         "primera_de_tipo": {}, "linea_de_tabla": {}})
             datos["primera_de_tipo"].setdefault(tipo, posicion)  # dónde aparece cada tipo por primera vez
             tablas = datos["tipos"].setdefault(tipo, [])
             if tabla.lower() not in (t.lower() for t in tablas):
                 tablas.append(tabla)
+                # Línea donde la temporal define la columna («Ir a la línea» del detalle).
+                datos["linea_de_tabla"][(tipo, tabla.lower())] = _linea(texto, posicion)
 
     # Todas las columnas en una sola observación, una viñeta corta por columna (texto de la usuaria, 7 nov.):
     # «'cCodAge': VARCHAR(3) en 8 tablas temporales y VARCHAR(5) en #FIN». Un tipo en una sola tabla lleva su
@@ -742,7 +744,11 @@ def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
             "tipo": "Columna",
             "lineas": [_linea(texto, datos["primera_de_tipo"][tipo]) for tipo in datos["tipos"]],
             "etiquetas": list(datos["tipos"]),
-            "detalle": [{"tipo": tipo, "tablas": tablas} for tipo, tablas in datos["tipos"].items()],
+            "detalle": [
+                {"tipo": tipo, "tablas": tablas,
+                 "lineas": [datos["linea_de_tabla"][(tipo, tabla.lower())] for tabla in tablas]}
+                for tipo, tablas in datos["tipos"].items()
+            ],
         }
         for datos in distintas
     ]

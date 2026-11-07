@@ -125,7 +125,7 @@ function BotonCopiar({ texto, etiqueta, conTexto = false }) {
  * que se encontró y, tras una línea punteada, qué hacer. Si el hallazgo agrupa
  * varias ocurrencias, cada una se lista por separado.
  */
-function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null }) {
+function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null, onIrALinea }) {
   const severidad = normalizarSeveridad(hallazgo.severidad);
   const titulo = nombreRegla(hallazgo.regla);
   const mensaje = hallazgo.mensaje || 'Revisa este hallazgo.';
@@ -160,7 +160,7 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
       <div className="finding-body">
         {intro && <p className="finding-message">{intro}</p>}
         {enTabla ? (
-          <TablaTiposColumnas grupos={hallazgo.grupos} filaActiva={vinetaActiva} />
+          <TablaTiposColumnas grupos={hallazgo.grupos} filaActiva={vinetaActiva} onIrALinea={onIrALinea && ((linea) => onIrALinea(hallazgo, linea))} />
         ) : (
           <>
             {ocurrencias.length > 1 ? (
@@ -212,6 +212,7 @@ function EsqueletoCarga() {
  * textos: { inicial, cargando, sinHallazgos, tituloError } — mensajes por estado.
  * accionesHallazgo: (hallazgo) => contenido extra al pie de cada ficha (opcional).
  * vinetaActiva: (hallazgo) => índice de la viñeta que se está recorriendo en el código, o null (opcional).
+ * onIrALinea: (hallazgo, linea) => lleva el editor a esa línea («Ir a la línea» del detalle; opcional).
  */
 export function PanelHallazgos({
   titulo,
@@ -223,6 +224,7 @@ export function PanelHallazgos({
   mostrarLinea = true,
   accionesHallazgo,
   vinetaActiva,
+  onIrALinea,
 }) {
   const [filtroElegido, setFiltro] = useState('todos');
   const [seccionElegida, setSeccion] = useState('tabla');
@@ -285,6 +287,7 @@ export function PanelHallazgos({
         mostrarLinea={mostrarLinea}
         acciones={accionesHallazgo}
         vinetaActiva={vinetaActiva?.(hallazgo) ?? null}
+        onIrALinea={onIrALinea}
       />
     ));
     const lista = (

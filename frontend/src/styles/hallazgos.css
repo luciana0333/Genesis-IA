@@ -1184,8 +1184,9 @@
 }
 .detalle-tipos-indicador .detalle-tipos-rotulo { justify-content: flex-end; font-size: 0.6rem; }
 .detalle-tipos-indicador strong { font-size: 1.25rem; font-weight: 700; line-height: 1.1; }
-.detalle-tipos table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-.detalle-tipos th {
+/* Lista del detalle (referencia de la usuaria): una franja roja por tipo y, debajo, sus temporales. */
+.detalle-tipos-lista { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.detalle-tipos-lista thead th {
   padding: 9px 18px;
   border-bottom: 1px solid var(--border);
   color: var(--text-secondary);
@@ -1195,25 +1196,39 @@
   text-align: left;
   text-transform: uppercase;
 }
-.detalle-tipos th:first-child { width: 170px; }
-.detalle-tipos td { padding: 14px 18px; border-top: 1px solid var(--border); vertical-align: top; }
-.detalle-tipos tbody tr:first-child td { border-top: 0; }
-.detalle-tipos-tipo { display: block; font-family: var(--font-mono); font-size: 0.86rem; font-weight: 700; white-space: nowrap; }
-.detalle-tipos-peso { display: block; margin-top: 4px; color: var(--text-secondary); font-size: 0.72rem; }
-.detalle-tipos-peso b { color: var(--text-primary); font-weight: 600; }
-.detalle-tipos-barra { display: block; width: 90px; height: 5px; margin-top: 7px; background: var(--bg-subtle); }
-.detalle-tipos-barra i { display: block; height: 100%; background: var(--red-dark); }
-.detalle-tipos-tabla {
-  display: inline-block;
-  margin: 0 6px 6px 0;
-  padding: 3px 8px;
-  border: 1px solid var(--border);
-  background: var(--bg-subtle);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
+.detalle-tipos-lista thead th:nth-child(2) { width: 90px; }
+.detalle-tipos-lista thead th:last-child { width: 140px; }
+.detalle-tipos-franja th {
+  padding: 9px 18px;
+  background: #e04b59;
+  color: #ffffff;
+  font-size: 0.76rem;
   font-weight: 500;
+  text-align: left;
 }
+.detalle-tipos-franja code { margin-right: 10px; font-family: var(--font-mono); font-size: 0.82rem; font-weight: 700; }
+.detalle-tipos-franja span { opacity: 0.92; }
+.detalle-tipos-temporal td { padding: 8px 18px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.detalle-tipos-temporal code { color: #c0392b; font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600; }
+.detalle-tipos-linea { color: var(--text-secondary); font-family: var(--font-mono); font-size: 0.76rem; }
+.detalle-tipos-accion { text-align: right; }
+.detalle-tipos-ir {
+  padding: 4px 12px;
+  border: 1px solid var(--border-strong, #cfcfd6);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.detalle-tipos-ir:hover { border-color: #e04b59; color: #c0392b; }
+.detalle-tipos-ir:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 /* La viñeta de la tabla que se está recorriendo en el código. */
 .finding-list li.ocurrencia-activa {

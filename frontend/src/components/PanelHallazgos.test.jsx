@@ -52,7 +52,10 @@ const TIPOS = {
   grupos: [
     {
       nombre: 'cCodAge', tipo: 'Columna', lineas: [3, 9], etiquetas: ['VARCHAR(3)', 'VARCHAR(5)'],
-      detalle: [{ tipo: 'VARCHAR(3)', tablas: ['#TEMPDN', '#MOVCS'] }, { tipo: 'VARCHAR(5)', tablas: ['#FIN'] }],
+      detalle: [
+        { tipo: 'VARCHAR(3)', tablas: ['#TEMPDN', '#MOVCS'], lineas: [3, 6] },
+        { tipo: 'VARCHAR(5)', tablas: ['#FIN'], lineas: [9] },
+      ],
     },
     {
       nombre: 'cCalifInt', tipo: 'Columna', lineas: [4, 5], etiquetas: ['CHAR(5)', 'VARCHAR(10)'],
@@ -64,7 +67,8 @@ const TIPOS = {
 describe('PanelHallazgos · «Misma columna con distinto tipo» como tabla', () => {
   it('muestra una fila por columna con su desglose y abre el detalle con «Ver tablas»', async () => {
     const usuario = userEvent.setup();
-    render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[TIPOS]} />);
+    const irALinea = vi.fn();
+    render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[TIPOS]} onIrALinea={irALinea} />);
     expect(screen.getByText('2 columnas')).toBeInTheDocument();
     // La introducción va bajo el título; la lista de viñetas se reemplaza por la tabla.
     expect(screen.getByText(/^Se identificaron las siguientes columnas/)).toBeInTheDocument();
@@ -85,7 +89,18 @@ describe('PanelHallazgos · «Misma columna con distinto tipo» como tabla', () 
     expect(screen.getByText('Distinta longitud')).toBeInTheDocument();
     expect(screen.getByText('Tipos').nextSibling).toHaveTextContent('2');
     expect(screen.getByText('Tablas').nextSibling).toHaveTextContent('3');
-    expect(screen.getByText('2 tablas ·')).toBeInTheDocument();
+    // Una franja por tipo y, debajo, cada temporal con su línea e «Ir a la línea».
+    const detalle = screen.getAllByRole('table')[1];
+    expect(within(detalle).getAllByRole('row').map((fila) => fila.textContent)).toEqual([
+      'Tabla temporalLíneaIr a la línea',
+      'VARCHAR(3)2 tablas temporales · 67%',
+      '#TEMPDN3Ir a la línea',
+      '#MOVCS6Ir a la línea',
+      'VARCHAR(5)1 tabla temporal · 33%',
+      '#FIN9Ir a la línea',
+    ]);
+    await usuario.click(within(detalle).getAllByRole('button', { name: 'Ir a la línea' })[1]);
+    expect(irALinea).toHaveBeenCalledWith(TIPOS, 6);
     await usuario.click(screen.getByRole('button', { name: 'Ocultar tablas' }));
     expect(screen.queryByText('Distinta longitud')).not.toBeInTheDocument();
   });

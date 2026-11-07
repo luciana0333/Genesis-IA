@@ -274,8 +274,8 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         # El recorrido para una vez por tipo; la tablita «Ver tablas» trae las temporales de cada tipo.
         self.assertEqual(hallazgos[0].grupos, [{
             "nombre": "cNombre", "tipo": "Columna", "lineas": [1, 2], "etiquetas": ["VARCHAR(40)", "VARCHAR(30)"],
-            "detalle": [{"tipo": "VARCHAR(40)", "tablas": ["#Clientes", "@T"]},
-                        {"tipo": "VARCHAR(30)", "tablas": ["#Resumen"]}],
+            "detalle": [{"tipo": "VARCHAR(40)", "tablas": ["#Clientes", "@T"], "lineas": [1, 3]},
+                        {"tipo": "VARCHAR(30)", "tablas": ["#Resumen"], "lineas": [2]}],
         }])
 
     def test_caso_de_la_usuaria_un_tipo_por_tabla(self):
@@ -306,8 +306,11 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             ("cCodZona", [1, 2, 4], ["VARCHAR(10)", "CHAR(2)", "VARCHAR(2)"]),
             ("cDesZona", [1, 2], ["VARCHAR(150)", "VARCHAR(40)"]),
         ])
-        self.assertEqual(grupos[1]["detalle"], [{"tipo": "VARCHAR(150)", "tablas": ["#Data"]},
-                                                {"tipo": "VARCHAR(40)", "tablas": ["#Zona", "#TB_AGENCIA", "#TB_ZONAX"]}])
+        # Cada temporal con la línea donde define la columna («Ir a la línea»).
+        self.assertEqual(grupos[1]["detalle"], [
+            {"tipo": "VARCHAR(150)", "tablas": ["#Data"], "lineas": [1]},
+            {"tipo": "VARCHAR(40)", "tablas": ["#Zona", "#TB_AGENCIA", "#TB_ZONAX"], "lineas": [2, 4, 5]},
+        ])
         self.assertEqual(hallazgos[0].lineas, [1, 2, 4, 1, 2])
 
     def test_misma_columna_con_el_mismo_tipo_es_valida(self):
