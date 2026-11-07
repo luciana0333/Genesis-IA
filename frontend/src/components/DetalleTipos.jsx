@@ -62,7 +62,7 @@ export function DetalleTipos({ nombre, detalle }) {
                     <td>
                       <code className="detalle-tipos-tipo">{fila.tipo}</code>
                       <span className="detalle-tipos-peso">
-                        {fila.tablas.length} {fila.tablas.length === 1 ? 'tabla' : 'tablas'} · {porcentaje}%
+                        {fila.tablas.length} {fila.tablas.length === 1 ? 'tabla' : 'tablas'} · <b>{porcentaje}%</b>
                       </span>
                       <span className="detalle-tipos-barra" aria-hidden="true"><i style={{ width: `${porcentaje}%` }} /></span>
                     </td>
