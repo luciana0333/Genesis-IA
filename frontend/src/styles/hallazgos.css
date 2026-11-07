@@ -1208,9 +1208,11 @@
 .detalle-tipos-indicador strong { font-size: 1.25rem; font-weight: 700; line-height: 1.1; }
 /* Lista del detalle (referencia de la usuaria): una franja roja por tipo y, debajo, sus temporales. */
 .detalle-tipos-lista { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+/* Encabezado en rojo con letra blanca; el cuerpo, todo blanco (pedido de la usuaria). */
 .detalle-tipos-lista thead th {
-  padding: 12px 18px 9px;
-  color: var(--text-secondary);
+  padding: 10px 18px;
+  background: #e04b59;
+  color: #ffffff;
   font-size: 0.64rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -1218,37 +1220,33 @@
   text-transform: uppercase;
 }
 .detalle-tipos-lista thead th:first-child { width: 190px; }
-/* El tipo en su bloque rojo (la franja de antes, ahora como celda de la fila). */
 .detalle-tipos-franja {
   padding: 12px 18px;
-  background: #e04b59;
-  color: #ffffff;
+  background: #ffffff;
+  color: var(--text-secondary);
   font-size: 0.72rem;
   font-weight: 500;
   text-align: left;
   vertical-align: top;
 }
-.detalle-tipos-franja code { display: block; font-family: var(--font-mono); font-size: 0.84rem; font-weight: 700; }
-.detalle-tipos-franja span { display: block; margin-top: 3px; opacity: 0.92; }
-.detalle-tipos-fila > td { padding: 10px 18px 6px; vertical-align: top; }
-.detalle-tipos-fila.alterna > td { background: #f5f7fb; }
-/* Cada temporal: etiqueta blanca con sombra suave, nombre en rojo y su línea; lleva el editor a esa línea. */
+.detalle-tipos-franja code { display: block; color: var(--text-primary); font-family: var(--font-mono); font-size: 0.84rem; font-weight: 700; }
+.detalle-tipos-franja span { display: block; margin-top: 3px; }
+.detalle-tipos-fila > td { padding: 12px 18px 8px; background: #ffffff; vertical-align: top; }
+/* Cada temporal: texto negro normal, sin recuadro ni sombra, con su línea; al hacer clic lleva a esa línea. */
 .detalle-tipos-temporal {
   display: inline-flex;
   align-items: baseline;
-  gap: 6px;
-  margin: 0 6px 6px 0;
-  padding: 4px 9px;
+  gap: 4px;
+  margin: 0 16px 6px 0;
+  padding: 0;
   border: 0;
-  border-radius: 6px;
-  background: #ffffff;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 2px 6px -2px rgba(16, 24, 40, 0.14);
+  background: transparent;
   font: inherit;
 }
-button.detalle-tipos-temporal { cursor: pointer; transition: box-shadow var(--dur-fast) ease; }
-button.detalle-tipos-temporal:hover { box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08), 0 4px 12px -2px rgba(16, 24, 40, 0.2); }
+button.detalle-tipos-temporal { cursor: pointer; }
+button.detalle-tipos-temporal:hover code { color: var(--red-dark); text-decoration: underline; text-underline-offset: 3px; }
 button.detalle-tipos-temporal:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.detalle-tipos-temporal code { color: #c0392b; font-family: var(--font-mono); font-size: 0.76rem; font-weight: 600; }
+.detalle-tipos-temporal code { color: var(--text-primary); font-family: var(--font-mono); font-size: 0.78rem; font-weight: 500; }
 .detalle-tipos-temporal small { color: var(--text-muted); font-family: var(--font-mono); font-size: 0.66rem; }
 
 /* La viñeta de la tabla que se está recorriendo en el código. */
