@@ -123,7 +123,7 @@ function BotonCopiar({ texto, etiqueta, conTexto = false }) {
  * que se encontró y, tras una línea punteada, qué hacer. Si el hallazgo agrupa
  * varias ocurrencias, cada una se lista por separado.
  */
-function FilaHallazgo({ hallazgo, mostrarLinea, acciones }) {
+function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null }) {
   const severidad = normalizarSeveridad(hallazgo.severidad);
   const titulo = nombreRegla(hallazgo.regla);
   const mensaje = hallazgo.mensaje || 'Revisa este hallazgo.';
@@ -154,7 +154,11 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones }) {
         {intro && <p className="finding-message">{intro}</p>}
         {ocurrencias.length > 1 ? (
           <ul className="finding-list">
-            {ocurrencias.map((texto) => <li key={texto}><MensajeResaltado texto={texto} /></li>)}
+            {ocurrencias.map((texto, indice) => (
+              <li key={texto} className={indice === vinetaActiva ? 'ocurrencia-activa' : undefined}>
+                <MensajeResaltado texto={texto} />
+              </li>
+            ))}
           </ul>
         ) : (
           <p className="finding-message"><MensajeResaltado texto={ocurrencias[0]} /></p>
@@ -194,6 +198,7 @@ function EsqueletoCarga() {
  * estado: 'inicial' | 'cargando' | 'listo' | 'error'
  * textos: { inicial, cargando, sinHallazgos, tituloError } — mensajes por estado.
  * accionesHallazgo: (hallazgo) => contenido extra al pie de cada ficha (opcional).
+ * vinetaActiva: (hallazgo) => índice de la viñeta que se está recorriendo en el código, o null (opcional).
  */
 export function PanelHallazgos({
   titulo,
@@ -204,6 +209,7 @@ export function PanelHallazgos({
   textos,
   mostrarLinea = true,
   accionesHallazgo,
+  vinetaActiva,
 }) {
   const [filtroElegido, setFiltro] = useState('todos');
   const [seccionElegida, setSeccion] = useState('tabla');
@@ -265,6 +271,7 @@ export function PanelHallazgos({
         hallazgo={hallazgo}
         mostrarLinea={mostrarLinea}
         acciones={accionesHallazgo}
+        vinetaActiva={vinetaActiva?.(hallazgo) ?? null}
       />
     ));
     const lista = (

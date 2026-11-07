@@ -1062,6 +1062,21 @@
 }
 
 .barra-recorrido-titulo { margin-right: 6px; font-weight: 600; white-space: nowrap; }
+.barra-recorrido-tabla { color: #ffe3e5; font-weight: 400; }
+.barra-recorrido-vez {
+  margin-left: 10px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.35);
+  color: #ffe3e5;
+  font-weight: 400;
+}
+
+/* La viñeta de la tabla que se está recorriendo en el código. */
+.finding-list li.ocurrencia-activa {
+  background: #fdecee;
+  color: var(--red-dark);
+  outline: 1px solid #f6c9cd;
+}
 
 .barra-recorrido-linea {
   padding: 0 10px;

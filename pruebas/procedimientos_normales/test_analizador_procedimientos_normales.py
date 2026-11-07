@@ -557,6 +557,20 @@ JOIN Cliente c4 ON c4.n = c1.n;"""
         tres = "SELECT c1.x FROM dbo.Cliente c1 JOIN dbo.Cliente c2 ON c2.n = c1.n JOIN dbo.Cliente c3 ON c3.n = c1.n;"
         self.assertNotIn("TABLA_REPETIDA_EN_CONSULTA", {h.regla for h in verificar_procedimiento_normal(tres)})
 
+    def test_tabla_repetida_se_recorre_tabla_por_tabla(self):
+        # Dos tablas leídas 4 veces cada una, intercaladas: «Ver en el código» va primero por todas las
+        # veces de la primera tabla (en el orden de las viñetas) y luego por las de la segunda.
+        bloque = "UNION SELECT 1 FROM T1 a WITH (NOLOCK)\nJOIN T2 b WITH (NOLOCK) ON b.n = a.n\n"
+        sql = "SELECT 1 FROM T1 a WITH (NOLOCK)\nJOIN T2 b WITH (NOLOCK) ON b.n = a.n\n" + bloque * 3 + ";"
+        hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "TABLA_REPETIDA_EN_CONSULTA")
+        self.assertEqual(hallazgo.grupos, [{"nombre": "T1", "lineas": [1, 3, 5, 7]},
+                                           {"nombre": "T2", "lineas": [2, 4, 6, 8]}])
+        self.assertEqual(hallazgo.lineas, [1, 3, 5, 7, 2, 4, 6, 8])
+        solo = "SELECT 1 FROM T1 a WITH (NOLOCK)\n" + "UNION SELECT 1 FROM T1 a WITH (NOLOCK)\n" * 3
+        hallazgo = next(h for h in verificar_procedimiento_normal(solo) if h.regla == "TABLA_REPETIDA_EN_CONSULTA")
+        self.assertEqual(hallazgo.grupos, [{"nombre": "T1", "lineas": [1, 2, 3, 4]}])
+        self.assertEqual(hallazgo.lineas, [1, 2, 3, 4])
+
     def test_recomienda_throw_en_lugar_de_raiserror(self):
         hallazgo = [h for h in verificar_procedimiento_normal("RAISERROR('Error', 16, 1);")
                     if h.regla == "RAISERROR_USAR_THROW"][0]

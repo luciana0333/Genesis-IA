@@ -1047,6 +1047,11 @@ def _agrupar_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
             mensaje=f"Se encontraron {len(grupo)} observaciones de este tipo, en {lineas}: {detalle}",
         )
         resumen.lineas = numeros  # para recorrer los casos uno a uno desde «Ver en el código»
+        if all(getattr(h, "grupos", None) for h in grupo):
+            # Cada viñeta trae sus líneas (ej.: una tabla y las veces que se usa): se recorren viñeta por
+            # viñeta, en el orden en que se listan, y la barra dice en cuál se está.
+            resumen.grupos = [g for h in grupo for g in h.grupos]
+            resumen.lineas = [n for g in resumen.grupos for n in g["lineas"]]
         resumidos.append(resumen)
     return resumidos
 
@@ -1466,14 +1471,19 @@ def _validar_tabla_repetida(texto: str, limpio: str) -> List[Hallazgo]:
         for clave, posiciones in accesos.items():
             if len(posiciones) <= _VECES_MAXIMAS_MISMA_TABLA:
                 continue
-            lineas = ", ".join(str(n) for n in sorted({_linea(texto, pos) for pos in posiciones}))
-            hallazgos.append(_hallazgo(
+            numeros = sorted({_linea(texto, pos) for pos in posiciones})
+            lineas = ", ".join(map(str, numeros))
+            hallazgo = _hallazgo(
                 texto, posiciones[0], "TABLA_REPETIDA_EN_CONSULTA",
                 f"La tabla {nombres[clave]} se consulta {len(posiciones)} veces en la misma "
                 f"consulta ({'líneas' if ',' in lineas else 'línea'} {lineas}). Se recomienda revisar si se puede leer una sola vez (por ejemplo, "
                 f"cargándola antes en una tabla temporal o combinando las condiciones), ya que acceder "
                 f"muchas veces a la misma tabla vuelve lenta la consulta.",
-            ))
+            )
+            # «Ver en el código» recorre todas las veces que se usa esta tabla (barra «Tabla 1 de 4: …»).
+            hallazgo.grupos = [{"nombre": nombres[clave], "lineas": numeros}]
+            hallazgo.lineas = numeros
+            hallazgos.append(hallazgo)
     return hallazgos
 
 
