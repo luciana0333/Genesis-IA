@@ -1,4 +1,4 @@
-"""Columna de texto sin COLLATE en tabla temporal: tablas #T y variables @T (Reportes y Negocio)."""
+"""COLLATE no especificado en tabla temporal: tablas #T y variables @T (Reportes y Negocio)."""
 
 import unittest
 

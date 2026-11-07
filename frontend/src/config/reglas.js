@@ -123,7 +123,7 @@ export const NOMBRES_REGLAS = {
   MAXRECURSION_PROHIBIDO: 'Uso de MAXRECURSION en consultas',
   HINT_BLOQUEO_PROHIBIDO: 'Hint de bloqueo prohibido',
   CODIGO_SQL_COMENTADO: 'Código SQL comentado',
-  TEMPORAL_TEXTO_SIN_COLLATE: 'Columna de texto sin COLLATE en tabla temporal',
+  TEMPORAL_TEXTO_SIN_COLLATE: 'COLLATE no especificado en tabla temporal',
   SELECT_INTO_PROHIBIDO: 'SELECT INTO prohibido',
   SELECT_ESTRELLA_PROHIBIDO: 'Uso de SELECT *',
   IN_CON_UN_SOLO_VALOR: 'IN con un solo valor',

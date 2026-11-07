@@ -107,7 +107,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "TEMPORAL_TEXTO_SIN_COLLATE": ReglaDiccionario(
         codigo="TEMPORAL_TEXTO_SIN_COLLATE",
-        nombre="Columna de texto sin COLLATE en tabla temporal",
+        nombre="COLLATE no especificado en tabla temporal",
         severidad="alto",
         descripcion="Las columnas de texto de tablas temporales deben declarar COLLATE.",
         alcance="procedimiento",

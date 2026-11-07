@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Columna de texto sin COLLATE en tabla temporal (compartido por Reportes y Procedimientos de negocio).
+"""COLLATE no especificado en tabla temporal (compartido por Reportes y Procedimientos de negocio).
 
 Toda columna de texto de una tabla temporal (#T) o de una variable de tabla (@T) debe declarar el
 COLLATE de la empresa:
