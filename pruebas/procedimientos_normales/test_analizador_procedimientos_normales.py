@@ -537,6 +537,33 @@ END"""
             self.assertIn(columna, hallazgo.mensaje)
         self.assertIn("variable de tabla @V", hallazgo.mensaje)
 
+    def test_collate_en_temporales_agrupado_por_tabla(self):
+        # Caso de la usuaria (7 nov.): el mismo mensaje, una viñeta por temporal con todas sus columnas.
+        sql = ("CREATE TABLE #FILT (Num_correlativo VARCHAR(7), nDebe MONEY,\n"
+               "  dFechaContable VARCHAR(10), TipoReporte VARCHAR(1))\n"
+               "CREATE TABLE #FILT2 (Num_correlativo VARCHAR(7),\n  TipoReporte VARCHAR(1))")
+        hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "TEMPORAL_TEXTO_SIN_COLLATE"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertEqual(
+            hallazgos[0].mensaje,
+            "Se encontraron 2 observaciones de este tipo, en las líneas 1, 3: las columnas de texto Num_correlativo, "
+            "dFechaContable y TipoReporte de la tabla temporal #FILT no definen COLLATE; las columnas de texto "
+            "Num_correlativo y TipoReporte de la tabla temporal #FILT2 no definen COLLATE. Se recomienda añadir el "
+            "COLLATE establecido en las columnas de tipo texto de las tablas temporales. Por favor, revisar y "
+            "aplicarlo donde corresponda.",
+        )
+        # «Ver en el código» recorre tabla por tabla, columna por columna.
+        self.assertEqual(hallazgos[0].grupos, [
+            {"nombre": "#FILT", "tipo": "Tabla", "lineas": [1, 2, 2],
+             "etiquetas": ["Num_correlativo", "dFechaContable", "TipoReporte"]},
+            {"nombre": "#FILT2", "tipo": "Tabla", "lineas": [3, 4], "etiquetas": ["Num_correlativo", "TipoReporte"]},
+        ])
+        una = "CREATE TABLE #T (cA VARCHAR(10))"
+        mensaje = [h.mensaje for h in verificar_procedimiento_normal(una) if h.regla == "TEMPORAL_TEXTO_SIN_COLLATE"]
+        self.assertEqual(mensaje, ["La columna de texto cA de la tabla temporal #T no define COLLATE. Se recomienda "
+                                   "añadir el COLLATE establecido en las columnas de tipo texto de las tablas "
+                                   "temporales. Por favor, revisar y aplicarlo donde corresponda."])
+
     def test_goto_y_merge_son_medios_y_piden_validar(self):
         hallazgos = {h.regla: h for h in verificar_procedimiento_normal(
             "GOTO Fin; MERGE dbo.A AS t USING #B s ON t.n = s.n WHEN MATCHED THEN DELETE;")}

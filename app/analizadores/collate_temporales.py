@@ -64,20 +64,37 @@ def _por_comas(contenido: str) -> List[Tuple[str, int]]:
     return partes
 
 
-def columnas_sin_collate(limpio: str) -> List[Tuple[int, str]]:
-    """(posición de la columna, mensaje) de cada columna de texto de #T o @T sin COLLATE."""
+def columnas_sin_collate_por_tabla(limpio: str) -> List[Tuple[str, str, List[Tuple[int, str]]]]:
+    """Por cada #T o @T con columnas de texto sin COLLATE: (tipo de tabla, tabla, [(posición, columna)])."""
     resultado = []
     for match in _TABLA.finditer(limpio):
         tabla = match.group(1) or match.group(2)
         tipo_tabla = "la tabla temporal" if match.group(1) else "la variable de tabla"
         apertura = match.end() - 1
+        columnas = []
         for definicion, desplazamiento in _por_comas(_contenido(limpio, apertura)):
             columna = re.match(rf"\s*({_IDENTIFICADOR})\s+{_TIPOS_TEXTO}", definicion, re.IGNORECASE)
             if not columna or _COLLATE.search(definicion):
                 continue
-            resultado.append((
-                apertura + 1 + desplazamiento + columna.start(1),
-                f"La columna de texto {columna.group(1)} de {tipo_tabla} {tabla} no define COLLATE. "
-                f"{ACCION_COLLATE_TEMPORAL}",
-            ))
+            columnas.append((apertura + 1 + desplazamiento + columna.start(1), columna.group(1)))
+        if columnas:
+            resultado.append((tipo_tabla, tabla, columnas))
     return resultado
+
+
+def columnas_sin_collate(limpio: str) -> List[Tuple[int, str]]:
+    """(posición de la columna, mensaje) de cada columna de texto de #T o @T sin COLLATE."""
+    return [
+        (posicion, f"La columna de texto {columna} de {tipo_tabla} {tabla} no define COLLATE. {ACCION_COLLATE_TEMPORAL}")
+        for tipo_tabla, tabla, columnas in columnas_sin_collate_por_tabla(limpio)
+        for posicion, columna in columnas
+    ]
+
+
+def hecho_por_tabla(tipo_tabla: str, tabla: str, columnas: List[str]) -> str:
+    """El mismo mensaje, agrupado por tabla: «Las columnas de texto A, B y C de la tabla temporal #T no definen
+    COLLATE» (con una sola columna, el texto de siempre)."""
+    if len(columnas) == 1:
+        return f"La columna de texto {columnas[0]} de {tipo_tabla} {tabla} no define COLLATE"
+    lista = f"{', '.join(columnas[:-1])} y {columnas[-1]}"
+    return f"Las columnas de texto {lista} de {tipo_tabla} {tabla} no definen COLLATE"

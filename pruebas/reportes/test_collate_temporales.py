@@ -36,8 +36,13 @@ class CollateTemporalesTest(unittest.TestCase):
             with self.subTest(modulo=verificar.__name__):
                 hallazgo = _collate(verificar, sql)[0]
                 self.assertEqual(hallazgo.lineas, [3, 4])
-                self.assertIn("cNombre de la tabla temporal #Temp no define COLLATE", hallazgo.mensaje)
-                self.assertIn("cTexto de la tabla temporal #Temp", hallazgo.mensaje)
+                if verificar.__name__ == "verificar_procedimiento_normal":
+                    # Negocio agrupa por tabla (pedido de la usuaria, 7 nov.); Reportes, una por columna.
+                    self.assertIn("Las columnas de texto cNombre y cTexto de la tabla temporal #Temp no definen "
+                                  "COLLATE", hallazgo.mensaje)
+                else:
+                    self.assertIn("cNombre de la tabla temporal #Temp no define COLLATE", hallazgo.mensaje)
+                    self.assertIn("cTexto de la tabla temporal #Temp", hallazgo.mensaje)
                 self.assertTrue(hallazgo.mensaje.endswith(QUE_HACER))
 
     def test_con_collate_o_sin_texto_no_se_observa(self):
