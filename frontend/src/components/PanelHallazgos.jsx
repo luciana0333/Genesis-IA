@@ -3,6 +3,7 @@ import { SEVERIDADES, etiquetaSeveridad, nombreRegla } from '../config/reglas';
 import { etiquetaDeGrupos } from '../utils/recorrido';
 import { tokenizarSql } from '../utils/resaltadoSql';
 import { contarPorSeveridad, desglosarGrupo, normalizarSeveridad, ordenarHallazgos, separarMensaje } from '../utils/hallazgos';
+import { DetalleTipos } from './DetalleTipos';
 import { EncabezadoSeccion } from './EncabezadoSeccion';
 import { EstadoInicial } from './EstadoInicial';
 import { EstadoVacio } from './EstadoVacio';
@@ -120,43 +121,6 @@ function BotonCopiar({ texto, etiqueta, conTexto = false }) {
 }
 
 /**
- * «Ver tablas» de una viñeta (ej.: «Misma columna con distinto tipo»): despliega la tablita
- * Tipo | Tablas temporales. Solo aparece si algún tipo está en varias temporales; si cada uno
- * está en una sola, sus nombres ya se leen en la viñeta.
- */
-function DetalleTipos({ detalle }) {
-  const [abierto, setAbierto] = useState(false);
-  if (!detalle?.some((fila) => fila.tablas.length > 1)) return null;
-  return (
-    <>
-      <button
-        type="button"
-        className="ver-tablas"
-        aria-expanded={abierto}
-        onClick={() => setAbierto((anterior) => !anterior)}
-      >
-        {abierto ? 'Ocultar tablas' : 'Ver tablas'}
-      </button>
-      {abierto && (
-        <table className="detalle-tipos">
-          <thead>
-            <tr><th scope="col">Tipo</th><th scope="col">Tablas temporales</th></tr>
-          </thead>
-          <tbody>
-            {detalle.map((fila) => (
-              <tr key={fila.tipo}>
-                <td><code>{fila.tipo}</code></td>
-                <td>{fila.tablas.join(', ')}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </>
-  );
-}
-
-/**
  * Ficha de un hallazgo: título y, a la derecha, línea y severidad; debajo lo
  * que se encontró y, tras una línea punteada, qué hacer. Si el hallazgo agrupa
  * varias ocurrencias, cada una se lista por separado.
@@ -197,14 +161,14 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
             {ocurrencias.map((texto, indice) => (
               <li key={texto} className={indice === vinetaActiva ? 'ocurrencia-activa' : undefined}>
                 <MensajeResaltado texto={texto} />
-                <DetalleTipos detalle={hallazgo.grupos?.[indice]?.detalle} />
+                <DetalleTipos nombre={hallazgo.grupos?.[indice]?.nombre} detalle={hallazgo.grupos?.[indice]?.detalle} />
               </li>
             ))}
           </ul>
         ) : (
           <div className="finding-message">
             <MensajeResaltado texto={ocurrencias[0]} />
-            <DetalleTipos detalle={hallazgo.grupos?.[0]?.detalle} />
+            <DetalleTipos nombre={hallazgo.grupos?.[0]?.nombre} detalle={hallazgo.grupos?.[0]?.detalle} />
           </div>
         )}
         {solucion && (

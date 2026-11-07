@@ -1071,48 +1071,101 @@
   font-weight: 400;
 }
 
-/* «Ver tablas» de una viñeta y su tablita Tipo | Tablas temporales. */
+/* «Ver tablas» de una viñeta y su panel «Detalle de tipos»: sobrio, bordes rectos y sombra leve. */
 .ver-tablas {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   margin-left: 8px;
-  padding: 1px 8px;
-  border: 1px solid var(--border);
+  padding: 2px 9px 2px 6px;
+  border: 1px solid var(--red-main);
   border-radius: 0;
-  background: var(--bg-card);
+  background: transparent;
   color: var(--red-dark);
   font: inherit;
-  font-size: 0.74rem;
-  font-weight: 600;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
   cursor: pointer;
   vertical-align: 1px;
+  transition: background-color var(--dur-fast) ease;
 }
-.ver-tablas:hover { border-color: var(--red-main); background: var(--red-light); }
+.ver-tablas svg { width: 13px; height: 13px; }
+.ver-tablas:hover, .ver-tablas.abierto { background: var(--red-light); }
 .ver-tablas:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .detalle-tipos {
-  width: 100%;
-  margin: 6px 0 4px;
-  border-collapse: collapse;
+  margin: 8px 0 6px;
   border: 1px solid var(--border);
   background: var(--bg-card);
   color: var(--text-primary);
-  font-size: 0.8rem;
+  box-shadow: 0 1px 2px rgba(17, 17, 26, 0.05), 0 12px 26px -20px rgba(17, 17, 26, 0.45);
 }
+.detalle-tipos-cabecera { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); }
+.detalle-tipos-titulo {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 14px;
+  border-left: 3px solid var(--red-main);
+}
+.detalle-tipos-rotulo {
+  color: var(--text-secondary);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.detalle-tipos-columna { font-family: var(--font-mono); font-size: 0.86rem; font-weight: 600; }
+.detalle-tipos-diferencia {
+  margin-left: 8px;
+  padding: 1px 7px;
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+}
+.detalle-tipos-diferencia.longitud { background: #faeeda; color: #633806; }
+.detalle-tipos-diferencia.tipo { background: var(--red-light); color: var(--red-dark); }
+.detalle-tipos-indicador {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 74px;
+  padding: 6px 14px;
+  border-left: 1px solid var(--border);
+  text-align: right;
+}
+.detalle-tipos-indicador strong { font-size: 1.05rem; font-weight: 600; line-height: 1.15; }
+.detalle-tipos table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
 .detalle-tipos th {
-  padding: 5px 10px;
+  padding: 6px 14px;
   border-bottom: 1px solid var(--border);
-  background: var(--red-light);
-  color: var(--red-dark);
-  font-size: 0.7rem;
-  font-weight: 700;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-align: left;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
-.detalle-tipos th:first-child { width: 120px; }
-.detalle-tipos td { padding: 5px 10px; border-top: 1px solid var(--border); vertical-align: top; }
-.detalle-tipos code { font-family: var(--font-mono); font-size: 0.95em; font-weight: 500; white-space: nowrap; }
+.detalle-tipos th:first-child { width: 150px; }
+.detalle-tipos td { padding: 8px 14px; border-top: 1px solid var(--border); vertical-align: top; }
+.detalle-tipos tbody tr:first-child td { border-top: 0; }
+.detalle-tipos-tipo { display: block; font-family: var(--font-mono); font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+.detalle-tipos-peso { display: block; margin-top: 2px; color: var(--text-secondary); font-size: 0.72rem; }
+.detalle-tipos-barra { display: block; width: 90px; height: 4px; margin-top: 5px; background: var(--bg-subtle); }
+.detalle-tipos-barra i { display: block; height: 100%; background: var(--red-main); }
+.detalle-tipos-tabla {
+  display: inline-block;
+  margin: 0 4px 4px 0;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+}
 
 /* La viñeta de la tabla que se está recorriendo en el código. */
 .finding-list li.ocurrencia-activa {

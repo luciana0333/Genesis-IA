@@ -72,7 +72,15 @@ describe('PanelHallazgos · «Ver tablas» de «Misma columna con distinto tipo�
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     await usuario.click(botones[0]);
     const filas = screen.getAllByRole('row').map((fila) => fila.textContent);
-    expect(filas).toEqual(['TipoTablas temporales', 'VARCHAR(3)#TEMPDN, #MOVCS', 'VARCHAR(5)#FIN']);
+    expect(filas).toEqual([
+      'Tipo de datoTablas temporales',
+      'VARCHAR(3)2 tablas · 67%#TEMPDN#MOVCS',
+      'VARCHAR(5)1 tabla · 33%#FIN',
+    ]);
+    // Cabecera: la columna, el tipo de diferencia (VARCHAR con distinto tamaño) y los indicadores.
+    expect(screen.getByText('Distinta longitud')).toBeInTheDocument();
+    expect(screen.getByText('Tipos').nextSibling).toHaveTextContent('2');
+    expect(screen.getByText('Tablas').nextSibling).toHaveTextContent('3');
     await usuario.click(screen.getByRole('button', { name: 'Ocultar tablas' }));
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
