@@ -1020,32 +1020,32 @@
 .ver-en-codigo svg,
 .aprobar-siglas-boton svg { width: 14px; height: 14px; }
 
-/* «Ver en el código»: inspirado en la referencia de la usuaria (7 nov.), en el rojo de la marca: degradado
-   rojo, luz arriba, borde claro, redondeo de 8 px y sombra gris neutra (sin resplandor rojo). */
+/* «Ver en el código»: blanco con sombra suave, redondeo de 8 px, letra oscura e ícono rojo de la marca;
+   al pasar el mouse sube un poco y la sombra crece (pedido de la usuaria, 7 nov.). */
 .ver-en-codigo {
   position: relative;
   height: 36px;
-  padding: 0 20px 0 16px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  padding: 0 18px 0 14px;
+  border: 0;
   border-radius: 8px;
-  background: linear-gradient(180deg, #f0323e 0%, #e30613 55%, #c4050f 100%);
-  color: #ffffff;
+  background: #ffffff; /* blanco con sombra suave (pedido de la usuaria) */
+  color: var(--text-primary);
   letter-spacing: 0.01em;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -2px 6px rgba(120, 0, 8, 0.25),
-    0 1px 2px rgba(16, 24, 40, 0.08),
-    0 4px 10px -4px rgba(16, 24, 40, 0.18);
-  transition: box-shadow var(--dur-fast) ease, transform var(--dur-fast) ease;
+    0 1px 2px rgba(16, 24, 40, 0.06),
+    0 4px 12px -4px rgba(16, 24, 40, 0.16),
+    0 0 0 1px rgba(16, 24, 40, 0.04);
+  transition: box-shadow var(--dur-fast) ease, transform var(--dur-fast) ease, color var(--dur-fast) ease;
 }
-.ver-en-codigo svg { width: 15px; height: 15px; filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.6)); }
+:root[data-theme="dark"] .ver-en-codigo { background: var(--bg-card); }
+.ver-en-codigo svg { width: 15px; height: 15px; color: var(--red-main); }
 .ver-en-codigo:hover {
   transform: translateY(-1px);
+  color: var(--red-dark);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 -2px 6px rgba(120, 0, 8, 0.25),
-    0 2px 4px rgba(16, 24, 40, 0.1),
-    0 8px 16px -6px rgba(16, 24, 40, 0.24);
+    0 2px 4px rgba(16, 24, 40, 0.08),
+    0 10px 20px -8px rgba(16, 24, 40, 0.24),
+    0 0 0 1px rgba(16, 24, 40, 0.04);
 }
 .ver-en-codigo:active { transform: translateY(0) scale(0.98); }
 
