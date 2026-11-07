@@ -279,8 +279,7 @@ def _tiene_nolock_despues(texto: str, posicion: int) -> bool:
     ))
 
 
-# Palabras del nombre que indican una tabla de movimientos (pesada), de constantes o de productos.
-_PALABRAS_MOVIMIENTOS = {"mov", "movs", "movimiento", "movimientos"}
+# Palabras del nombre que indican una tabla de constantes o de productos.
 _PALABRAS_CONSTANTES = {"constante", "constantes"}
 _PALABRAS_PRODUCTOS = {"producto", "productos"}
 
@@ -322,32 +321,87 @@ def _palabras_del_nombre(nombre: str) -> List[str]:
     return [p.lower() for parte in tabla.split("_") for p in re.findall(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+", parte)]
 
 
+def _es_tabla_de_consulta(palabras: set) -> bool:
+    """Constantes (Constante, ConsSistema) y productos: tablas que en un procedimiento solo se consultan."""
+    return bool(palabras & (_PALABRAS_CONSTANTES | _PALABRAS_PRODUCTOS)) or {"cons", "sistema"} <= palabras
+
+
+def _mensaje_consulta_sin_nolock(tablas: List[str]) -> str:
+    """Texto de la usuaria (6 nov.); con varias tablas, una sola observación."""
+    if len(tablas) == 1:
+        return (f"Se identificó una consulta de lectura sobre la tabla física {tablas[0]} sin utilizar WITH (NOLOCK). "
+                f"Se recomienda agregar WITH (NOLOCK) a la tabla física (ej.: FROM {tablas[0]} WITH (NOLOCK)), para "
+                f"evitar que la consulta quede esperando mientras otros procesos mantienen bloqueados sus registros.")
+    lista = f"{', '.join(tablas[:-1])} y {tablas[-1]}"
+    return (f"Se identificaron consultas de lectura sobre las tablas físicas {lista} sin utilizar WITH (NOLOCK). "
+            f"Se recomienda agregar WITH (NOLOCK) a cada tabla física (ej.: FROM {tablas[0]} WITH (NOLOCK)), para "
+            f"evitar que la consulta quede esperando mientras otros procesos mantienen bloqueados sus registros.")
+
+
+def _mensaje_nolock_por_evaluar(tablas: List[str]) -> str:
+    """Texto de la usuaria (7 nov.); con varias tablas, una sola observación."""
+    if len(tablas) == 1:
+        return (f"Se identificó una consulta de lectura sobre la tabla física {tablas[0]} sin utilizar WITH (NOLOCK). "
+                f"Se recomienda evaluar agregar WITH (NOLOCK) a la tabla física (ej.: FROM {tablas[0]} WITH (NOLOCK)), "
+                f"para evitar esperas por bloqueos durante la lectura, validando que su uso no afecte la consistencia "
+                f"de los datos consultados.")
+    lista = f"{', '.join(tablas[:-1])} y {tablas[-1]}"
+    return (f"Se identificaron consultas de lectura sobre las tablas físicas {lista} sin utilizar WITH (NOLOCK). "
+            f"Se recomienda evaluar agregar WITH (NOLOCK) a cada tabla física (ej.: FROM {tablas[0]} WITH (NOLOCK)), "
+            f"para evitar esperas por bloqueos durante la lectura, validando que su uso no afecte la consistencia de "
+            f"los datos consultados.")
+
+
+def _nombres_de_cte(limpio: str) -> Set[str]:
+    """Nombres de las CTE (WITH C AS (...), D (a, b) AS (...)): en un FROM no son tablas físicas."""
+    return {
+        m.group(1).strip("[]").lower()
+        for m in re.finditer(r"(?:\bWITH|,)\s*(\[[^\]]+\]|[A-Za-z_][\w$#]*)\s*(?:\([^()]*\)\s*)?AS\s*\(",
+                             limpio, re.IGNORECASE)
+    }
+
+
+# Lo que va después de FROM y no es una tabla física: vistas del sistema y las tablas de un trigger.
+_NO_SON_TABLAS_FISICAS = re.compile(r"^(?:sys|information_schema)\.|^(?:inserted|deleted)$", re.IGNORECASE)
+
+
+def _agrupar_tablas(texto: str, regla: str, casos: List[Tuple[int, str]], mensaje) -> Hallazgo:
+    """Una sola observación con todas las tablas; las líneas se recorren con la barra «1 de N»."""
+    unicas: Dict[str, str] = {}  # dbo.Areas y dbo.AREAS son la misma tabla: se muestra como se escribió primero
+    for _, tabla in casos:
+        unicas.setdefault(tabla.lower(), tabla)
+    tablas = list(unicas.values())
+    hallazgo = _hallazgo(texto, casos[0][0], regla, mensaje(tablas))
+    lineas = sorted({_linea(texto, posicion) for posicion, _ in casos})
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas
+    return hallazgo
+
+
 def _validar_nolock_tablas_pesadas(texto: str, limpio: str) -> List[Hallazgo]:
     """
-    En los procedimientos de negocio el WITH(NOLOCK) es opcional, salvo al leer
-    tablas de movimientos (pesadas), de constantes o de productos: ahí se recomienda.
-    No aplica a la tabla que se modifica en un UPDATE o DELETE.
+    En los procedimientos de negocio, al leer una tabla física sin WITH(NOLOCK):
+    - tablas de consulta (constantes y productos): se pide agregarlo (CONSULTA_SIN_NOLOCK);
+    - todas las demás (movimientos, clientes...): se recomienda evaluarlo (NOLOCK_POR_EVALUAR).
+    Cada una en una sola observación con todas sus tablas. No aplica a la tabla que se modifica en un UPDATE
+    o DELETE, a temporales, CTE, cursores, vistas del sistema ni a las tablas de un trigger.
     """
     hallazgos = []
+    consultas: List[Tuple[int, str]] = []    # (posición, tabla) de las tablas de consulta sin NOLOCK
+    por_evaluar: List[Tuple[int, str]] = []  # (posición, tabla) de las demás tablas sin NOLOCK
     referencia = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
     modificaciones = _modificaciones(limpio)
+    ctes = _nombres_de_cte(limpio)
     for match in re.finditer(rf"\b(FROM|JOIN)\s+({referencia})", limpio, re.IGNORECASE):
         if re.match(r"\s*\(", limpio[match.end():]):  # función de tabla, no una tabla
             continue
-        tabla = _limpiar_nombre(match.group(2))
-        if _es_temporal(tabla) or _tiene_nolock_despues(limpio, match.end()):
+        # FETCH NEXT FROM cursor: es un cursor, no una tabla.
+        if re.search(r"\bFETCH\b(?:\s+(?:NEXT|PRIOR|FIRST|LAST|ABSOLUTE\s+\S+|RELATIVE\s+\S+))?\s*$",
+                     limpio[max(0, match.start() - 40):match.start()], re.IGNORECASE):
             continue
-        palabras = set(_palabras_del_nombre(tabla))
-        if palabras & _PALABRAS_MOVIMIENTOS:
-            tipo = "de movimientos"
-            porque = "de gran volumen"
-        elif palabras & _PALABRAS_CONSTANTES:
-            tipo = "de constantes"
-            porque = "de uso frecuente"
-        elif palabras & _PALABRAS_PRODUCTOS:
-            tipo = "de productos"
-            porque = "de uso frecuente"
-        else:
+        tabla = _limpiar_nombre(match.group(2))
+        if (_es_temporal(tabla) or _tiene_nolock_despues(limpio, match.end()) or tabla.lower() in ctes
+                or _NO_SON_TABLAS_FISICAS.search(tabla)):
             continue
         # La tabla que se modifica (UPDATE/DELETE ... FROM) no lleva NOLOCK: se mira el UPDATE o DELETE
         # de esta misma sentencia, aunque el código no use «;».
@@ -355,12 +409,12 @@ def _validar_nolock_tablas_pesadas(texto: str, limpio: str) -> List[Hallazgo]:
         nombres = {tabla.lower(), (alias.group(1).lower() if alias else "")}
         if any(inicio <= match.start() < fin and objetivo in nombres for inicio, fin, objetivo in modificaciones):
             continue
-        hallazgos.append(_hallazgo(
-            texto, match.start(2), "TABLA_PESADA_SIN_NOLOCK",
-            f"Se identificó que la tabla {tipo} ({tabla}), {porque}, se consulta sin WITH(NOLOCK). Se recomienda "
-            f"evaluar agregar WITH(NOLOCK) en estas tablas, ya que puede ayudar a agilizar la consulta "
-            f"(ej.: {tabla} WITH(NOLOCK)).",
-        ))
+        destino = consultas if _es_tabla_de_consulta(set(_palabras_del_nombre(tabla))) else por_evaluar
+        destino.append((match.start(2), tabla))
+    if consultas:
+        hallazgos.append(_agrupar_tablas(texto, "CONSULTA_SIN_NOLOCK", consultas, _mensaje_consulta_sin_nolock))
+    if por_evaluar:
+        hallazgos.append(_agrupar_tablas(texto, "NOLOCK_POR_EVALUAR", por_evaluar, _mensaje_nolock_por_evaluar))
     return hallazgos
 
 
