@@ -1076,6 +1076,10 @@
 /* Blanco puro y sin líneas: filas alternadas en gris azulado muy suave (referencia de la usuaria). */
 .tabla-tipos { width: calc(100% + 40px); margin: 12px -20px 6px; border-collapse: collapse; }
 .tabla-tipos > thead > tr > th {
+  position: relative;
+  z-index: 1;
+  /* Sombra suave bajo el encabezado, en vez de línea (pedido de la usuaria). */
+  box-shadow: 0 8px 12px -10px rgba(16, 24, 40, 0.22);
   padding: 14px 20px 12px;
   color: var(--text-secondary);
   font-size: 0.66rem;
