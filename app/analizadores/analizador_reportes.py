@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
 from app.analizadores.collate_temporales import collate_agrupado
+from app.analizadores.temporales_sin_crear import temporales_sin_crear
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.left_like import left_reemplazable_por_like
 from app.analizadores.hints_compartidos import (
@@ -1051,6 +1052,17 @@ def _agrupar_hallazgos_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
     return resumidos
 
 
+def _validar_temporales_sin_crear(texto: str, limpio: str) -> List[Hallazgo]:
+    """Tabla temporal que se usa pero nunca se crea: el procedimiento falla al ejecutarse (crítico)."""
+    resultado = temporales_sin_crear(limpio, lambda posicion: _linea(texto, posicion))
+    if not resultado:
+        return []
+    posicion, mensaje, grupos, lineas = resultado
+    hallazgo = _hallazgo(texto, posicion, "TEMPORAL_SIN_CREAR", mensaje)
+    hallazgo.grupos, hallazgo.lineas = grupos, lineas
+    return [hallazgo]
+
+
 def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     """Aplica las reglas específicas de procedimientos almacenados de reportes."""
     limpio = _quitar_comentarios(texto_sql)
@@ -1061,6 +1073,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_hints_bloqueo(texto_sql, sin_comentarios))
     hallazgos.extend(_validar_comentarios_codigo(texto_sql))
     hallazgos.extend(_validar_tablas_temporales(texto_sql, limpio))
+    hallazgos.extend(_validar_temporales_sin_crear(texto_sql, limpio))
     hallazgos.extend(_validar_sentencias(texto_sql, limpio))
     hallazgos.extend(_validar_sintaxis_prohibida(texto_sql, limpio))
     hallazgos.extend(_validar_varchar_max(texto_sql, limpio))
