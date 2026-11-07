@@ -546,30 +546,44 @@ END"""
             "SELECT a.x FROM #A a JOIN #B b ON CONVERT(INT, a.n) = b.n;")}
         self.assertTrue({"WAITFOR_DELAY_PROHIBIDO", "ESQUEMA_OMITIDO_ENTRE_BASES", "CAST_EN_JOIN_PROHIBIDO"} <= reglas)
 
-    def test_tabla_consultada_mas_de_tres_veces(self):
+    def test_tabla_en_mas_de_tres_join(self):
         sql = """SELECT c1.x FROM dbo.Cliente c1
 JOIN dbo.Cliente c2 ON c2.n = c1.n
 JOIN [dbo].[Cliente] c3 ON c3.n = c1.n
-JOIN Cliente c4 ON c4.n = c1.n;"""
+JOIN Cliente c4 ON c4.n = c1.n
+JOIN dbo.Cliente c5 ON c5.n = c1.n;"""
         hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "TABLA_REPETIDA_EN_CONSULTA"]
         self.assertEqual(len(hallazgos), 1)
-        self.assertIn("4 veces", hallazgos[0].mensaje)
-        tres = "SELECT c1.x FROM dbo.Cliente c1 JOIN dbo.Cliente c2 ON c2.n = c1.n JOIN dbo.Cliente c3 ON c3.n = c1.n;"
-        self.assertNotIn("TABLA_REPETIDA_EN_CONSULTA", {h.regla for h in verificar_procedimiento_normal(tres)})
+        self.assertEqual(hallazgos[0].severidad.value, "medio")
+        self.assertEqual(
+            hallazgos[0].mensaje,
+            "Se identificó el uso repetido de la siguiente tabla en los JOIN: 'dbo.Cliente' se utiliza en 4 JOIN "
+            "(líneas 2, 3, 4, 5). Se recomienda evitar los JOIN repetidos sobre una misma tabla y evaluar la "
+            "reutilización de sus resultados, para reducir accesos innecesarios y mejorar el rendimiento de la consulta.",
+        )
 
-    def test_tabla_repetida_se_recorre_tabla_por_tabla(self):
-        # Dos tablas leídas 4 veces cada una, intercaladas: «Ver en el código» va primero por todas las
-        # veces de la primera tabla (en el orden de las viñetas) y luego por las de la segunda.
-        bloque = "UNION SELECT 1 FROM T1 a WITH (NOLOCK)\nJOIN T2 b WITH (NOLOCK) ON b.n = a.n\n"
-        sql = "SELECT 1 FROM T1 a WITH (NOLOCK)\nJOIN T2 b WITH (NOLOCK) ON b.n = a.n\n" + bloque * 3 + ";"
-        hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "TABLA_REPETIDA_EN_CONSULTA")
-        self.assertEqual(hallazgo.grupos, [{"nombre": "T1", "lineas": [1, 3, 5, 7]},
-                                           {"nombre": "T2", "lineas": [2, 4, 6, 8]}])
-        self.assertEqual(hallazgo.lineas, [1, 3, 5, 7, 2, 4, 6, 8])
-        solo = "SELECT 1 FROM T1 a WITH (NOLOCK)\n" + "UNION SELECT 1 FROM T1 a WITH (NOLOCK)\n" * 3
-        hallazgo = next(h for h in verificar_procedimiento_normal(solo) if h.regla == "TABLA_REPETIDA_EN_CONSULTA")
-        self.assertEqual(hallazgo.grupos, [{"nombre": "T1", "lineas": [1, 2, 3, 4]}])
-        self.assertEqual(hallazgo.lineas, [1, 2, 3, 4])
+    def test_el_from_no_se_cuenta_como_join(self):
+        # FROM + 3 JOIN: son solo 3 JOIN sobre la tabla.
+        sql = """SELECT c1.x FROM dbo.Cliente c1
+JOIN dbo.Cliente c2 ON c2.n = c1.n
+JOIN dbo.Cliente c3 ON c3.n = c1.n
+JOIN dbo.Cliente c4 ON c4.n = c1.n;"""
+        self.assertNotIn("TABLA_REPETIDA_EN_CONSULTA", {h.regla for h in verificar_procedimiento_normal(sql)})
+
+    def test_tabla_repetida_varias_tablas_en_una_observacion_y_tabla_por_tabla(self):
+        # Dos tablas con 4 JOIN cada una, intercaladas: una viñeta por tabla y «Ver en el código» va primero por
+        # todos los JOIN de la primera tabla y luego por los de la segunda.
+        bloque = ("UNION SELECT 1 FROM T0 z WITH (NOLOCK)\nJOIN T1 a WITH (NOLOCK) ON a.n = z.n\n"
+                  "JOIN T2 b WITH (NOLOCK) ON b.n = a.n\n")
+        sql = bloque[len("UNION "):] + bloque * 3 + ";"
+        hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "TABLA_REPETIDA_EN_CONSULTA"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertTrue(hallazgos[0].mensaje.startswith(
+            "Se identificó el uso repetido de las siguientes tablas en los JOIN: 'T1' se utiliza en 4 JOIN "
+            "(líneas 2, 5, 8, 11); 'T2' se utiliza en 4 JOIN (líneas 3, 6, 9, 12). Se recomienda evitar"))
+        self.assertEqual(hallazgos[0].grupos, [{"nombre": "T1", "lineas": [2, 5, 8, 11]},
+                                               {"nombre": "T2", "lineas": [3, 6, 9, 12]}])
+        self.assertEqual(hallazgos[0].lineas, [2, 5, 8, 11, 3, 6, 9, 12])
 
     def test_recomienda_throw_en_lugar_de_raiserror(self):
         hallazgo = [h for h in verificar_procedimiento_normal("RAISERROR('Error', 16, 1);")

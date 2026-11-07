@@ -1047,11 +1047,6 @@ def _agrupar_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
             mensaje=f"Se encontraron {len(grupo)} observaciones de este tipo, en {lineas}: {detalle}",
         )
         resumen.lineas = numeros  # para recorrer los casos uno a uno desde «Ver en el código»
-        if all(getattr(h, "grupos", None) for h in grupo):
-            # Cada viñeta trae sus líneas (ej.: una tabla y las veces que se usa): se recorren viñeta por
-            # viñeta, en el orden en que se listan, y la barra dice en cuál se está.
-            resumen.grupos = [g for h in grupo for g in h.grupos]
-            resumen.lineas = [n for g in resumen.grupos for n in g["lineas"]]
         resumidos.append(resumen)
     return resumidos
 
@@ -1450,8 +1445,11 @@ _VECES_MAXIMAS_MISMA_TABLA = 3
 
 
 def _validar_tabla_repetida(texto: str, limpio: str) -> List[Hallazgo]:
-    """Una misma tabla leída más de 3 veces (FROM/JOIN) dentro de una misma consulta."""
-    hallazgos = []
+    """Una misma tabla unida con más de 3 JOIN dentro de una misma consulta (el FROM no se cuenta).
+
+    Todas las tablas van en una sola observación, una viñeta por tabla (texto de la usuaria, 7 nov.).
+    """
+    casos: List[Tuple[int, str, List[int], int]] = []  # (posición del 1.er JOIN, tabla, líneas, cuántos JOIN)
     cortes = [m.start() for m in _INICIO_SENTENCIA.finditer(limpio)]
     # Un SELECT al inicio de línea y fuera de paréntesis también es una consulta
     # nueva (procedimientos sin ";"); dentro de paréntesis es una subconsulta.
@@ -1462,7 +1460,7 @@ def _validar_tabla_repetida(texto: str, limpio: str) -> List[Hallazgo]:
     for inicio, fin in zip(cortes, cortes[1:]):
         accesos: Dict[str, List[int]] = {}
         nombres: Dict[str, str] = {}
-        for match in re.finditer(rf"\b(?:FROM|JOIN)\s+({_REFERENCIA})(?![\w$#.\]])(?!\s*\()",
+        for match in re.finditer(rf"\bJOIN\s+({_REFERENCIA})(?![\w$#.\]])(?!\s*\()",
                                  limpio[inicio:fin], re.IGNORECASE):
             nombre = _limpiar_nombre(match.group(1))
             clave = nombre.split(".")[-1].strip("[]").lower()  # dbo.Cliente y [Cliente] son la misma
@@ -1471,20 +1469,26 @@ def _validar_tabla_repetida(texto: str, limpio: str) -> List[Hallazgo]:
         for clave, posiciones in accesos.items():
             if len(posiciones) <= _VECES_MAXIMAS_MISMA_TABLA:
                 continue
-            numeros = sorted({_linea(texto, pos) for pos in posiciones})
-            lineas = ", ".join(map(str, numeros))
-            hallazgo = _hallazgo(
-                texto, posiciones[0], "TABLA_REPETIDA_EN_CONSULTA",
-                f"La tabla {nombres[clave]} se consulta {len(posiciones)} veces en la misma "
-                f"consulta ({'líneas' if ',' in lineas else 'línea'} {lineas}). Se recomienda revisar si se puede leer una sola vez (por ejemplo, "
-                f"cargándola antes en una tabla temporal o combinando las condiciones), ya que acceder "
-                f"muchas veces a la misma tabla vuelve lenta la consulta.",
-            )
-            # «Ver en el código» recorre todas las veces que se usa esta tabla (barra «Tabla 1 de 4: …»).
-            hallazgo.grupos = [{"nombre": nombres[clave], "lineas": numeros}]
-            hallazgo.lineas = numeros
-            hallazgos.append(hallazgo)
-    return hallazgos
+            casos.append((posiciones[0], nombres[clave], sorted({_linea(texto, pos) for pos in posiciones}),
+                          len(posiciones)))
+    if not casos:
+        return []
+    casos.sort()
+    vinetas = []
+    for _, tabla, numeros, cantidad in casos:
+        donde = ("líneas " if len(numeros) > 1 else "línea ") + ", ".join(map(str, numeros))
+        vinetas.append(f"'{tabla}' se utiliza en {cantidad} JOIN ({donde})")
+    sujeto = "las siguientes tablas" if len(casos) > 1 else "la siguiente tabla"
+    hallazgo = _hallazgo(
+        texto, casos[0][0], "TABLA_REPETIDA_EN_CONSULTA",
+        f"Se identificó el uso repetido de {sujeto} en los JOIN: {'; '.join(vinetas)}. Se recomienda evitar los "
+        f"JOIN repetidos sobre una misma tabla y evaluar la reutilización de sus resultados, para reducir accesos "
+        f"innecesarios y mejorar el rendimiento de la consulta.",
+    )
+    # «Ver en el código» recorre tabla por tabla, en el orden de las viñetas (barra «Tabla 1 de 4: …»).
+    hallazgo.grupos = [{"nombre": tabla, "lineas": numeros} for _, tabla, numeros, _ in casos]
+    hallazgo.lineas = [n for grupo in hallazgo.grupos for n in grupo["lineas"]]
+    return [hallazgo]
 
 
 def _fin_de_sentencia(limpio: str, inicio: int) -> int:

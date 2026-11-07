@@ -212,9 +212,9 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "TABLA_REPETIDA_EN_CONSULTA": ReglaDiccionario(
         codigo="TABLA_REPETIDA_EN_CONSULTA",
-        nombre="Misma tabla en varios JOIN",
+        nombre="Múltiples JOIN sobre la misma tabla",
         severidad="medio",
-        descripcion="Una misma tabla no debe leerse más de 3 veces (FROM/JOIN) en la misma consulta.",
+        descripcion="Una misma tabla no debe unirse con más de 3 JOIN en la misma consulta.",
         alcance="procedimiento",
         activo=True,
     ),
