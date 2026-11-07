@@ -10,9 +10,10 @@ const tipoBase = (tipo) => tipo.replace(/\(.*$/, '');
  * algún tipo está en varias temporales; si cada uno está en una sola, sus nombres ya se leen
  * en la viñeta.
  */
-export function DetalleTipos({ nombre, detalle }) {
+export function DetalleTipos({ nombre, detalle, children }) {
   const [abierto, setAbierto] = useState(false);
-  if (!detalle?.some((fila) => fila.tablas.length > 1)) return null;
+  // Sin tablita, la viñeta se muestra tal cual.
+  if (!detalle?.some((fila) => fila.tablas.length > 1)) return children;
 
   const totalTablas = detalle.reduce((suma, fila) => suma + fila.tablas.length, 0);
   // VARCHAR(3) y VARCHAR(5): misma familia, distinta longitud; INT y VARCHAR: tipo distinto (obliga a convertir).
@@ -20,15 +21,19 @@ export function DetalleTipos({ nombre, detalle }) {
 
   return (
     <>
-      <button
-        type="button"
-        className={`ver-tablas${abierto ? ' abierto' : ''}`}
-        aria-expanded={abierto}
-        onClick={() => setAbierto((anterior) => !anterior)}
-      >
-        {abierto ? <IconoAumentar /> : <IconoDisminuir />}
-        {abierto ? 'Ocultar tablas' : 'Ver tablas'}
-      </button>
+      {/* Texto a la izquierda y «Ver tablas ⌄» a la derecha, alineado en todas las filas (opción B de la usuaria). */}
+      <div className="vineta-con-detalle">
+        <span className="vineta-con-detalle-texto">{children}</span>
+        <button
+          type="button"
+          className={`ver-tablas${abierto ? ' abierto' : ''}`}
+          aria-expanded={abierto}
+          onClick={() => setAbierto((anterior) => !anterior)}
+        >
+          {abierto ? 'Ocultar tablas' : 'Ver tablas'}
+          {abierto ? <IconoAumentar /> : <IconoDisminuir />}
+        </button>
+      </div>
       {abierto && (
         <div className="detalle-tipos">
           <div className="detalle-tipos-cabecera">

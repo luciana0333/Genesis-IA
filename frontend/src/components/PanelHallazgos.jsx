@@ -160,15 +160,17 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
           <ul className="finding-list">
             {ocurrencias.map((texto, indice) => (
               <li key={texto} className={indice === vinetaActiva ? 'ocurrencia-activa' : undefined}>
-                <MensajeResaltado texto={texto} />
-                <DetalleTipos nombre={hallazgo.grupos?.[indice]?.nombre} detalle={hallazgo.grupos?.[indice]?.detalle} />
+                <DetalleTipos nombre={hallazgo.grupos?.[indice]?.nombre} detalle={hallazgo.grupos?.[indice]?.detalle}>
+                  <MensajeResaltado texto={texto} />
+                </DetalleTipos>
               </li>
             ))}
           </ul>
         ) : (
           <div className="finding-message">
-            <MensajeResaltado texto={ocurrencias[0]} />
-            <DetalleTipos nombre={hallazgo.grupos?.[0]?.nombre} detalle={hallazgo.grupos?.[0]?.detalle} />
+            <DetalleTipos nombre={hallazgo.grupos?.[0]?.nombre} detalle={hallazgo.grupos?.[0]?.detalle}>
+              <MensajeResaltado texto={ocurrencias[0]} />
+            </DetalleTipos>
           </div>
         )}
         {solucion && (
