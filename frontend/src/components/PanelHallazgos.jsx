@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { SEVERIDADES, etiquetaSeveridad, nombreRegla } from '../config/reglas';
+import { etiquetaDeGrupos } from '../utils/recorrido';
 import { tokenizarSql } from '../utils/resaltadoSql';
 import { contarPorSeveridad, desglosarGrupo, normalizarSeveridad, ordenarHallazgos, separarMensaje } from '../utils/hallazgos';
 import { EncabezadoSeccion } from './EncabezadoSeccion';
@@ -135,9 +136,11 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
   const seccion = SECCIONES[hallazgo.seccion];
   // Hasta 4 líneas se muestran; con más, la cantidad de casos («20 casos»): se recorren desde «Ver en el código».
   const cantidadLineas = lineas ? lineas.split(',').length : 1;
-  const etiquetaLinea = (seccion ? `${seccion} · ` : '') + (lineas
+  // Viñetas con sus propias líneas (tablas, columnas): se cuentan las viñetas, no las líneas («11 columnas»).
+  const porGrupos = etiquetaDeGrupos(hallazgo.grupos);
+  const etiquetaLinea = (seccion ? `${seccion} · ` : '') + (porGrupos || (lineas
     ? (cantidadLineas > 4 ? `${cantidadLineas} casos` : `${lineas.includes(',') ? 'Líneas' : 'Línea'} ${lineas}`)
-    : `Línea ${hallazgo.linea || 1}`);
+    : `Línea ${hallazgo.linea || 1}`));
 
   return (
     <article className={`finding sev-${severidad}`}>

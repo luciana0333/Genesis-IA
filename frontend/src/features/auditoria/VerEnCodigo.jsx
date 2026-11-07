@@ -18,9 +18,9 @@ export function BarraRecorrido({ titulo, linea, posicion, total, grupo, onAnteri
   return (
     <div className="barra-recorrido" role="toolbar" aria-label={`Recorrer las líneas de ${titulo}`}>
       {grupo ? (
-        // Observación con varias tablas: «Tabla 2 de 4: OpeCtaPreparada · Vez 1 de 4».
+        // Observación con varias tablas o columnas: «Tabla 2 de 4: OpeCtaPreparada · Vez 1 de 4».
         <span className="barra-recorrido-titulo barra-recorrido-grupo">
-          <span className="barra-recorrido-tabla">Tabla {grupo.numero} de {grupo.total}:</span> {grupo.nombre}
+          <span className="barra-recorrido-tabla">{grupo.tipo} {grupo.numero} de {grupo.total}:</span> {grupo.nombre}
           <span className="barra-recorrido-vez">Vez {grupo.vez} de {grupo.veces}</span>
         </span>
       ) : (

@@ -265,41 +265,41 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         self.assertEqual([(h.linea, h.severidad.value) for h in hallazgos], [(1, "medio")])
         self.assertEqual(
             hallazgos[0].mensaje,
-            "La columna cNombre está definida con diferentes tipos de datos en tres tablas temporales: VARCHAR(40) "
-            "(en #Clientes y @T) y VARCHAR(30) (en #Resumen). Se recomienda validar si es correcto que estas columnas "
-            "tengan diferentes tipos de datos, ya que esto puede generar conversiones implícitas y afectar el "
-            "rendimiento de las consultas.",
+            "Se identificó la siguiente columna con diferentes tipos de datos o longitudes entre las tablas "
+            "temporales: 'cNombre': VARCHAR(40) en 2 tablas temporales y VARCHAR(30) en #Resumen. Se recomienda "
+            "validar los tipos de datos y longitudes definidos para cada columna, ya que las diferencias pueden "
+            "generar conversiones implícitas. De confirmarse que cumplen el mismo propósito, se recomienda "
+            "homologarlos.",
         )
+        self.assertEqual(hallazgos[0].grupos, [{"nombre": "cNombre", "lineas": [1, 2, 3], "tipo": "Columna"}])
 
-    def test_caso_de_la_usuaria_texto_validar(self):
+    def test_caso_de_la_usuaria_un_tipo_por_tabla(self):
         collate = "COLLATE SQL_Latin1_General_CP1_CI_AS"
         sql = (f"CREATE TABLE #ColocConfigInfRiesgos (cCalifInt CHAR(5) {collate});\n"
                f"DECLARE @tCalifPrioridad TABLE (cCalifInt VARCHAR(10) {collate});\nSELECT 1")
         mensajes = [h.mensaje for h in verificar_procedimiento_normal(sql) if h.regla == "TIPO_DISTINTO_ENTRE_TEMPORALES"]
-        self.assertEqual(mensajes, [
-            "La columna cCalifInt está definida con diferentes tipos de datos en dos tablas temporales: CHAR(5) en "
-            "#ColocConfigInfRiesgos y VARCHAR(10) en @tCalifPrioridad. Se recomienda validar si es correcto que "
-            "ambas columnas tengan diferentes tipos de datos, ya que esto puede generar conversiones implícitas y "
-            "afectar el rendimiento de las consultas.",
-        ])
+        self.assertEqual(len(mensajes), 1)
+        self.assertIn(": 'cCalifInt': CHAR(5) en #ColocConfigInfRiesgos y VARCHAR(10) en @tCalifPrioridad. ", mensajes[0])
 
-    def test_una_observacion_por_columna_aunque_este_en_muchas_tablas(self):
-        # Caso de la usuaria: cCodZona en 5 temporales salía 4 veces (una por cada par).
+    def test_una_observacion_con_una_vineta_corta_por_columna(self):
+        # Caso de la usuaria (7 nov.): con muchas temporales, la lista de nombres no se leía.
         sql = ("CREATE TABLE #Data (cCodZona VARCHAR(10), cDesZona VARCHAR(150));\n"
                "CREATE TABLE #Zona (cCodZona CHAR(2), cDesZona VARCHAR(40));\n"
                "CREATE TABLE #ZonaAgencia (cCodZona CHAR(2), cCodAge CHAR(2));\n"
                "CREATE TABLE #TB_AGENCIA (cCodZona VARCHAR(2), cDesZona VARCHAR(40));\n"
                "CREATE TABLE #TB_ZONAX (cCodZona VARCHAR(2), cDesZona VARCHAR(40));\n")
-        mensajes = [h.mensaje for h in verificar_procedimiento_normal(sql) if h.regla == "TIPO_DISTINTO_ENTRE_TEMPORALES"]
-        self.assertEqual(len(mensajes), 1)  # se agrupan en una observación con dos casos (cCodZona y cDesZona)
-        self.assertIn("la columna cCodZona está definida con diferentes tipos de datos en cinco tablas temporales: "
-                      "VARCHAR(10) (en #Data), CHAR(2) (en #Zona y #ZonaAgencia) y VARCHAR(2) (en #TB_AGENCIA y #TB_ZONAX)",
-                      mensajes[0])
-        self.assertIn("la columna cDesZona está definida con diferentes tipos de datos en cuatro tablas temporales: "
-                      "VARCHAR(150) (en #Data) y VARCHAR(40) (en #Zona, #TB_AGENCIA y #TB_ZONAX)", mensajes[0])
-        # Una viñeta por columna: dentro de cada una no hay «;» (la pantalla corta las viñetas en cada «;»).
-        detalle = mensajes[0].split(": ", 1)[1].split(". Se recomienda")[0]
-        self.assertEqual(len(detalle.split("; ")), 2)
+        hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "TIPO_DISTINTO_ENTRE_TEMPORALES"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertTrue(hallazgos[0].mensaje.startswith(
+            "Se identificaron las siguientes columnas con diferentes tipos de datos o longitudes entre las tablas "
+            "temporales: 'cCodZona': VARCHAR(10) en #Data, CHAR(2) en 2 tablas temporales y VARCHAR(2) en 2; "
+            "'cDesZona': VARCHAR(150) en #Data y VARCHAR(40) en 3 tablas temporales. Se recomienda validar"))
+        # «Ver en el código» recorre columna por columna, en el orden de las viñetas.
+        self.assertEqual(hallazgos[0].grupos, [
+            {"nombre": "cCodZona", "lineas": [1, 2, 3, 4, 5], "tipo": "Columna"},
+            {"nombre": "cDesZona", "lineas": [1, 2, 4, 5], "tipo": "Columna"},
+        ])
+        self.assertEqual(hallazgos[0].lineas, [1, 2, 3, 4, 5, 1, 2, 4, 5])
 
     def test_misma_columna_con_el_mismo_tipo_es_valida(self):
         sql = "CREATE TABLE #A (nId INT, nMonto DECIMAL(18, 2));\nCREATE TABLE #B (nId INT, nMonto DECIMAL(18,2));"

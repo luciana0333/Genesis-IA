@@ -672,10 +672,6 @@ def _separar_por_comas(contenido: str) -> List[tuple]:
     return partes
 
 
-_CANTIDAD_EN_LETRAS = {2: "dos", 3: "tres", 4: "cuatro", 5: "cinco", 6: "seis", 7: "siete", 8: "ocho", 9: "nueve",
-                       10: "diez"}
-
-
 def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
     """
     Una misma columna declarada en varias tablas temporales (#T) o variables de
@@ -702,37 +698,49 @@ def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
             nombre = columna.group(1).strip("[]")
             tipo = re.sub(r"\s+", "", columna.group(2)).upper()
             posicion = apertura + 1 + desplazamiento + columna.start(1)
-            datos = columnas.setdefault(nombre.lower(), {"nombre": nombre, "tipos": {}, "posicion": posicion})
+            datos = columnas.setdefault(nombre.lower(), {"nombre": nombre, "tipos": {}, "posicion": posicion,
+                                                         "posiciones": []})
+            datos["posiciones"].append(posicion)
             tablas = datos["tipos"].setdefault(tipo, [])
             if tabla.lower() not in (t.lower() for t in tablas):
                 tablas.append(tabla)
 
-    # Una observación por columna (no por cada par de tablas), con todos sus tipos y en qué tablas está cada uno.
-    hallazgos = []
-    for datos in columnas.values():
-        if len(datos["tipos"]) < 2:
-            continue
-        def enumerar(elementos: List[str]) -> str:
-            return elementos[0] if len(elementos) == 1 else f"{', '.join(elementos[:-1])} y {elementos[-1]}"
+    # Todas las columnas en una sola observación, una viñeta corta por columna (texto de la usuaria, 7 nov.):
+    # «'cCodAge': VARCHAR(3) en 8 tablas temporales y VARCHAR(5) en #FIN». Un tipo en una sola tabla lleva su
+    # nombre; en varias, la cantidad («tablas temporales» solo la primera vez).
+    distintas = [datos for datos in columnas.values() if len(datos["tipos"]) > 1]
+    if not distintas:
+        return []
 
-        # «CHAR(5) en #A y VARCHAR(10) en @B»; si un tipo está en varias tablas, sus tablas van entre paréntesis:
-        # «VARCHAR(3) (en #A y #B) y VARCHAR(5) (en #C)». Sin «;»: la pantalla corta las viñetas en cada «;».
-        un_tipo_por_tabla = all(len(tablas) == 1 for tablas in datos["tipos"].values())
-        partes = [f"{tipo} en {enumerar(tablas)}" if un_tipo_por_tabla else f"{tipo} (en {enumerar(tablas)})"
-                  for tipo, tablas in datos["tipos"].items()]
-        detalle = enumerar(partes)
-        cantidad = sum(len(tablas) for tablas in datos["tipos"].values())
-        en_cuantas = _CANTIDAD_EN_LETRAS.get(cantidad, str(cantidad))
-        columnas_txt = "ambas columnas" if cantidad == 2 else "estas columnas"
-        # Texto de la usuaria (1 nov.).
-        hallazgos.append(_hallazgo(
-            texto, datos["posicion"], "TIPO_DISTINTO_ENTRE_TEMPORALES",
-            f"La columna {datos['nombre']} está definida con diferentes tipos de datos en {en_cuantas} tablas "
-            f"temporales: {detalle}. Se recomienda validar si es correcto que {columnas_txt} tengan diferentes "
-            f"tipos de datos, ya que esto puede generar conversiones implícitas y afectar el rendimiento de las "
-            f"consultas.",
-        ))
-    return hallazgos
+    def enumerar(elementos: List[str]) -> str:
+        return elementos[0] if len(elementos) == 1 else f"{', '.join(elementos[:-1])} y {elementos[-1]}"
+
+    vinetas = []
+    for datos in distintas:
+        partes, con_sustantivo = [], False
+        for tipo, tablas in datos["tipos"].items():
+            if len(tablas) == 1:
+                partes.append(f"{tipo} en {tablas[0]}")
+            else:
+                partes.append(f"{tipo} en {len(tablas)}" + ("" if con_sustantivo else " tablas temporales"))
+                con_sustantivo = True
+        vinetas.append(f"'{datos['nombre']}': {enumerar(partes)}")
+    sujeto = "Se identificaron las siguientes columnas" if len(distintas) > 1 else "Se identificó la siguiente columna"
+    hallazgo = _hallazgo(
+        texto, distintas[0]["posicion"], "TIPO_DISTINTO_ENTRE_TEMPORALES",
+        f"{sujeto} con diferentes tipos de datos o longitudes entre las tablas temporales: "
+        f"{'; '.join(vinetas)}. Se recomienda validar los tipos de datos y longitudes definidos para cada columna, "
+        f"ya que las diferencias pueden generar conversiones implícitas. De confirmarse que cumplen el mismo "
+        f"propósito, se recomienda homologarlos.",
+    )
+    # «Ver en el código» recorre columna por columna: dónde está definida en cada temporal.
+    hallazgo.grupos = [
+        {"nombre": datos["nombre"], "lineas": sorted({_linea(texto, pos) for pos in datos["posiciones"]}),
+         "tipo": "Columna"}
+        for datos in distintas
+    ]
+    hallazgo.lineas = [n for grupo in hallazgo.grupos for n in grupo["lineas"]]
+    return [hallazgo]
 
 
 _COLLATE_EMPRESA = "SQL_Latin1_General_CP1_CI_AS"

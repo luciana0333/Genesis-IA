@@ -59,7 +59,8 @@ export function desglosarGrupo(problema) {
     /^(Se (?:encontraron|identificaron) (?:\d+|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez) [^:]+?)(?:, en (?:la línea|las líneas|los nodos|la consulta|las consultas) ([\d, ]+))?: ([\s\S]+)$/,
   );
   // «Se identificó el uso repetido de las siguientes tablas en los JOIN: 'A' se utiliza…; 'B' se utiliza…»
-  const conLista = problema.match(/^(Se identificó [^:]*\bsiguientes? [^:]+): ([\s\S]+)$/);
+  // o «Se identificaron las siguientes columnas con diferentes tipos…: 'cCodAge': …; 'cTipo': …»
+  const conLista = problema.match(/^(Se identific(?:ó|aron) [^:]*\bsiguientes? [^:]+): ([\s\S]+)$/);
   if (!grupo && conLista) {
     return { lineas: null, intro: `${conLista[1]}:`, ocurrencias: conLista[2].replace(/\.$/, '').split(/;\s+/) };
   }
