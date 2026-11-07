@@ -271,7 +271,12 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             "generar conversiones implícitas. De confirmarse que cumplen el mismo propósito, se recomienda "
             "homologarlos.",
         )
-        self.assertEqual(hallazgos[0].grupos, [{"nombre": "cNombre", "lineas": [1, 2, 3], "tipo": "Columna"}])
+        # El recorrido para una vez por tipo; la tablita «Ver tablas» trae las temporales de cada tipo.
+        self.assertEqual(hallazgos[0].grupos, [{
+            "nombre": "cNombre", "tipo": "Columna", "lineas": [1, 2], "etiquetas": ["VARCHAR(40)", "VARCHAR(30)"],
+            "detalle": [{"tipo": "VARCHAR(40)", "tablas": ["#Clientes", "@T"]},
+                        {"tipo": "VARCHAR(30)", "tablas": ["#Resumen"]}],
+        }])
 
     def test_caso_de_la_usuaria_un_tipo_por_tabla(self):
         collate = "COLLATE SQL_Latin1_General_CP1_CI_AS"
@@ -294,12 +299,16 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             "Se identificaron las siguientes columnas con diferentes tipos de datos o longitudes entre las tablas "
             "temporales: 'cCodZona': VARCHAR(10) en #Data, CHAR(2) en 2 tablas temporales y VARCHAR(2) en 2; "
             "'cDesZona': VARCHAR(150) en #Data y VARCHAR(40) en 3 tablas temporales. Se recomienda validar"))
-        # «Ver en el código» recorre columna por columna, en el orden de las viñetas.
-        self.assertEqual(hallazgos[0].grupos, [
-            {"nombre": "cCodZona", "lineas": [1, 2, 3, 4, 5], "tipo": "Columna"},
-            {"nombre": "cDesZona", "lineas": [1, 2, 4, 5], "tipo": "Columna"},
+        # «Ver en el código» recorre columna por columna, en el orden de las viñetas, y en cada una para solo en
+        # la primera temporal de cada tipo (no 2 veces en el mismo CHAR(2)).
+        grupos = hallazgos[0].grupos
+        self.assertEqual([(g["nombre"], g["lineas"], g["etiquetas"]) for g in grupos], [
+            ("cCodZona", [1, 2, 4], ["VARCHAR(10)", "CHAR(2)", "VARCHAR(2)"]),
+            ("cDesZona", [1, 2], ["VARCHAR(150)", "VARCHAR(40)"]),
         ])
-        self.assertEqual(hallazgos[0].lineas, [1, 2, 3, 4, 5, 1, 2, 4, 5])
+        self.assertEqual(grupos[1]["detalle"], [{"tipo": "VARCHAR(150)", "tablas": ["#Data"]},
+                                                {"tipo": "VARCHAR(40)", "tablas": ["#Zona", "#TB_AGENCIA", "#TB_ZONAX"]}])
+        self.assertEqual(hallazgos[0].lineas, [1, 2, 4, 1, 2])
 
     def test_misma_columna_con_el_mismo_tipo_es_valida(self):
         sql = "CREATE TABLE #A (nId INT, nMonto DECIMAL(18, 2));\nCREATE TABLE #B (nId INT, nMonto DECIMAL(18,2));"

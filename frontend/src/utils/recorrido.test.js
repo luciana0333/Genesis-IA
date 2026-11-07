@@ -10,17 +10,23 @@ const GRUPOS = [
 describe('grupoDelRecorrido', () => {
   it('recorre todas las veces de la primera tabla y luego las de la segunda', () => {
     expect(grupoDelRecorrido(GRUPOS, 0)).toEqual(
-      { numero: 1, total: 2, nombre: 'TempDNCalculado', tipo: 'Tabla', vez: 1, veces: 4, vineta: 0 },
+      { numero: 1, total: 2, nombre: 'TempDNCalculado', tipo: 'Tabla', vez: 1, veces: 4, vineta: 0, etiqueta: null },
     );
     expect(grupoDelRecorrido(GRUPOS, 3)).toMatchObject({ numero: 1, vez: 4 });
     expect(grupoDelRecorrido(GRUPOS, 4)).toEqual(
-      { numero: 2, total: 2, nombre: 'OpeCtaPreparada', tipo: 'Tabla', vez: 1, veces: 4, vineta: 1 },
+      { numero: 2, total: 2, nombre: 'OpeCtaPreparada', tipo: 'Tabla', vez: 1, veces: 4, vineta: 1, etiqueta: null },
     );
   });
 
   it('dice «Columna» cuando las viñetas son columnas', () => {
     const columnas = [{ nombre: 'cCodAge', lineas: [10, 40], tipo: 'Columna' }];
     expect(grupoDelRecorrido(columnas, 1)).toMatchObject({ tipo: 'Columna', nombre: 'cCodAge', vez: 2, veces: 2 });
+    expect(grupoDelRecorrido(columnas, 1).etiqueta).toBeNull();
+  });
+
+  it('cada parada puede decir qué es (el tipo de dato)', () => {
+    const columnas = [{ nombre: 'cCodAge', lineas: [10, 40], tipo: 'Columna', etiquetas: ['VARCHAR(3)', 'VARCHAR(5)'] }];
+    expect(grupoDelRecorrido(columnas, 1)).toMatchObject({ etiqueta: 'VARCHAR(5)', vez: 2, veces: 2 });
   });
 
   it('sin grupos no hay tabla que mostrar', () => {

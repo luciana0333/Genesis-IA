@@ -699,8 +699,8 @@ def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
             tipo = re.sub(r"\s+", "", columna.group(2)).upper()
             posicion = apertura + 1 + desplazamiento + columna.start(1)
             datos = columnas.setdefault(nombre.lower(), {"nombre": nombre, "tipos": {}, "posicion": posicion,
-                                                         "posiciones": []})
-            datos["posiciones"].append(posicion)
+                                                         "primera_de_tipo": {}})
+            datos["primera_de_tipo"].setdefault(tipo, posicion)  # dónde aparece cada tipo por primera vez
             tablas = datos["tipos"].setdefault(tipo, [])
             if tabla.lower() not in (t.lower() for t in tablas):
                 tablas.append(tabla)
@@ -733,10 +733,17 @@ def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
         f"ya que las diferencias pueden generar conversiones implícitas. De confirmarse que cumplen el mismo "
         f"propósito, se recomienda homologarlos.",
     )
-    # «Ver en el código» recorre columna por columna: dónde está definida en cada temporal.
+    # «Ver en el código» recorre columna por columna y para una sola vez por tipo (en la primera temporal que lo
+    # usa): ver 8 veces el mismo VARCHAR(3) no aporta. «detalle» es la tablita «Ver tablas» (Tipo | Tablas
+    # temporales), que la pantalla muestra solo si algún tipo está en varias temporales.
     hallazgo.grupos = [
-        {"nombre": datos["nombre"], "lineas": sorted({_linea(texto, pos) for pos in datos["posiciones"]}),
-         "tipo": "Columna"}
+        {
+            "nombre": datos["nombre"],
+            "tipo": "Columna",
+            "lineas": [_linea(texto, datos["primera_de_tipo"][tipo]) for tipo in datos["tipos"]],
+            "etiquetas": list(datos["tipos"]),
+            "detalle": [{"tipo": tipo, "tablas": tablas} for tipo, tablas in datos["tipos"].items()],
+        }
         for datos in distintas
     ]
     hallazgo.lineas = [n for grupo in hallazgo.grupos for n in grupo["lineas"]]

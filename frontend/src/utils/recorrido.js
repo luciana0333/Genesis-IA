@@ -9,10 +9,12 @@ export function grupoDelRecorrido(grupos, indice) {
   if (!grupos?.length) return null;
   let restante = indice;
   for (let numero = 0; numero < grupos.length; numero += 1) {
-    const { nombre, lineas, tipo = 'Tabla' } = grupos[numero];
+    const { nombre, lineas, tipo = 'Tabla', etiquetas } = grupos[numero];
     if (restante < lineas.length) {
       return {
         numero: numero + 1, total: grupos.length, nombre, tipo, vez: restante + 1, veces: lineas.length, vineta: numero,
+        // Qué es cada parada, si la observación lo dice (ej.: el tipo de dato, «VARCHAR(5)»).
+        etiqueta: etiquetas?.[restante] ?? null,
       };
     }
     restante -= lineas.length;

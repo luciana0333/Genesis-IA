@@ -21,7 +21,10 @@ export function BarraRecorrido({ titulo, linea, posicion, total, grupo, onAnteri
         // Observación con varias tablas o columnas: «Tabla 2 de 4: OpeCtaPreparada · Vez 1 de 4».
         <span className="barra-recorrido-titulo barra-recorrido-grupo">
           <span className="barra-recorrido-tabla">{grupo.tipo} {grupo.numero} de {grupo.total}:</span> {grupo.nombre}
-          <span className="barra-recorrido-vez">Vez {grupo.vez} de {grupo.veces}</span>
+          <span className="barra-recorrido-vez">
+            {/* «VARCHAR(5) (tipo 2 de 2)» cuando cada parada es un tipo; si no, «Vez 1 de 4». */}
+            {grupo.etiqueta ? `${grupo.etiqueta} (tipo ${grupo.vez} de ${grupo.veces})` : `Vez ${grupo.vez} de ${grupo.veces}`}
+          </span>
         </span>
       ) : (
         <span className="barra-recorrido-titulo">{titulo}</span>

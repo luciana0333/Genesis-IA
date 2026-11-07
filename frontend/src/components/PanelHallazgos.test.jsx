@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { PanelHallazgos } from './PanelHallazgos';
 
 const TEXTOS = { cargando: '', sinHallazgos: '', tituloError: '', inicialTitulo: '', pasos: [] };
@@ -38,5 +39,41 @@ describe('PanelHallazgos · riesgos identificados por Genesis', () => {
   it('sin riesgos de Genesis no aparece la sección', () => {
     render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[NORMAL]} mostrarLinea={false} />);
     expect(screen.queryByText('Riesgos identificados por Genesis')).not.toBeInTheDocument();
+  });
+});
+
+const TIPOS = {
+  regla: 'TIPO_DISTINTO_ENTRE_TEMPORALES',
+  severidad: 'medio',
+  linea: 3,
+  mensaje: 'Se identificaron las siguientes columnas con diferentes tipos de datos o longitudes entre las tablas '
+    + "temporales: 'cCodAge': VARCHAR(3) en 2 tablas temporales y VARCHAR(5) en #FIN; "
+    + "'cCalifInt': CHAR(5) en #A y VARCHAR(10) en @B. Se recomienda validar los tipos de datos.",
+  grupos: [
+    {
+      nombre: 'cCodAge', tipo: 'Columna', lineas: [3, 9], etiquetas: ['VARCHAR(3)', 'VARCHAR(5)'],
+      detalle: [{ tipo: 'VARCHAR(3)', tablas: ['#TEMPDN', '#MOVCS'] }, { tipo: 'VARCHAR(5)', tablas: ['#FIN'] }],
+    },
+    {
+      nombre: 'cCalifInt', tipo: 'Columna', lineas: [4, 5], etiquetas: ['CHAR(5)', 'VARCHAR(10)'],
+      detalle: [{ tipo: 'CHAR(5)', tablas: ['#A'] }, { tipo: 'VARCHAR(10)', tablas: ['@B'] }],
+    },
+  ],
+};
+
+describe('PanelHallazgos · «Ver tablas» de «Misma columna con distinto tipo»', () => {
+  it('despliega la tablita Tipo | Tablas temporales y cuenta las columnas en el encabezado', async () => {
+    const usuario = userEvent.setup();
+    render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[TIPOS]} />);
+    expect(screen.getByText('2 columnas')).toBeInTheDocument();
+    // Solo la columna con un tipo en varias temporales tiene botón: en la otra los nombres ya están en la viñeta.
+    const botones = screen.getAllByRole('button', { name: 'Ver tablas' });
+    expect(botones).toHaveLength(1);
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    await usuario.click(botones[0]);
+    const filas = screen.getAllByRole('row').map((fila) => fila.textContent);
+    expect(filas).toEqual(['TipoTablas temporales', 'VARCHAR(3)#TEMPDN, #MOVCS', 'VARCHAR(5)#FIN']);
+    await usuario.click(screen.getByRole('button', { name: 'Ocultar tablas' }));
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 });
