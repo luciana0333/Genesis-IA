@@ -11,6 +11,7 @@ import { TarjetaEditor } from '../../components/TarjetaEditor';
 import { OPCIONES_SELECTOR } from '../../config/revisiones';
 import { AvisoFaltaDiccionario } from './AvisoFaltaDiccionario';
 import { AprobarSiglas } from './AprobarSiglas';
+import { CampoNombre } from './CampoNombre';
 import { BarraRecorrido, VerEnCodigo } from './VerEnCodigo';
 import { nombreRegla } from '../../config/reglas';
 import { GeneradorDiccionario } from './GeneradorDiccionario';
@@ -215,15 +216,12 @@ export function AuditoriaWorkspace({ vista }) {
 
             <div className="field-group">
               <label className="field-label" htmlFor={`${ids}-objeto`}>{revision.etiquetaObjeto}</label>
-              <input
+              <CampoNombre
                 id={`${ids}-objeto`}
-                className="campo-icono campo-icono-nombre"
-                type="text"
-                autoComplete="off"
-                value={campos.objetoNombre}
+                valor={campos.objetoNombre}
                 // Con varios objetos, al pasar el mouse se ven todos los nombres.
                 title={nombresDelSql.length > 1 ? nombresDelSql.join('\n') : undefined}
-                onChange={(evento) => actualizarCampo('objetoNombre', evento.target.value)}
+                onCambiar={(valor) => actualizarCampo('objetoNombre', valor)}
               />
             </div>
 
