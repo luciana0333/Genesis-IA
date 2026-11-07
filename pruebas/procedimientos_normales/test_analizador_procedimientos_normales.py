@@ -205,21 +205,39 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         reglas = {h.regla for h in verificar_procedimiento_normal(sql)}
         self.assertFalse(reglas & {"COLLATE_DISTINTO_AL_ESTANDAR", "COLLATE_DATABASE_DEFAULT"})
 
-    def test_nolock_recomendado_en_tablas_de_movimientos_y_constantes(self):
+    def test_nolock_recomendado_en_tablas_de_movimientos(self):
         sql = "SELECT m.nMonto FROM dbo.CuentaMov m\nJOIN dbo.Constante k ON k.nId = m.nTipo\nJOIN dbo.MovimientoCaja c ON c.nId = m.nId;"
         hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "TABLA_PESADA_SIN_NOLOCK")
         self.assertEqual(hallazgo.severidad.value, "medio")
         for texto in ("tabla de movimientos (dbo.CuentaMov), de gran volumen, se consulta sin WITH(NOLOCK)",
-                      "tabla de constantes (dbo.Constante), de uso frecuente",
                       "tabla de movimientos (dbo.MovimientoCaja)"):
             self.assertIn(texto, hallazgo.mensaje)
+        self.assertNotIn("Constante", hallazgo.mensaje)  # va en «Consulta de lectura sin WITH (NOLOCK)»
 
-    def test_nolock_recomendado_en_tablas_de_productos(self):
-        sql = "SELECT p.cCtaCod FROM dbo.Producto p\nJOIN dbo.ColocProductos c ON c.nId = p.nId;"
-        hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "TABLA_PESADA_SIN_NOLOCK")
-        for texto in ("tabla de productos (dbo.Producto), de uso frecuente, se consulta sin WITH(NOLOCK)",
-                      "tabla de productos (dbo.ColocProductos)"):
-            self.assertIn(texto, hallazgo.mensaje)
+    def test_consulta_sin_nolock_en_constantes_y_productos(self):
+        hallazgos = [h for h in verificar_procedimiento_normal("SELECT k.nValor FROM dbo.Constante k WHERE k.nId = 1;")
+                     if h.regla == "CONSULTA_SIN_NOLOCK"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertEqual(hallazgos[0].severidad.value, "medio")
+        self.assertEqual(
+            hallazgos[0].mensaje,
+            "Se identificó una consulta de lectura sobre la tabla física dbo.Constante sin utilizar WITH (NOLOCK). "
+            "Se recomienda agregar WITH (NOLOCK) a la tabla física (ej.: FROM dbo.Constante WITH (NOLOCK)), para "
+            "evitar que la consulta quede esperando mientras otros procesos mantienen bloqueados sus registros.",
+        )
+
+    def test_consulta_sin_nolock_varias_tablas_en_una_observacion(self):
+        sql = ("SELECT p.cCtaCod FROM dbo.Producto p\nJOIN dbo.ColocProductos c ON c.nId = p.nId\n"
+               "JOIN dbo.ConsSistema s ON s.nConsSisCod = p.nTipo\nJOIN dbo.Constantes k ON k.nId = p.nId\n"
+               "SELECT 1 FROM dbo.Producto WHERE nId = 2;")
+        hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "CONSULTA_SIN_NOLOCK"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertEqual(hallazgos[0].lineas, [1, 2, 3, 4, 5])
+        self.assertTrue(hallazgos[0].mensaje.startswith(
+            "Se identificaron consultas de lectura sobre las tablas físicas dbo.Producto, dbo.ColocProductos, "
+            "dbo.ConsSistema y dbo.Constantes sin utilizar WITH (NOLOCK). Se recomienda agregar WITH (NOLOCK) a "
+            "cada tabla física (ej.: FROM dbo.Producto WITH (NOLOCK))"))
+        self.assertNotIn("TABLA_PESADA_SIN_NOLOCK", {h.regla for h in verificar_procedimiento_normal(sql)})
 
     def test_producto_que_se_actualiza_no_lleva_nolock(self):
         casos = (
@@ -231,13 +249,13 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         )
         for sql in casos:
             with self.subTest(sql=sql):
-                self.assertNotIn("TABLA_PESADA_SIN_NOLOCK", {h.regla for h in verificar_procedimiento_normal(sql)})
+                self.assertFalse({"TABLA_PESADA_SIN_NOLOCK", "CONSULTA_SIN_NOLOCK"} & {h.regla for h in verificar_procedimiento_normal(sql)})
 
     def test_sin_punto_y_coma_un_update_de_arriba_no_tapa_la_lectura(self):
         # Antes, sin «;», el UPDATE de arriba se tomaba como parte de la consulta y no se recomendaba nada.
         sql = ("UPDATE p\nSET p.nEstado = 1\nFROM dbo.Producto p\nWHERE p.nId = 1\n\n"
                "SELECT p.cCtaCod\nFROM dbo.Producto p\nWHERE p.nEstado = 1\n")
-        hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "TABLA_PESADA_SIN_NOLOCK"]
+        hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "CONSULTA_SIN_NOLOCK"]
         self.assertEqual(len(hallazgos), 1)
         self.assertEqual(hallazgos[0].linea, 7)
 
@@ -252,7 +270,7 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         )
         for sql in casos:
             with self.subTest(sql=sql):
-                self.assertNotIn("TABLA_PESADA_SIN_NOLOCK", {h.regla for h in verificar_procedimiento_normal(sql)})
+                self.assertFalse({"TABLA_PESADA_SIN_NOLOCK", "CONSULTA_SIN_NOLOCK"} & {h.regla for h in verificar_procedimiento_normal(sql)})
 
     def test_misma_columna_con_distinto_tipo_en_temporales(self):
         collate = "COLLATE SQL_Latin1_General_CP1_CI_AS"
