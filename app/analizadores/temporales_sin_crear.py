@@ -70,7 +70,7 @@ def temporales_sin_crear(limpio: str, linea_de: Callable[[int], int]) -> Optiona
         parecida = difflib.get_close_matches(clave, list(creadas), n=1, cutoff=0.75)
         ejemplo = f" (ej.: {creadas[parecida[0]]})" if parecida else ""
         mensaje = (
-            f"Se identificó que la tabla temporal {nombre} se utiliza ({donde(lineas[clave])}), pero no se crea "
+            f"Se identificó que la tabla temporal {nombre} se utiliza, pero no se crea "
             f"dentro del procedimiento. Crear la tabla temporal antes de usarla o corregir el nombre{ejemplo}, "
             f"salvo que la cree el procedimiento que lo llama, ya que, al ejecutarse, SQL Server detiene el "
             f"procedimiento con el error «El nombre de objeto '{nombre}' no es válido»."

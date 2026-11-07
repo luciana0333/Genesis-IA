@@ -26,7 +26,7 @@ class TemporalesSinCrearTest(unittest.TestCase):
                 self.assertEqual(hallazgos[0].severidad.value, "critico")
                 self.assertEqual(
                     hallazgos[0].mensaje,
-                    "Se identificó que la tabla temporal #TempPre2 se utiliza (líneas 5, 6), pero no se crea dentro "
+                    "Se identificó que la tabla temporal #TempPre2 se utiliza, pero no se crea dentro "
                     "del procedimiento. Crear la tabla temporal antes de usarla o corregir el nombre (ej.: #TempPre), "
                     "salvo que la cree el procedimiento que lo llama, ya que, al ejecutarse, SQL Server detiene el "
                     "procedimiento con el error «El nombre de objeto '#TempPre2' no es válido».",
