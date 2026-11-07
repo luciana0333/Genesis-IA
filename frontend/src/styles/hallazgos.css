@@ -1104,9 +1104,10 @@
 .tabla-tipos > thead > tr > th:first-child { width: 160px; }
 .tabla-tipos > * > tr > .tabla-tipos-detalles { width: 130px; text-align: right; }
 .tabla-tipos-fila { transition: background-color var(--dur-fast) ease; }
-.tabla-tipos-fila.alterna { background: #f5f7fb; }
-.tabla-tipos-fila:hover { background: #eef2f8; }
-.tabla-tipos-fila.activa { background: #fff5f6; }
+/* Rojo muy suave para diferenciar (en vez del gris azulado; pedido de la usuaria). */
+.tabla-tipos-fila.alterna { background: #fdf4f5; }
+.tabla-tipos-fila:hover { background: #fbe9ec; }
+.tabla-tipos-fila.activa { background: #fbe4e8; }
 :root[data-theme="dark"] .tabla-tipos-fila:hover,
 :root[data-theme="dark"] .tabla-tipos-fila.activa { background: rgba(255, 255, 255, 0.03); }
 
@@ -1114,7 +1115,7 @@
   display: inline-block;
   padding: 3px 9px;
   border-radius: 4px;
-  background: #eaeef5;
+  background: #fbe9ec;
   color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: 0.76rem;
@@ -1193,7 +1194,7 @@
   gap: 4px;
   min-width: 80px;
   padding: 10px 18px;
-  background: #f5f7fb;
+  background: #fdf4f5;
   text-align: right;
 }
 .detalle-tipos-indicador .detalle-tipos-rotulo { justify-content: flex-end; font-size: 0.6rem; }
@@ -1222,7 +1223,7 @@
 .detalle-tipos-franja code { margin-right: 10px; font-family: var(--font-mono); font-size: 0.82rem; font-weight: 700; }
 .detalle-tipos-franja span { opacity: 0.92; }
 .detalle-tipos-temporal td { padding: 9px 18px; vertical-align: middle; }
-.detalle-tipos-temporal.alterna td { background: #f5f7fb; }
+.detalle-tipos-temporal.alterna td { background: #fdf4f5; }
 .detalle-tipos-temporal code { color: #c0392b; font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600; }
 .detalle-tipos-linea { color: var(--text-secondary); font-family: var(--font-mono); font-size: 0.76rem; }
 .detalle-tipos-accion { text-align: right; }
