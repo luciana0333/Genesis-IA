@@ -6,10 +6,10 @@ export const tieneDetalle = (detalle) => Boolean(detalle?.some((fila) => fila.ta
 
 /**
  * Panel «Detalle de tipos» de una columna (ej.: «Misma columna con distinto tipo»): cabecera con la
- * columna, el tipo de diferencia y los indicadores; debajo, una fila por tipo (bloque rojo) con sus temporales;
- * cada temporal muestra su línea y lleva el editor a ella (diseño de la usuaria, 7 nov.).
+ * columna, el tipo de diferencia y los indicadores; debajo, una fila por tipo con sus temporales
+ * (diseño de la usuaria, 7 nov.).
  */
-export function PanelDetalleTipos({ nombre, detalle, onIrALinea }) {
+export function PanelDetalleTipos({ nombre, detalle }) {
   const totalTablas = detalle.reduce((suma, fila) => suma + fila.tablas.length, 0);
   // VARCHAR(3) y VARCHAR(5): misma familia, distinta longitud; INT y VARCHAR: tipo distinto (obliga a convertir).
   const mismaFamilia = new Set(detalle.map((fila) => tipoBase(fila.tipo))).size === 1;
@@ -35,8 +35,7 @@ export function PanelDetalleTipos({ nombre, detalle, onIrALinea }) {
           <strong>{totalTablas}</strong>
         </div>
       </div>
-      {/* Una fila por tipo: a la izquierda el tipo en su bloque rojo; a la derecha sus temporales, cada una con
-          su línea y, al hacer clic, lleva el editor a esa línea (compacto, pedido de la usuaria). */}
+      {/* Una fila por tipo y sus temporales (solo los nombres): para ir al código está «Ver en el código». */}
       <table className="detalle-tipos-lista">
         <thead>
           <tr>
@@ -56,28 +55,7 @@ export function PanelDetalleTipos({ nombre, detalle, onIrALinea }) {
                   </span>
                 </th>
                 <td>
-                  {fila.tablas.map((tabla, i) => {
-                    const linea = fila.lineas?.[i];
-                    const contenido = (
-                      <>
-                        <code>{tabla}</code>
-                        {linea && <small>L{linea}</small>}
-                      </>
-                    );
-                    return linea && onIrALinea ? (
-                      <button
-                        key={tabla}
-                        type="button"
-                        className="detalle-tipos-temporal"
-                        title={`Ir a la línea ${linea}`}
-                        onClick={() => onIrALinea(linea)}
-                      >
-                        {contenido}
-                      </button>
-                    ) : (
-                      <span key={tabla} className="detalle-tipos-temporal">{contenido}</span>
-                    );
-                  })}
+                  {fila.tablas.map((tabla) => <code key={tabla} className="detalle-tipos-temporal">{tabla}</code>)}
                 </td>
               </tr>
             );

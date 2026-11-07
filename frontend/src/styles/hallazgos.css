@@ -1231,23 +1231,30 @@
 }
 .detalle-tipos-franja code { display: block; color: var(--text-primary); font-family: var(--font-mono); font-size: 0.84rem; font-weight: 700; }
 .detalle-tipos-franja span { display: block; margin-top: 3px; }
+.detalle-tipos-fila > th, .detalle-tipos-fila > td { position: relative; }
 .detalle-tipos-fila > td { padding: 12px 18px 8px; background: #ffffff; vertical-align: top; }
-/* Cada temporal: texto negro normal, sin recuadro ni sombra, con su línea; al hacer clic lleva a esa línea. */
-.detalle-tipos-temporal {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-  margin: 0 16px 6px 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  font: inherit;
+/* Entre una fila y otra, una sombra suave en vez de línea (pedido de la usuaria). */
+.detalle-tipos-fila:not(:last-child) > th::after,
+.detalle-tipos-fila:not(:last-child) > td::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -8px;
+  left: 0;
+  z-index: 1;
+  height: 8px;
+  background: linear-gradient(180deg, rgba(16, 24, 40, 0.08), rgba(16, 24, 40, 0));
+  pointer-events: none;
 }
-button.detalle-tipos-temporal { cursor: pointer; }
-button.detalle-tipos-temporal:hover code { color: var(--red-dark); text-decoration: underline; text-underline-offset: 3px; }
-button.detalle-tipos-temporal:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.detalle-tipos-temporal code { color: var(--text-primary); font-family: var(--font-mono); font-size: 0.78rem; font-weight: 500; }
-.detalle-tipos-temporal small { color: var(--text-muted); font-family: var(--font-mono); font-size: 0.66rem; }
+/* Cada temporal: solo su nombre en texto negro normal. */
+.detalle-tipos-temporal {
+  display: inline-block;
+  margin: 0 16px 6px 0;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
 
 /* La viñeta de la tabla que se está recorriendo en el código. */
 .finding-list li.ocurrencia-activa {

@@ -67,8 +67,7 @@ const TIPOS = {
 describe('PanelHallazgos · «Misma columna con distinto tipo» como tabla', () => {
   it('muestra una fila por columna con su desglose y abre el detalle con «Ver tablas»', async () => {
     const usuario = userEvent.setup();
-    const irALinea = vi.fn();
-    render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[TIPOS]} onIrALinea={irALinea} />);
+    render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[TIPOS]} />);
     expect(screen.getByText('2 columnas')).toBeInTheDocument();
     // La introducción va bajo el título; la lista de viñetas se reemplaza por la tabla.
     expect(screen.getByText(/^Se identificaron las siguientes columnas/)).toBeInTheDocument();
@@ -89,15 +88,13 @@ describe('PanelHallazgos · «Misma columna con distinto tipo» como tabla', () 
     expect(screen.getByText('Distinta longitud')).toBeInTheDocument();
     expect(screen.getByText('Tipos').nextSibling).toHaveTextContent('2');
     expect(screen.getByText('Tablas').nextSibling).toHaveTextContent('3');
-    // Una fila por tipo: el tipo en su bloque y sus temporales con su línea; cada una lleva a esa línea.
+    // Una fila por tipo con sus temporales (solo los nombres; para ir al código está «Ver en el código»).
     const detalle = screen.getAllByRole('table')[1];
     expect(within(detalle).getAllByRole('row').map((fila) => fila.textContent)).toEqual([
       'Tipo de datoTablas temporales',
-      'VARCHAR(3)2 tablas · 67%#TEMPDNL3#MOVCSL6',
-      'VARCHAR(5)1 tabla · 33%#FINL9',
+      'VARCHAR(3)2 tablas · 67%#TEMPDN#MOVCS',
+      'VARCHAR(5)1 tabla · 33%#FIN',
     ]);
-    await usuario.click(within(detalle).getByRole('button', { name: /^#MOVCS/ }));
-    expect(irALinea).toHaveBeenCalledWith(TIPOS, 6);
     await usuario.click(screen.getByRole('button', { name: 'Ocultar tablas' }));
     expect(screen.queryByText('Distinta longitud')).not.toBeInTheDocument();
   });

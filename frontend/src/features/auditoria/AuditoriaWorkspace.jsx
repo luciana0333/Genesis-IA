@@ -431,7 +431,6 @@ export function AuditoriaWorkspace({ vista }) {
             mensajeError={resultado.mensaje}
             accionesHallazgo={accionesHallazgo}
             vinetaActiva={(hallazgo) => (hallazgo === marca?.hallazgo ? grupoActual?.vineta ?? null : null)}
-            onIrALinea={(hallazgo, linea) => verEnCodigo(hallazgo.seccion ? CAJITAS[hallazgo.seccion] : 'objeto', [linea])}
             textos={{
               inicialTitulo: 'Listo para iniciar la revisión',
               pasos: [

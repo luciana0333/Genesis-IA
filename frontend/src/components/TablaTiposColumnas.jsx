@@ -11,7 +11,7 @@ const donde = (tablas) => (tablas.length === 1 ? `en ${tablas[0]}` : `en ${tabla
  * gris y los que se salen de él, en rojo, separados por «vs». «Ver tablas» abre, debajo de la fila,
  * el panel «Detalle de tipos».
  */
-export function TablaTiposColumnas({ grupos, filaActiva = null, onIrALinea }) {
+export function TablaTiposColumnas({ grupos, filaActiva = null }) {
   const [abiertas, setAbiertas] = useState(() => new Set());
   const alternar = (indice) => setAbiertas((anteriores) => {
     const nuevas = new Set(anteriores);
@@ -69,7 +69,7 @@ export function TablaTiposColumnas({ grupos, filaActiva = null, onIrALinea }) {
               </tr>
               {abierta && (
                 <tr className="tabla-tipos-panel">
-                  <td colSpan={3}><PanelDetalleTipos nombre={grupo.nombre} detalle={detalle} onIrALinea={onIrALinea} /></td>
+                  <td colSpan={3}><PanelDetalleTipos nombre={grupo.nombre} detalle={detalle} /></td>
                 </tr>
               )}
             </Fragment>

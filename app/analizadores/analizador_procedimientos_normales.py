@@ -699,8 +699,7 @@ def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
             tipo = re.sub(r"\s+", "", columna.group(2)).upper()
             posicion = apertura + 1 + desplazamiento + columna.start(1)
             datos = columnas.setdefault(nombre.lower(), {"nombre": nombre, "tipos": {}, "posicion": posicion,
-                                                         "primera_de_tipo": {}, "linea_de_tabla": {}})
-            datos["primera_de_tipo"].setdefault(tipo, posicion)  # dónde aparece cada tipo por primera vez
+                                                         "linea_de_tabla": {}})
             tablas = datos["tipos"].setdefault(tipo, [])
             if tabla.lower() not in (t.lower() for t in tablas):
                 tablas.append(tabla)
@@ -735,23 +734,23 @@ def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
         f"ya que las diferencias pueden generar conversiones implícitas. De confirmarse que cumplen el mismo "
         f"propósito, se recomienda homologarlos.",
     )
-    # «Ver en el código» recorre columna por columna y para una sola vez por tipo (en la primera temporal que lo
-    # usa): ver 8 veces el mismo VARCHAR(3) no aporta. «detalle» es la tablita «Ver tablas» (Tipo | Tablas
-    # temporales), que la pantalla muestra solo si algún tipo está en varias temporales.
-    hallazgo.grupos = [
-        {
+    # «Ver en el código» recorre columna por columna, como en los JOIN: primero todas las temporales de esta
+    # columna (tipo por tipo) y luego las de la siguiente; la barra dice el tipo de cada parada («etiquetas»).
+    # «detalle» es la tabla de «Ver tablas» (Tipo de dato | Tablas temporales).
+    hallazgo.grupos = []
+    for datos in distintas:
+        detalle = [
+            {"tipo": tipo, "tablas": tablas,
+             "lineas": [datos["linea_de_tabla"][(tipo, tabla.lower())] for tabla in tablas]}
+            for tipo, tablas in datos["tipos"].items()
+        ]
+        hallazgo.grupos.append({
             "nombre": datos["nombre"],
             "tipo": "Columna",
-            "lineas": [_linea(texto, datos["primera_de_tipo"][tipo]) for tipo in datos["tipos"]],
-            "etiquetas": list(datos["tipos"]),
-            "detalle": [
-                {"tipo": tipo, "tablas": tablas,
-                 "lineas": [datos["linea_de_tabla"][(tipo, tabla.lower())] for tabla in tablas]}
-                for tipo, tablas in datos["tipos"].items()
-            ],
-        }
-        for datos in distintas
-    ]
+            "lineas": [linea for fila in detalle for linea in fila["lineas"]],
+            "etiquetas": [fila["tipo"] for fila in detalle for _ in fila["lineas"]],
+            "detalle": detalle,
+        })
     hallazgo.lineas = [n for grupo in hallazgo.grupos for n in grupo["lineas"]]
     return [hallazgo]
 

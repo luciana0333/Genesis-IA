@@ -273,7 +273,8 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         )
         # El recorrido para una vez por tipo; la tablita «Ver tablas» trae las temporales de cada tipo.
         self.assertEqual(hallazgos[0].grupos, [{
-            "nombre": "cNombre", "tipo": "Columna", "lineas": [1, 2], "etiquetas": ["VARCHAR(40)", "VARCHAR(30)"],
+            "nombre": "cNombre", "tipo": "Columna", "lineas": [1, 3, 2],
+            "etiquetas": ["VARCHAR(40)", "VARCHAR(40)", "VARCHAR(30)"],
             "detalle": [{"tipo": "VARCHAR(40)", "tablas": ["#Clientes", "@T"], "lineas": [1, 3]},
                         {"tipo": "VARCHAR(30)", "tablas": ["#Resumen"], "lineas": [2]}],
         }])
@@ -299,19 +300,19 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             "Se identificaron las siguientes columnas con diferentes tipos de datos o longitudes entre las tablas "
             "temporales: 'cCodZona': VARCHAR(10) en #Data, CHAR(2) en 2 tablas temporales y VARCHAR(2) en 2; "
             "'cDesZona': VARCHAR(150) en #Data y VARCHAR(40) en 3 tablas temporales. Se recomienda validar"))
-        # «Ver en el código» recorre columna por columna, en el orden de las viñetas, y en cada una para solo en
-        # la primera temporal de cada tipo (no 2 veces en el mismo CHAR(2)).
+        # «Ver en el código» recorre columna por columna (como en los JOIN): primero todas las temporales de la
+        # primera columna, tipo por tipo, y luego las de la siguiente; cada parada dice su tipo.
         grupos = hallazgos[0].grupos
         self.assertEqual([(g["nombre"], g["lineas"], g["etiquetas"]) for g in grupos], [
-            ("cCodZona", [1, 2, 4], ["VARCHAR(10)", "CHAR(2)", "VARCHAR(2)"]),
-            ("cDesZona", [1, 2], ["VARCHAR(150)", "VARCHAR(40)"]),
+            ("cCodZona", [1, 2, 3, 4, 5], ["VARCHAR(10)", "CHAR(2)", "CHAR(2)", "VARCHAR(2)", "VARCHAR(2)"]),
+            ("cDesZona", [1, 2, 4, 5], ["VARCHAR(150)", "VARCHAR(40)", "VARCHAR(40)", "VARCHAR(40)"]),
         ])
         # Cada temporal con la línea donde define la columna («Ir a la línea»).
         self.assertEqual(grupos[1]["detalle"], [
             {"tipo": "VARCHAR(150)", "tablas": ["#Data"], "lineas": [1]},
             {"tipo": "VARCHAR(40)", "tablas": ["#Zona", "#TB_AGENCIA", "#TB_ZONAX"], "lineas": [2, 4, 5]},
         ])
-        self.assertEqual(hallazgos[0].lineas, [1, 2, 4, 1, 2])
+        self.assertEqual(hallazgos[0].lineas, [1, 2, 3, 4, 5, 1, 2, 4, 5])
 
     def test_misma_columna_con_el_mismo_tipo_es_valida(self):
         sql = "CREATE TABLE #A (nId INT, nMonto DECIMAL(18, 2));\nCREATE TABLE #B (nId INT, nMonto DECIMAL(18,2));"
