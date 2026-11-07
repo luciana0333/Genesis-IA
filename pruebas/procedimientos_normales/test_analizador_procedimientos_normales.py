@@ -266,7 +266,7 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         self.assertEqual(
             hallazgos[0].mensaje,
             "La columna cNombre está definida con diferentes tipos de datos en tres tablas temporales: VARCHAR(40) "
-            "en #Clientes y @T; VARCHAR(30) en #Resumen. Se recomienda validar si es correcto que estas columnas "
+            "(en #Clientes y @T) y VARCHAR(30) (en #Resumen). Se recomienda validar si es correcto que estas columnas "
             "tengan diferentes tipos de datos, ya que esto puede generar conversiones implícitas y afectar el "
             "rendimiento de las consultas.",
         )
@@ -293,10 +293,13 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         mensajes = [h.mensaje for h in verificar_procedimiento_normal(sql) if h.regla == "TIPO_DISTINTO_ENTRE_TEMPORALES"]
         self.assertEqual(len(mensajes), 1)  # se agrupan en una observación con dos casos (cCodZona y cDesZona)
         self.assertIn("la columna cCodZona está definida con diferentes tipos de datos en cinco tablas temporales: "
-                      "VARCHAR(10) en #Data; CHAR(2) en #Zona y #ZonaAgencia; VARCHAR(2) en #TB_AGENCIA y #TB_ZONAX",
+                      "VARCHAR(10) (en #Data), CHAR(2) (en #Zona y #ZonaAgencia) y VARCHAR(2) (en #TB_AGENCIA y #TB_ZONAX)",
                       mensajes[0])
         self.assertIn("la columna cDesZona está definida con diferentes tipos de datos en cuatro tablas temporales: "
-                      "VARCHAR(150) en #Data; VARCHAR(40) en #Zona, #TB_AGENCIA y #TB_ZONAX", mensajes[0])
+                      "VARCHAR(150) (en #Data) y VARCHAR(40) (en #Zona, #TB_AGENCIA y #TB_ZONAX)", mensajes[0])
+        # Una viñeta por columna: dentro de cada una no hay «;» (la pantalla corta las viñetas en cada «;»).
+        detalle = mensajes[0].split(": ", 1)[1].split(". Se recomienda")[0]
+        self.assertEqual(len(detalle.split("; ")), 2)
 
     def test_misma_columna_con_el_mismo_tipo_es_valida(self):
         sql = "CREATE TABLE #A (nId INT, nMonto DECIMAL(18, 2));\nCREATE TABLE #B (nId INT, nMonto DECIMAL(18,2));"

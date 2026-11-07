@@ -715,10 +715,12 @@ def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
         def enumerar(elementos: List[str]) -> str:
             return elementos[0] if len(elementos) == 1 else f"{', '.join(elementos[:-1])} y {elementos[-1]}"
 
-        partes = [f"{tipo} en {enumerar(tablas)}" for tipo, tablas in datos["tipos"].items()]
-        # «CHAR(5) en #A y VARCHAR(10) en @B»; si un tipo está en varias tablas, «;» separa los tipos.
+        # «CHAR(5) en #A y VARCHAR(10) en @B»; si un tipo está en varias tablas, sus tablas van entre paréntesis:
+        # «VARCHAR(3) (en #A y #B) y VARCHAR(5) (en #C)». Sin «;»: la pantalla corta las viñetas en cada «;».
         un_tipo_por_tabla = all(len(tablas) == 1 for tablas in datos["tipos"].values())
-        detalle = enumerar(partes) if un_tipo_por_tabla else "; ".join(partes)
+        partes = [f"{tipo} en {enumerar(tablas)}" if un_tipo_por_tabla else f"{tipo} (en {enumerar(tablas)})"
+                  for tipo, tablas in datos["tipos"].items()]
+        detalle = enumerar(partes)
         cantidad = sum(len(tablas) for tablas in datos["tipos"].values())
         en_cuantas = _CANTIDAD_EN_LETRAS.get(cantidad, str(cantidad))
         columnas_txt = "ambas columnas" if cantidad == 2 else "estas columnas"
