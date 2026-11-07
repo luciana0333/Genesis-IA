@@ -448,7 +448,8 @@ h3.section-title {
 /* Campos del formulario: blancos, sin borde, separados por una sombra suave
    (mismo estilo que el botón Limpiar). */
 .control-row select,
-.control-row input[type="text"] {
+.control-row input[type="text"],
+.control-row textarea.campo-nombre {
   border-color: transparent;
   background-color: var(--bg-card);
   box-shadow:
@@ -458,7 +459,8 @@ h3.section-title {
 }
 
 .control-row select:hover,
-.control-row input[type="text"]:hover {
+.control-row input[type="text"]:hover,
+.control-row textarea.campo-nombre:hover {
   border-color: transparent;
   box-shadow:
     0 0 0 1px rgba(17, 17, 26, 0.06),
@@ -467,7 +469,8 @@ h3.section-title {
 }
 
 .control-row select:focus,
-.control-row input[type="text"]:focus {
+.control-row input[type="text"]:focus,
+.control-row textarea.campo-nombre:focus {
   border-color: var(--red-main);
   background-color: var(--bg-card);
   box-shadow: var(--focus-ring), 0 8px 20px -8px rgba(17, 17, 26, 0.16);
@@ -481,9 +484,25 @@ select.campo-icono {
   background-size: 16px;
 }
 
-input.campo-icono-nombre[type="text"] {
+input.campo-icono-nombre[type="text"],
+textarea.campo-icono-nombre {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8a96' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z'/%3E%3Ccircle cx='7.5' cy='7.5' r='.6'/%3E%3C/svg%3E");
   background-position: left 14px center;
+}
+
+/* Nombre del objeto: se ve completo; si no entra en una línea, sigue abajo y el campo crece. Con una
+   sola línea mide lo mismo que los demás campos (46 px); el ícono queda arriba, junto a la primera línea. */
+textarea.campo-nombre {
+  display: block;
+  min-height: 46px;
+  padding: 11px 14px 11px 42px;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  background-position: left 14px top 14px;
+  line-height: 1.4;
+  resize: none;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 
 select.campo-icono-tipo {

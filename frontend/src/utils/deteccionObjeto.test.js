@@ -36,3 +36,33 @@ describe('extraerNombresObjetos y resumirNombresObjetos', () => {
     expect(resumirNombresObjetos(extraerNombresObjetos(varios))).toBe('DUN.PA_Solicitud_Sel_Avance y 2 más');
   });
 });
+
+describe('un procedimiento que crea tablas adentro', () => {
+  const procedimiento = `ALTER PROCEDURE CONTABILIDAD.PA_AsientoDNHistorico_Sel_LibroCajaMovimientoEfectivo
+  @pdFecha DATE
+AS
+BEGIN
+  CREATE TABLE #Movimientos (nId INT)
+  CREATE TABLE #Saldos (nId INT)
+  DECLARE @Resumen TABLE (nId INT)
+  CREATE TABLE dbo.TablaDeTrabajo (nId INT)
+  -- CREATE PROCEDURE dbo.PA_Comentado
+  DECLARE @cSql NVARCHAR(200) = N'CREATE TABLE dbo.Dinamica (n INT)'
+  SELECT 1
+END`;
+
+  it('es un solo objeto: no cuenta las temporales, las tablas que crea, ni lo que está en textos o comentarios', () => {
+    expect(extraerNombresObjetos(procedimiento)).toEqual(['CONTABILIDAD.PA_AsientoDNHistorico_Sel_LibroCajaMovimientoEfectivo']);
+    expect(resumirNombresObjetos(extraerNombresObjetos(procedimiento)))
+      .toBe('CONTABILIDAD.PA_AsientoDNHistorico_Sel_LibroCajaMovimientoEfectivo');
+  });
+
+  it('varias tablas en un script siguen contándose, sin las temporales', () => {
+    const tablas = `CREATE TABLE dbo.Cliente (nId INT)
+GO
+CREATE TABLE #Auxiliar (nId INT)
+GO
+CREATE TABLE dbo.Agencia (nId INT)`;
+    expect(extraerNombresObjetos(tablas)).toEqual(['dbo.Cliente', 'dbo.Agencia']);
+  });
+});
