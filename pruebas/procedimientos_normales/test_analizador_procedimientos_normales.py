@@ -586,7 +586,7 @@ END"""
     def test_waitfor_esquema_omitido_y_convert_en_join(self):
         reglas = {h.regla for h in verificar_procedimiento_normal(
             "WAITFOR DELAY '00:00:01'; SELECT a.x FROM DBCMACICA..Agencias a; "
-            "SELECT a.x FROM #A a JOIN #B b ON CONVERT(INT, a.n) = b.n;")}
+            "SELECT a.x FROM dbo.TA a JOIN dbo.TB b ON CONVERT(INT, a.n) = b.n;")}
         self.assertTrue({"WAITFOR_DELAY_PROHIBIDO", "ESQUEMA_OMITIDO_ENTRE_BASES", "CAST_EN_JOIN_PROHIBIDO"} <= reglas)
 
     def test_tabla_en_mas_de_tres_join(self):
@@ -872,7 +872,7 @@ END CATCH"""
             ("SELECT_INTO_PROHIBIDO", "SELECT a FROM #T WHERE n = @n;\nSELECT a\nINTO #Y\nFROM #T;", 5),
             ("STUFF_FOR_XML_PATH_PROHIBIDO", "SELECT STUFF((SELECT ',' + c FROM #T\nFOR XML PATH('')), 1, 1, '');", 4),
             ("COLLATE_EN_PREDICADO", "SELECT a FROM #T\nWHERE n = @n\n  AND c COLLATE SQL_Latin1_General_CP1_CI_AS = 'x';", 6),
-            ("CAST_EN_JOIN_PROHIBIDO", "SELECT a FROM #A a\nJOIN #B b\n  ON CAST(a.n AS INT) = b.n;", 6),
+            ("CAST_EN_JOIN_PROHIBIDO", "SELECT a FROM dbo.TA a\nJOIN #B b\n  ON CAST(a.n AS INT) = b.n;", 6),
         ]
         for regla, cuerpo, esperada in casos:
             with self.subTest(regla=regla):
@@ -996,9 +996,41 @@ class TestCastEnJoin(unittest.TestCase):
         self.assertEqual(self._lineas(sql), [])
 
     def test_cast_en_la_condicion_del_join_si_se_marca(self):
-        self.assertEqual(self._lineas("SELECT a.c FROM #A a\nINNER JOIN #B b ON CAST(b.n AS INT) = a.n\n"), [2])
+        self.assertEqual(self._lineas("SELECT a.c FROM dbo.TA a\nINNER JOIN dbo.TB b ON CAST(b.n AS INT) = a.n\n"), [2])
         self.assertEqual(self._lineas(
-            "SELECT a.c FROM #A a\nLEFT JOIN dbo.B b WITH(NOLOCK) ON b.c = CONVERT(VARCHAR(10), a.n)\nWHERE a.n = 1"), [2])
+            "SELECT a.c FROM dbo.TA a\nLEFT JOIN dbo.B b WITH(NOLOCK) ON b.c = CONVERT(VARCHAR(10), a.n)\nWHERE a.n = 1"), [2])
+
+    def test_solo_se_marca_el_cast_sobre_columnas_de_tablas_fisicas(self):
+        # Pedido de la usuaria (7 nov.): CAST en el JOIN solo se observa sobre columnas de tablas físicas.
+        temporales = (
+            "SELECT 1 FROM #A a\nINNER JOIN #B b ON CAST(b.n AS INT) = a.n",
+            "SELECT 1 FROM @V v\nINNER JOIN #B b ON CONVERT(INT, v.n) = b.n",
+            ";WITH C AS (SELECT 1 AS n) SELECT 1 FROM C c\nINNER JOIN #B b ON CAST(c.n AS INT) = b.n",
+            # La columna convertida es de la temporal, aunque el JOIN sea con una física.
+            "SELECT 1 FROM #A a\nINNER JOIN dbo.B b WITH (NOLOCK) ON b.c = CONVERT(VARCHAR(10), a.n)",
+        )
+        for sql in temporales:
+            with self.subTest(sql=sql):
+                self.assertEqual(self._lineas(sql), [])
+        fisicas = (
+            "SELECT 1 FROM dbo.A a\nINNER JOIN #B b ON CAST(a.n AS INT) = b.n",
+            "SELECT 1 FROM #A a\nINNER JOIN dbo.Cliente AS c ON CAST(c.cId AS INT) = a.n",
+            "SELECT 1 FROM dbo.A\nINNER JOIN dbo.B ON CAST(dbo.A.n AS INT) = dbo.B.n",
+        )
+        for sql in fisicas:
+            with self.subTest(sql=sql):
+                self.assertEqual(self._lineas(sql), [2])
+
+    def test_caso_de_la_usuaria_libro_caja(self):
+        # El JOIN con #TipoCambio convierte T.dFecCamb (temporal) y a.dFecha (física: AsientoDNHistorico): se marca
+        # por la física. El JOIN entre CTE no se marca.
+        sql = ("INSERT INTO #TEMPDN (dFecha)\nSELECT a.dFecha\n  FROM AsientoDNHistorico A WITH(NOLOCK)\n"
+               "  INNER JOIN #TipoCambio T ON CAST(T.dFecCamb AS DATE) = CAST(a.dFecha AS DATE)\n"
+               "  WHERE cCodAge=@cCodAge\n"
+               ";WITH TipoCambioPreparado AS (SELECT CAST(T.dFecCamb AS DATE) AS dFechaDia FROM #TipoCambio T),\n"
+               "TempDNBase AS (SELECT CAST(A.dFecha AS DATE) AS dFechaDia FROM #TEMPDN A)\n"
+               "SELECT 1 FROM TempDNBase A\nINNER JOIN TipoCambioPreparado T ON CAST(T.dFechaDia AS DATE) = A.dFechaDia\n")
+        self.assertEqual(self._lineas(sql), [4])
 
     def test_cast_de_una_fecha_o_variable_no_se_marca(self):
         # Caso de la usuaria: CAST(GETDATE() AS DATE) en el ON no convierte una columna: no afecta los índices.
@@ -1030,21 +1062,21 @@ class TestCastEnJoin(unittest.TestCase):
                 self.assertEqual(self._lineas(f"SELECT 1 FROM #A a JOIN #B b ON b.n = a.n {resto}"), [])
 
     def test_cast_en_la_condicion_del_on_con_and_despues_si_se_marca(self):
-        sql = ("SELECT 1 FROM #A a\nINNER JOIN #B b\n    ON CAST(b.cCta AS INT) = a.nCta\n"
+        sql = ("SELECT 1 FROM dbo.TA a\nINNER JOIN dbo.TB b\n    ON CAST(b.cCta AS INT) = a.nCta\n"
                "    AND b.dFecha = @dFecha\n")
         self.assertEqual(self._lineas(sql), [3])
 
     def test_convert_en_el_lado_derecho_de_la_igualdad_si_se_marca(self):
-        self.assertEqual(self._lineas("SELECT 1 FROM #A a JOIN #B b\nON b.c = CONVERT(VARCHAR(18), a.n) AND b.x = 1"), [2])
+        self.assertEqual(self._lineas("SELECT 1 FROM dbo.TA a JOIN dbo.TB b\nON b.c = CONVERT(VARCHAR(18), a.n) AND b.x = 1"), [2])
 
     def test_and_dentro_de_parentesis_o_case_no_corta_la_condicion(self):
-        entre_parentesis = ("SELECT 1 FROM #A a JOIN #B b\n"
+        entre_parentesis = ("SELECT 1 FROM dbo.TA a JOIN dbo.TB b\n"
                             "ON (CASE WHEN a.t = 1 AND a.u = 2 THEN a.c END) = CAST(b.c AS VARCHAR(5))")
         self.assertEqual(self._lineas(entre_parentesis), [2])
-        con_case = ("SELECT 1 FROM #A a JOIN #B b\n"
+        con_case = ("SELECT 1 FROM dbo.TA a JOIN dbo.TB b\n"
                     "ON CASE WHEN a.t = 1 AND a.u = 2 THEN a.c END = CAST(b.c AS VARCHAR(5))")
         self.assertEqual(self._lineas(con_case), [2])
-        con_else = ("SELECT 1 FROM #A a JOIN #B b\n"
+        con_else = ("SELECT 1 FROM dbo.TA a JOIN dbo.TB b\n"
                     "ON CASE WHEN a.t = 1 THEN a.c ELSE a.d END = CAST(b.c AS VARCHAR(5))")
         self.assertEqual(self._lineas(con_else), [2])
 
@@ -1054,13 +1086,13 @@ class TestCastEnJoin(unittest.TestCase):
         self.assertEqual(self._lineas(sql), [])
 
     def test_between_con_cast_en_la_condicion_del_on_si_se_marca(self):
-        sql = "SELECT 1 FROM #A a JOIN #B b\nON CAST(a.dFecha AS DATE) BETWEEN b.dIni AND b.dFin AND b.n = 1"
+        sql = "SELECT 1 FROM dbo.TA a JOIN dbo.TB b\nON CAST(a.dFecha AS DATE) BETWEEN b.dIni AND b.dFin AND b.n = 1"
         self.assertEqual(self._lineas(sql), [2])
 
     def test_varios_join_cada_uno_con_su_condicion(self):
-        sql = ("SELECT 1 FROM #A a\n"
-               "INNER JOIN #B b ON b.n = a.n AND CAST(b.x AS INT) = a.x\n"
-               "LEFT JOIN #C c ON CAST(c.n AS INT) = a.n\n")
+        sql = ("SELECT 1 FROM dbo.TA a\n"
+               "INNER JOIN dbo.TB b ON b.n = a.n AND CAST(b.x AS INT) = a.x\n"
+               "LEFT JOIN dbo.TC c ON CAST(c.n AS INT) = a.n\n")
         self.assertEqual(self._lineas(sql), [3])
 
     def test_cast_fuera_del_on_no_se_marca(self):

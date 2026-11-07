@@ -450,6 +450,8 @@ def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
     )
     patron = re.compile(rf"\bJOIN\s+({_REFERENCIA})(?:(?!{fin_del_on}).)*?\bON\b", re.IGNORECASE | re.DOTALL)
     fin = re.compile(fin_del_on, re.IGNORECASE)
+    ctes = {n.strip("[]").lower() for n in re.findall(
+        rf"(?:\bWITH|,)\s*({_IDENTIFICADOR})\s*(?:\([^()]*\)\s*)?AS\s*\(", limpio, re.IGNORECASE)}
     for match in patron.finditer(limpio):
         tabla = _limpiar_nombre(match.group(1))
         termina = fin.search(limpio, match.end())
@@ -460,11 +462,19 @@ def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
         ):
             termina = fin.search(limpio, termina.end())
         condicion = _primera_condicion(limpio[match.end():termina.start() if termina else len(limpio)])
+        # Tablas de esta consulta (desde su FROM hasta el fin del ON), por alias, para saber de cuál es cada columna.
+        froms = [m.start() for m in re.finditer(r"\bFROM\b", limpio[:match.start()], re.IGNORECASE)]
+        desde = froms[-1] if froms else 0
+        tablas = _tablas_por_alias(limpio[desde:termina.start() if termina else len(limpio)])
         for conversion in re.finditer(r"\b(CAST|CONVERT)\s*\(", condicion, re.IGNORECASE):
             # Solo si convierte una columna: CAST(GETDATE() AS DATE) o CAST(@dFecha AS DATE) no impiden
             # usar los índices de la tabla.
             argumento = _contenido_entre_parentesis(condicion, conversion.end() - 1)
             if not _usa_columna(argumento, conversion.group(1)):
+                continue
+            # Solo en columnas de tablas físicas (pedido de la usuaria, 7 nov.): en una temporal, variable de tabla
+            # o CTE no se observa.
+            if not _convierte_columna_fisica(argumento, conversion.group(1), tablas, ctes):
                 continue
             hallazgos.append(_hallazgo(
                 texto, match.end() + conversion.start(), "CAST_EN_JOIN_PROHIBIDO",
@@ -509,6 +519,49 @@ def _primera_condicion(condicion: str) -> str:
 
 
 _NO_SON_COLUMNAS = {"AS", "NULL", "AND", "OR", "NOT", "CASE", "WHEN", "THEN", "ELSE", "END", "IS", "IN", "LIKE"}
+
+
+_NO_ES_ALIAS = {"ON", "WITH", "INNER", "LEFT", "RIGHT", "FULL", "CROSS", "OUTER", "JOIN", "WHERE", "GROUP",
+                "ORDER", "UNION", "OPTION", "APPLY", "AS", "SELECT", "SET"}
+
+
+def _tablas_por_alias(tramo: str) -> Dict[str, str]:
+    """{alias o nombre en minúsculas: tabla} de las tablas del FROM/JOIN del tramo de una consulta."""
+    tablas: Dict[str, str] = {}
+    for m in re.finditer(rf"\b(?:FROM|JOIN)\s+({_REFERENCIA})(?:\s+(?:AS\s+)?([A-Za-z_][\w$]*))?", tramo, re.IGNORECASE):
+        tabla = _limpiar_nombre(m.group(1))
+        tablas[tabla.lower()] = tabla
+        tablas[tabla.split(".")[-1].strip("[]").lower()] = tabla
+        if m.group(2) and m.group(2).upper() not in _NO_ES_ALIAS:
+            tablas[m.group(2).lower()] = tabla
+    return tablas
+
+
+def _convierte_columna_fisica(argumento: str, funcion: str, tablas: Dict[str, str], ctes: Set[str]) -> bool:
+    """¿El CAST/CONVERT convierte una columna de una tabla física (no temporal, variable de tabla ni CTE)?"""
+    if funcion.upper() == "CONVERT":
+        partes = [p for p, _ in _separar_por_comas(argumento)]
+        dato = partes[1] if len(partes) > 1 else argumento
+    else:
+        dato = re.split(r"\bAS\b", argumento, maxsplit=1, flags=re.IGNORECASE)[0]
+    dato = re.sub(r"\b[A-Za-z_]\w*\s*(?=\()", " ", dato)  # fuera los nombres de función
+
+    def es_fisica(tabla: str) -> bool:
+        return not _es_temporal(tabla) and tabla.split(".")[-1].strip("[]").lower() not in ctes
+
+    distintas = set(tablas.values())
+    # alias.columna o tabla.columna (también dbo.Tabla.columna): todo lo que va antes del último punto.
+    for referencia in re.findall(
+            r"(?<![@#\w])([A-Za-z_\[][\w\]]*(?:\s*\.\s*[A-Za-z_\[][\w\]]*)*)\s*\.\s*[A-Za-z_\[][\w\]]*", dato):
+        nombre = re.sub(r"[\s\[\]]", "", referencia).lower()
+        tabla = tablas.get(nombre) or tablas.get(nombre.split(".")[-1])
+        if tabla and es_fisica(tabla):
+            return True
+    # Columna sin alias: solo se sabe de qué tabla es si en la consulta hay una sola.
+    sueltas = re.findall(r"(?<![@#\w.])[A-Za-z_\[][\w\]]*(?!\s*\.)", dato)
+    if any(s.upper() not in _NO_SON_COLUMNAS for s in sueltas) and len(distintas) == 1:
+        return es_fisica(next(iter(distintas)))
+    return False
 
 
 def _usa_columna(argumento: str, funcion: str) -> bool:
