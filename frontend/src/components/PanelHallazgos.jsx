@@ -3,7 +3,7 @@ import { SEVERIDADES, etiquetaSeveridad, nombreRegla } from '../config/reglas';
 import { etiquetaDeGrupos } from '../utils/recorrido';
 import { tokenizarSql } from '../utils/resaltadoSql';
 import { contarPorSeveridad, desglosarGrupo, normalizarSeveridad, ordenarHallazgos, separarMensaje } from '../utils/hallazgos';
-import { DetalleTipos } from './DetalleTipos';
+import { TablaTiposColumnas } from './TablaTiposColumnas';
 import { EncabezadoSeccion } from './EncabezadoSeccion';
 import { EstadoInicial } from './EstadoInicial';
 import { EstadoVacio } from './EstadoVacio';
@@ -143,10 +143,20 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
     ? (cantidadLineas > 4 ? `${cantidadLineas} casos` : `${lineas.includes(',') ? 'Líneas' : 'Línea'} ${lineas}`)
     : `Línea ${hallazgo.linea || 1}`));
 
+  // Columnas con su desglose de tipos («Misma columna con distinto tipo»): se muestran como tabla.
+  const enTabla = Boolean(hallazgo.grupos?.length && hallazgo.grupos.every((grupo) => grupo.detalle));
+
   return (
-    <article className={`finding sev-${severidad}`}>
+    <article className={`finding sev-${severidad}${enTabla ? ' finding-tabla' : ''}`}>
       <header className="finding-head">
-        <h4 className="finding-title">{titulo}</h4>
+        {enTabla ? (
+          <div className="finding-tabla-titulo">
+            <h4 className="finding-title">{titulo}</h4>
+            {intro && <p className="finding-tabla-intro">{intro}</p>}
+          </div>
+        ) : (
+          <h4 className="finding-title">{titulo}</h4>
+        )}
         <span className="finding-head-side">
           {mostrarLinea && <span className="finding-line">{etiquetaLinea}</span>}
           <span className={`sev-pill sev-${severidad}`}>{etiquetaSeveridad(severidad)}</span>
@@ -155,23 +165,23 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
       </header>
 
       <div className="finding-body">
-        {intro && <p className="finding-message">{intro}</p>}
-        {ocurrencias.length > 1 ? (
-          <ul className="finding-list">
-            {ocurrencias.map((texto, indice) => (
-              <li key={texto} className={indice === vinetaActiva ? 'ocurrencia-activa' : undefined}>
-                <DetalleTipos nombre={hallazgo.grupos?.[indice]?.nombre} detalle={hallazgo.grupos?.[indice]?.detalle}>
-                  <MensajeResaltado texto={texto} />
-                </DetalleTipos>
-              </li>
-            ))}
-          </ul>
+        {enTabla ? (
+          <TablaTiposColumnas grupos={hallazgo.grupos} filaActiva={vinetaActiva} />
         ) : (
-          <div className="finding-message">
-            <DetalleTipos nombre={hallazgo.grupos?.[0]?.nombre} detalle={hallazgo.grupos?.[0]?.detalle}>
-              <MensajeResaltado texto={ocurrencias[0]} />
-            </DetalleTipos>
-          </div>
+          <>
+            {intro && <p className="finding-message">{intro}</p>}
+            {ocurrencias.length > 1 ? (
+              <ul className="finding-list">
+                {ocurrencias.map((texto, indice) => (
+                  <li key={texto} className={indice === vinetaActiva ? 'ocurrencia-activa' : undefined}>
+                    <MensajeResaltado texto={texto} />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="finding-message"><MensajeResaltado texto={ocurrencias[0]} /></p>
+            )}
+          </>
         )}
         {solucion && (
           <p className="finding-fix">

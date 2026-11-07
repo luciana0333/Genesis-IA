@@ -1071,30 +1071,107 @@
   font-weight: 400;
 }
 
-/* «Ver tablas» de una viñeta y su panel «Detalle de tipos»: sobrio, bordes rectos y sombra leve. */
-/* Fila de la viñeta: texto a la izquierda y «Ver tablas ⌄» a la derecha, alineado en todas las filas. */
-.vineta-con-detalle { display: flex; align-items: baseline; gap: 16px; }
-.vineta-con-detalle-texto { flex: 1; min-width: 0; }
-
-/* «Ver tablas»: enlace discreto en el rojo de la usuaria (#BE123C), sin fondo (opción B, 7 nov.). */
-.ver-tablas {
-  display: inline-flex;
+/* ───────── «Misma columna con distinto tipo» como tabla (diseño de la usuaria, 7 nov.) ───────── */
+.finding-tabla .finding-head {
+  align-items: flex-start;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  background: #f8f9fb;
+}
+:root[data-theme="dark"] .finding-tabla .finding-head { background: rgba(255, 255, 255, 0.02); }
+.finding-tabla-titulo { flex: 1; min-width: 0; }
+.finding-tabla .finding-title { display: flex; align-items: center; gap: 10px; font-size: 1rem; }
+.finding-tabla .finding-title::before {
+  content: '';
   flex: none;
-  align-items: center;
-  gap: 3px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #be123c;
-  font: inherit;
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--red-main);
+}
+.finding-tabla-intro { margin: 6px 0 0 14px; color: var(--text-secondary); font-size: 0.8rem; line-height: 1.5; }
+.finding-tabla .finding-line { border: 1px solid var(--border); }
+.finding-tabla .sev-pill {
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--sev) 35%, transparent);
+  border-radius: 6px;
+  font-size: 0.66rem;
+}
+.finding-tabla .sev-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.finding-tabla .finding-body { margin-top: 0; }
+
+.tabla-tipos { width: calc(100% + 40px); margin: 0 -20px 6px; border-collapse: collapse; }
+.tabla-tipos > thead > tr > th {
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+}
+.tabla-tipos > tbody > tr > td { padding: 12px 20px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.tabla-tipos > thead > tr > th:first-child { width: 160px; }
+.tabla-tipos > * > tr > .tabla-tipos-detalles { width: 130px; text-align: right; }
+.tabla-tipos-fila { transition: background-color var(--dur-fast) ease; }
+.tabla-tipos-fila:hover { background: #fafbfc; }
+.tabla-tipos-fila.activa { background: #fff5f6; }
+:root[data-theme="dark"] .tabla-tipos-fila:hover,
+:root[data-theme="dark"] .tabla-tipos-fila.activa { background: rgba(255, 255, 255, 0.03); }
+
+.tabla-tipos-columna {
+  display: inline-block;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
   font-size: 0.76rem;
   font-weight: 600;
+}
+.tabla-tipos-desglose { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 0; }
+.tabla-tipos-tipo {
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+.tabla-tipos-tipo b { color: var(--text-primary); font-weight: 700; }
+.tabla-tipos-tipo.distinto { border-color: #fecdd3; background: #fff1f2; color: #be123c; }
+.tabla-tipos-tipo.distinto b { color: #9f1239; }
+.tabla-tipos-vs { margin: 0 10px; color: var(--text-muted); font-family: var(--font-mono); font-size: 0.7rem; }
+
+.tabla-tipos-boton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
+  box-shadow: 0 1px 2px rgba(17, 17, 26, 0.05);
+  transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
-.ver-tablas svg { width: 14px; height: 14px; }
-.ver-tablas:hover, .ver-tablas.abierto { color: #9f1239; text-decoration: underline; text-underline-offset: 3px; }
-.ver-tablas:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.tabla-tipos-boton svg { width: 14px; height: 14px; color: var(--text-secondary); }
+.tabla-tipos-boton:hover, .tabla-tipos-boton.abierto { border-color: #be123c; color: #be123c; }
+.tabla-tipos-boton:hover svg, .tabla-tipos-boton.abierto svg { color: #be123c; }
+.tabla-tipos-boton:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.tabla-tipos > tbody > .tabla-tipos-panel > td { padding: 4px 20px 16px; background: #fafbfc; }
+.tabla-tipos-panel .detalle-tipos { margin: 6px 0 0; }
 
 .detalle-tipos {
   margin: 10px 0 8px;

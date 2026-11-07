@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PanelHallazgos } from './PanelHallazgos';
 
@@ -61,27 +61,32 @@ const TIPOS = {
   ],
 };
 
-describe('PanelHallazgos · «Ver tablas» de «Misma columna con distinto tipo»', () => {
-  it('despliega la tablita Tipo | Tablas temporales y cuenta las columnas en el encabezado', async () => {
+describe('PanelHallazgos · «Misma columna con distinto tipo» como tabla', () => {
+  it('muestra una fila por columna con su desglose y abre el detalle con «Ver tablas»', async () => {
     const usuario = userEvent.setup();
     render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[TIPOS]} />);
     expect(screen.getByText('2 columnas')).toBeInTheDocument();
-    // Solo la columna con un tipo en varias temporales tiene botón: en la otra los nombres ya están en la viñeta.
+    // La introducción va bajo el título; la lista de viñetas se reemplaza por la tabla.
+    expect(screen.getByText(/^Se identificaron las siguientes columnas/)).toBeInTheDocument();
+    const tabla = screen.getByRole('table');
+    const filas = within(tabla).getAllByRole('row').map((fila) => fila.textContent);
+    expect(filas).toEqual([
+      'Nombre columnaDesglose de tipos y ocurrenciasDetalles',
+      'cCodAgeVARCHAR(3) en 2 tablasvsVARCHAR(5) en #FINVer tablas',
+      'cCalifIntCHAR(5) en #AvsVARCHAR(10) en @B',
+    ]);
+    // El tipo más usado va en gris; el que se sale, en rojo.
+    expect(within(tabla).getByText('VARCHAR(3)').parentElement).not.toHaveClass('distinto');
+    expect(within(tabla).getByText('VARCHAR(5)').parentElement).toHaveClass('distinto');
+    // Solo la columna con un tipo en varias temporales tiene «Ver tablas».
     const botones = screen.getAllByRole('button', { name: 'Ver tablas' });
     expect(botones).toHaveLength(1);
-    expect(screen.queryByRole('table')).not.toBeInTheDocument();
     await usuario.click(botones[0]);
-    const filas = screen.getAllByRole('row').map((fila) => fila.textContent);
-    expect(filas).toEqual([
-      'Tipo de datoTablas temporales',
-      'VARCHAR(3)2 tablas · 67%#TEMPDN#MOVCS',
-      'VARCHAR(5)1 tabla · 33%#FIN',
-    ]);
-    // Cabecera: la columna, el tipo de diferencia (VARCHAR con distinto tamaño) y los indicadores.
     expect(screen.getByText('Distinta longitud')).toBeInTheDocument();
     expect(screen.getByText('Tipos').nextSibling).toHaveTextContent('2');
     expect(screen.getByText('Tablas').nextSibling).toHaveTextContent('3');
+    expect(screen.getByText('2 tablas ·')).toBeInTheDocument();
     await usuario.click(screen.getByRole('button', { name: 'Ocultar tablas' }));
-    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.queryByText('Distinta longitud')).not.toBeInTheDocument();
   });
 });
