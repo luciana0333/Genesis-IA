@@ -1080,7 +1080,7 @@
   padding: 4px 12px 4px 9px;
   border: 0;
   border-radius: 6px; /* este botón sí va redondeado (pedido de la usuaria, 7 nov.) */
-  background: var(--red-main);
+  background: #be123c; /* tono de la imagen de la usuaria */
   color: #ffffff;
   font: inherit;
   font-size: 0.68rem;
@@ -1089,11 +1089,11 @@
   text-transform: uppercase;
   cursor: pointer;
   vertical-align: 1px;
-  box-shadow: 0 6px 14px -8px var(--red-shadow);
+  box-shadow: 0 6px 14px -8px rgba(190, 18, 60, 0.55);
   transition: background-color var(--dur-fast) ease;
 }
 .ver-tablas svg { width: 14px; height: 14px; }
-.ver-tablas:hover, .ver-tablas.abierto { background: var(--red-dark); }
+.ver-tablas:hover, .ver-tablas.abierto { background: #9f1239; }
 .ver-tablas:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .detalle-tipos {
