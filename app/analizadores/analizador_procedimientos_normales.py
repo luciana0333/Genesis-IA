@@ -8,6 +8,7 @@ from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html
 from app.analizadores.collate_temporales import collate_agrupado
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
+from app.analizadores.esquema_entre_bases import esquemas_omitidos
 from app.analizadores.indice_forzado import indice_forzado_agrupado
 from app.analizadores.select_estrella import marcar as marcar_select_estrella, unir_select_estrella
 from app.analizadores.left_like import left_reemplazable_por_like
@@ -1550,18 +1551,11 @@ def _validar_prefijo_variables(texto: str, limpio: str) -> List[Hallazgo]:
 
 
 def _validar_esquema_entre_bases(texto: str, limpio: str) -> List[Hallazgo]:
-    """Base..Tabla omite el esquema: entre bases se escribe Base.Esquema.Tabla."""
-    hallazgos = []
-    patron = re.compile(r"(\[[^\]]+\]|[A-Za-z_][\w$#]*)\s*\.\s*\.\s*(\[[^\]]+\]|[A-Za-z_][\w$#]*)")
-    for match in patron.finditer(limpio):
-        base, tabla = match.group(1), match.group(2)
-        hallazgos.append(_hallazgo(
-            texto, match.start(), "ESQUEMA_OMITIDO_ENTRE_BASES",
-            f"Se verificó el uso de la tabla {tabla} de la base {base}, pero el esquema se omitió "
-            f"({base}..{tabla}). Defina el esquema, ya que así se evita apuntar a una tabla "
-            f"equivocada (ej.: {base}.dbo.{tabla}).",
-        ))
-    return hallazgos
+    """Base..Tabla omite el esquema: mismo texto en Reportes y Negocio (usuaria, 7 nov.)."""
+    return [
+        _hallazgo(texto, posicion, "ESQUEMA_OMITIDO_ENTRE_BASES", mensaje)
+        for posicion, mensaje in esquemas_omitidos(limpio)
+    ]
 
 
 # Inicio de una nueva sentencia: separa las consultas del procedimiento.
