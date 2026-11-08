@@ -210,7 +210,11 @@ export function AuditoriaWorkspace({ vista }) {
         </div>
 
         <form className="panel-body" onSubmit={alEnviar} onKeyDown={alPresionarTecla} noValidate>
-          <div className={revision.permiteDbcmaica || revision.permiteMotor ? 'control-row control-row--base' : 'control-row'}>
+          {/* Con el nombre solo (Reportes), la cajita usa más ancho para que el nombre largo entre en una línea. */}
+          <div
+            className={revision.permiteDbcmaica || revision.permiteMotor ? 'control-row control-row--base'
+              : esSelectorVisible ? 'control-row' : 'control-row control-row--solo-nombre'}
+          >
             {esSelectorVisible && (
               <div className="field-group">
                 <label className="field-label" htmlFor={`${ids}-tipo`}>Tipo de revisión</label>
