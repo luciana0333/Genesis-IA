@@ -22,6 +22,13 @@ _TABLA = re.compile(
 _COLLATE = re.compile(r"\bCOLLATE\s+\w+", re.IGNORECASE)
 
 # Texto de la usuaria (7 nov.), igual en Negocio y Reportes.
+# «Uso de COLLATE DATABASE_DEFAULT»: texto de la usuaria (8 nov.), igual en Reportes y Negocio.
+MENSAJE_COLLATE_DATABASE_DEFAULT = (
+    "Se identificó el uso de COLLATE DATABASE_DEFAULT, que toma la intercalación predeterminada de la base de datos "
+    "donde se ejecuta la consulta. Se recomienda utilizar el COLLATE correspondiente (SQL_Latin1_General_CP1_CI_AS), "
+    "para evitar conflictos al comparar o combinar textos entre bases de datos con distintas intercalaciones."
+)
+
 ACCION_COLLATE_TEMPORAL = (
     "Se recomienda añadir el COLLATE correspondiente en las columnas de tipo texto de las tablas temporales. "
     "Por favor, revisar y aplicarlo donde corresponda."
@@ -92,6 +99,10 @@ def hecho_por_tabla(tipo_tabla: str, tabla: str, columnas: List[str]) -> str:
     return f"Las columnas de texto {lista} de {tipo_tabla} {tabla} no definen COLLATE"
 
 
+# Desde cuántas tablas la observación se muestra como tabla en la pantalla (igual en frontend/src/components/TablaColumnasSinCollate.jsx).
+TABLAS_PARA_VER_EN_TABLA = 3
+
+
 def collate_agrupado(limpio: str, linea_de: Callable[[int], int]) -> Optional[Tuple[int, str, List[Dict], List[int]]]:
     """Una sola observación (Negocio y Reportes) con una viñeta por tabla y todas sus columnas sin COLLATE.
 
@@ -102,7 +113,16 @@ def collate_agrupado(limpio: str, linea_de: Callable[[int], int]) -> Optional[Tu
     if not por_tabla:
         return None
     hechos = [hecho_por_tabla(tipo, tabla, [c for _, c in columnas]) for tipo, tabla, columnas in por_tabla]
-    if len(hechos) == 1:
+    if len(por_tabla) >= TABLAS_PARA_VER_EN_TABLA:
+        # Desde 3 tablas, la pantalla lo muestra como tabla (Tabla | Columnas sin COLLATE; usuaria, 8 nov.).
+        # El texto lleva el detalle igual, para copiarlo.
+        tipos = {tipo for tipo, _, _ in por_tabla}
+        donde = ("tablas temporales" if tipos == {"la tabla temporal"} else
+                 "variables de tabla" if tipos == {"la variable de tabla"} else "tablas temporales y variables de tabla")
+        detalle = "; ".join(f"{tabla}: {', '.join(c for _, c in columnas)}" for _, tabla, columnas in por_tabla)
+        mensaje = (f"Se identificaron columnas de texto sin COLLATE en las siguientes {donde}: {detalle}. "
+                   f"{ACCION_COLLATE_TEMPORAL}")
+    elif len(hechos) == 1:
         mensaje = f"{hechos[0]}. {ACCION_COLLATE_TEMPORAL}"
     else:
         primeras = sorted({linea_de(columnas[0][0]) for _, _, columnas in por_tabla})

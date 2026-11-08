@@ -5,7 +5,8 @@ import re
 from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
-from app.analizadores.collate_temporales import collate_agrupado
+from app.analizadores.collate_temporales import MENSAJE_COLLATE_DATABASE_DEFAULT, collate_agrupado
+from app.analizadores.encabezado import encabezado_observado
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
 from app.analizadores.indice_forzado import indice_forzado_agrupado
 from app.analizadores.select_estrella import marcar as marcar_select_estrella, unir_select_estrella
@@ -811,6 +812,15 @@ def _validar_esquema_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
     )]
 
 
+def _validar_encabezado(texto: str, limpio: str) -> List[Hallazgo]:
+    """Encabezado de documentación: falta o le faltan datos (una sola regla; usuaria, 8 nov.)."""
+    observado = encabezado_observado(texto, limpio)
+    if not observado:
+        return []
+    posicion, mensaje = observado
+    return [_hallazgo(texto, posicion, "ENCABEZADO_PROCEDIMIENTO", mensaje)]
+
+
 def _validar_esquema_entre_bases(texto: str, limpio: str) -> List[Hallazgo]:
     """Base..Tabla omite el esquema: mismo texto en Reportes y Negocio (usuaria, 7 nov.)."""
     return [
@@ -846,15 +856,8 @@ def _validar_collate_database_default(texto: str, limpio: str) -> List[Hallazgo]
     for match in re.finditer(r"\bCOLLATE\s+DATABASE_DEFAULT\b", limpio, re.IGNORECASE):
         if dentro_de_openjson(limpio, match.start()):
             continue  # lo observa «COLLATE innecesario en OPENJSON»
-        columna = _columna_antes_de(limpio, match.start())
-        en_columna = f" en la columna {columna}" if columna else ""
-        hallazgos.append(_hallazgo(
-            texto, match.start(), "COLLATE_DATABASE_DEFAULT",
-            f"Se identificó el uso de COLLATE DATABASE_DEFAULT{en_columna}, que toma el COLLATE de la base donde "
-            f"se ejecuta. Se recomienda definir el COLLATE explícitamente con el que usa la empresa, ya que "
-            f"DATABASE_DEFAULT puede cambiar entre bases y servidores, y las comparaciones fallarían "
-            f"(ej.: COLLATE SQL_Latin1_General_CP1_CI_AS).",
-        ))
+        # Texto de la usuaria (8 nov.), el mismo que en Negocio.
+        hallazgos.append(_hallazgo(texto, match.start(), "COLLATE_DATABASE_DEFAULT", MENSAJE_COLLATE_DATABASE_DEFAULT))
     return hallazgos
 
 
@@ -1082,6 +1085,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     sin_comentarios = _quitar_comentarios(texto_sql, vaciar_textos=False)
     hallazgos.extend(_validar_hints(texto_sql, sin_comentarios))
     hallazgos.extend(_validar_indice_forzado(texto_sql, limpio))
+    hallazgos.extend(_validar_encabezado(texto_sql, limpio))
     hallazgos.extend(_validar_hints_bloqueo(texto_sql, sin_comentarios))
     hallazgos.extend(_validar_comentarios_codigo(texto_sql))
     hallazgos.extend(_validar_tablas_temporales(texto_sql, limpio))

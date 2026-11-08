@@ -221,6 +221,15 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "ENCABEZADO_PROCEDIMIENTO": ReglaDiccionario(
+        codigo="ENCABEZADO_PROCEDIMIENTO",
+        nombre="Procedimiento sin encabezado completo",
+        severidad="bajo",
+        descripcion="Todo procedimiento lleva su encabezado: nombre, descripción, autor, fecha, control de cambios "
+                    "y ejemplo de ejecución.",
+        alcance="reporte",
+        activo=True,
+    ),
     "PROCEDIMIENTO_SIN_ESQUEMA": ReglaDiccionario(
         codigo="PROCEDIMIENTO_SIN_ESQUEMA",
         nombre="Procedimiento sin esquema",
@@ -298,7 +307,7 @@ REGLAS_REPORTES = {
     ),
     "COLLATE_DATABASE_DEFAULT": ReglaDiccionario(
         codigo="COLLATE_DATABASE_DEFAULT",
-        nombre="COLLATE DATABASE_DEFAULT",
+        nombre="Uso de COLLATE DATABASE_DEFAULT",
         severidad="alto",
         descripcion="El COLLATE se define explícitamente con el de la empresa (SQL_Latin1_General_CP1_CI_AS), "
                     "no con DATABASE_DEFAULT.",

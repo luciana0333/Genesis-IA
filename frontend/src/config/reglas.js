@@ -134,6 +134,7 @@ export const NOMBRES_REGLAS = {
   VARIABLE_DECLARADA_SIN_USO: 'Variables declaradas sin uso',
   PROCEDIMIENTO_SIN_DESCRIPCION: 'Procedimiento no documentado',
   PROCEDIMIENTO_SIN_ESQUEMA: 'Procedimiento sin esquema',
+  ENCABEZADO_PROCEDIMIENTO: 'Procedimiento sin encabezado completo',
   PROCEDIMIENTO_SIN_PREFIJO_PA: 'Nombre sin prefijo PA_',
   PROCEDIMIENTO_NOMBRE_INCOMPLETO: 'Nombre de procedimiento incompleto',
   PROCEDIMIENTO_SIN_FINALIDAD: 'Error de nomenclatura: procedimiento sin finalidad',
@@ -224,7 +225,7 @@ export const NOMBRES_REGLAS = {
   INDICE_COLUMNA_DESCRIPTIVA: 'Columna descriptiva en el índice',
   INDICE_IDENTIFICA_POR_DESCRIPCION: 'Descripción usada como identificador',
   INDICE_CLUSTERED_DESCRIPTIVO: 'Índice clustered sobre columna descriptiva',
-  COLLATE_DATABASE_DEFAULT: 'COLLATE DATABASE_DEFAULT',
+  COLLATE_DATABASE_DEFAULT: 'Uso de COLLATE DATABASE_DEFAULT',
   COLLATE_DISTINTO_AL_ESTANDAR: 'COLLATE distinto al de la empresa',
 };
 
