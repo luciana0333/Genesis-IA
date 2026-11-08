@@ -10,6 +10,7 @@ from app.analizadores.temporales_sin_crear import temporales_sin_crear
 from app.analizadores.comentarios_codigo import codigo_comentado_agrupado
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.create_or_alter import create_or_alter
+from app.analizadores.dependencia_bi import dependencia_bi
 from app.analizadores.encabezado import encabezado_observado
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
 from app.analizadores.indice_forzado import indice_forzado_agrupado
@@ -1490,38 +1491,15 @@ def _validar_envio_correo(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
-# Objeto de la base BI: BI.dbo.Objeto, [BI].[dbo].[Objeto], BI..Objeto o Servidor.BI.dbo.Objeto.
-# Necesita dos puntos: «bi.cColumna» es un alias con su columna, no la base BI.
-_OBJETO_DE_BI = re.compile(
-    r"(?<![\w$#@.\]])(?:(?:\[[^\]]+\]|[A-Za-z_][\w$#]*)\s*\.\s*)?(?:\[BI\]|BI)\s*\.\s*"
-    r"(?:\[[^\]]+\]|[A-Za-z_][\w$#]*)?\s*\.\s*(?:\[[^\]]+\]|[A-Za-z_][\w$#]*)",
-    re.IGNORECASE,
-)
-# Texto de la usuaria.
-_ACCION_DEPENDENCIA_BI = (
-    "Se recomienda evitar dependencias con la base de datos BI, ya que no se considera una base de datos "
-    "productiva. Ante una eventual indisponibilidad de dicha base, los procedimientos que dependan de ella "
-    "podrían verse afectados en su ejecución."
-)
-
-
 def _validar_dependencia_bi(texto: str, limpio: str) -> List[Hallazgo]:
     """Consultas, funciones o procedimientos de la base BI (no productiva): una observación con todos."""
-    usos = [(m.start(), re.sub(r"\s+", "", texto[m.start():m.end()])) for m in _OBJETO_DE_BI.finditer(limpio)]
-    usos += [(m.start(), "USE BI") for m in re.finditer(r"\bUSE\s+\[?BI\]?(?![\w$#])", limpio, re.IGNORECASE)]
-    if not usos:
+    observado = dependencia_bi(texto, limpio, lambda posicion: _linea(texto, posicion))
+    if not observado:
         return []
-    usos.sort()
-    objetos = list(dict.fromkeys(nombre for _, nombre in usos))
-    if len(objetos) == 1:
-        mensaje = f"Se identificó una dependencia con la base de datos BI ({objetos[0]}). {_ACCION_DEPENDENCIA_BI}"
-    else:
-        mensaje = (f"Se identificaron {len(objetos)} dependencias con la base de datos BI: {'; '.join(objetos)}. "
-                   f"{_ACCION_DEPENDENCIA_BI}")
-    hallazgo = _hallazgo(texto, usos[0][0], "DEPENDENCIA_BASE_BI", mensaje)
-    hallazgo.lineas = sorted({_linea(texto, posicion) for posicion, _ in usos})
+    posicion, mensaje, lineas = observado
+    hallazgo = _hallazgo(texto, posicion, "DEPENDENCIA_BASE_BI", mensaje)
+    hallazgo.lineas = lineas
     return [hallazgo]
-
 
 
 def _validar_prefijo_parametros(texto: str, limpio: str) -> List[Hallazgo]:

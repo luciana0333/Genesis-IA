@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Set, Tuple
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
 from app.analizadores.collate_temporales import MENSAJE_COLLATE_DATABASE_DEFAULT, collate_agrupado
 from app.analizadores.create_or_alter import create_or_alter
+from app.analizadores.dependencia_bi import dependencia_bi
 from app.analizadores.encabezado import encabezado_observado
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
 from app.analizadores.indice_forzado import indice_forzado_agrupado
@@ -823,6 +824,17 @@ def _validar_esquema_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
     )]
 
 
+def _validar_dependencia_bi(texto: str, limpio: str) -> List[Hallazgo]:
+    """Consultas, funciones o procedimientos de la base BI (no productiva): una observación con todos."""
+    observado = dependencia_bi(texto, limpio, lambda posicion: _linea(texto, posicion))
+    if not observado:
+        return []
+    posicion, mensaje, lineas = observado
+    hallazgo = _hallazgo(texto, posicion, "DEPENDENCIA_BASE_BI", mensaje)
+    hallazgo.lineas = lineas
+    return [hallazgo]
+
+
 def _validar_create_or_alter(texto: str, limpio: str) -> List[Hallazgo]:
     """CREATE OR ALTER PROCEDURE: se usa CREATE si es nuevo o ALTER si ya existe (usuaria, 8 nov.)."""
     observado = create_or_alter(limpio)
@@ -1104,6 +1116,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_indice_forzado(texto_sql, limpio))
     hallazgos.extend(_validar_encabezado(texto_sql, limpio))
     hallazgos.extend(_validar_create_or_alter(texto_sql, limpio))
+    hallazgos.extend(_validar_dependencia_bi(texto_sql, limpio))
     hallazgos.extend(_validar_hints_bloqueo(texto_sql, sin_comentarios))
     hallazgos.extend(_validar_comentarios_codigo(texto_sql))
     hallazgos.extend(_validar_tablas_temporales(texto_sql, limpio))

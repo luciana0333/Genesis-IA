@@ -238,6 +238,14 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "DEPENDENCIA_BASE_BI": ReglaDiccionario(
+        codigo="DEPENDENCIA_BASE_BI",
+        nombre="Dependencia con la base de datos BI",
+        severidad="alto",
+        descripcion="Los reportes no deben depender de la base BI: es de Inteligencia Comercial y no es productiva.",
+        alcance="reporte",
+        activo=True,
+    ),
     "PROCEDIMIENTO_SIN_ESQUEMA": ReglaDiccionario(
         codigo="PROCEDIMIENTO_SIN_ESQUEMA",
         nombre="Procedimiento sin esquema",
