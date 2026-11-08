@@ -134,6 +134,7 @@ export const NOMBRES_REGLAS = {
   VARIABLE_DECLARADA_SIN_USO: 'Variables declaradas sin uso',
   PROCEDIMIENTO_SIN_DESCRIPCION: 'Procedimiento no documentado',
   PROCEDIMIENTO_SIN_ESQUEMA: 'Procedimiento sin esquema',
+  ENCABEZADO_PROCEDIMIENTO: 'Encabezado del procedimiento',
   PROCEDIMIENTO_SIN_PREFIJO_PA: 'Nombre sin prefijo PA_',
   PROCEDIMIENTO_NOMBRE_INCOMPLETO: 'Nombre de procedimiento incompleto',
   PROCEDIMIENTO_SIN_FINALIDAD: 'Error de nomenclatura: procedimiento sin finalidad',

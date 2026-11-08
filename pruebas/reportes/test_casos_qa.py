@@ -1,7 +1,13 @@
 """Casos de borde encontrados en la auditoría de QA del módulo de Reportes."""
 import unittest
 
-from app.analizadores.analizador_reportes import verificar_reporte
+from app.analizadores.analizador_reportes import verificar_reporte as _verificar_reporte
+
+
+def verificar_reporte(sql):
+    """Estos casos revisan otras reglas: el encabezado de documentación tiene sus propias pruebas."""
+    return [h for h in _verificar_reporte(sql) if h.regla != "ENCABEZADO_PROCEDIMIENTO"]
+
 
 ENCABEZADO = "CREATE PROCEDURE dbo.PA_GDD_Cliente_Sel_Resumen\n    @nAgenciaId INT\nAS\nBEGIN\n"
 

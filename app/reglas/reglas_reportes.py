@@ -221,6 +221,15 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "ENCABEZADO_PROCEDIMIENTO": ReglaDiccionario(
+        codigo="ENCABEZADO_PROCEDIMIENTO",
+        nombre="Encabezado del procedimiento",
+        severidad="bajo",
+        descripcion="Todo procedimiento lleva su encabezado: nombre, descripción, autor, fecha, control de cambios "
+                    "y ejemplo de ejecución.",
+        alcance="reporte",
+        activo=True,
+    ),
     "PROCEDIMIENTO_SIN_ESQUEMA": ReglaDiccionario(
         codigo="PROCEDIMIENTO_SIN_ESQUEMA",
         nombre="Procedimiento sin esquema",
