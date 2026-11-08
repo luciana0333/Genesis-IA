@@ -14,7 +14,10 @@ public static class GenesisRevisor
 {
     public static List<Dictionary<string, object>> Revisar(TSqlFragment arbol)
     {
+        var ctes = new GenesisBuscaCtes();
+        arbol.Accept(ctes);
         var visitante = new GenesisVisitante();
+        visitante.NombresCte = ctes.Nombres;
         arbol.Accept(visitante);
         return visitante.Hallazgos.OrderBy(h => (int)h["linea"]).ToList();
     }
@@ -32,6 +35,13 @@ public class GenesisDeclaracion
     public bool EsParametro;
     public bool EsSalida;
     public bool TieneValor;
+}
+
+// Nombres de todas las CTE del script (WITH Nombre AS (...)).
+public class GenesisBuscaCtes : TSqlFragmentVisitor
+{
+    public readonly HashSet<string> Nombres = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    public override void Visit(CommonTableExpression cte) { Nombres.Add(cte.ExpressionName.Value); }
 }
 
 // ¿La expresión usa alguna columna? (una función que solo recibe variables da lo mismo en cada fila).
@@ -56,6 +66,9 @@ public class GenesisBuscaAgregado : TSqlFragmentVisitor
 public class GenesisVisitante : TSqlFragmentVisitor
 {
     public readonly List<Dictionary<string, object>> Hallazgos = new List<Dictionary<string, object>>();
+    public HashSet<string> NombresCte = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    // Condiciones de los CASE / IIF abiertos: una división dentro de uno que valida el divisor ya está protegida.
+    private readonly List<string> condicionesCase = new List<string>();
 
     private static readonly HashSet<string> Agregados = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         { "SUM", "COUNT", "COUNT_BIG", "AVG", "MIN", "MAX", "STDEV", "STDEVP", "VAR", "VARP", "STRING_AGG" };
@@ -231,6 +244,31 @@ public class GenesisVisitante : TSqlFragmentVisitor
     private static bool EsTemporal(string tabla)
     {
         return tabla != null && (tabla.StartsWith("#") || tabla.StartsWith("@"));
+    }
+
+    // Temporal, variable de tabla o CTE: no es una tabla física con índices.
+    private bool NoEsFisica(string tabla)
+    {
+        return EsTemporal(tabla) || (tabla != null && NombresCte.Contains(tabla));
+    }
+
+    // Columna dentro de funciones anidadas: YEAR(CAST(dFecha AS DATE)) -> dFecha.
+    private static ColumnReferenceExpression ColumnaDentro(ScalarExpression expresion)
+    {
+        var e = SinParentesis(expresion);
+        var columna = e as ColumnReferenceExpression;
+        if (columna != null) return columna;
+        var cast = e as CastCall;
+        if (cast != null) return ColumnaDentro(cast.Parameter);
+        var convert = e as ConvertCall;
+        if (convert != null) return ColumnaDentro(convert.Parameter);
+        var llamada = e as FunctionCall;
+        if (llamada != null && llamada.CallTarget == null && llamada.Parameters.Count > 0
+            && FuncionesSobreColumna.Contains(llamada.FunctionName.Value))
+            return ColumnaDentro(llamada.Parameters[0]);
+        var izquierda = e as LeftFunctionCall;  // LEFT(col, n)
+        if (izquierda != null && izquierda.Parameters.Count > 0) return ColumnaDentro(izquierda.Parameters[0]);
+        return null;
     }
 
     // Tabla de una columna (c.cCodigo -> la tabla del alias c), según el FROM de la consulta actual.
@@ -1108,11 +1146,14 @@ public class GenesisVisitante : TSqlFragmentVisitor
         {
             funcion = llamada.FunctionName.Value.ToUpperInvariant();
             columna = llamada.Parameters.Select(p => SinParentesis(p) as ColumnReferenceExpression).FirstOrDefault(c => c != null);
+            // YEAR(CAST(dFecha AS DATE)): la columna está dentro de otra función (no en un ISNULL, que se revisa aparte).
+            if (columna == null && funcion != "ISNULL")
+                columna = llamada.Parameters.Select(p => ColumnaDentro(p)).FirstOrDefault(c => c != null);
         }
         var cast = lado as CastCall;
         var convert = lado as ConvertCall;
-        if (cast != null) { funcion = "CAST"; columna = SinParentesis(cast.Parameter) as ColumnReferenceExpression; }
-        if (convert != null) { funcion = "CONVERT"; columna = SinParentesis(convert.Parameter) as ColumnReferenceExpression; }
+        if (cast != null) { funcion = "CAST"; columna = ColumnaDentro(cast.Parameter); }
+        if (convert != null) { funcion = "CONVERT"; columna = ColumnaDentro(convert.Parameter); }
         if (funcion == null || columna == null) return;
         // ISNULL(col, r) op v: sin la función queda «(col op v OR col IS NULL)» si r es el mismo valor, o
         // «(col op v OR (col IS NULL AND r op v))» en general; así no se pierden las filas con NULL.
@@ -1131,7 +1172,7 @@ public class GenesisVisitante : TSqlFragmentVisitor
             isnullRevisados.Add(llamada.StartOffset);
             if (RevisarIsnull(llamada, columna, "condicion", ejemplo)) return;
         }
-        if (EsTemporal(TablaDe(columna))) return;
+        if (NoEsFisica(TablaDe(columna))) return;
         Agregar("FUNCION_SOBRE_COLUMNA", comparacion.StartLine, "funcion", funcion, "columna", Texto(columna),
                 "expresion", Texto(lado), "comparacion", Texto(comparacion), "ejemplo", ejemplo);
     }
@@ -1213,8 +1254,19 @@ public class GenesisVisitante : TSqlFragmentVisitor
     {
         var columna = SinParentesis(predicado.FirstExpression) as ColumnReferenceExpression;
         var patron = SinParentesis(predicado.SecondExpression) as StringLiteral;
-        if (columna != null && patron != null && patron.Value.StartsWith("%") && !EsTemporal(TablaDe(columna)))
+        if (columna != null && patron != null && patron.Value.StartsWith("%") && !NoEsFisica(TablaDe(columna)))
             Agregar("LIKE_COMODIN_INICIO", predicado.StartLine, "columna", Texto(columna), "patron", patron.Value);
+        // LEFT(M.cMovNro, 8) LIKE @cAnio + @cMes + '%': igual a M.cMovNro LIKE ..., que sí usa el índice.
+        // ScriptDom lee LEFT(...) como LeftFunctionCall (LEFT también es palabra reservada: LEFT JOIN).
+        var izquierda = SinParentesis(predicado.FirstExpression) as LeftFunctionCall;
+        if (izquierda != null && izquierda.Parameters.Count == 2)
+        {
+            var col = SinParentesis(izquierda.Parameters[0]) as ColumnReferenceExpression;
+            if (col != null && !NoEsFisica(TablaDe(col)))
+                Agregar("FUNCION_SOBRE_COLUMNA", predicado.StartLine, "funcion", "LEFT", "columna", Texto(col),
+                        "expresion", Texto(izquierda), "comparacion", Texto(predicado),
+                        "ejemplo", Texto(col) + " LIKE " + Texto(predicado.SecondExpression));
+        }
     }
 
     // BETWEEN con una fecha sin hora sobre un DATETIME: se pierde el último día después de las 00:00.
@@ -1256,18 +1308,35 @@ public class GenesisVisitante : TSqlFragmentVisitor
             Agregar("USO_ARROBA_IDENTITY", variable.StartLine);
     }
 
-    public override void ExplicitVisit(SearchedCaseExpression caso) { RevisarCaseSinElse(caso, caso.ElseExpression); profundidadCase++; base.ExplicitVisit(caso); profundidadCase--; }
+    public override void ExplicitVisit(SearchedCaseExpression caso)
+    {
+        RevisarCaseSinElse(caso, caso.ElseExpression);
+        condicionesCase.Add(string.Join(" ", caso.WhenClauses.Select(c => Texto(c.WhenExpression))));
+        profundidadCase++;
+        base.ExplicitVisit(caso);
+        profundidadCase--;
+        condicionesCase.RemoveAt(condicionesCase.Count - 1);
+    }
     public override void ExplicitVisit(SimpleCaseExpression caso)
     {
         RevisarCaseSinElse(caso, caso.ElseExpression);
         foreach (var cuando in caso.WhenClauses)
             if (SinParentesis(cuando.WhenExpression) is NullLiteral)
                 Agregar("COMPARACION_CON_NULL", cuando.StartLine, "comparacion", Texto(caso.InputExpression) + " WHEN NULL", "negada", false);
+        condicionesCase.Add(Texto(caso.InputExpression));
         profundidadCase++;
         base.ExplicitVisit(caso);
         profundidadCase--;
+        condicionesCase.RemoveAt(condicionesCase.Count - 1);
     }
-    public override void ExplicitVisit(IIfCall llamada) { profundidadCase++; base.ExplicitVisit(llamada); profundidadCase--; }
+    public override void ExplicitVisit(IIfCall llamada)
+    {
+        condicionesCase.Add(Texto(llamada.Predicate));
+        profundidadCase++;
+        base.ExplicitVisit(llamada);
+        profundidadCase--;
+        condicionesCase.RemoveAt(condicionesCase.Count - 1);
+    }
 
     private void RevisarCaseSinElse(TSqlFragment caso, ScalarExpression sino)
     {
@@ -1276,9 +1345,19 @@ public class GenesisVisitante : TSqlFragmentVisitor
 
     public override void Visit(BinaryExpression expresion)
     {
-        if (expresion.BinaryExpressionType != BinaryExpressionType.Divide || profundidadCase > 0) return;
+        if (expresion.BinaryExpressionType != BinaryExpressionType.Divide) return;
         var divisor = SinParentesis(expresion.SecondExpression);
         if (divisor is Literal) return;
+        // Dentro de un CASE / IIF que revisa el divisor (o la columna que convierte), ya está protegida.
+        var columnaDivisor = ColumnaDentro(divisor);
+        string clave = columnaDivisor != null ? NombreColumna(columnaDivisor) : Texto(divisor);
+        if (condicionesCase.Any(c => c.IndexOf(clave, StringComparison.OrdinalIgnoreCase) >= 0)) return;
+        if (divisor is CastCall || divisor is ConvertCall)
+        {
+            if (columnaDivisor == null && !Contiene(divisor, "@")) return;
+            Agregar("DIVISION_SIN_NULLIF", expresion.StartLine, "expresion", Texto(expresion), "divisor", Texto(divisor));
+            return;
+        }
         var funcion = divisor as FunctionCall;
         if (funcion != null && string.Equals(funcion.FunctionName.Value, "NULLIF", StringComparison.OrdinalIgnoreCase)) return;
         if (!Contiene(divisor, "@") && !(divisor is ColumnReferenceExpression) && !(divisor is VariableReference) && !(divisor is FunctionCall)
