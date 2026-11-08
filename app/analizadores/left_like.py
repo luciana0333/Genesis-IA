@@ -166,15 +166,16 @@ def left_reemplazable_por_like(limpio: str) -> List[Tuple[int, str]]:
                 continue
             funcion = re.sub(r"\s+", " ", match.group("funcion"))
             condicion = re.sub(r"\s+", " ", match.group(0).strip())
-            # Un valor: «LIKE '701%'» (como lo escribe la usuaria); varios (IN): la condición completa con OR.
-            reemplazo = likes[0][len(col) + 1:] if len(likes) == 1 else "(" + " OR ".join(likes) + ")"
+            # Ejemplo con la columna: «RH.cRHCod LIKE 'E%'»; varios valores (IN), unidos con OR.
+            ejemplo = " OR ".join(likes)
             if match.groupdict().get("collate"):
-                reemplazo += f" COLLATE {match.group('collate')}"
+                ejemplo += f" COLLATE {match.group('collate')}"
             nombre = "SUBSTRING" if funcion.upper().startswith("SUBSTRING") else "LEFT"
+            # «Qué hacer»: texto de la usuaria (8 nov.), igual en Reportes y Negocio.
             encontrados.append((
                 match.start(),
-                f"Se identificó el uso de {condicion} en una condición. Se recomienda evaluar reemplazarlo por "
-                f"{reemplazo}, ya que aplicar {nombre}() sobre la columna puede impedir el aprovechamiento de sus "
-                f"índices y afectar el rendimiento de la consulta.",
+                f"Se identificó el uso de {condicion} en una condición. Se recomienda evaluar el reemplazo de "
+                f"{nombre}() por LIKE (ejemplo: {ejemplo}), permitiendo aprovechar los índices de la columna y "
+                f"mejorar el rendimiento de la consulta.",
             ))
     return encontrados

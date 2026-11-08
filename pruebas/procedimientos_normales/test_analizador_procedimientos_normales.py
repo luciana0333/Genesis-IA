@@ -723,27 +723,29 @@ END"""
 
     def test_left_en_condicion_sugiere_like(self):
         casos = {
-            "SELECT a FROM #T WHERE LEFT(cCodigo, 3) = 'ABC'": "por LIKE 'ABC%', ya que aplicar LEFT()",
+            "SELECT a FROM #T WHERE LEFT(cCodigo, 3) = 'ABC'": "de LEFT() por LIKE (ejemplo: cCodigo LIKE 'ABC%'),",
             "DECLARE @cPrefijo CHAR(4) SELECT a FROM #A a JOIN #B b ON LEFT(a.cCuenta, 4) = @cPrefijo":
-                "por LIKE @cPrefijo + '%',",
-            "SELECT a FROM #T WHERE SUBSTRING(cCtaCod, 1, 5) = '10901'": "por LIKE '10901%', ya que aplicar SUBSTRING()",
+                "(ejemplo: a.cCuenta LIKE @cPrefijo + '%'),",
+            "SELECT a FROM #T WHERE SUBSTRING(cCtaCod, 1, 5) = '10901'":
+                "de SUBSTRING() por LIKE (ejemplo: cCtaCod LIKE '10901%'),",
             "SELECT a FROM #T WHERE LEFT(cCtaCod, 5) IN ('10901','10902')":
-                "(cCtaCod LIKE '10901%' OR cCtaCod LIKE '10902%')",
-            "SELECT a FROM #T WHERE LEFT(cCtaCod, 5) = N'10901'": "por LIKE N'10901%',",
-            "SELECT a FROM #T WHERE LEFT(cCtaCod, 2) = 10": "por LIKE '10%',",
-            "SELECT a FROM #T WHERE LEFT(cCodigo, 3) = 'A_B'": "por LIKE 'A[_]B%',",
-            "SELECT a FROM #T WHERE '109' = LEFT(cCtaCod, 3)": "por LIKE '109%',",
-            "IF EXISTS (SELECT 1 FROM #U WHERE LEFT(cCtaCod, 3) = '109') PRINT 1": "por LIKE '109%',",
+                "(ejemplo: cCtaCod LIKE '10901%' OR cCtaCod LIKE '10902%'),",
+            "SELECT a FROM #T WHERE LEFT(cCtaCod, 5) = N'10901'": "(ejemplo: cCtaCod LIKE N'10901%'),",
+            "SELECT a FROM #T WHERE LEFT(cCtaCod, 2) = 10": "(ejemplo: cCtaCod LIKE '10%'),",
+            "SELECT a FROM #T WHERE LEFT(cCodigo, 3) = 'A_B'": "(ejemplo: cCodigo LIKE 'A[_]B%'),",
+            "SELECT a FROM #T WHERE '109' = LEFT(cCtaCod, 3)": "(ejemplo: cCtaCod LIKE '109%'),",
+            "IF EXISTS (SELECT 1 FROM #U WHERE LEFT(cCtaCod, 3) = '109') PRINT 1": "(ejemplo: cCtaCod LIKE '109%'),",
             "CREATE PROCEDURE dbo.PA_X @pcPref VARCHAR(5) AS SELECT a FROM #T WHERE LEFT(cCtaCod, 5) = @pcPref":
-                "por LIKE @pcPref + '%',",
+                "(ejemplo: cCtaCod LIKE @pcPref + '%'),",
             # Un CASE ... END antes, en el mismo WHERE.
-            "SELECT a FROM T WHERE CASE WHEN x = 1 THEN 1 ELSE 0 END = 1 AND LEFT(cCod, 3) = '701'": "por LIKE '701%',",
+            "SELECT a FROM T WHERE CASE WHEN x = 1 THEN 1 ELSE 0 END = 1 AND LEFT(cCod, 3) = '701'":
+                "(ejemplo: cCod LIKE '701%'),",
             # El COLLATE se conserva.
             "SELECT a FROM T WHERE LEFT(cCod, 3) = '701' COLLATE SQL_Latin1_General_CP1_CI_AS":
-                "por LIKE '701%' COLLATE SQL_Latin1_General_CP1_CI_AS,",
+                "(ejemplo: cCod LIKE '701%' COLLATE SQL_Latin1_General_CP1_CI_AS),",
             # Casos reales: LEFT(cRHCod, 1) en el ON de un JOIN.
             "SELECT a FROM #R b INNER JOIN #C c ON b.cPersCod = c.cPersCod AND LEFT(b.cRHCod,1) IN ('E','A')":
-                "por (b.cRHCod LIKE 'E%' OR b.cRHCod LIKE 'A%'),",
+                "(ejemplo: b.cRHCod LIKE 'E%' OR b.cRHCod LIKE 'A%'),",
         }
         for sql, sugerencia in casos.items():
             with self.subTest(sql=sql):

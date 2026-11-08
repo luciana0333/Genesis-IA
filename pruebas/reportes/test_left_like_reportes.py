@@ -19,16 +19,16 @@ class LeftLikeEnReportesTest(unittest.TestCase):
         self.assertEqual(hallazgos[0].linea, 6)
         self.assertEqual(
             hallazgos[0].mensaje,
-            "Se identificó el uso de LEFT(cCtaCod, 5) = '10901' en una condición. Se recomienda evaluar "
-            "reemplazarlo por LIKE '10901%', ya que aplicar LEFT() sobre la columna puede impedir el "
-            "aprovechamiento de sus índices y afectar el rendimiento de la consulta.",
+            "Se identificó el uso de LEFT(cCtaCod, 5) = '10901' en una condición. Se recomienda evaluar el "
+            "reemplazo de LEFT() por LIKE (ejemplo: cCtaCod LIKE '10901%'), permitiendo aprovechar los índices de "
+            "la columna y mejorar el rendimiento de la consulta.",
         )
 
     def test_substring_in_y_parametro(self):
         casos = {
-            "WHERE SUBSTRING(cCtaCod, 1, 5) = '10901'": "por LIKE '10901%', ya que aplicar SUBSTRING()",
-            "WHERE LEFT(cCtaCod, 5) IN ('10901', '10902')": "(cCtaCod LIKE '10901%' OR cCtaCod LIKE '10902%')",
-            "WHERE LEFT(cCtaCod, 5) = @pcPrefijo": "por LIKE @pcPrefijo + '%',",
+            "WHERE SUBSTRING(cCtaCod, 1, 5) = '10901'": "de SUBSTRING() por LIKE (ejemplo: cCtaCod LIKE '10901%'),",
+            "WHERE LEFT(cCtaCod, 5) IN ('10901', '10902')": "(ejemplo: cCtaCod LIKE '10901%' OR cCtaCod LIKE '10902%'),",
+            "WHERE LEFT(cCtaCod, 5) = @pcPrefijo": "(ejemplo: cCtaCod LIKE @pcPrefijo + '%'),",
         }
         for filtro, sugerencia in casos.items():
             with self.subTest(filtro=filtro):
