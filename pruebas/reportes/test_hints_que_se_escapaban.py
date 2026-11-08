@@ -6,7 +6,7 @@ from app.analizadores.analizador_procedimientos_normales import verificar_proced
 from app.analizadores.analizador_reportes import verificar_reporte
 
 AREAS = {"Reportes": verificar_reporte, "Negocio": verificar_procedimiento_normal}
-HINTS = {"HINT_PLAN_PROHIBIDO", "HINT_BLOQUEO_PROHIBIDO"}
+HINTS = {"HINT_PLAN_PROHIBIDO", "HINT_BLOQUEO_PROHIBIDO", "INDICE_FORZADO"}
 
 
 def _hints(verificar, sql):
@@ -25,7 +25,7 @@ class HintsQueSeEscapabanTest(unittest.TestCase):
             "SELECT a FROM dbo.T WITH (NOWAIT)": "HINT_BLOQUEO_PROHIBIDO",
             "SELECT a FROM dbo.T WITH (READCOMMITTEDLOCK)": "HINT_BLOQUEO_PROHIBIDO",
             "SELECT a FROM dbo.T WITH (SNAPSHOT)": "HINT_BLOQUEO_PROHIBIDO",
-            "SELECT a FROM dbo.T WITH (NOLOCK, INDEX = IX_T_a)": "HINT_PLAN_PROHIBIDO",
+            "SELECT a FROM dbo.T WITH (NOLOCK, INDEX = IX_T_a)": "INDICE_FORZADO",
         }
         for area, verificar in AREAS.items():
             for sql, regla in casos.items():

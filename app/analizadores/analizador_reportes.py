@@ -6,6 +6,9 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
 from app.analizadores.collate_temporales import collate_agrupado
+from app.analizadores.esquema_entre_bases import esquemas_omitidos
+from app.analizadores.indice_forzado import indice_forzado_agrupado
+from app.analizadores.select_estrella import marcar as marcar_select_estrella, unir_select_estrella
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.left_like import left_reemplazable_por_like
@@ -31,7 +34,7 @@ _IDENTIFICADOR = r"(?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)"
 _TIPOS_TEXTO = r"(?:N?VARCHAR|N?CHAR|TEXT|NTEXT)\b"
 _HINTS_PROHIBIDOS = (
     r"\bOPTION\s*\([^)]*\)|\bDBCC\b|\bFORCESEEK\b|\bFORCESCAN\b|\bFORCE\s+ORDER\b|\bRECOMPILE\b|"
-    r"\bNOEXPAND\b|\bINDEX\s*\(|\bINDEX\s*=\s*(?:\[[^\]]+\]|\w+)|\b(?:LOOP|HASH|MERGE|REMOTE)\s+JOIN\b|"
+    r"\bNOEXPAND\b|\b(?:LOOP|HASH|MERGE|REMOTE)\s+JOIN\b|"
     r"\bOPTIMIZE\s+FOR\b|\bMAXDOP\b|\bFAST\s+\d+|\bUSE\s+PLAN\b|\bKEEP(?:FIXED)?\s+PLAN\b|\bQUERYTRACEON\b|"
     r"\bSET\s+FORCEPLAN\s+ON\b"
 )
@@ -288,6 +291,18 @@ def _validar_hints(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _validar_indice_forzado(texto: str, limpio: str) -> List[Hallazgo]:
+    """WITH (INDEX(IX_...)): obliga al motor a usar un índice. Una observación con todos (opción A, 7 nov.)."""
+    agrupado = indice_forzado_agrupado(limpio, lambda posicion: _linea(texto, posicion))
+    if not agrupado:
+        return []
+    posicion, mensaje, lineas = agrupado
+    hallazgo = _hallazgo(texto, posicion, "INDICE_FORZADO", mensaje)
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas  # «Ver en el código» recorre cada índice
+    return [hallazgo]
+
+
 def _validar_hints_bloqueo(texto: str, sin_comentarios: str) -> List[Hallazgo]:
     """UPDLOCK, HOLDLOCK, TABLOCK...: en un reporte bloquean a los procesos que registran operaciones."""
     hallazgos = []
@@ -424,6 +439,10 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
                 hallazgo.elemento = match.group("tabla")
             elif regla == "SELECT_ESTRELLA_PROHIBIDO":
                 hallazgo.elemento = _objeto_select_estrella(match, limpio)
+                if "alias" in match.re.groupindex:
+                    marcar_select_estrella(hallazgo, _tabla_del_alias_en(limpio, match.start(), match.group("alias")))
+                else:
+                    marcar_select_estrella(hallazgo, match.group("tabla"), bool(match.group("funcion")))
             hallazgos.append(hallazgo)
     return hallazgos
 
@@ -785,27 +804,19 @@ def _validar_esquema_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
     nombre = match.group(2).strip("[]")
     return [_hallazgo(
         texto, match.start(2), "PROCEDIMIENTO_SIN_ESQUEMA",
-        f"Se identificó que el procedimiento {nombre} no tiene declarado un esquema. Se recomienda añadir el "
-        f"esquema; si es dbo, definirlo explícitamente, ya que así se evita crear o modificar un objeto "
-        f"equivocado (ej.: dbo.{nombre}).",
+        # «Qué hacer»: texto de la usuaria (7 nov.), igual en Negocio.
+        f"Se identificó que el procedimiento {nombre} no tiene declarado un esquema. Se recomienda indicar el esquema correspondiente; de ser dbo, colocarlo "
+        f"explícitamente (ej.: dbo.{nombre}), ya que, si se omite, se utiliza el esquema predeterminado del "
+        f"usuario, lo que podría ocasionar que el objeto se cree o modifique en un esquema distinto al esperado.",
     )]
 
 
 def _validar_esquema_entre_bases(texto: str, limpio: str) -> List[Hallazgo]:
-    """Base..Tabla omite el esquema: entre bases se escribe Base.Esquema.Tabla."""
-    hallazgos = []
-    patron = re.compile(r"(\[[^\]]+\]|[A-Za-z_][\w$#]*)\s*\.\s*\.\s*(\[[^\]]+\]|[A-Za-z_][\w$#]*)")
-    for match in patron.finditer(limpio):
-        base, tabla = match.group(1).strip("[]"), match.group(2).strip("[]")
-        anterior = re.search(r"(\w+)\s*$", limpio[:match.start()])
-        uso = "una unión con" if anterior and anterior.group(1).upper() == "JOIN" else "el uso de"
-        hallazgos.append(_hallazgo(
-            texto, match.start(), "ESQUEMA_OMITIDO_ENTRE_BASES",
-            f"Se identificó {uso} la tabla {tabla} de la base {base}, pero el esquema se omitió "
-            f"({base}..{tabla}). Se recomienda definir el esquema, ya que así se evita apuntar a una "
-            f"tabla equivocada (ej.: {base}.dbo.{tabla}).",
-        ))
-    return hallazgos
+    """Base..Tabla omite el esquema: mismo texto en Reportes y Negocio (usuaria, 7 nov.)."""
+    return [
+        _hallazgo(texto, posicion, "ESQUEMA_OMITIDO_ENTRE_BASES", mensaje)
+        for posicion, mensaje in esquemas_omitidos(limpio)
+    ]
 
 
 def _validar_order_by_numerico(texto: str, limpio: str) -> List[Hallazgo]:
@@ -1070,6 +1081,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_nolock(texto_sql, limpio))
     sin_comentarios = _quitar_comentarios(texto_sql, vaciar_textos=False)
     hallazgos.extend(_validar_hints(texto_sql, sin_comentarios))
+    hallazgos.extend(_validar_indice_forzado(texto_sql, limpio))
     hallazgos.extend(_validar_hints_bloqueo(texto_sql, sin_comentarios))
     hallazgos.extend(_validar_comentarios_codigo(texto_sql))
     hallazgos.extend(_validar_tablas_temporales(texto_sql, limpio))
@@ -1103,4 +1115,5 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     ]
     # Las reglas desactivadas en el catálogo no se reportan.
     hallazgos = [h for h in hallazgos if REGLAS_REPORTES[h.regla].activo]
-    return _agrupar_hallazgos_repetidos(hallazgos)
+    # Todos los SELECT * en una sola observación con el texto de la usuaria (7 nov.).
+    return _agrupar_hallazgos_repetidos(unir_select_estrella(hallazgos))

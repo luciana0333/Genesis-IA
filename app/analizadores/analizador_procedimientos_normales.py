@@ -8,6 +8,9 @@ from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html
 from app.analizadores.collate_temporales import collate_agrupado
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
+from app.analizadores.esquema_entre_bases import esquemas_omitidos
+from app.analizadores.indice_forzado import indice_forzado_agrupado
+from app.analizadores.select_estrella import marcar as marcar_select_estrella, unir_select_estrella
 from app.analizadores.left_like import left_reemplazable_por_like
 from app.analizadores.hints_compartidos import (
     HINTS_BLOQUEO_NUEVOS, QUE_HACE_EL_AISLAMIENTO, hint_en_temporal, niveles_de_aislamiento,
@@ -206,28 +209,15 @@ def _validar_hints(texto: str, limpio: str) -> List[Hallazgo]:
 
 
 def _validar_indice_forzado(texto: str, limpio: str) -> List[Hallazgo]:
-    """WITH (INDEX(IX_...)) o WITH (INDEX = IX_...): obliga al motor a usar un índice."""
-    hallazgos = []
-    referencia = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
-    for match in re.finditer(r"\bINDEX\s*(?:\(\s*([^)]*?)\s*\)|=\s*(\[[^\]]+\]|\w+))", limpio, re.IGNORECASE):
-        # Solo como hint de tabla: dentro del WITH (...) que sigue a la tabla.
-        abre = limpio.rfind("(", 0, match.start())
-        previo = limpio[max(0, abre - 40):abre] if abre >= 0 else ""
-        if not re.search(r"\bWITH\s*$", previo, re.IGNORECASE):
-            continue
-        indice = (match.group(1) or match.group(2) or "").strip()
-        antes = re.sub(r"\s*WITH\s*$", "", limpio[max(0, abre - 300):abre], flags=re.IGNORECASE)
-        tabla = re.search(
-            rf"\b(?:FROM|JOIN)\s+({referencia})(?:\s+(?:AS\s+)?[A-Za-z_][\w$#]*)?\s*$", antes, re.IGNORECASE,
-        )
-        en_tabla = f" en la tabla {_limpiar_nombre(tabla.group(1))}" if tabla else ""
-        hallazgos.append(_hallazgo(
-            texto, match.start(), "HINT_PLAN_PROHIBIDO",
-            f"Se identificó que se obliga al motor a usar el índice {indice}{en_tabla} (WITH (INDEX)). Se "
-            f"recomienda retirarlo, ya que es el optimizador quien decide qué índice usar según los datos, y "
-            f"si el índice cambia o se elimina, el procedimiento dejará de funcionar.",
-        ))
-    return hallazgos
+    """WITH (INDEX(IX_...)): obliga al motor a usar un índice. Una observación con todos (opción A, 7 nov.)."""
+    agrupado = indice_forzado_agrupado(limpio, lambda posicion: _linea(texto, posicion))
+    if not agrupado:
+        return []
+    posicion, mensaje, lineas = agrupado
+    hallazgo = _hallazgo(texto, posicion, "INDICE_FORZADO", mensaje)
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas  # «Ver en el código» recorre cada índice
+    return [hallazgo]
 
 
 def _validar_hints_bloqueo(texto: str, limpio: str) -> List[Hallazgo]:
@@ -674,11 +664,11 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     for match in re.finditer(patron_estrella, limpio, re.IGNORECASE):
         tabla = _tabla_del_from(limpio, match.start())
         de = f" de {tabla}" if tabla else ""
-        hallazgos.append(_hallazgo(
+        hallazgos.append(marcar_select_estrella(_hallazgo(
             texto, match.start(), "SELECT_ESTRELLA_PROHIBIDO",
             f"Se identificó que se están consultando todas las columnas{de} mediante SELECT *. "
             f"{_ACCION_SELECT_ESTRELLA.format(ejemplo='SELECT cNombre, dFecha')}",
-        ))
+        ), tabla))
     # SELECT c.*: todas las columnas de la tabla del alias c.
     for match in re.finditer(r"(?<![\w.@#])([A-Za-z_]\w*)\s*\.\s*\*(?=\s*(?:,|\bFROM\b))", limpio, re.IGNORECASE):
         alias = match.group(1)
@@ -688,11 +678,11 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             sentencia, re.IGNORECASE,
         )
         tabla = _limpiar_nombre(origen.group(1)) if origen else alias
-        hallazgos.append(_hallazgo(
+        hallazgos.append(marcar_select_estrella(_hallazgo(
             texto, match.start(), "SELECT_ESTRELLA_PROHIBIDO",
             f"Se identificó que se están consultando todas las columnas de {tabla} mediante SELECT {alias}.*. "
             f"{_ACCION_SELECT_ESTRELLA.format(ejemplo=f'SELECT {alias}.cNombre, {alias}.dFecha')}",
-        ))
+        ), tabla))
     for match in re.finditer(r"([\w.\[\]@#]+)\s+COLLATE\s+\w+", limpio, re.IGNORECASE):
         # La cláusula que manda es la más cercana al COLLATE (puede haber un ON antes del WHERE). Una
         # subconsulta ya cerrada (WHERE a IN (SELECT … FROM …) AND c COLLATE …) no cambia la cláusula.
@@ -1054,9 +1044,10 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
     if len(partes) == 1:
         hallazgos.append(_hallazgo(
             texto, posicion, "PROCEDIMIENTO_SIN_ESQUEMA",
-            f"El procedimiento {nombre} no tiene declarado un esquema. Se recomienda añadir "
-            f"el esquema; si es dbo, definirlo explícitamente, ya que así se evita crear o modificar un objeto "
-            f"equivocado (ej.: dbo.{nombre}).",
+            # «Qué hacer»: texto de la usuaria (7 nov.), igual en Reportes.
+            f"El procedimiento {nombre} no tiene declarado un esquema. Se recomienda indicar el esquema correspondiente; de ser dbo, colocarlo "
+            f"explícitamente (ej.: dbo.{nombre}), ya que, si se omite, se utiliza el esquema predeterminado del "
+            f"usuario, lo que podría ocasionar que el objeto se cree o modifique en un esquema distinto al esperado.",
         ))
 
     # En un ALTER el procedimiento ya existe: su nombre no se puede cambiar.
@@ -1560,18 +1551,11 @@ def _validar_prefijo_variables(texto: str, limpio: str) -> List[Hallazgo]:
 
 
 def _validar_esquema_entre_bases(texto: str, limpio: str) -> List[Hallazgo]:
-    """Base..Tabla omite el esquema: entre bases se escribe Base.Esquema.Tabla."""
-    hallazgos = []
-    patron = re.compile(r"(\[[^\]]+\]|[A-Za-z_][\w$#]*)\s*\.\s*\.\s*(\[[^\]]+\]|[A-Za-z_][\w$#]*)")
-    for match in patron.finditer(limpio):
-        base, tabla = match.group(1), match.group(2)
-        hallazgos.append(_hallazgo(
-            texto, match.start(), "ESQUEMA_OMITIDO_ENTRE_BASES",
-            f"Se verificó el uso de la tabla {tabla} de la base {base}, pero el esquema se omitió "
-            f"({base}..{tabla}). Defina el esquema, ya que así se evita apuntar a una tabla "
-            f"equivocada (ej.: {base}.dbo.{tabla}).",
-        ))
-    return hallazgos
+    """Base..Tabla omite el esquema: mismo texto en Reportes y Negocio (usuaria, 7 nov.)."""
+    return [
+        _hallazgo(texto, posicion, "ESQUEMA_OMITIDO_ENTRE_BASES", mensaje)
+        for posicion, mensaje in esquemas_omitidos(limpio)
+    ]
 
 
 # Inicio de una nueva sentencia: separa las consultas del procedimiento.
@@ -1770,7 +1754,8 @@ def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -
         hallazgos = [h for h in hallazgos if h.regla != "SELECT_ESTRELLA_PROHIBIDO"]
     # Las reglas desactivadas en el catálogo no se reportan.
     hallazgos = [h for h in hallazgos if REGLAS_PROCEDIMIENTOS_NORMALES[h.regla].activo]
-    return _agrupar_repetidos(hallazgos)
+    # Todos los SELECT * en una sola observación con el texto de la usuaria (7 nov.).
+    return _agrupar_repetidos(unir_select_estrella(hallazgos))
 
 
 def _validar_sintaxis_prohibida(texto: str, limpio: str) -> List[Hallazgo]:

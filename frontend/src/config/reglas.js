@@ -120,6 +120,7 @@ export const NOMBRES_REGLAS = {
   TABLA_FISICA_SIN_NOLOCK: 'Tabla física sin WITH (NOLOCK)',
   NOLOCK_EN_TABLA_TEMPORAL: 'WITH (NOLOCK) en tabla temporal',
   HINT_PLAN_PROHIBIDO: 'Hint de plan prohibido',
+  INDICE_FORZADO: 'Uso de índice forzado (WITH INDEX)',
   MAXRECURSION_PROHIBIDO: 'Uso de MAXRECURSION en consultas',
   HINT_BLOQUEO_PROHIBIDO: 'Hint de bloqueo prohibido',
   CODIGO_SQL_COMENTADO: 'Código SQL comentado',

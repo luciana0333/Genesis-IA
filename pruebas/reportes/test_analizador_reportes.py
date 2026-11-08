@@ -1,6 +1,8 @@
 import unittest
 
 from app.analizadores.analizador_reportes import verificar_reporte
+from app.analizadores.analizador_procedimientos_normales import verificar_procedimiento_normal
+from app.analizadores.esquema_entre_bases import QUE_HACER_ESQUEMA_ENTRE_BASES
 
 
 class TestAnalizadorReportes(unittest.TestCase):
@@ -58,10 +60,9 @@ class TestAnalizadorReportes(unittest.TestCase):
         ]
 
         self.assertEqual(len(hallazgos), 1)
-        self.assertIn("Se identificaron 3 usos de SELECT *", hallazgos[0].mensaje)
-        self.assertIn("tabla dbo.Cliente (línea 2); tabla dbo.Persona (línea 3); tabla dbo.Agencias (línea 4)",
+        self.assertIn("Se identificó el uso de SELECT * sobre las tablas dbo.Cliente, dbo.Persona y dbo.Agencias.",
                       hallazgos[0].mensaje)
-        self.assertIn("líneas 2, 3, 4", hallazgos[0].mensaje)
+        self.assertEqual(hallazgos[0].lineas, [2, 3, 4])
 
     def test_temporal_texto_con_collate_y_tabla_fisica_con_nolock(self):
         sql = """
@@ -214,17 +215,25 @@ class TestAnalizadorReportes(unittest.TestCase):
         hallazgos = verificar_reporte(sql)
         omitidos = [h for h in hallazgos if h.regla == "ESQUEMA_OMITIDO_ENTRE_BASES"]
         self.assertEqual(len(omitidos), 1)
-        self.assertIn("DBCMACICA.dbo.Agencias", omitidos[0].mensaje)
         self.assertIn("2 observaciones", omitidos[0].mensaje)
         self.assertEqual(omitidos[0].severidad.value, "medio")
-        self.assertIn("una unión con la tabla Agencias de la base DBCMACICA", omitidos[0].mensaje)
-        self.assertIn("una unión con la tabla Zonas de la base DBCMACICA", omitidos[0].mensaje)
-        self.assertIn("Se recomienda definir el esquema", omitidos[0].mensaje)
+        self.assertIn("el uso de la tabla Agencias de la base de datos DBCMACICA sin indicar el esquema "
+                      "correspondiente (DBCMACICA..Agencias)", omitidos[0].mensaje)
+        self.assertIn("(DBCMACICA..Zonas)", omitidos[0].mensaje)
+        self.assertTrue(omitidos[0].mensaje.endswith(QUE_HACER_ESQUEMA_ENTRE_BASES))
 
-    def test_esquema_omitido_en_from_no_dice_union(self):
-        hallazgo = next(h for h in verificar_reporte("SELECT a.cNombre FROM DBCMACICA..Agencias a WITH(NOLOCK)")
-                        if h.regla == "ESQUEMA_OMITIDO_ENTRE_BASES")
-        self.assertIn("el uso de la tabla Agencias", hallazgo.mensaje)
+    def test_esquema_omitido_mismo_texto_en_reportes_y_negocio(self):
+        sql = "SELECT a.cNombre FROM DBCMACICACONSOL..CREDITOSREPROGRAMADOSCOVIDCIERRE a WITH(NOLOCK)"
+        for verificar in (verificar_reporte, verificar_procedimiento_normal):
+            with self.subTest(modulo=verificar.__name__):
+                hallazgo = next(h for h in verificar(sql) if h.regla == "ESQUEMA_OMITIDO_ENTRE_BASES")
+                self.assertEqual(
+                    hallazgo.mensaje,
+                    "Se verificó el uso de la tabla CREDITOSREPROGRAMADOSCOVIDCIERRE de la base de datos "
+                    "DBCMACICACONSOL sin indicar el esquema correspondiente "
+                    "(DBCMACICACONSOL..CREDITOSREPROGRAMADOSCOVIDCIERRE). " + QUE_HACER_ESQUEMA_ENTRE_BASES,
+                )
+                self.assertEqual(hallazgo.severidad.value, "medio")
 
     def test_mensaje_de_raiserror(self):
         hallazgo = next(h for h in verificar_reporte("RAISERROR('No existe', 16, 1);")
