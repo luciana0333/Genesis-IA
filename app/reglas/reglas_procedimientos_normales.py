@@ -79,7 +79,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "COLLATE_DATABASE_DEFAULT": ReglaDiccionario(
         codigo="COLLATE_DATABASE_DEFAULT",
-        nombre="COLLATE DATABASE_DEFAULT",
+        nombre="Uso de COLLATE DATABASE_DEFAULT",
         severidad="alto",
         descripcion="El COLLATE se define explícitamente con el de la empresa (SQL_Latin1_General_CP1_CI_AS), "
                     "no con DATABASE_DEFAULT.",

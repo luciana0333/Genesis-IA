@@ -1,8 +1,16 @@
-"""COLLATE DATABASE_DEFAULT en Reportes: se pide el COLLATE de la empresa."""
+"""«Uso de COLLATE DATABASE_DEFAULT»: el mismo texto de la usuaria en Reportes y Negocio (8 nov.)."""
 
 import unittest
 
+from app.analizadores.analizador_procedimientos_normales import verificar_procedimiento_normal
 from app.analizadores.analizador_reportes import verificar_reporte
+from app.analizadores.collate_temporales import MENSAJE_COLLATE_DATABASE_DEFAULT
+
+TEXTO_USUARIA = (
+    "Se identificó el uso de COLLATE DATABASE_DEFAULT, que toma la intercalación predeterminada de la base de datos "
+    "donde se ejecuta la consulta. Se recomienda utilizar el COLLATE correspondiente (SQL_Latin1_General_CP1_CI_AS), "
+    "para evitar conflictos al comparar o combinar textos entre bases de datos con distintas intercalaciones."
+)
 
 
 def _database_default(sql):
@@ -17,18 +25,18 @@ class CollateDatabaseDefaultTest(unittest.TestCase):
                 hallazgos = _database_default(sql)
                 self.assertEqual(len(hallazgos), 1)
                 self.assertEqual(hallazgos[0].severidad.value, "alto")
-                self.assertTrue(hallazgos[0].mensaje.startswith(
-                    "Se identificó el uso de COLLATE DATABASE_DEFAULT en la columna cCod, que toma el COLLATE de la base donde se ejecuta."))
+                self.assertEqual(hallazgos[0].mensaje, TEXTO_USUARIA)
 
-    def test_nombra_cada_columna(self):
+    def test_mismo_texto_en_reportes_y_negocio(self):
+        self.assertEqual(MENSAJE_COLLATE_DATABASE_DEFAULT, TEXTO_USUARIA)
         sql = ("CREATE TABLE #A (\n nId INT,\n cCod CHAR(1) NOT NULL COLLATE DATABASE_DEFAULT,\n"
                " cNombre NVARCHAR(MAX) COLLATE DATABASE_DEFAULT)")
-        hallazgo = _database_default(sql)[0]
-        self.assertEqual(hallazgo.lineas, [3, 4])
-        self.assertIn("en la columna cCod,", hallazgo.mensaje)
-        self.assertIn("en la columna cNombre,", hallazgo.mensaje)
-        join = "SELECT 1 FROM A a WITH(NOLOCK) INNER JOIN B b WITH(NOLOCK) ON a.cCod = b.cCod COLLATE DATABASE_DEFAULT"
-        self.assertIn("en la columna b.cCod,", _database_default(join)[0].mensaje)
+        for verificar in (verificar_reporte, verificar_procedimiento_normal):
+            with self.subTest(modulo=verificar.__name__):
+                hallazgo = [h for h in verificar(sql) if h.regla == "COLLATE_DATABASE_DEFAULT"][0]
+                self.assertEqual(hallazgo.severidad.value, "alto")
+                self.assertEqual(hallazgo.lineas, [3, 4])
+                self.assertTrue(hallazgo.mensaje.endswith(TEXTO_USUARIA[TEXTO_USUARIA.index("que toma"):]))
 
     def test_en_el_join_tambien_se_observa_el_collate_en_la_condicion(self):
         sql = "SELECT 1 FROM A a WITH(NOLOCK) INNER JOIN B b WITH(NOLOCK) ON a.c COLLATE DATABASE_DEFAULT = b.c"

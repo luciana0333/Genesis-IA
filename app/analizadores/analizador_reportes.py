@@ -5,7 +5,7 @@ import re
 from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
-from app.analizadores.collate_temporales import collate_agrupado
+from app.analizadores.collate_temporales import MENSAJE_COLLATE_DATABASE_DEFAULT, collate_agrupado
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
 from app.analizadores.indice_forzado import indice_forzado_agrupado
 from app.analizadores.select_estrella import marcar as marcar_select_estrella, unir_select_estrella
@@ -846,15 +846,8 @@ def _validar_collate_database_default(texto: str, limpio: str) -> List[Hallazgo]
     for match in re.finditer(r"\bCOLLATE\s+DATABASE_DEFAULT\b", limpio, re.IGNORECASE):
         if dentro_de_openjson(limpio, match.start()):
             continue  # lo observa «COLLATE innecesario en OPENJSON»
-        columna = _columna_antes_de(limpio, match.start())
-        en_columna = f" en la columna {columna}" if columna else ""
-        hallazgos.append(_hallazgo(
-            texto, match.start(), "COLLATE_DATABASE_DEFAULT",
-            f"Se identificó el uso de COLLATE DATABASE_DEFAULT{en_columna}, que toma el COLLATE de la base donde "
-            f"se ejecuta. Se recomienda definir el COLLATE explícitamente con el que usa la empresa, ya que "
-            f"DATABASE_DEFAULT puede cambiar entre bases y servidores, y las comparaciones fallarían "
-            f"(ej.: COLLATE SQL_Latin1_General_CP1_CI_AS).",
-        ))
+        # Texto de la usuaria (8 nov.), el mismo que en Negocio.
+        hallazgos.append(_hallazgo(texto, match.start(), "COLLATE_DATABASE_DEFAULT", MENSAJE_COLLATE_DATABASE_DEFAULT))
     return hallazgos
 
 

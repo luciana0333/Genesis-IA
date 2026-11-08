@@ -200,7 +200,7 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         sql = "CREATE TABLE #T (cNombre VARCHAR(50) COLLATE DATABASE_DEFAULT);\nSELECT t.cNombre FROM #T t;"
         reglas = {h.regla: h for h in verificar_procedimiento_normal(sql)}
         self.assertEqual(reglas["COLLATE_DATABASE_DEFAULT"].severidad.value, "alto")
-        self.assertIn("COLLATE SQL_Latin1_General_CP1_CI_AS", reglas["COLLATE_DATABASE_DEFAULT"].mensaje)
+        self.assertIn("(SQL_Latin1_General_CP1_CI_AS)", reglas["COLLATE_DATABASE_DEFAULT"].mensaje)
         self.assertNotIn("COLLATE_DISTINTO_AL_ESTANDAR", reglas)
 
     def test_collate_de_la_empresa_es_valido(self):
