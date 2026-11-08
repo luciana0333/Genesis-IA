@@ -8,8 +8,7 @@ from app.analizadores.analizador_reportes import verificar_reporte
 QUE_HACER = (
     "Se recomienda indicar el esquema correspondiente; de ser dbo, colocarlo explícitamente "
     "(ej.: dbo.PA_OBTIENEDATOS_CALCULODEVENGADO), ya que, si se omite, se utiliza el esquema predeterminado del "
-    "usuario, lo que podría ocasionar que el objeto se cree o modifique en un esquema distinto al esperado y generar "
-    "búsquedas adicionales al utilizarlo."
+    "usuario, lo que podría ocasionar que el objeto se cree o modifique en un esquema distinto al esperado."
 )
 
 
