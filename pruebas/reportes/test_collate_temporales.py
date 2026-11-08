@@ -42,6 +42,22 @@ class CollateTemporalesTest(unittest.TestCase):
                 self.assertEqual(hallazgo.grupos, [{"nombre": "#Temp", "tipo": "Tabla", "lineas": [3, 4],
                                                     "etiquetas": ["cNombre", "cTexto"]}])
 
+    def test_desde_tres_tablas_intro_para_la_tabla_de_la_pantalla(self):
+        dos_tablas = ("CREATE TABLE #CIERRECOVID (CCTACOD CHAR(18), cNombre VARCHAR(50), nId INT)\n"
+                      "CREATE TABLE #RRC1 (CCTACOD CHAR(18), cReprogCov VARCHAR(5))")
+        sql = dos_tablas + "\nCREATE TABLE #RRC2 (cCod VARCHAR(10))"
+        for verificar in (verificar_reporte, verificar_procedimiento_normal):
+            with self.subTest(modulo=verificar.__name__):
+                hallazgo = [h for h in verificar(sql) if h.regla == "TEMPORAL_TEXTO_SIN_COLLATE"][0]
+                self.assertTrue(hallazgo.mensaje.startswith(
+                    "Se identificaron columnas de texto sin COLLATE en las siguientes tablas temporales: "
+                    "#CIERRECOVID: CCTACOD, cNombre; #RRC1: CCTACOD, cReprogCov; #RRC2: cCod. "))
+                self.assertEqual([g["nombre"] for g in hallazgo.grupos], ["#CIERRECOVID", "#RRC1", "#RRC2"])
+                self.assertEqual(hallazgo.grupos[1]["etiquetas"], ["CCTACOD", "cReprogCov"])
+        # Con 2 tablas sigue el texto de siempre.
+        dos = [h for h in verificar_reporte(dos_tablas) if h.regla == "TEMPORAL_TEXTO_SIN_COLLATE"][0]
+        self.assertTrue(dos.mensaje.startswith("Se encontraron 2 observaciones"))
+
     def test_con_collate_o_sin_texto_no_se_observa(self):
         sql = ("DECLARE @V AS TABLE (cA VARCHAR(10) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, nB INT)\n"
                "CREATE TABLE #T (nC INT, dD DATE)")

@@ -4,6 +4,7 @@ import { etiquetaDeGrupos } from '../utils/recorrido';
 import { tokenizarSql } from '../utils/resaltadoSql';
 import { contarPorSeveridad, desglosarGrupo, normalizarSeveridad, ordenarHallazgos, separarMensaje } from '../utils/hallazgos';
 import { TablaTiposColumnas } from './TablaTiposColumnas';
+import { TablaColumnasSinCollate, collateEnTabla } from './TablaColumnasSinCollate';
 import { EncabezadoSeccion } from './EncabezadoSeccion';
 import { EstadoInicial } from './EstadoInicial';
 import { EstadoVacio } from './EstadoVacio';
@@ -144,7 +145,10 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
     : `Línea ${hallazgo.linea || 1}`));
 
   // Columnas con su desglose de tipos («Misma columna con distinto tipo»): se muestran como tabla.
-  const enTabla = Boolean(hallazgo.grupos?.length && hallazgo.grupos.every((grupo) => grupo.detalle));
+  const tablaTipos = Boolean(hallazgo.grupos?.length && hallazgo.grupos.every((grupo) => grupo.detalle));
+  // «COLLATE no especificado en tabla temporal» desde 3 tablas: Tabla | Columnas sin COLLATE.
+  const tablaCollate = !tablaTipos && collateEnTabla(hallazgo);
+  const enTabla = tablaTipos || tablaCollate;
 
   return (
     <article className={`finding sev-${severidad}${enTabla ? ' finding-tabla' : ''}`}>
@@ -160,7 +164,9 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
       <div className="finding-body">
         {intro && <p className="finding-message">{intro}</p>}
         {enTabla ? (
-          <TablaTiposColumnas grupos={hallazgo.grupos} filaActiva={vinetaActiva} />
+          tablaTipos
+            ? <TablaTiposColumnas grupos={hallazgo.grupos} filaActiva={vinetaActiva} />
+            : <TablaColumnasSinCollate grupos={hallazgo.grupos} filaActiva={vinetaActiva} />
         ) : (
           <>
             {ocurrencias.length > 1 ? (

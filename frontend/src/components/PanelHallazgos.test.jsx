@@ -99,3 +99,37 @@ describe('PanelHallazgos · «Misma columna con distinto tipo» como tabla', () 
     expect(screen.queryByText('Distinta longitud')).not.toBeInTheDocument();
   });
 });
+
+const COLLATE = (tablas) => ({
+  regla: 'TEMPORAL_TEXTO_SIN_COLLATE',
+  severidad: 'medio',
+  linea: 1,
+  mensaje: 'Se identificaron columnas de texto sin COLLATE en las siguientes tablas temporales: '
+    + `${tablas.map(([nombre, columnas]) => `${nombre}: ${columnas.join(', ')}`).join('; ')}. `
+    + 'Se recomienda añadir el COLLATE correspondiente en las columnas de tipo texto de las tablas temporales.',
+  grupos: tablas.map(([nombre, columnas], i) => ({ nombre, tipo: 'Tabla', lineas: columnas.map(() => i + 1), etiquetas: columnas })),
+});
+
+describe('PanelHallazgos · «COLLATE no especificado en tabla temporal» como tabla', () => {
+  it('desde 3 tablas: Tabla | Columnas sin COLLATE, con la introducción arriba', () => {
+    render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[COLLATE([
+      ['#CIERRECOVID', ['CCTACOD', 'cNombre']], ['#RRC1', ['CCTACOD', 'cReprogCov']], ['@T', ['cCod']],
+    ])]} />);
+    expect(screen.getByText(/^Se identificaron columnas de texto sin COLLATE en las siguientes tablas temporales:$/))
+      .toBeInTheDocument();
+    const filas = within(screen.getByRole('table')).getAllByRole('row').map((fila) => fila.textContent);
+    expect(filas).toEqual([
+      'TablaColumnas sin COLLATE',
+      '#CIERRECOVIDCCTACOD, cNombre',
+      '#RRC1CCTACOD, cReprogCov',
+      '@TcCod',
+    ]);
+  });
+
+  it('con menos de 3 tablas sigue como texto', () => {
+    render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[COLLATE([
+      ['#A', ['cCod']], ['#B', ['cNombre']],
+    ])]} />);
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+});

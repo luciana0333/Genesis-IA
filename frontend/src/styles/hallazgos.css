@@ -1142,6 +1142,9 @@
   font-size: 0.76rem;
   font-weight: 600;
 }
+/* «COLLATE no especificado» como tabla: las columnas en código, separadas por comas; si son muchas, bajan de línea. */
+.tabla-collate > thead > tr > th:first-child { width: 200px; }
+.tabla-collate-columnas { color: var(--text-primary); font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.6; }
 .tabla-tipos-desglose { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 0; }
 /* Desglose solo en letra, sin colores (pedido de la usuaria): el tipo en código y en negrita. */
 .tabla-tipos-tipo { color: var(--text-secondary); font-size: 0.8rem; white-space: nowrap; }
