@@ -8,7 +8,7 @@ from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html
 from app.analizadores.collate_temporales import collate_agrupado
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
-from app.analizadores.indice_forzado import indices_forzados, mensaje_indice_forzado
+from app.analizadores.indice_forzado import indice_forzado_agrupado
 from app.analizadores.left_like import left_reemplazable_por_like
 from app.analizadores.hints_compartidos import (
     HINTS_BLOQUEO_NUEVOS, QUE_HACE_EL_AISLAMIENTO, hint_en_temporal, niveles_de_aislamiento,
@@ -207,11 +207,15 @@ def _validar_hints(texto: str, limpio: str) -> List[Hallazgo]:
 
 
 def _validar_indice_forzado(texto: str, limpio: str) -> List[Hallazgo]:
-    """WITH (INDEX(IX_...)) o WITH (INDEX = IX_...): obliga al motor a usar un índice (regla propia, 7 nov.)."""
-    return [
-        _hallazgo(texto, posicion, "INDICE_FORZADO", mensaje_indice_forzado(indice, tabla))
-        for posicion, indice, tabla in indices_forzados(limpio)
-    ]
+    """WITH (INDEX(IX_...)): obliga al motor a usar un índice. Una observación con todos (opción A, 7 nov.)."""
+    agrupado = indice_forzado_agrupado(limpio, lambda posicion: _linea(texto, posicion))
+    if not agrupado:
+        return []
+    posicion, mensaje, lineas = agrupado
+    hallazgo = _hallazgo(texto, posicion, "INDICE_FORZADO", mensaje)
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas  # «Ver en el código» recorre cada índice
+    return [hallazgo]
 
 
 def _validar_hints_bloqueo(texto: str, limpio: str) -> List[Hallazgo]:

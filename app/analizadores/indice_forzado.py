@@ -5,7 +5,7 @@ Se separa de «Hint de plan prohibido» (OPTION (RECOMPILE), LOOP JOIN...) con s
 """
 
 import re
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 _IDENTIFICADOR = r"(?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)"
 _REFERENCIA = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
@@ -43,7 +43,24 @@ def indices_forzados(limpio: str) -> List[Tuple[int, str, str]]:
     return resultado
 
 
-def mensaje_indice_forzado(indice: str, tabla: str) -> str:
-    en_tabla = f" en la tabla {tabla}" if tabla else ""
-    return (f"Se identificó que se obliga al motor a usar el índice {indice}{en_tabla} (WITH (INDEX)). "
-            f"{QUE_HACER_INDICE_FORZADO}")
+def indice_forzado_agrupado(limpio: str, linea_de) -> Optional[Tuple[int, str, List[int]]]:
+    """Una sola observación (opción A de la usuaria, 7 nov.): la frase una vez y, por viñeta, el índice y su tabla.
+
+    «Se identificó que se obliga al motor a usar los siguientes índices: 'PK_X' en la tabla X; …». Con uno solo,
+    en una línea. Devuelve (posición, mensaje, líneas) o None.
+    """
+    casos = indices_forzados(limpio)
+    if not casos:
+        return None
+
+    def caso(indice: str, tabla: str) -> str:
+        return f"'{indice}' en la tabla {tabla}" if tabla else f"'{indice}'"
+
+    if len(casos) == 1:
+        _, indice, tabla = casos[0]
+        problema = f"Se identificó que se obliga al motor a usar el índice {caso(indice, tabla)}."
+    else:
+        vinetas = list(dict.fromkeys(caso(indice, tabla) for _, indice, tabla in casos))
+        problema = f"Se identificó que se obliga al motor a usar los siguientes índices: {'; '.join(vinetas)}."
+    lineas = sorted({linea_de(posicion) for posicion, _, _ in casos})
+    return casos[0][0], f"{problema} {QUE_HACER_INDICE_FORZADO}", lineas

@@ -180,7 +180,7 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         )
         hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "INDICE_FORZADO")
         self.assertEqual(hallazgo.linea, 3)
-        self.assertIn("usar el índice IX_Cliente_nClienteId en la tabla dbo.Cliente", hallazgo.mensaje)
+        self.assertIn("usar el índice 'IX_Cliente_nClienteId' en la tabla dbo.Cliente", hallazgo.mensaje)
         igual = "SELECT c.n FROM dbo.Cliente c WITH (NOLOCK, INDEX = IX_Cliente);"
         self.assertIn("INDICE_FORZADO", {h.regla for h in verificar_procedimiento_normal(igual)})
         crear = "CREATE INDEX IX_T ON #T (nId);"
