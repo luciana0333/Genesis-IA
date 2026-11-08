@@ -13,6 +13,14 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "CREATE_OR_ALTER": ReglaDiccionario(
+        codigo="CREATE_OR_ALTER",
+        nombre="Uso de CREATE OR ALTER",
+        severidad="medio",
+        descripcion="El procedimiento se define con CREATE (si es nuevo) o ALTER (si ya existe), no con CREATE OR ALTER.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "PROCEDIMIENTO_SIN_ESQUEMA": ReglaDiccionario(
         codigo="PROCEDIMIENTO_SIN_ESQUEMA",
         nombre="Procedimiento sin esquema",

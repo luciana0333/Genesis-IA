@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
 from app.analizadores.collate_temporales import MENSAJE_COLLATE_DATABASE_DEFAULT, collate_agrupado
+from app.analizadores.create_or_alter import create_or_alter
 from app.analizadores.encabezado import encabezado_observado
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
 from app.analizadores.indice_forzado import indice_forzado_agrupado
@@ -822,6 +823,12 @@ def _validar_esquema_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
     )]
 
 
+def _validar_create_or_alter(texto: str, limpio: str) -> List[Hallazgo]:
+    """CREATE OR ALTER PROCEDURE: se usa CREATE si es nuevo o ALTER si ya existe (usuaria, 8 nov.)."""
+    observado = create_or_alter(limpio)
+    return [_hallazgo(texto, observado[0], "CREATE_OR_ALTER", observado[1])] if observado else []
+
+
 def _validar_encabezado(texto: str, limpio: str) -> List[Hallazgo]:
     """Encabezado de documentación: falta o le faltan datos (una sola regla; usuaria, 8 nov.)."""
     observado = encabezado_observado(texto, limpio)
@@ -1096,6 +1103,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_hints(texto_sql, sin_comentarios))
     hallazgos.extend(_validar_indice_forzado(texto_sql, limpio))
     hallazgos.extend(_validar_encabezado(texto_sql, limpio))
+    hallazgos.extend(_validar_create_or_alter(texto_sql, limpio))
     hallazgos.extend(_validar_hints_bloqueo(texto_sql, sin_comentarios))
     hallazgos.extend(_validar_comentarios_codigo(texto_sql))
     hallazgos.extend(_validar_tablas_temporales(texto_sql, limpio))
