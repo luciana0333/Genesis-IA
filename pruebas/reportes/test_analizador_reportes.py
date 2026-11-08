@@ -233,6 +233,7 @@ class TestAnalizadorReportes(unittest.TestCase):
                     "DBCMACICACONSOL sin indicar el esquema correspondiente "
                     "(DBCMACICACONSOL..CREDITOSREPROGRAMADOSCOVIDCIERRE). " + QUE_HACER_ESQUEMA_ENTRE_BASES,
                 )
+                self.assertEqual(hallazgo.severidad.value, "medio")
 
     def test_mensaje_de_raiserror(self):
         hallazgo = next(h for h in verificar_reporte("RAISERROR('No existe', 16, 1);")
