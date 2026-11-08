@@ -5,8 +5,7 @@ import re
 from typing import Dict, List, Set, Tuple
 
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
-from app.analizadores.collate_database_default import collate_database_default_agrupado
-from app.analizadores.collate_temporales import collate_agrupado
+from app.analizadores.collate_temporales import MENSAJE_COLLATE_DATABASE_DEFAULT, collate_agrupado
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
@@ -867,18 +866,6 @@ def _validar_collate_openjson(texto: str, limpio: str) -> List[Hallazgo]:
     ]
 
 
-def _validar_collate_database_default(texto: str, limpio: str) -> List[Hallazgo]:
-    """Todos los COLLATE DATABASE_DEFAULT en una observación, con sus columnas y tablas (usuaria, 8 nov.)."""
-    agrupado = collate_database_default_agrupado(limpio, lambda posicion: _linea(texto, posicion))
-    if not agrupado:
-        return []
-    posicion, mensaje, lineas = agrupado
-    hallazgo = _hallazgo(texto, posicion, "COLLATE_DATABASE_DEFAULT", mensaje)
-    if len(lineas) > 1:
-        hallazgo.lineas = lineas  # «Ver en el código» recorre cada línea
-    return [hallazgo]
-
-
 def _validar_collate_usado(texto: str, limpio: str) -> List[Hallazgo]:
     """
     El COLLATE de la empresa es SQL_Latin1_General_CP1_CI_AS. DATABASE_DEFAULT
@@ -892,7 +879,9 @@ def _validar_collate_usado(texto: str, limpio: str) -> List[Hallazgo]:
         if dentro_de_openjson(limpio, match.start()):
             continue  # lo observa «COLLATE innecesario en OPENJSON»
         if collate.upper() == "DATABASE_DEFAULT":
-            continue  # va en una sola observación: _validar_collate_database_default
+            hallazgos.append(_hallazgo(
+                texto, match.start(1), "COLLATE_DATABASE_DEFAULT", MENSAJE_COLLATE_DATABASE_DEFAULT,
+            ))
         else:
             hallazgos.append(_hallazgo(
                 texto, match.start(1), "COLLATE_DISTINTO_AL_ESTANDAR",
@@ -1753,7 +1742,6 @@ def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -
     hallazgos.extend(_validar_collate_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_temporales_sin_crear(texto_sql, limpio))
     hallazgos.extend(_validar_collate_usado(texto_sql, limpio))
-    hallazgos.extend(_validar_collate_database_default(texto_sql, limpio))
     hallazgos.extend(_validar_collate_openjson(texto_sql, limpio))
     hallazgos.extend(_validar_tipos_entre_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_comentarios(texto_sql))
