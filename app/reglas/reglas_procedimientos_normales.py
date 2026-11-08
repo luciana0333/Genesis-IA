@@ -53,6 +53,14 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "INDICE_FORZADO": ReglaDiccionario(
+        codigo="INDICE_FORZADO",
+        nombre="Uso de índice forzado (WITH INDEX)",
+        severidad="alto",
+        descripcion="WITH (INDEX(...)) obliga al motor a usar un índice; es el optimizador quien debe decidirlo.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "HINT_PLAN_PROHIBIDO": ReglaDiccionario(
         codigo="HINT_PLAN_PROHIBIDO",
         nombre="Comando que le dice al motor qué hacer",

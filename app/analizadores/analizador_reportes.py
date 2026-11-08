@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
 from app.analizadores.collate_temporales import collate_agrupado
+from app.analizadores.indice_forzado import indices_forzados, mensaje_indice_forzado
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.left_like import left_reemplazable_por_like
@@ -31,7 +32,7 @@ _IDENTIFICADOR = r"(?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)"
 _TIPOS_TEXTO = r"(?:N?VARCHAR|N?CHAR|TEXT|NTEXT)\b"
 _HINTS_PROHIBIDOS = (
     r"\bOPTION\s*\([^)]*\)|\bDBCC\b|\bFORCESEEK\b|\bFORCESCAN\b|\bFORCE\s+ORDER\b|\bRECOMPILE\b|"
-    r"\bNOEXPAND\b|\bINDEX\s*\(|\bINDEX\s*=\s*(?:\[[^\]]+\]|\w+)|\b(?:LOOP|HASH|MERGE|REMOTE)\s+JOIN\b|"
+    r"\bNOEXPAND\b|\b(?:LOOP|HASH|MERGE|REMOTE)\s+JOIN\b|"
     r"\bOPTIMIZE\s+FOR\b|\bMAXDOP\b|\bFAST\s+\d+|\bUSE\s+PLAN\b|\bKEEP(?:FIXED)?\s+PLAN\b|\bQUERYTRACEON\b|"
     r"\bSET\s+FORCEPLAN\s+ON\b"
 )
@@ -286,6 +287,14 @@ def _validar_hints(texto: str, limpio: str) -> List[Hallazgo]:
             f"quien decide el mejor plan de ejecución.",
         ))
     return hallazgos
+
+
+def _validar_indice_forzado(texto: str, limpio: str) -> List[Hallazgo]:
+    """WITH (INDEX(IX_...)): obliga al motor a usar un índice; regla propia, igual que en Negocio (7 nov.)."""
+    return [
+        _hallazgo(texto, posicion, "INDICE_FORZADO", mensaje_indice_forzado(indice, tabla))
+        for posicion, indice, tabla in indices_forzados(limpio)
+    ]
 
 
 def _validar_hints_bloqueo(texto: str, sin_comentarios: str) -> List[Hallazgo]:
@@ -1071,6 +1080,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_nolock(texto_sql, limpio))
     sin_comentarios = _quitar_comentarios(texto_sql, vaciar_textos=False)
     hallazgos.extend(_validar_hints(texto_sql, sin_comentarios))
+    hallazgos.extend(_validar_indice_forzado(texto_sql, limpio))
     hallazgos.extend(_validar_hints_bloqueo(texto_sql, sin_comentarios))
     hallazgos.extend(_validar_comentarios_codigo(texto_sql))
     hallazgos.extend(_validar_tablas_temporales(texto_sql, limpio))

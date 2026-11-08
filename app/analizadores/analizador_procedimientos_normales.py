@@ -8,6 +8,7 @@ from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html
 from app.analizadores.collate_temporales import collate_agrupado
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
+from app.analizadores.indice_forzado import indices_forzados, mensaje_indice_forzado
 from app.analizadores.left_like import left_reemplazable_por_like
 from app.analizadores.hints_compartidos import (
     HINTS_BLOQUEO_NUEVOS, QUE_HACE_EL_AISLAMIENTO, hint_en_temporal, niveles_de_aislamiento,
@@ -206,28 +207,11 @@ def _validar_hints(texto: str, limpio: str) -> List[Hallazgo]:
 
 
 def _validar_indice_forzado(texto: str, limpio: str) -> List[Hallazgo]:
-    """WITH (INDEX(IX_...)) o WITH (INDEX = IX_...): obliga al motor a usar un índice."""
-    hallazgos = []
-    referencia = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
-    for match in re.finditer(r"\bINDEX\s*(?:\(\s*([^)]*?)\s*\)|=\s*(\[[^\]]+\]|\w+))", limpio, re.IGNORECASE):
-        # Solo como hint de tabla: dentro del WITH (...) que sigue a la tabla.
-        abre = limpio.rfind("(", 0, match.start())
-        previo = limpio[max(0, abre - 40):abre] if abre >= 0 else ""
-        if not re.search(r"\bWITH\s*$", previo, re.IGNORECASE):
-            continue
-        indice = (match.group(1) or match.group(2) or "").strip()
-        antes = re.sub(r"\s*WITH\s*$", "", limpio[max(0, abre - 300):abre], flags=re.IGNORECASE)
-        tabla = re.search(
-            rf"\b(?:FROM|JOIN)\s+({referencia})(?:\s+(?:AS\s+)?[A-Za-z_][\w$#]*)?\s*$", antes, re.IGNORECASE,
-        )
-        en_tabla = f" en la tabla {_limpiar_nombre(tabla.group(1))}" if tabla else ""
-        hallazgos.append(_hallazgo(
-            texto, match.start(), "HINT_PLAN_PROHIBIDO",
-            f"Se identificó que se obliga al motor a usar el índice {indice}{en_tabla} (WITH (INDEX)). Se "
-            f"recomienda retirarlo, ya que es el optimizador quien decide qué índice usar según los datos, y "
-            f"si el índice cambia o se elimina, el procedimiento dejará de funcionar.",
-        ))
-    return hallazgos
+    """WITH (INDEX(IX_...)) o WITH (INDEX = IX_...): obliga al motor a usar un índice (regla propia, 7 nov.)."""
+    return [
+        _hallazgo(texto, posicion, "INDICE_FORZADO", mensaje_indice_forzado(indice, tabla))
+        for posicion, indice, tabla in indices_forzados(limpio)
+    ]
 
 
 def _validar_hints_bloqueo(texto: str, limpio: str) -> List[Hallazgo]:

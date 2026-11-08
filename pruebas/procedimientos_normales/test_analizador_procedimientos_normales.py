@@ -178,13 +178,14 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             "SELECT V.nVentaId, C.cNombre\n    FROM dbo.Venta AS V\n"
             "    INNER JOIN dbo.Cliente AS C WITH (INDEX(IX_Cliente_nClienteId))\n        ON V.nClienteId = C.nClienteId;"
         )
-        hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "HINT_PLAN_PROHIBIDO")
+        hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "INDICE_FORZADO")
         self.assertEqual(hallazgo.linea, 3)
         self.assertIn("usar el índice IX_Cliente_nClienteId en la tabla dbo.Cliente", hallazgo.mensaje)
         igual = "SELECT c.n FROM dbo.Cliente c WITH (NOLOCK, INDEX = IX_Cliente);"
-        self.assertIn("HINT_PLAN_PROHIBIDO", {h.regla for h in verificar_procedimiento_normal(igual)})
+        self.assertIn("INDICE_FORZADO", {h.regla for h in verificar_procedimiento_normal(igual)})
         crear = "CREATE INDEX IX_T ON #T (nId);"
-        self.assertNotIn("HINT_PLAN_PROHIBIDO", {h.regla for h in verificar_procedimiento_normal(crear)})
+        reglas = {h.regla for h in verificar_procedimiento_normal(crear)}
+        self.assertFalse({"INDICE_FORZADO", "HINT_PLAN_PROHIBIDO"} & reglas)
 
     def test_collate_distinto_al_de_la_empresa(self):
         sql = "CREATE TABLE #T (cNombre VARCHAR(50) COLLATE Modern_Spanish_CI_AS);\nSELECT t.cNombre FROM #T t;"
