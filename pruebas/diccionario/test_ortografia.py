@@ -100,6 +100,13 @@ class TestOrtografia(unittest.TestCase):
             with self.subTest(texto=texto):
                 self.assertEqual(ortografia.palabras_mal_escritas(texto), [])
 
+    def test_letras_olvidadas_ganan_a_una_palabra_rara(self):
+        # Caso de la usuaria (7 nov.): SOLITADO sugería SOLIDADO; le faltan «ci»: SOLICITADO.
+        self.assertEqual(ortografia.sugerencias("SOLITADO"), ["SOLICITADO"])
+        self.assertEqual(ortografia.sugerencias("solitado"), ["solicitado"])
+        self.assertEqual(ortografia.sugerencias("TITUTLAR"), ["TITULAR"])
+        self.assertEqual(ortografia.sugerencias("contancia"), ["constancia"])
+
     def test_sin_tilde_solo_se_marca_la_palabra_mal_escrita(self):
         errores = ortografia.palabras_mal_escritas("Codigo de operacion del clinete")
         self.assertEqual(

@@ -108,8 +108,8 @@ class TestVariasTablas(unittest.TestCase):
         )
         hallazgos = [h for h in verificar_diccionario_tablas(TABLAS, dic) if h.regla == "COLUMNA_FALTANTE"]
         self.assertEqual(len(hallazgos), 1)
-        self.assertIn("EsquemaTotalizadoEjecutivos : nIdEjecutivo", hallazgos[0].mensaje)
-        self.assertIn("EsquemaTotalizadoSupervisores : nIdSupervisor", hallazgos[0].mensaje)
+        self.assertIn("tabla EsquemaTotalizadoEjecutivos: nIdEjecutivo", hallazgos[0].mensaje)
+        self.assertIn("tabla EsquemaTotalizadoSupervisores: nIdSupervisor", hallazgos[0].mensaje)
 
 
 class TestVariosProcedimientos(unittest.TestCase):

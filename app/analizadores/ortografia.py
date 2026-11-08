@@ -430,11 +430,15 @@ def sugerencias(palabra: str, maximo: int = 1) -> List[str]:
         solo_faltan = _falta_una_letra(escrita, propuesta) and (
             len(propuesta) == len(escrita) + 1 or propuesta[:3] == escrita[:3]
         )
+        # Solo le faltan letras y empieza y termina igual (SOLITADO → SOLICITADO): olvidar letras es el error
+        # más común, así que gana a una palabra rara a un cambio (SOLIDADO, SOLTADO). Caso de la usuaria, 7 nov.
+        faltan_en_medio = solo_faltan and propuesta[:3] == escrita[:3] and propuesta[-3:] == escrita[-3:]
         puntaje = (
             _distancia(propuesta, escrita)
             + (0.5 if _sonido(propuesta[-3:]) != _sonido(escrita[-3:]) else 0)
             # Una letra olvidada o una confusión típica (c/s, b/v, z/s) es el error más probable.
             - (0.6 if solo_faltan or _es_confusion_tipica(escrita, propuesta) else 0)
+            - (0.6 if faltan_en_medio and len(propuesta) > len(escrita) + 1 else 0)
             + (5 if _VERBO_CON_PRONOMBRE.search(propuesta) else 0)
             # Las formadas por regla (exoneración, previsional) no figuran en la lista de uso: no se castigan.
             + (1.1 if hay_usadas and candidata not in derivadas and corrector.word_usage_frequency(candidata) == 0 else 0)

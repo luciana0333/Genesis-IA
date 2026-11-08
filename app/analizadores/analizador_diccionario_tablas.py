@@ -16,6 +16,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, juntar_ortografia, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_tabla
+from app.analizadores.nombre_por_prefijo import emparejar_por_prefijo, solo_un_error_por_sentencia
 from app.analizadores.diccionario_varios import (
     agrupar_varios, es_otro_objeto, nombres_del_script, objetos_sin_script, por_objeto,
 )
@@ -210,6 +211,17 @@ def _es_de_columna(llamada: LlamadaPropiedad) -> bool:
     return llamada.texto("level2type").upper() == "COLUMN" and bool(llamada.texto("level2name"))
 
 
+# Tipos válidos de @level2type sobre una tabla (además de COLUMN, que es el del diccionario).
+_OTROS_TIPOS_NIVEL2 = {"CONSTRAINT", "INDEX", "TRIGGER"}
+
+
+def _documenta_columna(llamada: LlamadaPropiedad) -> bool:
+    """Documenta una columna aunque el @level2type esté mal escrito (N'nCodigo' en vez de N'COLUMN'):
+    caso de la usuaria (7 nov.); así igual se revisa si la columna existe."""
+    tipo = llamada.texto("level2type").upper()
+    return bool(llamada.texto("level2name")) and bool(tipo) and tipo not in _OTROS_TIPOS_NIVEL2
+
+
 def _normalizar_texto(texto: str) -> str:
     """Minúsculas, sin tildes ni espacios repetidos: para comparar descripciones."""
     sin_tildes = "".join(
@@ -269,6 +281,14 @@ def _validar_parametros(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
                 llamada.linea, "TIPO_NIVEL_INCORRECTO",
                 f"La sentencia indica el tipo de objeto '{llamada.texto('level1type')}', pero lo que se "
                 f"documenta es una tabla. Usar el tipo «N'TABLE'», ya que con otro tipo la sentencia falla.",
+            ))
+        # @level2type con otro valor (por ejemplo, el nombre de la columna copiado): debe ser COLUMN.
+        tipo2 = llamada.texto("level2type").upper()
+        if tipo2 and tipo2 != "COLUMN" and tipo2 not in _OTROS_TIPOS_NIVEL2:
+            hallazgos.append(_hallazgo(
+                llamada.linea, "TIPO_NIVEL_INCORRECTO",
+                f"La sentencia indica '{llamada.texto('level2type')}' como tipo de la columna (@level2type), pero "
+                f"debe ser 'COLUMN'. Usar el tipo «N'COLUMN'», ya que con otro tipo la sentencia falla.",
             ))
     return hallazgos
 
@@ -395,7 +415,7 @@ def _columnas_documentadas(llamadas: List[LlamadaPropiedad]) -> Set[str]:
     return {
         ll.texto("level2name").upper()
         for ll in llamadas
-        if _es_de_columna(ll) and _es_descripcion(ll)
+        if _documenta_columna(ll) and _es_descripcion(ll)
     }
 
 
@@ -414,17 +434,18 @@ def _validar_columnas_faltantes(
     # Una sola entrada por columna (sin distinguir mayúsculas), con su nombre original.
     reales = {c.upper(): c for c in sorted(columnas_reales)}
     hallazgos = []
+    full = _nombre_completo(esquema, nombre_tabla)
     for clave in sorted(set(reales) - documentadas):
         columna = reales[clave]
         if tipo_sentencia == "ALTER":
             mensaje = (
-                f"La columna {columna} se agrega en el ALTER TABLE, pero no se encuentra documentada. "
+                f"La columna {columna} se agrega en el ALTER TABLE {full}, pero no se encuentra documentada. "
                 f"Se recomienda añadirla al diccionario de la tabla con su descripción, ya que toda "
                 f"columna nueva debe estar documentada."
             )
         else:
             mensaje = (
-                f"La columna {columna} no se encuentra documentada. Se recomienda añadirla al "
+                f"La columna {columna} de la tabla {full} no se encuentra documentada. Se recomienda añadirla al "
                 f"diccionario de la tabla con su descripción, ya que toda columna nueva debe estar "
                 f"documentada."
             )
@@ -511,8 +532,35 @@ def _sugerencia_columna(nombre: str, columnas_reales: Set[str]) -> str:
     return ""
 
 
+def _emparejar_columnas(
+    hallazgos: List[Hallazgo], llamadas: List[LlamadaPropiedad], esquema: Optional[str], nombre_tabla: str
+) -> List[Hallazgo]:
+    """Columna documentada que no existe + columna sin documentar con el mismo nombre salvo el prefijo
+    (cFechaRegularizacion / dFechaRegularizacion): una sola observación que dice a cuál parece referirse.
+    Solo si la sentencia es del mismo esquema y tabla (pedido de la usuaria, 7 nov.)."""
+    inexistentes = {h.elemento: h for h in hallazgos if h.regla == "COLUMNA_NO_EXISTE"}
+    faltantes = {h.elemento: h for h in hallazgos if h.regla == "COLUMNA_FALTANTE"}
+    pares = emparejar_por_prefijo(inexistentes, faltantes)
+    full = _nombre_completo(esquema, nombre_tabla)
+    quitar, nuevos = set(), []
+    for documentado, real in pares.items():
+        llamada = next((ll for ll in llamadas if _documenta_columna(ll) and ll.texto("level2name") == documentado), None)
+        esquema_doc = llamada.texto("level0name") if llamada else ""
+        if esquema and esquema_doc and esquema_doc.upper() != esquema.upper():
+            continue
+        quitar |= {id(inexistentes[documentado]), id(faltantes[real])}
+        nuevos.append(con_elemento(_hallazgo(
+            inexistentes[documentado].linea, "COLUMNA_NOMBRE_INCORRECTO",
+            f"Se identificó que en el diccionario se documenta la columna {documentado}, que no existe en la tabla "
+            f"{full}, pero parece referirse a {real}. Corregir el nombre de la columna en el diccionario (ej.: "
+            f"@level2name = N'{real}'), ya que SQL Server no encuentra la columna y el script del diccionario falla.",
+        ), f"{documentado} → {real}"))
+    return [h for h in hallazgos if id(h) not in quitar] + nuevos
+
+
 def _validar_columnas_inexistentes(
-    columnas_reales: Set[str], llamadas: List[LlamadaPropiedad], tipo_sentencia: str, nombre_tabla: str
+    columnas_reales: Set[str], llamadas: List[LlamadaPropiedad], tipo_sentencia: str, nombre_tabla: str,
+    esquema: Optional[str] = None,
 ) -> List[Hallazgo]:
     """
     En un CREATE, documentar una columna que no existe suele ser un error de
@@ -524,15 +572,20 @@ def _validar_columnas_inexistentes(
     reales = {c.upper() for c in columnas_reales}
     # Las columnas de otras tablas (que no vinieron en el script) no se comparan con las de esta.
     llamadas = [ll for ll in llamadas if not _de_otra_tabla(ll, llamadas, nombre_tabla)]
+    # «¿Quiso decir…?» solo propone columnas que aún no están documentadas (una ya documentada no es la buscada).
+    documentadas = _columnas_documentadas(llamadas)
+    sin_documentar = {c for c in columnas_reales if c.upper() not in documentadas}
     return [
         con_elemento(_hallazgo(
             ll.linea, "COLUMNA_NO_EXISTE",
             f"Se verificó que la columna {ll.texto('level2name')} está documentada, pero no existe en la "
-            f"tabla {nombre_tabla}{_sugerencia_columna(ll.texto('level2name'), columnas_reales)}. Corregir el "
-            f"nombre de la columna en el diccionario o retirar la sentencia, ya que SQL Server no la ejecutará.",
+            f"tabla {_nombre_completo(esquema, nombre_tabla)}"
+            f"{_sugerencia_columna(ll.texto('level2name'), sin_documentar)}. Corregir el nombre de la columna en "
+            f"el diccionario o retirar la sentencia, ya que SQL Server no encuentra la columna y el script del "
+            f"diccionario falla.",
         ), ll.texto('level2name'))
         for ll in llamadas
-        if _es_de_columna(ll) and ll.texto("level2name").upper() not in reales
+        if _documenta_columna(ll) and ll.texto("level2name").upper() not in reales
     ]
 
 
@@ -829,7 +882,12 @@ _PLANTILLAS_AGRUPADAS = {
     "COLUMNA_NO_EXISTE": (
         "columnas documentadas que no existen en la tabla",
         "Corregir el nombre de cada columna en el diccionario o retirar esas sentencias, ya que SQL Server no "
-        "las ejecutará.",
+        "encuentra esas columnas y el script del diccionario falla.",
+    ),
+    "COLUMNA_NOMBRE_INCORRECTO": (
+        "columnas documentadas con un nombre que no existe en la tabla",
+        "Corregir el nombre de cada columna en el diccionario, ya que SQL Server no encuentra esas columnas y el "
+        "script del diccionario falla.",
     ),
     "ERROR_ORTOGRAFICO": (
         "descripciones con errores de escritura",
@@ -975,7 +1033,7 @@ def _revisar_tabla(texto_tabla: str, texto_diccionario: str) -> List[Hallazgo]:
         hallazgos += _validar_tabla_documentada(llamadas, esquema, nombre_tabla)
     hallazgos += _validar_descripcion_tabla(llamadas)
     hallazgos += _validar_columnas_faltantes(columnas_requeridas, llamadas, tipo_sentencia, esquema, nombre_tabla)
-    hallazgos += _validar_columnas_inexistentes(columnas_reales, llamadas, tipo_sentencia, nombre_tabla)
+    hallazgos += _validar_columnas_inexistentes(columnas_reales, llamadas, tipo_sentencia, nombre_tabla, esquema)
     hallazgos += _validar_documentacion_existente_en_alter(
         llamadas, tipo_sentencia, esquema, nombre_tabla, columnas_agregadas
     )
@@ -1020,6 +1078,9 @@ def _revisar_tabla(texto_tabla: str, texto_diccionario: str) -> List[Hallazgo]:
             and not (h.regla == "TABLA_SIN_DESCRIPCION" and any(o.startswith("TABLA ") for o in objetos))
         ]
         hallazgos += mal_escritas
+
+    hallazgos = _emparejar_columnas(hallazgos, llamadas, esquema, nombre_tabla)
+    hallazgos = solo_un_error_por_sentencia(hallazgos, {"COLUMNA_NO_EXISTE", "COLUMNA_NOMBRE_INCORRECTO"})
 
     # Las reglas desactivadas en el catálogo no se reportan.
     # Las columnas faltantes se ubican en su línea del CREATE/ALTER.
