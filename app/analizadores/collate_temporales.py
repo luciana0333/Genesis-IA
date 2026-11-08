@@ -22,13 +22,6 @@ _TABLA = re.compile(
 _COLLATE = re.compile(r"\bCOLLATE\s+\w+", re.IGNORECASE)
 
 # Texto de la usuaria (7 nov.), igual en Negocio y Reportes.
-# «Uso de COLLATE DATABASE_DEFAULT»: texto de la usuaria (8 nov.), igual en Reportes y Negocio.
-MENSAJE_COLLATE_DATABASE_DEFAULT = (
-    "Se identificó el uso de COLLATE DATABASE_DEFAULT, que toma la intercalación predeterminada de la base de datos "
-    "donde se ejecuta la consulta. Se recomienda utilizar el COLLATE correspondiente (SQL_Latin1_General_CP1_CI_AS), "
-    "para evitar conflictos al comparar o combinar textos entre bases de datos con distintas intercalaciones."
-)
-
 ACCION_COLLATE_TEMPORAL = (
     "Se recomienda añadir el COLLATE correspondiente en las columnas de tipo texto de las tablas temporales. "
     "Por favor, revisar y aplicarlo donde corresponda."

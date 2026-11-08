@@ -5,7 +5,8 @@ import re
 from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
-from app.analizadores.collate_temporales import MENSAJE_COLLATE_DATABASE_DEFAULT, collate_agrupado
+from app.analizadores.collate_database_default import collate_database_default_agrupado
+from app.analizadores.collate_temporales import collate_agrupado
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
 from app.analizadores.indice_forzado import indice_forzado_agrupado
 from app.analizadores.select_estrella import marcar as marcar_select_estrella, unir_select_estrella
@@ -841,31 +842,15 @@ _CLAUSULAS = re.compile(
 
 
 def _validar_collate_database_default(texto: str, limpio: str) -> List[Hallazgo]:
-    """COLLATE DATABASE_DEFAULT depende de cada base: se usa el de la empresa (SQL_Latin1_General_CP1_CI_AS)."""
-    hallazgos = []
-    for match in re.finditer(r"\bCOLLATE\s+DATABASE_DEFAULT\b", limpio, re.IGNORECASE):
-        if dentro_de_openjson(limpio, match.start()):
-            continue  # lo observa «COLLATE innecesario en OPENJSON»
-        # Texto de la usuaria (8 nov.), el mismo que en Negocio.
-        hallazgos.append(_hallazgo(texto, match.start(), "COLLATE_DATABASE_DEFAULT", MENSAJE_COLLATE_DATABASE_DEFAULT))
-    return hallazgos
-
-
-# Lo que separa una columna de la anterior: coma, paréntesis, comparación o palabra de la consulta.
-_ANTES_DE_LA_COLUMNA = re.compile(
-    r"[,(=<>]|\b(?:ON|WHERE|AND|OR|SELECT|BY|WHEN|THEN|ELSE|HAVING|SET)\b", re.IGNORECASE
-)
-
-
-def _columna_antes_de(limpio: str, posicion: int) -> Optional[str]:
-    """La columna a la que se aplica el COLLATE: «cCod» en «cCod VARCHAR(10) NOT NULL COLLATE …», «a.c» en «a.c COLLATE …»."""
-    previo = sin_parentesis_cerrados(limpio[:posicion])
-    cortes = list(_ANTES_DE_LA_COLUMNA.finditer(previo))
-    inicio = cortes[-1].end() if cortes else 0
-    nombre = re.compile(r"\s*([\w.\[\]@#]+)").match(previo, inicio)
-    if not nombre or re.match(r"\s*\(", limpio[nombre.end():]):
-        return None  # sin nombre, o es una función (LTRIM(a.c) COLLATE …)
-    return nombre.group(1)
+    """Todos los COLLATE DATABASE_DEFAULT en una observación, con sus columnas y tablas (usuaria, 8 nov.)."""
+    agrupado = collate_database_default_agrupado(limpio, lambda posicion: _linea(texto, posicion))
+    if not agrupado:
+        return []
+    posicion, mensaje, lineas = agrupado
+    hallazgo = _hallazgo(texto, posicion, "COLLATE_DATABASE_DEFAULT", mensaje)
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas  # «Ver en el código» recorre cada línea
+    return [hallazgo]
 
 
 def _validar_collate_en_condiciones(texto: str, limpio: str) -> List[Hallazgo]:
