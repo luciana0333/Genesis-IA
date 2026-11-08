@@ -7,7 +7,7 @@ from typing import Dict, List, Set, Tuple
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
 from app.analizadores.collate_temporales import MENSAJE_COLLATE_DATABASE_DEFAULT, collate_agrupado
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
-from app.analizadores.comentarios_codigo import comentarios_con_codigo
+from app.analizadores.comentarios_codigo import codigo_comentado_agrupado
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.encabezado import encabezado_observado
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
@@ -912,13 +912,15 @@ def _validar_collate_temporales(texto: str, limpio: str) -> List[Hallazgo]:
 
 
 def _validar_comentarios(texto: str) -> List[Hallazgo]:
-    """Código SQL comentado, también restos de depuración (--WHERE c = 1, -- TOP (10), --THEN 'x'); módulo compartido."""
-    return [
-        _hallazgo(texto, posicion, "CODIGO_SQL_COMENTADO", "Se encontró código SQL comentado, es decir, sentencias que ya no se ejecutan. Elimínelo "
-        "si ya no se usa, ya que dificulta la lectura del procedimiento y el historial de "
-        "cambios ya queda guardado en el control de versiones.")
-        for posicion in comentarios_con_codigo(texto)
-    ]
+    """«Código comentado sin uso»: una sola observación con sus líneas y el texto de la usuaria (8 nov.)."""
+    agrupado = codigo_comentado_agrupado(texto, lambda posicion: _linea(texto, posicion))
+    if not agrupado:
+        return []
+    posicion, mensaje, lineas = agrupado
+    hallazgo = _hallazgo(texto, posicion, "CODIGO_SQL_COMENTADO", mensaje)
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas  # «Ver en el código» recorre cada línea
+    return [hallazgo]
 
 
 def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:

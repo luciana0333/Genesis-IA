@@ -29,6 +29,24 @@ class ComentariosCodigoTest(unittest.TestCase):
             with self.subTest(modulo=verificar.__name__):
                 self.assertEqual(_lineas(sql, verificar), [3, 5, 7, 9, 10])
 
+    def test_texto_de_la_usuaria_en_una_sola_observacion(self):
+        varias = "CREATE PROCEDURE dbo.PA_X AS\nBEGIN\n  -- SELECT 1\n  SELECT 2\n  -- UPDATE dbo.T SET a = 1\nEND"
+        una = "CREATE PROCEDURE dbo.PA_X AS\nBEGIN\n  -- SELECT 1\n  SELECT 2\nEND"
+        for verificar in MODULOS:
+            with self.subTest(modulo=verificar.__name__):
+                hallazgos = [h for h in verificar(varias) if h.regla == "CODIGO_SQL_COMENTADO"]
+                self.assertEqual(len(hallazgos), 1)
+                self.assertEqual(hallazgos[0].lineas, [3, 5])
+                self.assertEqual(
+                    hallazgos[0].mensaje,
+                    "Se encontraron líneas de código SQL comentadas dentro del procedimiento. Retirar los comentarios "
+                    "innecesarios que ya no se utilizan, para mantener un código más limpio, ordenado y legible, "
+                    "facilitando su mantenimiento.",
+                )
+                uno = [h for h in verificar(una) if h.regla == "CODIGO_SQL_COMENTADO"][0]
+                self.assertTrue(uno.mensaje.startswith(
+                    "Se encontró una línea de código SQL comentada dentro del procedimiento. Retirar"))
+
     def test_comentarios_que_explican_no_se_marcan(self):
         sql = ("CREATE PROCEDURE dbo.PA_GDD_Cartera_Sel_Saldos AS\nBEGIN\n"
                "    -- 1. Hacia cuentas nuevas\n"

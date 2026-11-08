@@ -166,7 +166,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "CODIGO_SQL_COMENTADO": ReglaDiccionario(
         codigo="CODIGO_SQL_COMENTADO",
-        nombre="Código SQL comentado",
+        nombre="Código comentado sin uso",
         severidad="medio",
         descripcion="El procedimiento no debe conservar sentencias SQL comentadas que no aporten.",
         alcance="procedimiento",

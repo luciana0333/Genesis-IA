@@ -11,7 +11,7 @@ from app.analizadores.esquema_entre_bases import esquemas_omitidos
 from app.analizadores.indice_forzado import indice_forzado_agrupado
 from app.analizadores.select_estrella import marcar as marcar_select_estrella, unir_select_estrella
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
-from app.analizadores.comentarios_codigo import comentarios_con_codigo
+from app.analizadores.comentarios_codigo import codigo_comentado_agrupado
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.left_like import left_reemplazable_por_like
 from app.analizadores.hints_compartidos import (
@@ -341,15 +341,15 @@ def _validar_hints_bloqueo(texto: str, sin_comentarios: str) -> List[Hallazgo]:
 
 
 def _validar_comentarios_codigo(texto: str) -> List[Hallazgo]:
-    """Código SQL comentado, también restos de depuración (--WHERE c = 1, -- TOP (10), --THEN 'x'); módulo compartido."""
-    return [
-        _hallazgo(
-            texto, posicion, "CODIGO_SQL_COMENTADO",
-            "Se identificó código SQL comentado dentro del procedimiento. Se recomienda eliminarlo si ya no se "
-            "usa, ya que dificulta la lectura y el mantenimiento del reporte.",
-        )
-        for posicion in comentarios_con_codigo(texto)
-    ]
+    """«Código comentado sin uso»: una sola observación con sus líneas y el texto de la usuaria (8 nov.)."""
+    agrupado = codigo_comentado_agrupado(texto, lambda posicion: _linea(texto, posicion))
+    if not agrupado:
+        return []
+    posicion, mensaje, lineas = agrupado
+    hallazgo = _hallazgo(texto, posicion, "CODIGO_SQL_COMENTADO", mensaje)
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas  # «Ver en el código» recorre cada línea
+    return [hallazgo]
 
 
 def _validar_tablas_temporales(texto: str, limpio: str) -> List[Hallazgo]:

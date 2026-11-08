@@ -158,7 +158,7 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         sql = "-- SELECT * FROM dbo.Cliente\n/* UPDATE dbo.Cliente SET a = 1 */\nSELECT 'nota' AS cNota;"
         hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "CODIGO_SQL_COMENTADO"]
         self.assertEqual(len(hallazgos), 1)
-        self.assertIn("2 observaciones", hallazgos[0].mensaje)
+        self.assertEqual(hallazgos[0].lineas, [1, 2])
 
     def test_sql_dinamico_si_se_revisa(self):
         sql = "DECLARE @s NVARCHAR(400) = N'SELECT * FROM dbo.Cliente WITH (UPDLOCK)';\nEXEC sp_executesql @s;"

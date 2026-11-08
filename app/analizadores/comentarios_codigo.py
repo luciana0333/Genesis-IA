@@ -13,7 +13,7 @@ un texto entre comillas). Las variables de prueba y el EXEC de ejemplo no cuenta
 """
 
 import re
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 
@@ -80,3 +80,21 @@ def comentarios_con_codigo(texto: str) -> List[int]:
             continue
         posiciones.append(posicion)
     return posiciones
+
+
+# Texto de la usuaria (8 nov.), igual en Reportes y Negocio.
+QUE_HACER_CODIGO_COMENTADO = (
+    "Retirar los comentarios innecesarios que ya no se utilizan, para mantener un código más limpio, ordenado y "
+    "legible, facilitando su mantenimiento."
+)
+
+
+def codigo_comentado_agrupado(texto: str, linea_de) -> Optional[Tuple[int, str, List[int]]]:
+    """Una sola observación con todas las líneas comentadas: (posición, mensaje, líneas) o None."""
+    posiciones = comentarios_con_codigo(texto)
+    if not posiciones:
+        return None
+    lineas = sorted({linea_de(posicion) for posicion in posiciones})
+    problema = ("Se encontró una línea de código SQL comentada dentro del procedimiento." if len(lineas) == 1 else
+                "Se encontraron líneas de código SQL comentadas dentro del procedimiento.")
+    return posiciones[0], f"{problema} {QUE_HACER_CODIGO_COMENTADO}", lineas

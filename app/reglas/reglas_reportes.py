@@ -55,7 +55,7 @@ REGLAS_REPORTES = {
     ),
     "CODIGO_SQL_COMENTADO": ReglaDiccionario(
         codigo="CODIGO_SQL_COMENTADO",
-        nombre="Código SQL comentado",
+        nombre="Código comentado sin uso",
         severidad="medio",
         descripcion="El reporte no debe conservar sentencias SQL comentadas que no aporten.",
         alcance="reporte",
