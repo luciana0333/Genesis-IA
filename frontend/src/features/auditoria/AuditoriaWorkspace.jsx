@@ -13,7 +13,7 @@ import { AvisoFaltaDiccionario } from './AvisoFaltaDiccionario';
 import { AprobarSiglas } from './AprobarSiglas';
 import { CampoNombre } from './CampoNombre';
 import { BarraRecorrido, VerEnCodigo } from './VerEnCodigo';
-import { nombreRegla } from '../../config/reglas';
+import { tituloHallazgo } from '../../config/reglas';
 import { GeneradorDiccionario } from './GeneradorDiccionario';
 import { CopiarConsulta } from '../validacion/CopiarConsulta';
 import { MetricasSeveridad } from './MetricasSeveridad';
@@ -149,7 +149,7 @@ export function AuditoriaWorkspace({ vista }) {
     if (!seccion || !hallazgo.linea) return null;
     const lineas = hallazgo.lineas?.length ? hallazgo.lineas : [hallazgo.linea];
     // Con varias líneas, la barra «1 de N ‹ ›» permite ir de un error al otro.
-    const recorrido = lineas.length > 1 ? nombreRegla(hallazgo.regla) : null;
+    const recorrido = lineas.length > 1 ? tituloHallazgo(hallazgo) : null;
     return <VerEnCodigo onVer={() => verEnCodigo(seccion, lineas, recorrido, hallazgo)} />;
   };
   // Con viñetas por tabla, solo se marcan en rojo las líneas de la tabla que se está recorriendo.

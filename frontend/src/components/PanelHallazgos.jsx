@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { SEVERIDADES, etiquetaSeveridad, nombreRegla } from '../config/reglas';
+import { SEVERIDADES, etiquetaSeveridad, tituloHallazgo } from '../config/reglas';
 import { etiquetaDeGrupos } from '../utils/recorrido';
 import { tokenizarSql } from '../utils/resaltadoSql';
 import { contarPorSeveridad, desglosarGrupo, normalizarSeveridad, ordenarHallazgos, separarMensaje } from '../utils/hallazgos';
@@ -84,7 +84,7 @@ function textoParaCopiar(hallazgo, mostrarLinea) {
   const severidad = etiquetaSeveridad(normalizarSeveridad(hallazgo.severidad));
   const seccion = SECCIONES[hallazgo.seccion];
   const ubicacion = mostrarLinea ? ` (${seccion ? `${seccion}, línea` : 'línea'} ${hallazgo.linea || 1})` : '';
-  const texto = `[${severidad}] ${nombreRegla(hallazgo.regla)}${ubicacion}: ${hallazgo.mensaje}`;
+  const texto = `[${severidad}] ${tituloHallazgo(hallazgo)}${ubicacion}: ${hallazgo.mensaje}`;
   // Si trae un bloque de código (p. ej. la consulta más lenta del plan), se copia debajo del mensaje.
   return hallazgo.codigo ? `${texto}\n\n${hallazgo.codigo}` : texto;
 }
@@ -128,7 +128,7 @@ function BotonCopiar({ texto, etiqueta, conTexto = false }) {
  */
 function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null }) {
   const severidad = normalizarSeveridad(hallazgo.severidad);
-  const titulo = nombreRegla(hallazgo.regla);
+  const titulo = tituloHallazgo(hallazgo);
   const mensaje = hallazgo.mensaje || 'Revisa este hallazgo.';
   const { problema, solucion } = separarMensaje(mensaje);
   const desglose = desglosarGrupo(problema);

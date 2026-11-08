@@ -159,7 +159,7 @@ export const NOMBRES_REGLAS = {
   ORDER_BY_NUMERICO_PROHIBIDO: 'ORDER BY numérico prohibido',
   CAST_EN_JOIN_PROHIBIDO: 'CAST o CONVERT en JOIN',
   TABLA_REPETIDA_EN_CONSULTA: 'Múltiples JOIN sobre la misma tabla',
-  LEFT_REEMPLAZABLE_POR_LIKE: 'LEFT que puede reemplazarse por LIKE',
+  LEFT_REEMPLAZABLE_POR_LIKE: 'LEFT o SUBSTRING que puede reemplazarse por LIKE',
   TRANSACCION_SIN_COMMIT: 'Transacción sin COMMIT',
   ENVIO_CORREO_DESDE_BD: 'Envío de correo desde la base de datos',
   REPLACE_ANIDADO_TRANSLATE: 'REPLACE anidados que pueden ser TRANSLATE',
@@ -233,6 +233,22 @@ export const NOMBRES_REGLAS = {
 
 export function nombreRegla(codigo) {
   return NOMBRES_REGLAS[codigo] || codigo || 'Hallazgo de auditoría';
+}
+
+/**
+ * Título de una observación: el de su regla o, si depende de lo encontrado, uno más exacto.
+ * «LEFT que puede reemplazarse por LIKE» dice la función que se usó: LEFT, SUBSTRING o los dos (usuaria, 8 nov.).
+ */
+export function tituloHallazgo(hallazgo) {
+  if (hallazgo?.regla === 'LEFT_REEMPLAZABLE_POR_LIKE') {
+    const mensaje = hallazgo.mensaje ?? '';
+    // «LEFT(» y no «LEFT JOIN»: solo la función.
+    const funciones = [['LEFT', /\bLEFT\s*\(/i], ['SUBSTRING', /\bSUBSTRING\s*\(/i]]
+      .filter(([, patron]) => patron.test(mensaje))
+      .map(([funcion]) => funcion);
+    if (funciones.length) return `${funciones.join(' o ')} que puede reemplazarse por LIKE`;
+  }
+  return nombreRegla(hallazgo?.regla);
 }
 
 export function etiquetaSeveridad(severidad) {
