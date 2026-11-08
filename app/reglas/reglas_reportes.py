@@ -223,7 +223,7 @@ REGLAS_REPORTES = {
     ),
     "ENCABEZADO_PROCEDIMIENTO": ReglaDiccionario(
         codigo="ENCABEZADO_PROCEDIMIENTO",
-        nombre="Procedimiento sin descripción",
+        nombre="Procedimiento sin encabezado completo",
         severidad="bajo",
         descripcion="Todo procedimiento lleva su encabezado: nombre, descripción, autor, fecha, control de cambios "
                     "y ejemplo de ejecución.",
