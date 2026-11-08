@@ -526,9 +526,11 @@ def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
                 continue
             hallazgos.append(_hallazgo(
                 texto, match.end() + conversion.start(), "CAST_EN_JOIN_PROHIBIDO",
-                f"Se identificó un {conversion.group(1).upper()} en la condición del JOIN con la tabla {tabla}. Se "
-                f"recomienda convertir el dato antes del JOIN (en una tabla temporal o variable) o unir columnas del "
-                f"mismo tipo, ya que la conversión en la condición impide usar los índices y vuelve lenta la consulta.",
+                # «Qué hacer»: texto de la usuaria (8 nov.).
+                f"Se identificó un {conversion.group(1).upper()} en la condición del JOIN con la tabla {tabla}. Evitar "
+                f"el uso de CAST o CONVERT en las condiciones del JOIN, ya que puede dificultar el aprovechamiento de "
+                f"los índices. Se recomienda evaluar la conversión previa mediante una variable o tabla temporal, "
+                f"antes de realizar la unión.",
             ))
             break  # una observación por JOIN
     return hallazgos

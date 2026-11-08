@@ -1192,5 +1192,20 @@ class TextoSelectEstrellaNegocioTest(unittest.TestCase):
         )
 
 
+
+class TextoCastEnJoinTest(unittest.TestCase):
+    """«Qué hacer» de CAST o CONVERT en JOIN: texto de la usuaria (8 nov.)."""
+
+    def test_texto_de_la_usuaria(self):
+        sql = "SELECT 1 FROM #A a JOIN dbo.Creditos c ON CONVERT(VARCHAR(18), c.cCtaCod) = a.cCta"
+        hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "CAST_EN_JOIN_PROHIBIDO")
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se identificó un CONVERT en la condición del JOIN con la tabla dbo.Creditos. Evitar el uso de CAST o "
+            "CONVERT en las condiciones del JOIN, ya que puede dificultar el aprovechamiento de los índices. Se "
+            "recomienda evaluar la conversión previa mediante una variable o tabla temporal, antes de realizar la "
+            "unión.",
+        )
+
 if __name__ == "__main__":
     unittest.main()
