@@ -323,8 +323,10 @@ def _palabras_del_nombre(nombre: str) -> List[str]:
 
 
 def _es_tabla_de_consulta(palabras: set) -> bool:
-    """Constantes (Constante, ConsSistema) y productos: tablas que en un procedimiento solo se consultan."""
-    return bool(palabras & (_PALABRAS_CONSTANTES | _PALABRAS_PRODUCTOS)) or {"cons", "sistema"} <= palabras
+    """Constantes (Constante, ConsSistema, ConstSistema) y productos: tablas que en un procedimiento solo se
+    consultan. ConstSistema también en mayúsculas (CONSTSISTEMA), donde no se separa en palabras (7 nov.)."""
+    return (bool(palabras & (_PALABRAS_CONSTANTES | _PALABRAS_PRODUCTOS | {"constsistema", "conssistema"}))
+            or {"cons", "sistema"} <= palabras or {"const", "sistema"} <= palabras)
 
 
 def _mensaje_consulta_sin_nolock(tablas: List[str]) -> str:
