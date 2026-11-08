@@ -163,7 +163,7 @@ def agrupar_varios(hallazgos, plantillas: Dict[str, Tuple[str, str]], articulo: 
     """
     Una observación por regla en todo el script. Si la regla aparece una vez, el mensaje dice de
     qué objeto es; si aparece varias, los casos van por objeto, nombrándolo una sola vez
-    («Cliente : cNombre, cApellido; Proveedor : cNombre»). `articulo`: «la tabla» / «el procedimiento».
+    («tabla Cliente: cNombre, cApellido; tabla Proveedor: cNombre»). `articulo`: «la tabla» / «el procedimiento».
     `hallazgo.objeto` dice a qué objeto pertenece cada observación.
     """
     grupos: Dict[str, list] = {}
@@ -193,7 +193,7 @@ def agrupar_varios(hallazgos, plantillas: Dict[str, Tuple[str, str]], articulo: 
                 # Casos que ya traen su detalle («Descripción del parámetro @x: 'a' → 'b'»): uno por
                 # viñeta, con el objeto entre paréntesis si el caso no lo nombra.
                 "; ".join(_con_objeto(e, objeto) for e in elems) if any(": " in e for e in elems)
-                else f"{objeto} : {', '.join(elems)}"
+                else f"{articulo.split()[-1]} {objeto}: {', '.join(elems)}"
                 for objeto, elems in por_objeto.items()
             )
             total = sum(len(elems) for elems in por_objeto.values())

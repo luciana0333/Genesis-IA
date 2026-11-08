@@ -167,8 +167,16 @@ REGLAS_DICCIONARIO_TABLAS = {
     "COLUMNA_NO_EXISTE": ReglaDiccionario(
         codigo="COLUMNA_NO_EXISTE",
         nombre="Columna documentada que no existe",
-        severidad="alto",
-        descripcion="En un CREATE TABLE, el diccionario documenta una columna que no existe en la tabla (posible error de tipeo).",
+        severidad="critico",
+        descripcion="En un CREATE TABLE, el diccionario documenta una columna que no existe en la tabla: el script del diccionario falla.",
+        alcance="tabla",
+        activo=True,
+    ),
+    "COLUMNA_NOMBRE_INCORRECTO": ReglaDiccionario(
+        codigo="COLUMNA_NOMBRE_INCORRECTO",
+        nombre="Columna documentada con nombre incorrecto",
+        severidad="critico",
+        descripcion="Se documenta una columna que no existe, pero la tabla tiene una con el mismo nombre y otro prefijo (cFecha / dFecha).",
         alcance="tabla",
         activo=True,
     ),

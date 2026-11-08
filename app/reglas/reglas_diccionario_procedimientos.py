@@ -71,8 +71,16 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
     "PARAMETRO_NO_EXISTE": ReglaDiccionario(
         codigo="PARAMETRO_NO_EXISTE",
         nombre="Parámetro documentado que no existe",
-        severidad="alto",
-        descripcion="Se documenta un parámetro que el procedimiento no declara (mal escrito o eliminado).",
+        severidad="critico",
+        descripcion="Se documenta un parámetro que el procedimiento no declara: el script del diccionario falla.",
+        alcance="procedimiento",
+        activo=True,
+    ),
+    "PARAMETRO_NOMBRE_INCORRECTO": ReglaDiccionario(
+        codigo="PARAMETRO_NOMBRE_INCORRECTO",
+        nombre="Parámetro documentado con nombre incorrecto",
+        severidad="critico",
+        descripcion="Se documenta un parámetro que no existe, pero el procedimiento tiene uno con el mismo nombre y otro prefijo (@cCodAge / @nCodAge).",
         alcance="procedimiento",
         activo=True,
     ),

@@ -375,7 +375,7 @@ class TestCatalogoDiccionarioTablas(unittest.TestCase):
             h for h in verificar_diccionario_tablas(caso6.TABLA, diccionario) if h.regla == "COLUMNA_FALTANTE"
         ]
         self.assertEqual(len(faltantes), 1)
-        self.assertIn("La columna cRutaArchivo no se encuentra documentada", faltantes[0].mensaje)
+        self.assertIn("La columna cRutaArchivo de la tabla dbo.SolicitudArchivos no se encuentra documentada", faltantes[0].mensaje)
 
     def test_nombres_sin_comillas_no_se_reportan(self):
         diccionario = caso6.diccionario_correcto(";").replace("N'dbo'", "dbo").replace(

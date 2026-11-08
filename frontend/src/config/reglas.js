@@ -176,6 +176,8 @@ export const NOMBRES_REGLAS = {
   TIPO_NIVEL_INCORRECTO: 'Tipo de nivel incorrecto',
   COLUMNA_NO_EXISTE: 'Columna documentada que no existe',
   PARAMETRO_NO_EXISTE: 'Parámetro documentado que no existe',
+  COLUMNA_NOMBRE_INCORRECTO: 'Columna documentada con nombre incorrecto',
+  PARAMETRO_NOMBRE_INCORRECTO: 'Parámetro documentado con nombre incorrecto',
   DOCUMENTACION_DUPLICADA: 'Documentación duplicada',
   DESCRIPCION_TABLA_INADECUADA: 'Descripción de tabla inadecuada',
   ERROR_ORTOGRAFICO: 'Errores ortográficos en la descripción',

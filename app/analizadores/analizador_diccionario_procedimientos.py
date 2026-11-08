@@ -20,6 +20,7 @@ from typing import List, Set, Tuple, Dict, Optional
 from app.analizadores.descripcion_vs_nombre import contradice
 from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, juntar_ortografia, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_procedimiento
+from app.analizadores.nombre_por_prefijo import emparejar_por_prefijo
 from app.analizadores.diccionario_varios import (
     agrupar_varios, nombres_del_script, objetos_sin_script, por_objeto, sin_otros_objetos,
 )
@@ -267,23 +268,56 @@ def _validar_sentencias(texto_diccionario: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _emparejar_parametros(
+    hallazgos: List[Hallazgo], texto_diccionario: str, esquema: Optional[str], nombre_proc: str
+) -> List[Hallazgo]:
+    """Parámetro documentado que no existe + parámetro sin documentar con el mismo nombre salvo el prefijo
+    (@cCodAge / @nCodAge): una sola observación. Solo si es del mismo esquema y procedimiento (7 nov.)."""
+    inexistentes = {h.elemento: h for h in hallazgos if h.regla == "PARAMETRO_NO_EXISTE"}
+    faltantes = {h.elemento: h for h in hallazgos if h.regla == "PARAMETRO_FALTANTE"}
+    pares = emparejar_por_prefijo(inexistentes, faltantes)
+    llamadas = leer_propiedades_extendidas(texto_diccionario)
+    full = _nombre_completo(esquema, nombre_proc)
+    quitar, nuevos = set(), []
+    for documentado, real in pares.items():
+        llamada = next((ll for ll in llamadas if ll.texto("level2name") == documentado), None)
+        esquema_doc = llamada.texto("level0name") if llamada else ""
+        proc_doc = llamada.texto("level1name") if llamada else ""
+        if (esquema and esquema_doc and esquema_doc.upper() != esquema.upper()) or (
+                proc_doc and proc_doc.upper() != nombre_proc.upper()):
+            continue
+        quitar |= {id(inexistentes[documentado]), id(faltantes[real])}
+        nuevos.append(con_elemento(_hallazgo_catalogo(
+            inexistentes[documentado].linea, "PARAMETRO_NOMBRE_INCORRECTO",
+            f"Se identificó que en el diccionario se documenta el parámetro {documentado}, que no existe en el "
+            f"procedimiento {full}, pero parece referirse a {real}. Corregir el nombre del parámetro en el "
+            f"diccionario (ej.: @level2name = N'{real}'), ya que SQL Server no encuentra el parámetro y el script "
+            f"del diccionario falla.",
+        ), f"{documentado} → {real}"))
+    return [h for h in hallazgos if id(h) not in quitar] + nuevos
+
+
 def _validar_parametros_inexistentes(texto_diccionario: str, parametros_reales: Set[str], nombre_proc: str) -> List[Hallazgo]:
     """Se documenta un parámetro que el procedimiento no tiene (mal escrito o eliminado)."""
     reales = {p.upper(): p for p in parametros_reales}
+    propiedades = leer_propiedades_extendidas(texto_diccionario)
+    # «¿Quiso decir…?» solo propone parámetros que aún no están documentados.
+    documentados = {ll.texto("level2name").upper() for ll in propiedades if "PARAMETER" in ll.texto("level2type").upper()}
+    sin_documentar = [clave for clave in reales if clave not in documentados]
     hallazgos = []
-    for ll in leer_propiedades_extendidas(texto_diccionario):
+    for ll in propiedades:
         if "PARAMETER" not in ll.texto("level2type").upper():
             continue
         nombre = ll.texto("level2name")
         if not nombre or nombre.upper() in reales:
             continue
-        parecido = difflib.get_close_matches(nombre.upper(), list(reales), n=1, cutoff=0.75)
+        parecido = difflib.get_close_matches(nombre.upper(), sin_documentar, n=1, cutoff=0.75)
         sugerencia = f" (¿quiso decir '{reales[parecido[0]]}'?)" if parecido else ""
         hallazgos.append(con_elemento(_hallazgo_catalogo(
             ll.linea, "PARAMETRO_NO_EXISTE",
             f"Se verificó que el parámetro {nombre} está documentado, pero no existe en el procedimiento "
             f"{nombre_proc}{sugerencia}. Corregir el nombre del parámetro en el diccionario o retirar la sentencia, "
-            f"ya que SQL Server no la ejecutará.",
+            f"ya que SQL Server no encuentra el parámetro y el script del diccionario falla.",
         ), nombre))
     return hallazgos
 
@@ -391,7 +425,8 @@ def _validar_parametros_faltantes(
             severidad=Severidad.ALTO,
             regla="PARAMETRO_FALTANTE",
             mensaje=(
-                f"El parámetro {p} no se encuentra documentado. Se recomienda añadirlo al "
+                f"El parámetro {p} del procedimiento {_nombre_completo(esquema, nombre_proc)} no se encuentra "
+                f"documentado. Se recomienda añadirlo al "
                 f"diccionario del procedimiento con su descripción, ya que todo parámetro de un "
                 f"procedimiento nuevo debe estar documentado."
             ),
@@ -674,7 +709,12 @@ _PLANTILLAS_AGRUPADAS = {
     "PARAMETRO_NO_EXISTE": (
         "parámetros documentados que no existen en el procedimiento",
         "Corregir el nombre de cada parámetro en el diccionario o retirar esas sentencias, ya que SQL Server "
-        "no las ejecutará.",
+        "no encuentra esos parámetros y el script del diccionario falla.",
+    ),
+    "PARAMETRO_NOMBRE_INCORRECTO": (
+        "parámetros documentados con un nombre que no existe en el procedimiento",
+        "Corregir el nombre de cada parámetro en el diccionario, ya que SQL Server no encuentra esos parámetros "
+        "y el script del diccionario falla.",
     ),
     "NOMBRE_PROPIEDAD_INCORRECTO": (
         "propiedades con el nombre mal escrito",
@@ -891,6 +931,7 @@ def _revisar_procedimiento(texto_procedimiento: str, texto_diccionario: str) -> 
     hallazgos += _validar_duplicados(texto_diccionario)
     hallazgos += _validar_sentencias(texto_diccionario)
     hallazgos += _validar_parametros_inexistentes(texto_diccionario, parametros_reales, nombre_proc)
+    hallazgos = _emparejar_parametros(hallazgos, texto_diccionario, esquema, nombre_proc)
     hallazgos += _validar_nombre_propiedad(texto_diccionario, esquema, nombre_proc)
     hallazgos += _validar_ortografia(llamadas, texto_diccionario, esquema, nombre_proc, parametros_reales)
     hallazgos += _validar_descripcion_vs_nombre(llamadas, texto_diccionario)
