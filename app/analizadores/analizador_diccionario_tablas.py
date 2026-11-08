@@ -16,7 +16,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, juntar_ortografia, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_tabla
-from app.analizadores.nombre_por_prefijo import emparejar_por_prefijo
+from app.analizadores.nombre_por_prefijo import emparejar_por_prefijo, solo_un_error_por_sentencia
 from app.analizadores.diccionario_varios import (
     agrupar_varios, es_otro_objeto, nombres_del_script, objetos_sin_script, por_objeto,
 )
@@ -1080,6 +1080,7 @@ def _revisar_tabla(texto_tabla: str, texto_diccionario: str) -> List[Hallazgo]:
         hallazgos += mal_escritas
 
     hallazgos = _emparejar_columnas(hallazgos, llamadas, esquema, nombre_tabla)
+    hallazgos = solo_un_error_por_sentencia(hallazgos, {"COLUMNA_NO_EXISTE", "COLUMNA_NOMBRE_INCORRECTO"})
 
     # Las reglas desactivadas en el catálogo no se reportan.
     # Las columnas faltantes se ubican en su línea del CREATE/ALTER.

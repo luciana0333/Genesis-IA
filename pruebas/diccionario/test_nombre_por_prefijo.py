@@ -109,17 +109,38 @@ class ProcedimientosTest(unittest.TestCase):
 class TipoNivel2MalEscritoTest(unittest.TestCase):
     """@level2type con otro valor (el nombre copiado) en vez de COLUMN / PARAMETER: SQL Server lo rechaza."""
 
-    def test_tabla(self):
+    def test_tabla_columna_que_existe(self):
+        # La columna existe y está documentada, pero con el tipo mal escrito: se observa el tipo.
         diccionario = DICCIONARIO.replace(
-            "@level2type=N'COLUMN', @level2name=N'nConstRegularizacionDeudaId'",
-            "@level2type=N'nConstRegularizacionDeudaId', @level2name=N'nConstRegularizacionDeudaId'")
+            "@level2type=N'COLUMN', @level2name=N'nConstRegularizacionDeudaDetId'",
+            "@level2type=N'nConstRegularizacionDeudaDetId', @level2name=N'nConstRegularizacionDeudaDetId'")
         hallazgos = verificar_diccionario_tablas(TABLA, diccionario)
         tipo = [h for h in hallazgos if h.regla == "TIPO_NIVEL_INCORRECTO"]
         self.assertEqual(len(tipo), 1)
-        self.assertIn("indica 'nConstRegularizacionDeudaId' como tipo de la columna (@level2type), pero debe ser "
+        self.assertIn("indica 'nConstRegularizacionDeudaDetId' como tipo de la columna (@level2type), pero debe ser "
                       "'COLUMN'", tipo[0].mensaje)
-        # Igual se revisa que la columna no existe.
-        self.assertIn("COLUMNA_NO_EXISTE", {h.regla for h in hallazgos})
+        # Cuenta como documentada: no se repite como «no documentada».
+        self.assertFalse(any("nConstRegularizacionDeudaDetId" in h.mensaje
+                             for h in hallazgos if h.regla == "COLUMNA_FALTANTE"))
+
+    def test_tabla_columna_que_no_existe_solo_dice_eso(self):
+        # Pedido de la usuaria: si la columna no existe, basta con eso (no además el tipo).
+        diccionario = DICCIONARIO.replace(
+            "@level2type=N'COLUMN', @level2name=N'nConstRegularizacionDeudaId'",
+            "@level2type=N'nConstRegularizacionDeudaId', @level2name=N'nConstRegularizacionDeudaId'")
+        reglas = [h.regla for h in verificar_diccionario_tablas(TABLA, diccionario)]
+        self.assertIn("COLUMNA_NO_EXISTE", reglas)
+        self.assertNotIn("TIPO_NIVEL_INCORRECTO", reglas)
+
+    def test_procedimiento_parametro_que_no_existe_solo_dice_eso(self):
+        sql = "CREATE PROCEDURE Colocaciones.PA_Credito_Sel_Datos (@nCodAge INT)"
+        base = ("EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'{}', @level0type=N'SCHEMA', "
+                "@level0name=N'Colocaciones', @level1type=N'PROCEDURE', @level1name=N'PA_Credito_Sel_Datos'{}\n")
+        dic = (base.format("Procedimiento que obtiene los datos del credito", "")
+               + base.format("Codigo de la agencia", ", @level2type=N'@cCodAgencia', @level2name=N'@cCodAgencia'"))
+        reglas = [h.regla for h in verificar_diccionario(sql, dic)]
+        self.assertIn("PARAMETRO_NO_EXISTE", reglas)
+        self.assertNotIn("TIPO_NIVEL_INCORRECTO", reglas)
 
     def test_procedimiento(self):
         sql = "CREATE PROCEDURE Colocaciones.PA_Credito_Sel_Datos (@nCodAge INT)"

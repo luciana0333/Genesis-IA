@@ -20,7 +20,7 @@ from typing import List, Set, Tuple, Dict, Optional
 from app.analizadores.descripcion_vs_nombre import contradice
 from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, juntar_ortografia, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_procedimiento
-from app.analizadores.nombre_por_prefijo import emparejar_por_prefijo
+from app.analizadores.nombre_por_prefijo import emparejar_por_prefijo, solo_un_error_por_sentencia
 from app.analizadores.diccionario_varios import (
     agrupar_varios, nombres_del_script, objetos_sin_script, por_objeto, sin_otros_objetos,
 )
@@ -939,6 +939,7 @@ def _revisar_procedimiento(texto_procedimiento: str, texto_diccionario: str) -> 
     hallazgos += _validar_sentencias(texto_diccionario)
     hallazgos += _validar_parametros_inexistentes(texto_diccionario, parametros_reales, nombre_proc)
     hallazgos = _emparejar_parametros(hallazgos, texto_diccionario, esquema, nombre_proc)
+    hallazgos = solo_un_error_por_sentencia(hallazgos, {"PARAMETRO_NO_EXISTE", "PARAMETRO_NOMBRE_INCORRECTO"})
     hallazgos += _validar_nombre_propiedad(texto_diccionario, esquema, nombre_proc)
     hallazgos += _validar_ortografia(llamadas, texto_diccionario, esquema, nombre_proc, parametros_reales)
     hallazgos += _validar_descripcion_vs_nombre(llamadas, texto_diccionario)

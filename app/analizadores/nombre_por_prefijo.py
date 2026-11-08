@@ -18,6 +18,16 @@ def sin_prefijo(nombre: str) -> str:
     return _PREFIJO.sub("", limpio).lower()
 
 
+def solo_un_error_por_sentencia(hallazgos: list, reglas_no_existe: set) -> list:
+    """El @level2type mal escrito solo se observa si la columna o el parámetro existe (pedido de la usuaria,
+    7 nov.): si no existe, basta con decir eso; el tipo se corrige al corregir la sentencia."""
+    lineas_no_existe = {h.linea for h in hallazgos if h.regla in reglas_no_existe}
+    return [
+        h for h in hallazgos
+        if not (h.regla == "TIPO_NIVEL_INCORRECTO" and "@level2type" in h.mensaje and h.linea in lineas_no_existe)
+    ]
+
+
 def emparejar_por_prefijo(documentados_inexistentes: Iterable[str], sin_documentar: Iterable[str]) -> Dict[str, str]:
     """{nombre documentado que no existe: nombre real sin documentar} cuando solo cambia el prefijo de tipo.
 
