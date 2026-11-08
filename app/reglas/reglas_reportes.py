@@ -55,7 +55,7 @@ REGLAS_REPORTES = {
     ),
     "CODIGO_SQL_COMENTADO": ReglaDiccionario(
         codigo="CODIGO_SQL_COMENTADO",
-        nombre="Código SQL comentado",
+        nombre="Código comentado sin uso",
         severidad="medio",
         descripcion="El reporte no debe conservar sentencias SQL comentadas que no aporten.",
         alcance="reporte",
@@ -227,6 +227,14 @@ REGLAS_REPORTES = {
         severidad="bajo",
         descripcion="Todo procedimiento lleva su encabezado: nombre, descripción, autor, fecha, control de cambios "
                     "y ejemplo de ejecución.",
+        alcance="reporte",
+        activo=True,
+    ),
+    "CREATE_OR_ALTER": ReglaDiccionario(
+        codigo="CREATE_OR_ALTER",
+        nombre="Uso de CREATE OR ALTER",
+        severidad="medio",
+        descripcion="El procedimiento se define con CREATE (si es nuevo) o ALTER (si ya existe), no con CREATE OR ALTER.",
         alcance="reporte",
         activo=True,
     ),

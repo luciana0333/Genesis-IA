@@ -7,7 +7,9 @@ from typing import Dict, List, Set, Tuple
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
 from app.analizadores.collate_temporales import MENSAJE_COLLATE_DATABASE_DEFAULT, collate_agrupado
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
+from app.analizadores.comentarios_codigo import codigo_comentado_agrupado
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
+from app.analizadores.create_or_alter import create_or_alter
 from app.analizadores.encabezado import encabezado_observado
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
 from app.analizadores.indice_forzado import indice_forzado_agrupado
@@ -526,9 +528,11 @@ def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
                 continue
             hallazgos.append(_hallazgo(
                 texto, match.end() + conversion.start(), "CAST_EN_JOIN_PROHIBIDO",
-                f"Se identificó un {conversion.group(1).upper()} en la condición del JOIN con la tabla {tabla}. Se "
-                f"recomienda convertir el dato antes del JOIN (en una tabla temporal o variable) o unir columnas del "
-                f"mismo tipo, ya que la conversión en la condición impide usar los índices y vuelve lenta la consulta.",
+                # «Qué hacer»: texto de la usuaria (8 nov.).
+                f"Se identificó un {conversion.group(1).upper()} en la condición del JOIN con la tabla {tabla}. Evitar "
+                f"el uso de CAST o CONVERT en las condiciones del JOIN, ya que puede dificultar el aprovechamiento de "
+                f"los índices. Se recomienda evaluar la conversión previa mediante una variable o tabla temporal, "
+                f"antes de realizar la unión.",
             ))
             break  # una observación por JOIN
     return hallazgos
@@ -909,22 +913,15 @@ def _validar_collate_temporales(texto: str, limpio: str) -> List[Hallazgo]:
 
 
 def _validar_comentarios(texto: str) -> List[Hallazgo]:
-    patrones = (
-        re.compile(rf"^\s*--\s*(?:{_PALABRAS_SQL_COMENTADAS})\b", re.IGNORECASE | re.MULTILINE),
-        re.compile(rf"/\*\s*(?:{_PALABRAS_SQL_COMENTADAS})\b.*?\*/", re.IGNORECASE | re.DOTALL),
-    )
-    hallazgos = []
-    vistos: Set[int] = set()
-    procedimiento = nombre_del_procedimiento(texto)
-    for patron in patrones:
-        for match in patron.finditer(texto):
-            # Variables de prueba comentadas (--DECLARE @dFecha DATE = '...') o el EXEC de ejemplo.
-            if match.start() not in vistos and not es_bloque_de_prueba(texto, match.start(), procedimiento):
-                vistos.add(match.start())
-                hallazgos.append(_hallazgo(texto, match.start(), "CODIGO_SQL_COMENTADO", "Se encontró código SQL comentado, es decir, sentencias que ya no se ejecutan. Elimínelo "
-                "si ya no se usa, ya que dificulta la lectura del procedimiento y el historial de "
-                "cambios ya queda guardado en el control de versiones."))
-    return hallazgos
+    """«Código comentado sin uso»: una sola observación con sus líneas y el texto de la usuaria (8 nov.)."""
+    agrupado = codigo_comentado_agrupado(texto, lambda posicion: _linea(texto, posicion))
+    if not agrupado:
+        return []
+    posicion, mensaje, lineas = agrupado
+    hallazgo = _hallazgo(texto, posicion, "CODIGO_SQL_COMENTADO", mensaje)
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas  # «Ver en el código» recorre cada línea
+    return [hallazgo]
 
 
 def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
@@ -1547,6 +1544,12 @@ def _validar_prefijo_variables(texto: str, limpio: str) -> List[Hallazgo]:
     return [hallazgo]
 
 
+def _validar_create_or_alter(texto: str, limpio: str) -> List[Hallazgo]:
+    """CREATE OR ALTER PROCEDURE: se usa CREATE si es nuevo o ALTER si ya existe (usuaria, 8 nov.)."""
+    observado = create_or_alter(limpio)
+    return [_hallazgo(texto, observado[0], "CREATE_OR_ALTER", observado[1])] if observado else []
+
+
 def _validar_encabezado(texto: str, limpio: str) -> List[Hallazgo]:
     """Encabezado de documentación: falta o le faltan datos (una sola regla; usuaria, 8 nov.)."""
     observado = encabezado_observado(texto, limpio)
@@ -1746,6 +1749,7 @@ def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -
     hallazgos.extend(_validar_replace_anidado(texto_sql, con_textos, limpio))
     hallazgos.extend(_validar_esquema_entre_bases(texto_sql, limpio))
     hallazgos.extend(_validar_encabezado(texto_sql, limpio))
+    hallazgos.extend(_validar_create_or_alter(texto_sql, limpio))
     hallazgos.extend(_validar_dependencia_bi(texto_sql, limpio))
     hallazgos.extend(_validar_prefijo_parametros(texto_sql, limpio))
     hallazgos.extend(_validar_prefijo_variables(texto_sql, limpio))

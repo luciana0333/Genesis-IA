@@ -6,11 +6,13 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
 from app.analizadores.collate_temporales import MENSAJE_COLLATE_DATABASE_DEFAULT, collate_agrupado
+from app.analizadores.create_or_alter import create_or_alter
 from app.analizadores.encabezado import encabezado_observado
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
 from app.analizadores.indice_forzado import indice_forzado_agrupado
 from app.analizadores.select_estrella import marcar as marcar_select_estrella, unir_select_estrella
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
+from app.analizadores.comentarios_codigo import codigo_comentado_agrupado
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.left_like import left_reemplazable_por_like
 from app.analizadores.hints_compartidos import (
@@ -340,29 +342,15 @@ def _validar_hints_bloqueo(texto: str, sin_comentarios: str) -> List[Hallazgo]:
 
 
 def _validar_comentarios_codigo(texto: str) -> List[Hallazgo]:
-    hallazgos = []
-    patrones = [
-        re.compile(rf"^\s*--\s*(?:{_PALABRAS_SQL_COMENTADAS})\b", re.IGNORECASE | re.MULTILINE),
-        re.compile(rf"/\*\s*(?:{_PALABRAS_SQL_COMENTADAS})\b.*?\*/", re.IGNORECASE | re.DOTALL),
-    ]
-    posiciones: Set[int] = set()
-    procedimiento = nombre_del_procedimiento(texto)
-    for patron in patrones:
-        for match in patron.finditer(texto):
-            if match.start() in posiciones:
-                continue
-            posiciones.add(match.start())
-            # Variables de prueba comentadas (--DECLARE @dFecha DATE = '...') o el EXEC de ejemplo.
-            if es_bloque_de_prueba(texto, match.start(), procedimiento):
-                continue
-            hallazgos.append(_hallazgo(
-                texto,
-                match.start(),
-                "CODIGO_SQL_COMENTADO",
-                "Se identificó código SQL comentado dentro del procedimiento. Se recomienda eliminarlo si ya no se "
-                "usa, ya que dificulta la lectura y el mantenimiento del reporte.",
-            ))
-    return hallazgos
+    """«Código comentado sin uso»: una sola observación con sus líneas y el texto de la usuaria (8 nov.)."""
+    agrupado = codigo_comentado_agrupado(texto, lambda posicion: _linea(texto, posicion))
+    if not agrupado:
+        return []
+    posicion, mensaje, lineas = agrupado
+    hallazgo = _hallazgo(texto, posicion, "CODIGO_SQL_COMENTADO", mensaje)
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas  # «Ver en el código» recorre cada línea
+    return [hallazgo]
 
 
 def _validar_tablas_temporales(texto: str, limpio: str) -> List[Hallazgo]:
@@ -749,6 +737,10 @@ def _problemas_nombre_reporte(nombre: str) -> Tuple[List[str], str]:
     return problemas, sugerido
 
 
+# Partes de PA_GDD_Tabla_Acción_Finalidad, en orden (para decir cuál tiene la mayúscula mal).
+_PARTES_DEL_NOMBRE = ("el prefijo", "el área", "la tabla", "la acción", "la finalidad")
+
+
 def _validar_accion_del_nombre(texto: str, limpio: str) -> List[Hallazgo]:
     """
     Al crear el reporte, el nombre sigue PA_GDD_Tabla_Acción_Finalidad (área de Gestión de Datos).
@@ -764,6 +756,25 @@ def _validar_accion_del_nombre(texto: str, limpio: str) -> List[Hallazgo]:
     problemas, sugerido = _problemas_nombre_reporte(nombre)
     if not problemas:
         return []
+    if nombre.lower() == sugerido.lower():
+        # Solo difieren mayúsculas o minúsculas (sel → Sel): no afecta a SQL Server, va en bajo y se señala
+        # la parte mal escrita (pedido de la usuaria, 8 nov.).
+        # «la acción está escrita como «sel» en lugar de «Sel»»; con dos partes: «… y la tabla como «x» en lugar de «X»».
+        partes = []
+        for i, (original, correcta) in enumerate(zip(nombre.split("_"), sugerido.split("_"))):
+            if original == correcta:
+                continue
+            parte = _PARTES_DEL_NOMBRE[min(i, len(_PARTES_DEL_NOMBRE) - 1)]
+            # Solo la primera lleva «está escrito/a»: «la acción está escrita como … y el área como …».
+            verbo = "" if partes else ("está escrito " if parte.startswith("el ") else "está escrita ")
+            partes.append(f"{parte} {verbo}como «{original}» en lugar de «{correcta}»")
+        hallazgo = _hallazgo(
+            texto, match.start(1), "REPORTE_NOMBRE_FUERA_DEL_ESTANDAR",
+            f"Se identificó que en el nombre del procedimiento {' y '.join(partes)}. Se recomienda renombrarlo "
+            f"como {sugerido}.",
+        )
+        hallazgo.severidad = Severidad.BAJO
+        return [hallazgo]
     return [_hallazgo(
         texto, match.start(1), "REPORTE_NOMBRE_FUERA_DEL_ESTANDAR",
         f"Se identificó que el nombre del procedimiento {nombre} no cumple con la nomenclatura de reportes: "
@@ -810,6 +821,12 @@ def _validar_esquema_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
         f"explícitamente (ej.: dbo.{nombre}), ya que, si se omite, se utiliza el esquema predeterminado del "
         f"usuario, lo que podría ocasionar que el objeto se cree o modifique en un esquema distinto al esperado.",
     )]
+
+
+def _validar_create_or_alter(texto: str, limpio: str) -> List[Hallazgo]:
+    """CREATE OR ALTER PROCEDURE: se usa CREATE si es nuevo o ALTER si ya existe (usuaria, 8 nov.)."""
+    observado = create_or_alter(limpio)
+    return [_hallazgo(texto, observado[0], "CREATE_OR_ALTER", observado[1])] if observado else []
 
 
 def _validar_encabezado(texto: str, limpio: str) -> List[Hallazgo]:
@@ -1086,6 +1103,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_hints(texto_sql, sin_comentarios))
     hallazgos.extend(_validar_indice_forzado(texto_sql, limpio))
     hallazgos.extend(_validar_encabezado(texto_sql, limpio))
+    hallazgos.extend(_validar_create_or_alter(texto_sql, limpio))
     hallazgos.extend(_validar_hints_bloqueo(texto_sql, sin_comentarios))
     hallazgos.extend(_validar_comentarios_codigo(texto_sql))
     hallazgos.extend(_validar_tablas_temporales(texto_sql, limpio))
