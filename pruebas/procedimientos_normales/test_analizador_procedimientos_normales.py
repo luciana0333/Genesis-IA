@@ -270,6 +270,16 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             "cada tabla física (ej.: FROM dbo.Producto WITH (NOLOCK))"))
         self.assertNotIn("NOLOCK_POR_EVALUAR", {h.regla for h in verificar_procedimiento_normal(sql)})
 
+    def test_constsistema_tambien_debe_llevar_nolock(self):
+        # Caso de la usuaria (7 nov.): ConstSistema (con t), escrita de cualquier forma, es tabla de constantes.
+        for tabla in ("dbo.ConstSistema", "ConstSistema", "dbo.CONSTSISTEMA", "[dbo].[constsistema]", "dbo.ConsSistema"):
+            with self.subTest(tabla=tabla):
+                reglas = {h.regla for h in verificar_procedimiento_normal(f"SELECT s.nValor FROM {tabla} s WHERE s.nId = 1;")}
+                self.assertIn("CONSULTA_SIN_NOLOCK", reglas)
+                self.assertNotIn("NOLOCK_POR_EVALUAR", reglas)
+        self.assertFalse({"CONSULTA_SIN_NOLOCK", "NOLOCK_POR_EVALUAR"} & {h.regla for h in verificar_procedimiento_normal(
+            "SELECT s.nValor FROM dbo.ConstSistema s WITH (NOLOCK) WHERE s.nId = 1;")})
+
     def test_producto_que_se_actualiza_no_lleva_nolock(self):
         casos = (
             "UPDATE p SET p.nEstado = 1 FROM dbo.Producto p WHERE p.nId = 1;",
