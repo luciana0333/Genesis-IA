@@ -238,6 +238,23 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "DEPENDENCIA_BASE_BI": ReglaDiccionario(
+        codigo="DEPENDENCIA_BASE_BI",
+        nombre="Dependencia con la base de datos BI",
+        severidad="alto",
+        descripcion="Los reportes no deben depender de la base BI: es de Inteligencia Comercial y no es productiva.",
+        alcance="reporte",
+        activo=True,
+    ),
+    "COLUMNA_NUMERICA_CON_TEXTO": ReglaDiccionario(
+        codigo="COLUMNA_NUMERICA_CON_TEXTO",
+        nombre="Comparación de columna numérica con texto",
+        severidad="bajo",
+        descripcion="Una columna numérica se compara con un número sin comillas (CT.nConsCod = 3001). Medio si el "
+                    "tipo está confirmado en una temporal del script; bajo si solo lo indica el prefijo n.",
+        alcance="reporte",
+        activo=True,
+    ),
     "PROCEDIMIENTO_SIN_ESQUEMA": ReglaDiccionario(
         codigo="PROCEDIMIENTO_SIN_ESQUEMA",
         nombre="Procedimiento sin esquema",

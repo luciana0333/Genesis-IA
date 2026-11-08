@@ -181,6 +181,8 @@ class GenesisHandler(SimpleHTTPRequestHandler):
                 'lineas': getattr(hallazgo, 'lineas', None),
                 # Líneas de cada viñeta ([{nombre, lineas}]): «Ver en el código» las recorre viñeta por viñeta.
                 'grupos': getattr(hallazgo, 'grupos', None),
+                # Consulta lista para copiar que valida el dato en SQL Server (p. ej. el tipo real de una columna).
+                'consulta': getattr(hallazgo, 'consulta', None),
                 # Siglas por validar de la observación («Aprobar siglas»).
                 'siglas': getattr(hallazgo, 'siglas', None),
                 # En cuántos nombres aparece cada sigla («En 2 tablas · 11 columnas»).

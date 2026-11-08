@@ -21,6 +21,15 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "COLUMNA_NUMERICA_CON_TEXTO": ReglaDiccionario(
+        codigo="COLUMNA_NUMERICA_CON_TEXTO",
+        nombre="Comparación de columna numérica con texto",
+        severidad="bajo",
+        descripcion="Una columna numérica se compara con un número sin comillas (CT.nConsCod = 3001). Medio si el "
+                    "tipo está confirmado en una temporal del script; bajo si solo lo indica el prefijo n.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "PROCEDIMIENTO_SIN_ESQUEMA": ReglaDiccionario(
         codigo="PROCEDIMIENTO_SIN_ESQUEMA",
         nombre="Procedimiento sin esquema",
