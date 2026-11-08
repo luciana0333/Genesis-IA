@@ -1055,7 +1055,7 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
         hallazgos.append(_hallazgo(
             texto, posicion, "PROCEDIMIENTO_SIN_ESQUEMA",
             # «Qué hacer»: texto de la usuaria (7 nov.), igual en Reportes.
-            f"El procedimiento {nombre} no tiene declarado un esquema. Se recomienda indicar el esquema correspondiente de ser dbo, colocarlo "
+            f"El procedimiento {nombre} no tiene declarado un esquema. Se recomienda indicar el esquema correspondiente; de ser dbo, colocarlo "
             f"explícitamente (ej.: dbo.{nombre}), ya que, si se omite, se utiliza el esquema predeterminado del "
             f"usuario, lo que podría ocasionar que el objeto se cree o modifique en un esquema distinto al esperado y "
             f"generar búsquedas adicionales al utilizarlo.",
