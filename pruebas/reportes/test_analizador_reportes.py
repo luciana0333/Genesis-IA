@@ -58,10 +58,9 @@ class TestAnalizadorReportes(unittest.TestCase):
         ]
 
         self.assertEqual(len(hallazgos), 1)
-        self.assertIn("Se identificaron 3 usos de SELECT *", hallazgos[0].mensaje)
-        self.assertIn("tabla dbo.Cliente (línea 2); tabla dbo.Persona (línea 3); tabla dbo.Agencias (línea 4)",
+        self.assertIn("Se identificó el uso de SELECT * sobre las tablas dbo.Cliente, dbo.Persona y dbo.Agencias.",
                       hallazgos[0].mensaje)
-        self.assertIn("líneas 2, 3, 4", hallazgos[0].mensaje)
+        self.assertEqual(hallazgos[0].lineas, [2, 3, 4])
 
     def test_temporal_texto_con_collate_y_tabla_fisica_con_nolock(self):
         sql = """

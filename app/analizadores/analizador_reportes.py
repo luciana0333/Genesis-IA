@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Set, Tuple
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
 from app.analizadores.collate_temporales import collate_agrupado
 from app.analizadores.indice_forzado import indice_forzado_agrupado
+from app.analizadores.select_estrella import marcar as marcar_select_estrella, unir_select_estrella
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.left_like import left_reemplazable_por_like
@@ -437,6 +438,10 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
                 hallazgo.elemento = match.group("tabla")
             elif regla == "SELECT_ESTRELLA_PROHIBIDO":
                 hallazgo.elemento = _objeto_select_estrella(match, limpio)
+                if "alias" in match.re.groupindex:
+                    marcar_select_estrella(hallazgo, _tabla_del_alias_en(limpio, match.start(), match.group("alias")))
+                else:
+                    marcar_select_estrella(hallazgo, match.group("tabla"), bool(match.group("funcion")))
             hallazgos.append(hallazgo)
     return hallazgos
 
@@ -1118,4 +1123,5 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     ]
     # Las reglas desactivadas en el catálogo no se reportan.
     hallazgos = [h for h in hallazgos if REGLAS_REPORTES[h.regla].activo]
-    return _agrupar_hallazgos_repetidos(hallazgos)
+    # Todos los SELECT * en una sola observación con el texto de la usuaria (7 nov.).
+    return _agrupar_hallazgos_repetidos(unir_select_estrella(hallazgos))

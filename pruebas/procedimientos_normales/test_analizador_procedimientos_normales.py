@@ -1,6 +1,8 @@
 import unittest
 
 from app.analizadores.analizador_procedimientos_normales import verificar_procedimiento_normal
+from app.analizadores.analizador_reportes import verificar_reporte
+from app.analizadores.select_estrella import QUE_HACER_SELECT_ESTRELLA, mensaje_select_estrella
 
 
 class TestAnalizadorProcedimientosNormales(unittest.TestCase):
@@ -130,9 +132,9 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
 
     def test_select_top_y_alias_estrella(self):
         casos = {
-            "SELECT TOP 10 * FROM dbo.Cliente c;": "todas las columnas de dbo.Cliente mediante SELECT *",
-            "SELECT TOP (10) PERCENT * FROM dbo.Cliente c;": "todas las columnas de dbo.Cliente mediante SELECT *",
-            "SELECT c.*, z.cNombre FROM dbo.Cliente AS c JOIN dbo.Zona z ON z.n = c.n;": "todas las columnas de dbo.Cliente mediante SELECT c.*",
+            "SELECT TOP 10 * FROM dbo.Cliente c;": "uso de SELECT * sobre la tabla dbo.Cliente.",
+            "SELECT TOP (10) PERCENT * FROM dbo.Cliente c;": "uso de SELECT * sobre la tabla dbo.Cliente.",
+            "SELECT c.*, z.cNombre FROM dbo.Cliente AS c JOIN dbo.Zona z ON z.n = c.n;": "uso de SELECT * sobre la tabla dbo.Cliente.",
         }
         for sql, esperado in casos.items():
             with self.subTest(sql=sql):
@@ -145,7 +147,7 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
     def test_select_estrella_sobre_base_sin_esquema(self):
         hallazgo = next(h for h in verificar_procedimiento_normal("SELECT * FROM DBCMAICA..Cliente c WHERE c.n = 1;")
                         if h.regla == "SELECT_ESTRELLA_PROHIBIDO")
-        self.assertIn("todas las columnas de DBCMAICA..Cliente mediante SELECT *", hallazgo.mensaje)
+        self.assertIn("uso de SELECT * sobre la tabla DBCMAICA..Cliente.", hallazgo.mensaje)
 
     def test_texto_entre_comillas_no_se_revisa_como_codigo(self):
         sql = ("SELECT 'Revisar SELECT * FROM sys.objects' AS cNota, 'COLLATE Modern_Spanish_CI_AS' AS cOtra,\n"
@@ -489,8 +491,8 @@ SELECT * FROM #U;
 END"""
         hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "SELECT_ESTRELLA_PROHIBIDO"]
         self.assertEqual(len(hallazgos), 1)
-        self.assertIn("2 observaciones", hallazgos[0].mensaje)
-        self.assertIn("las líneas 3, 4", hallazgos[0].mensaje)
+        self.assertIn("sobre las tablas temporales #T y #U.", hallazgos[0].mensaje)
+        self.assertEqual(hallazgos[0].lineas, [3, 4])
 
 
     def test_varchar_max_es_medio_y_se_permite_para_json_o_xml(self):
@@ -583,8 +585,7 @@ SELECT * FROM #TMP_Clientes t;
 SELECT a.x FROM #A a INNER JOIN dbo.B b ON a.n = b.n WHERE a.cNombre COLLATE SQL_Latin1_General_CP1_CI_AS = 'x';
 END"""
         hallazgos = {h.regla: h.mensaje for h in verificar_procedimiento_normal(sql)}
-        self.assertIn("todas las columnas de dbo.TB_Estado", hallazgos["SELECT_ESTRELLA_PROHIBIDO"])
-        self.assertIn("todas las columnas de #TMP_Clientes", hallazgos["SELECT_ESTRELLA_PROHIBIDO"])
+        self.assertIn("sobre las tablas dbo.TB_Estado y #TMP_Clientes.", hallazgos["SELECT_ESTRELLA_PROHIBIDO"])
         self.assertIn("sobre a.cNombre en la condición del WHERE", hallazgos["COLLATE_EN_PREDICADO"])
 
     def test_collate_en_temporales_y_variables_de_tabla(self):
@@ -1160,16 +1161,34 @@ class TestCastEnJoin(unittest.TestCase):
 
 
 class TextoSelectEstrellaNegocioTest(unittest.TestCase):
-    """Texto de la usuaria (2 nov.) para SELECT * en Negocio."""
+    """Texto de la usuaria (7 nov.) para SELECT * en Negocio y Reportes: todos en una sola observación."""
 
     def test_texto_de_la_usuaria(self):
         hallazgo = next(h for h in verificar_procedimiento_normal("SELECT * FROM #Resultado")
                         if h.regla == "SELECT_ESTRELLA_PROHIBIDO")
         self.assertEqual(
             hallazgo.mensaje,
-            "Se identificó que se están consultando todas las columnas de #Resultado mediante SELECT *. Definir "
-            "explícitamente las columnas necesarias y evitar el uso de SELECT *, ya que recuperar columnas que no se "
-            "utilizan aumenta el consumo de recursos y puede afectar el rendimiento (ej.: SELECT cNombre, dFecha).",
+            "Se identificó el uso de SELECT * sobre la tabla temporal #Resultado. " + QUE_HACER_SELECT_ESTRELLA,
+        )
+
+    def test_varios_en_una_observacion_en_reportes_y_negocio(self):
+        sql = ("CREATE PROCEDURE dbo.PA_X AS\nSELECT * FROM #TEMPCALEND\n"
+               "SELECT X.* FROM #Constante X\nSELECT x.* FROM #Constante x")
+        for verificar in (verificar_procedimiento_normal, verificar_reporte):
+            with self.subTest(modulo=verificar.__name__):
+                casos = [h for h in verificar(sql) if h.regla == "SELECT_ESTRELLA_PROHIBIDO"]
+                self.assertEqual(len(casos), 1)
+                self.assertEqual(
+                    casos[0].mensaje,
+                    "Se identificó el uso de SELECT * sobre las tablas temporales #TEMPCALEND y #Constante. "
+                    + QUE_HACER_SELECT_ESTRELLA,
+                )
+                self.assertEqual(casos[0].lineas, [2, 3, 4])
+
+    def test_tabla_fisica_y_funcion(self):
+        self.assertEqual(
+            mensaje_select_estrella([("tabla", "dbo.Cliente"), ("funcion", "dbo.fn_Saldos")]).split(". ")[0],
+            "Se identificó el uso de SELECT * sobre la tabla dbo.Cliente y la función dbo.fn_Saldos",
         )
 
 

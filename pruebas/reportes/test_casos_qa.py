@@ -46,8 +46,7 @@ class TestReportesQA(unittest.TestCase):
                 sql = procedimiento(f"    {select} FROM dbo.Cliente c WITH(NOLOCK);")
                 self.assertEqual(reglas(sql), [("SELECT_ESTRELLA_PROHIBIDO", 5)])
         hallazgo = verificar_reporte(procedimiento("    SELECT c.*, a.cNombre FROM dbo.Cliente c WITH(NOLOCK) JOIN dbo.Agencia a WITH(NOLOCK) ON a.nId = c.nId;"))[0]
-        self.assertIn("uso de c.* sobre la tabla dbo.Cliente, que obtiene todas las columnas de la tabla",
-                      hallazgo.mensaje)
+        self.assertIn("uso de SELECT * sobre la tabla dbo.Cliente.", hallazgo.mensaje)
 
     def test_count_estrella_no_es_select_estrella(self):
         sql = procedimiento("    SELECT COUNT(*) FROM dbo.Cliente c WITH(NOLOCK);")

@@ -9,6 +9,7 @@ from app.analizadores.collate_temporales import collate_agrupado
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.indice_forzado import indice_forzado_agrupado
+from app.analizadores.select_estrella import marcar as marcar_select_estrella, unir_select_estrella
 from app.analizadores.left_like import left_reemplazable_por_like
 from app.analizadores.hints_compartidos import (
     HINTS_BLOQUEO_NUEVOS, QUE_HACE_EL_AISLAMIENTO, hint_en_temporal, niveles_de_aislamiento,
@@ -662,11 +663,11 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     for match in re.finditer(patron_estrella, limpio, re.IGNORECASE):
         tabla = _tabla_del_from(limpio, match.start())
         de = f" de {tabla}" if tabla else ""
-        hallazgos.append(_hallazgo(
+        hallazgos.append(marcar_select_estrella(_hallazgo(
             texto, match.start(), "SELECT_ESTRELLA_PROHIBIDO",
             f"Se identificó que se están consultando todas las columnas{de} mediante SELECT *. "
             f"{_ACCION_SELECT_ESTRELLA.format(ejemplo='SELECT cNombre, dFecha')}",
-        ))
+        ), tabla))
     # SELECT c.*: todas las columnas de la tabla del alias c.
     for match in re.finditer(r"(?<![\w.@#])([A-Za-z_]\w*)\s*\.\s*\*(?=\s*(?:,|\bFROM\b))", limpio, re.IGNORECASE):
         alias = match.group(1)
@@ -676,11 +677,11 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             sentencia, re.IGNORECASE,
         )
         tabla = _limpiar_nombre(origen.group(1)) if origen else alias
-        hallazgos.append(_hallazgo(
+        hallazgos.append(marcar_select_estrella(_hallazgo(
             texto, match.start(), "SELECT_ESTRELLA_PROHIBIDO",
             f"Se identificó que se están consultando todas las columnas de {tabla} mediante SELECT {alias}.*. "
             f"{_ACCION_SELECT_ESTRELLA.format(ejemplo=f'SELECT {alias}.cNombre, {alias}.dFecha')}",
-        ))
+        ), tabla))
     for match in re.finditer(r"([\w.\[\]@#]+)\s+COLLATE\s+\w+", limpio, re.IGNORECASE):
         # La cláusula que manda es la más cercana al COLLATE (puede haber un ON antes del WHERE). Una
         # subconsulta ya cerrada (WHERE a IN (SELECT … FROM …) AND c COLLATE …) no cambia la cláusula.
@@ -1759,7 +1760,8 @@ def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -
         hallazgos = [h for h in hallazgos if h.regla != "SELECT_ESTRELLA_PROHIBIDO"]
     # Las reglas desactivadas en el catálogo no se reportan.
     hallazgos = [h for h in hallazgos if REGLAS_PROCEDIMIENTOS_NORMALES[h.regla].activo]
-    return _agrupar_repetidos(hallazgos)
+    # Todos los SELECT * en una sola observación con el texto de la usuaria (7 nov.).
+    return _agrupar_repetidos(unir_select_estrella(hallazgos))
 
 
 def _validar_sintaxis_prohibida(texto: str, limpio: str) -> List[Hallazgo]:
