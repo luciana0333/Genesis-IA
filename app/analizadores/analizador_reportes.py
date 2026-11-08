@@ -749,6 +749,10 @@ def _problemas_nombre_reporte(nombre: str) -> Tuple[List[str], str]:
     return problemas, sugerido
 
 
+# Partes de PA_GDD_Tabla_Acción_Finalidad, en orden (para decir cuál tiene la mayúscula mal).
+_PARTES_DEL_NOMBRE = ("el prefijo", "el área", "la tabla", "la acción", "la finalidad")
+
+
 def _validar_accion_del_nombre(texto: str, limpio: str) -> List[Hallazgo]:
     """
     Al crear el reporte, el nombre sigue PA_GDD_Tabla_Acción_Finalidad (área de Gestión de Datos).
@@ -764,6 +768,25 @@ def _validar_accion_del_nombre(texto: str, limpio: str) -> List[Hallazgo]:
     problemas, sugerido = _problemas_nombre_reporte(nombre)
     if not problemas:
         return []
+    if nombre.lower() == sugerido.lower():
+        # Solo difieren mayúsculas o minúsculas (sel → Sel): no afecta a SQL Server, va en bajo y se señala
+        # la parte mal escrita (pedido de la usuaria, 8 nov.).
+        # «la acción está escrita como «sel» en lugar de «Sel»»; con dos partes: «… y la tabla como «x» en lugar de «X»».
+        partes = []
+        for i, (original, correcta) in enumerate(zip(nombre.split("_"), sugerido.split("_"))):
+            if original == correcta:
+                continue
+            parte = _PARTES_DEL_NOMBRE[min(i, len(_PARTES_DEL_NOMBRE) - 1)]
+            # Solo la primera lleva «está escrito/a»: «la acción está escrita como … y el área como …».
+            verbo = "" if partes else ("está escrito " if parte.startswith("el ") else "está escrita ")
+            partes.append(f"{parte} {verbo}como «{original}» en lugar de «{correcta}»")
+        hallazgo = _hallazgo(
+            texto, match.start(1), "REPORTE_NOMBRE_FUERA_DEL_ESTANDAR",
+            f"Se identificó que en el nombre del procedimiento {' y '.join(partes)}. Se recomienda renombrarlo "
+            f"como {sugerido}.",
+        )
+        hallazgo.severidad = Severidad.BAJO
+        return [hallazgo]
     return [_hallazgo(
         texto, match.start(1), "REPORTE_NOMBRE_FUERA_DEL_ESTANDAR",
         f"Se identificó que el nombre del procedimiento {nombre} no cumple con la nomenclatura de reportes: "
