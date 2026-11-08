@@ -15,6 +15,7 @@ import { CampoNombre } from './CampoNombre';
 import { BarraRecorrido, VerEnCodigo } from './VerEnCodigo';
 import { nombreRegla } from '../../config/reglas';
 import { GeneradorDiccionario } from './GeneradorDiccionario';
+import { CopiarConsulta } from '../validacion/CopiarConsulta';
 import { MetricasSeveridad } from './MetricasSeveridad';
 import { detectarTipoDiccionario, extraerNombresObjetos, resumirNombresObjetos } from '../../utils/deteccionObjeto';
 import { grupoDelRecorrido } from '../../utils/recorrido';
@@ -171,6 +172,7 @@ export function AuditoriaWorkspace({ vista }) {
   const accionesHallazgo = (hallazgo) => (
     <>
       {botonVerEnCodigo(hallazgo)}
+      {hallazgo.consulta && <CopiarConsulta consulta={hallazgo.consulta} />}
       {hallazgo.siglas?.length > 0 && (
         <AprobarSiglas siglas={hallazgo.siglas} usos={usosDeSiglas} onActualizar={() => revisar()} />
       )}

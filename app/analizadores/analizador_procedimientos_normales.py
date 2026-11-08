@@ -11,6 +11,7 @@ from app.analizadores.comentarios_codigo import codigo_comentado_agrupado
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.create_or_alter import create_or_alter
 from app.analizadores.dependencia_bi import dependencia_bi
+from app.analizadores.numero_comparado_con_texto import numero_comparado_con_texto
 from app.analizadores.encabezado import encabezado_observado
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
 from app.analizadores.indice_forzado import indice_forzado_agrupado
@@ -1491,6 +1492,26 @@ def _validar_envio_correo(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _validar_numero_con_texto(texto: str, limpio: str) -> List[Hallazgo]:
+    """Columna numérica comparada con un texto ('3001'): una observación con todas (usuaria, 8 nov.).
+
+    Medio si alguna es de una temporal del script (tipo confirmado); bajo si todas son por el prefijo n, con la
+    consulta para validar el tipo real.
+    """
+    observado = numero_comparado_con_texto(texto, limpio, lambda posicion: _linea(texto, posicion))
+    if not observado:
+        return []
+    posicion, mensaje, lineas, certeza, consulta = observado
+    hallazgo = _hallazgo(texto, posicion, "COLUMNA_NUMERICA_CON_TEXTO", mensaje)
+    if certeza:
+        hallazgo.severidad = Severidad.MEDIO
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas
+    if consulta:
+        hallazgo.consulta = consulta  # «Copiar consulta de validación»
+    return [hallazgo]
+
+
 def _validar_dependencia_bi(texto: str, limpio: str) -> List[Hallazgo]:
     """Consultas, funciones o procedimientos de la base BI (no productiva): una observación con todos."""
     observado = dependencia_bi(texto, limpio, lambda posicion: _linea(texto, posicion))
@@ -1729,6 +1750,7 @@ def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -
     hallazgos.extend(_validar_encabezado(texto_sql, limpio))
     hallazgos.extend(_validar_create_or_alter(texto_sql, limpio))
     hallazgos.extend(_validar_dependencia_bi(texto_sql, limpio))
+    hallazgos.extend(_validar_numero_con_texto(texto_sql, limpio))
     hallazgos.extend(_validar_prefijo_parametros(texto_sql, limpio))
     hallazgos.extend(_validar_prefijo_variables(texto_sql, limpio))
     hallazgos.extend(_validar_tabla_repetida(texto_sql, limpio))

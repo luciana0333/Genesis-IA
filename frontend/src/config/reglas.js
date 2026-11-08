@@ -135,6 +135,7 @@ export const NOMBRES_REGLAS = {
   PROCEDIMIENTO_SIN_DESCRIPCION: 'Procedimiento no documentado',
   PROCEDIMIENTO_SIN_ESQUEMA: 'Procedimiento sin esquema',
   CREATE_OR_ALTER: 'Uso de CREATE OR ALTER',
+  COLUMNA_NUMERICA_CON_TEXTO: 'Comparación de columna numérica con texto',
   ENCABEZADO_PROCEDIMIENTO: 'Procedimiento sin encabezado completo',
   PROCEDIMIENTO_SIN_PREFIJO_PA: 'Nombre sin prefijo PA_',
   PROCEDIMIENTO_NOMBRE_INCOMPLETO: 'Nombre de procedimiento incompleto',
