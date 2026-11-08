@@ -490,17 +490,10 @@ def palabras_mal_escritas(
         if clave in vistas or _debe_ignorarse(palabra, ignorar, en_mayusculas):
             continue
         vistas.add(clave)
-        # Bien escrita salvo la tilde (codigo → código). En una descripción escrita toda en
-        # mayúsculas no se exige la tilde: es común omitirla y llenaría el informe de avisos.
-        tilde = None if palabra.isupper() else tilde_correcta(palabra)
-        anterior = palabras[indice - 1].lower() if indice else ""
-        siguiente = palabras[indice + 1].lower() if indice + 1 < len(palabras) else ""
-        pasado = _pasado_sin_tilde(palabra, anterior, siguiente)
-        if tilde:
-            resultado.append((palabra, [_con_mayusculas(f, palabra) for f in tilde]))
-        elif pasado:
-            resultado.append((palabra, [pasado]))
-        elif not es_palabra_valida(palabra):
+        # Las tildes no se exigen (pedido de la usuaria, 7 nov.): en el diccionario se pueden omitir para que
+        # no salgan caracteres raros. «codigo», «numero» o «solicito» (por «solicitó») son válidas; solo se
+        # marcan las palabras mal escritas. es_palabra_valida compara sin tildes.
+        if not es_palabra_valida(palabra):
             resultado.append((palabra, sugerencias(palabra)))
     return resultado
 

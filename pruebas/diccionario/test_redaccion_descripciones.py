@@ -15,10 +15,12 @@ def _exec(valor, proc, parametro=None):
 
 
 class PasadoSinTildeTest(unittest.TestCase):
-    def test_tras_el_cual_o_que(self):
-        self.assertIn(("solicito", ["solicitó"]), palabras_mal_escritas("Usuario el cual solicito la disponibilidad."))
-        self.assertIn(("registro", ["registró"]), palabras_mal_escritas("Usuario que registro la operación."))
-        self.assertIn(("realizo", ["realizó"]), palabras_mal_escritas("Fecha en que se realizo el pago."))
+    def test_tras_el_cual_o_que_ya_no_se_exige_la_tilde(self):
+        # Pedido de la usuaria (7 nov.): las tildes se pueden omitir en el diccionario.
+        for texto in ("Usuario el cual solicito la disponibilidad.", "Usuario que registro la operación.",
+                      "Fecha en que se realizo el pago."):
+            with self.subTest(texto=texto):
+                self.assertEqual(palabras_mal_escritas(texto), [])
 
     def test_sustantivos_y_que_tipo_de_no_se_observan(self):
         for texto in ("El registro de la operación.", "Indica que tipo de cliente es.", "Código del pago."):
@@ -76,26 +78,26 @@ class OrtografiaConVariosProcedimientosTest(unittest.TestCase):
         a, b = "PA_Uno_Sel_Datos", "PA_Dos_Upd_Datos"
         sql = f"CREATE PROCEDURE Logistica.{a} (@nId INT)\nCREATE PROCEDURE Logistica.{b} (@cMensaje VARCHAR(10))"
         dic = (_exec("Procedimiento almacenado que selecciona los datos.", a)
-               + _exec("Indica el número de la cotizacion.", a, "@nId")
+               + _exec("Indica el número de la cotisacion.", a, "@nId")
                + _exec("Procedimiento almacenado que actualiza los datos.", b)
-               + _exec("Mensaje de la ejecucion.", b, "@cMensaje"))
+               + _exec("Mensaje de la ejecusion.", b, "@cMensaje"))
         mensaje = [h for h in verificar_diccionario(sql, dic) if h.regla == "ERROR_ORTOGRAFICO"][0].mensaje
-        self.assertIn("Se identificaron 2 palabras sin tilde en el diccionario: 'cotizacion' → 'cotización' y "
-                      "'ejecucion' → 'ejecución'.", mensaje)
+        self.assertIn("Se identificaron 2 palabras mal escritas en el diccionario: 'cotisacion' → 'cotización' y "
+                      "'ejecusion' → 'ejecución'.", mensaje)
         self.assertNotIn(" : ", mensaje)
 
     def test_misma_palabra_en_varios_procedimientos_dice_de_cual_es_cada_parametro(self):
         a, b = "PA_Uno_Sel_Datos", "PA_Dos_Upd_Datos"
         sql = f"CREATE PROCEDURE Logistica.{a} (@nId INT)\nCREATE PROCEDURE Logistica.{b} (@cMensaje VARCHAR(10))"
-        dic = (_exec("Procedimiento que consulta la cotizacion.", a)
-               + _exec("Número de la cotizacion.", a, "@nId")
-               + _exec("Procedimiento que actualiza la cotizacion.", b)
-               + _exec("Mensaje de la cotizacion.", b, "@cMensaje"))
+        dic = (_exec("Procedimiento que consulta la cotisacion.", a)
+               + _exec("Número de la cotisacion.", a, "@nId")
+               + _exec("Procedimiento que actualiza la cotisacion.", b)
+               + _exec("Mensaje de la cotisacion.", b, "@cMensaje"))
         hallazgos = [h for h in verificar_diccionario(sql, dic) if h.regla == "ERROR_ORTOGRAFICO"]
         self.assertEqual(len(hallazgos), 1)
         self.assertEqual(hallazgos[0].lineas, [1, 2, 3, 4])
         # La palabra sale una vez aunque esté en 4 descripciones; sus líneas van en el encabezado.
-        self.assertIn("Se identificó una palabra sin tilde en el diccionario: 'cotizacion' → 'cotización'.",
+        self.assertIn("Se identificó una palabra mal escrita en el diccionario: 'cotisacion' → 'cotización'.",
                       hallazgos[0].mensaje)
 
 

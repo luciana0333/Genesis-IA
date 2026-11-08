@@ -92,21 +92,19 @@ class TestOrtografia(unittest.TestCase):
         self.assertEqual([h.regla for h in hallazgos], ["ERROR_ORTOGRAFICO"])
         self.assertIn("'clienteYY' → 'cliente'", hallazgos[0].mensaje)
 
-    def test_detecta_falta_de_tilde_y_sugiere_la_forma_correcta(self):
-        self.assertEqual(
-            ortografia.palabras_mal_escritas("Descripcion del codigo unico del credito"),
-            [("Descripcion", ["Descripción"]), ("codigo", ["código"]), ("unico", ["único"]), ("credito", ["crédito"])],
-        )
-        # Tilde de más (guion se escribe sin tilde) y palabras que existen con y sin tilde (numero/número).
-        self.assertEqual(ortografia.palabras_mal_escritas("Estado del guión"), [("guión", ["guion"])])
-        self.assertEqual(ortografia.palabras_mal_escritas("Solo numero el registro"), [])
+    def test_las_tildes_no_se_exigen(self):
+        # Pedido de la usuaria (7 nov.): en el diccionario se pueden omitir las tildes para que no salgan
+        # caracteres raros; tampoco es error una tilde de más o con la tilde puesta.
+        for texto in ("Descripcion del codigo unico del credito", "Estado del guión", "Solo numero el registro",
+                      "Descripción del código único del crédito", "Usuario el cual solicito la disponibilidad"):
+            with self.subTest(texto=texto):
+                self.assertEqual(ortografia.palabras_mal_escritas(texto), [])
 
-    def test_la_falta_de_tilde_se_indica_en_el_mensaje(self):
+    def test_sin_tilde_solo_se_marca_la_palabra_mal_escrita(self):
         errores = ortografia.palabras_mal_escritas("Codigo de operacion del clinete")
         self.assertEqual(
             ortografia.elemento_ortografico("del parámetro @x", errores),
-            "Descripción del parámetro @x: 'Codigo' → 'Código' (tilde), 'operacion' → 'operación' (tilde), "
-            "'clinete' → 'cliente'",
+            "Descripción del parámetro @x: 'clinete' → 'cliente'",
         )
 
     def test_en_mayusculas_no_se_exige_la_tilde(self):

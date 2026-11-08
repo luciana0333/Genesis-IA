@@ -52,16 +52,17 @@ class MensajePorTipoTest(unittest.TestCase):
 class EnLosDosDiccionariosTest(unittest.TestCase):
     def test_procedimientos_cada_palabra_una_vez_con_todas_sus_lineas(self):
         sql = "CREATE PROCEDURE dbo.PA_Cliente_Sel_Datos (@cCodTrx VARCHAR(6), @cPersCod VARCHAR(13))"
-        dic = (_exec("Procedimiento que obtiene el credito del cliente")
-               + _exec("Codigo de la transaccion", parametro="@cCodTrx")
-               + _exec("Codigo de la persona", parametro="@cPersCod"))
+        # Sin tildes (codigo, transaccion) no es error: solo las palabras mal escritas (7 nov.).
+        dic = (_exec("Procedimiento que obtiene el credtio del cliente")
+               + _exec("Codigo de la trasnaccion", parametro="@cCodTrx")
+               + _exec("Codigo de la perosna", parametro="@cPersCod"))
         hallazgos = [h for h in verificar_diccionario(sql, dic) if h.regla == "ERROR_ORTOGRAFICO"]
         self.assertEqual(len(hallazgos), 1)
         self.assertEqual(hallazgos[0].lineas, [1, 2, 3])
         self.assertEqual(
             hallazgos[0].mensaje,
-            "Se identificaron 3 palabras sin tilde en el diccionario: 'credito' → 'crédito', 'Codigo' → 'Código' y "
-            "'transaccion' → 'transacción'. " + _ACCION,
+            "Se identificaron 3 palabras mal escritas en el diccionario: 'credtio' → 'crédito', 'trasnaccion' → "
+            "'transacción' y 'perosna' → 'persona'. " + _ACCION,
         )
         self.assertNotIn("@cCodTrx", hallazgos[0].mensaje)  # dónde está lo muestra «Ver en el código»
 
@@ -75,9 +76,8 @@ class EnLosDosDiccionariosTest(unittest.TestCase):
         hallazgos = [h for h in verificar_diccionario_tablas(tabla, dic) if h.regla == "ERROR_ORTOGRAFICO"]
         self.assertEqual(len(hallazgos), 1)
         self.assertTrue(hallazgos[0].mensaje.startswith(
-            # «credito» de la columna no se marca: es parte del nombre de la tabla documentada (Credito).
-            "Se identificaron 3 errores ortográficos en el diccionario: Sin tilde: 'creditos' → 'créditos' y "
-            "'Codigo' → 'Código'; Mal escritas: 'clienet' → 'cliente'."))
+            # Las palabras sin tilde (creditos, Codigo) ya no se marcan: solo la mal escrita.
+            "Se identificó una palabra mal escrita en el diccionario: 'clienet' → 'cliente'."))
 
 
 if __name__ == "__main__":
