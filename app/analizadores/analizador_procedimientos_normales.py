@@ -7,6 +7,7 @@ from typing import Dict, List, Set, Tuple
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
 from app.analizadores.collate_temporales import MENSAJE_COLLATE_DATABASE_DEFAULT, collate_agrupado
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
+from app.analizadores.comentarios_codigo import comentarios_con_codigo
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.encabezado import encabezado_observado
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
@@ -911,22 +912,13 @@ def _validar_collate_temporales(texto: str, limpio: str) -> List[Hallazgo]:
 
 
 def _validar_comentarios(texto: str) -> List[Hallazgo]:
-    patrones = (
-        re.compile(rf"^\s*--\s*(?:{_PALABRAS_SQL_COMENTADAS})\b", re.IGNORECASE | re.MULTILINE),
-        re.compile(rf"/\*\s*(?:{_PALABRAS_SQL_COMENTADAS})\b.*?\*/", re.IGNORECASE | re.DOTALL),
-    )
-    hallazgos = []
-    vistos: Set[int] = set()
-    procedimiento = nombre_del_procedimiento(texto)
-    for patron in patrones:
-        for match in patron.finditer(texto):
-            # Variables de prueba comentadas (--DECLARE @dFecha DATE = '...') o el EXEC de ejemplo.
-            if match.start() not in vistos and not es_bloque_de_prueba(texto, match.start(), procedimiento):
-                vistos.add(match.start())
-                hallazgos.append(_hallazgo(texto, match.start(), "CODIGO_SQL_COMENTADO", "Se encontró código SQL comentado, es decir, sentencias que ya no se ejecutan. Elimínelo "
-                "si ya no se usa, ya que dificulta la lectura del procedimiento y el historial de "
-                "cambios ya queda guardado en el control de versiones."))
-    return hallazgos
+    """Código SQL comentado, también restos de depuración (--WHERE c = 1, -- TOP (10), --THEN 'x'); módulo compartido."""
+    return [
+        _hallazgo(texto, posicion, "CODIGO_SQL_COMENTADO", "Se encontró código SQL comentado, es decir, sentencias que ya no se ejecutan. Elimínelo "
+        "si ya no se usa, ya que dificulta la lectura del procedimiento y el historial de "
+        "cambios ya queda guardado en el control de versiones.")
+        for posicion in comentarios_con_codigo(texto)
+    ]
 
 
 def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
