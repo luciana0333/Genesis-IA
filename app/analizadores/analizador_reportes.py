@@ -785,9 +785,11 @@ def _validar_esquema_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
     nombre = match.group(2).strip("[]")
     return [_hallazgo(
         texto, match.start(2), "PROCEDIMIENTO_SIN_ESQUEMA",
-        f"Se identificó que el procedimiento {nombre} no tiene declarado un esquema. Se recomienda añadir el "
-        f"esquema; si es dbo, definirlo explícitamente, ya que así se evita crear o modificar un objeto "
-        f"equivocado (ej.: dbo.{nombre}).",
+        # «Qué hacer»: texto de la usuaria (7 nov.), igual en Negocio.
+        f"Se identificó que el procedimiento {nombre} no tiene declarado un esquema. Se recomienda indicar el esquema correspondiente de ser dbo, colocarlo "
+        f"explícitamente (ej.: dbo.{nombre}), ya que, si se omite, se utiliza el esquema predeterminado del "
+        f"usuario, lo que podría ocasionar que el objeto se cree o modifique en un esquema distinto al esperado y "
+        f"generar búsquedas adicionales al utilizarlo.",
     )]
 
 

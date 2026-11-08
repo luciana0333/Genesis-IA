@@ -1054,9 +1054,11 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
     if len(partes) == 1:
         hallazgos.append(_hallazgo(
             texto, posicion, "PROCEDIMIENTO_SIN_ESQUEMA",
-            f"El procedimiento {nombre} no tiene declarado un esquema. Se recomienda añadir "
-            f"el esquema; si es dbo, definirlo explícitamente, ya que así se evita crear o modificar un objeto "
-            f"equivocado (ej.: dbo.{nombre}).",
+            # «Qué hacer»: texto de la usuaria (7 nov.), igual en Reportes.
+            f"El procedimiento {nombre} no tiene declarado un esquema. Se recomienda indicar el esquema correspondiente de ser dbo, colocarlo "
+            f"explícitamente (ej.: dbo.{nombre}), ya que, si se omite, se utiliza el esquema predeterminado del "
+            f"usuario, lo que podría ocasionar que el objeto se cree o modifique en un esquema distinto al esperado y "
+            f"generar búsquedas adicionales al utilizarlo.",
         ))
 
     # En un ALTER el procedimiento ya existe: su nombre no se puede cambiar.
