@@ -108,6 +108,8 @@ const COLLATE = (tablas) => ({
     + `${tablas.map(([nombre, columnas]) => `${nombre}: ${columnas.join(', ')}`).join('; ')}. `
     + 'Se recomienda añadir el COLLATE correspondiente en las columnas de tipo texto de las tablas temporales.',
   grupos: tablas.map(([nombre, columnas], i) => ({ nombre, tipo: 'Tabla', lineas: columnas.map(() => i + 1), etiquetas: columnas })),
+  // Como el backend: una línea por columna sin COLLATE.
+  lineas: tablas.flatMap(([, columnas], i) => columnas.map(() => i + 1)),
 });
 
 describe('PanelHallazgos · «COLLATE no especificado en tabla temporal» como tabla', () => {
@@ -117,6 +119,8 @@ describe('PanelHallazgos · «COLLATE no especificado en tabla temporal» como t
     ])]} />);
     expect(screen.getByText(/^Se identificaron columnas de texto sin COLLATE en las siguientes tablas temporales:$/))
       .toBeInTheDocument();
+    // Cada columna sin COLLATE es un caso: 5 columnas → «5 casos».
+    expect(screen.getByText('5 casos')).toBeInTheDocument();
     const filas = within(screen.getByRole('table')).getAllByRole('row').map((fila) => fila.textContent);
     expect(filas).toEqual([
       'TablaColumnas sin COLLATE',
@@ -131,5 +135,7 @@ describe('PanelHallazgos · «COLLATE no especificado en tabla temporal» como t
       ['#A', ['cCod']], ['#B', ['cNombre']],
     ])]} />);
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    // Hasta 4 casos se muestran las líneas.
+    expect(screen.getByText('Líneas 1, 2')).toBeInTheDocument();
   });
 });

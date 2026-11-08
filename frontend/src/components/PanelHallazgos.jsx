@@ -134,12 +134,16 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
   const desglose = desglosarGrupo(problema);
   const { intro, ocurrencias } = desglose;
   // Las líneas salen del texto agrupado o, si la observación las trae aparte, de hallazgo.lineas.
-  const lineas = desglose.lineas || (hallazgo.lineas?.length > 1 ? hallazgo.lineas.join(', ') : null);
+  // «COLLATE no especificado en tabla temporal»: cada columna sin COLLATE es un caso (usuaria, 8 nov.).
+  const porColumna = hallazgo.regla === 'TEMPORAL_TEXTO_SIN_COLLATE' && hallazgo.lineas?.length > 0;
+  const lineas = porColumna
+    ? [...new Set(hallazgo.lineas)].join(', ')
+    : desglose.lineas || (hallazgo.lineas?.length > 1 ? hallazgo.lineas.join(', ') : null);
   const seccion = SECCIONES[hallazgo.seccion];
   // Hasta 4 líneas se muestran; con más, la cantidad de casos («20 casos»): se recorren desde «Ver en el código».
-  const cantidadLineas = lineas ? lineas.split(',').length : 1;
+  const cantidadLineas = porColumna ? hallazgo.lineas.length : (lineas ? lineas.split(',').length : 1);
   // Viñetas con sus propias líneas (tablas, columnas): se cuentan las viñetas, no las líneas («11 columnas»).
-  const porGrupos = etiquetaDeGrupos(hallazgo.grupos);
+  const porGrupos = porColumna ? null : etiquetaDeGrupos(hallazgo.grupos);
   const etiquetaLinea = (seccion ? `${seccion} · ` : '') + (porGrupos || (lineas
     ? (cantidadLineas > 4 ? `${cantidadLineas} casos` : `${lineas.includes(',') ? 'Líneas' : 'Línea'} ${lineas}`)
     : `Línea ${hallazgo.linea || 1}`));
