@@ -47,10 +47,10 @@ _DATOS = (
     ("el ejemplo de ejecución (EXEC)", re.compile(_EXEC, re.IGNORECASE)),
 )
 
+# Texto de la usuaria (8 nov.).
 QUE_HACER_SIN_ENCABEZADO = (
     "Se recomienda agregar al inicio el encabezado con el nombre del procedimiento, la descripción, el autor, la "
-    "fecha, el control de cambios y el ejemplo de ejecución, ya que permite identificar su propósito y facilita su "
-    "mantenimiento."
+    "fecha, el control de cambios y un ejemplo de ejecución."
 )
 QUE_HACER_ENCABEZADO_INCOMPLETO = (
     "Se recomienda completar los datos del encabezado, ya que permiten identificar su propósito y facilitan su "

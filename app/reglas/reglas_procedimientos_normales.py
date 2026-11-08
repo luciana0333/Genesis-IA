@@ -6,7 +6,7 @@ from app.reglas.reglas_base import ReglaDiccionario
 REGLAS_PROCEDIMIENTOS_NORMALES = {
     "ENCABEZADO_PROCEDIMIENTO": ReglaDiccionario(
         codigo="ENCABEZADO_PROCEDIMIENTO",
-        nombre="Encabezado del procedimiento",
+        nombre="Procedimiento sin descripción",
         severidad="bajo",
         descripcion="Todo procedimiento lleva su encabezado: nombre, descripción, autor, fecha, control de cambios "
                     "y ejemplo de ejecución.",
