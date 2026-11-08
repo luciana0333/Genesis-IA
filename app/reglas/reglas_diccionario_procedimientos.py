@@ -68,6 +68,14 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
         alcance="procedimiento",
         activo=True,
     ),
+    "TIPO_NIVEL_INCORRECTO": ReglaDiccionario(
+        codigo="TIPO_NIVEL_INCORRECTO",
+        nombre="Tipo de nivel incorrecto",
+        severidad="alto",
+        descripcion="En el diccionario de un procedimiento, @level2type debe ser PARAMETER.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "PARAMETRO_NO_EXISTE": ReglaDiccionario(
         codigo="PARAMETRO_NO_EXISTE",
         nombre="Parámetro documentado que no existe",

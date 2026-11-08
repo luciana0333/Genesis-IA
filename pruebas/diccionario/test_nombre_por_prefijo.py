@@ -106,5 +106,31 @@ class ProcedimientosTest(unittest.TestCase):
         self.assertNotIn("PARAMETRO_NO_EXISTE", hallazgos)
 
 
+class TipoNivel2MalEscritoTest(unittest.TestCase):
+    """@level2type con otro valor (el nombre copiado) en vez de COLUMN / PARAMETER: SQL Server lo rechaza."""
+
+    def test_tabla(self):
+        diccionario = DICCIONARIO.replace(
+            "@level2type=N'COLUMN', @level2name=N'nConstRegularizacionDeudaId'",
+            "@level2type=N'nConstRegularizacionDeudaId', @level2name=N'nConstRegularizacionDeudaId'")
+        hallazgos = verificar_diccionario_tablas(TABLA, diccionario)
+        tipo = [h for h in hallazgos if h.regla == "TIPO_NIVEL_INCORRECTO"]
+        self.assertEqual(len(tipo), 1)
+        self.assertIn("indica 'nConstRegularizacionDeudaId' como tipo de la columna (@level2type), pero debe ser "
+                      "'COLUMN'", tipo[0].mensaje)
+        # Igual se revisa que la columna no existe.
+        self.assertIn("COLUMNA_NO_EXISTE", {h.regla for h in hallazgos})
+
+    def test_procedimiento(self):
+        sql = "CREATE PROCEDURE Colocaciones.PA_Credito_Sel_Datos (@nCodAge INT)"
+        base = ("EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'{}', @level0type=N'SCHEMA', "
+                "@level0name=N'Colocaciones', @level1type=N'PROCEDURE', @level1name=N'PA_Credito_Sel_Datos'{}\n")
+        dic = (base.format("Procedimiento que obtiene los datos del credito", "")
+               + base.format("Codigo de la agencia", ", @level2type=N'@nCodAge', @level2name=N'@nCodAge'"))
+        hallazgos = verificar_diccionario(sql, dic)
+        self.assertEqual([h.regla for h in hallazgos], ["TIPO_NIVEL_INCORRECTO"])
+        self.assertIn("debe ser 'PARAMETER'", hallazgos[0].mensaje)
+
+
 if __name__ == "__main__":
     unittest.main()

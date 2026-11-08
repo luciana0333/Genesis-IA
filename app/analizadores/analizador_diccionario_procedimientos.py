@@ -156,7 +156,7 @@ def _es_sentencia_de_procedimiento(args: Dict[str, str]) -> bool:
     """La llamada documenta al procedimiento en sí (no a un PARAMETER)."""
     level1type = args.get("level1type", "").upper()
     level2type = args.get("level2type", "").upper()
-    return "PROCEDURE" in level1type and "PARAMETER" not in level2type
+    return "PROCEDURE" in level1type and not level2type
 
 
 def _es_descripcion_procedimiento_valida(args: Dict[str, str]) -> bool:
@@ -167,7 +167,7 @@ def _es_descripcion_procedimiento_valida(args: Dict[str, str]) -> bool:
     level2type = args.get("level2type", "").upper()
     if "PROCEDURE" not in level1type:
         return False
-    if "PARAMETER" in level2type:
+    if level2type:  # PARAMETER, o un tipo mal escrito: no es la descripción del procedimiento
         return False
     return _limpiar_valor(args.get("value", "")) != ""
 
@@ -265,6 +265,13 @@ def _validar_sentencias(texto_diccionario: str) -> List[Hallazgo]:
                 f"Se comprobó que a la sentencia le faltan datos obligatorios: {', '.join(faltantes)}. Completar "
                 f"los datos faltantes, ya que sin ellos la sentencia no se ejecuta.",
             ))
+        tipo2 = ll.texto("level2type")
+        if tipo2 and tipo2.upper() != "PARAMETER":
+            hallazgos.append(_hallazgo_catalogo(
+                ll.linea, "TIPO_NIVEL_INCORRECTO",
+                f"La sentencia indica '{tipo2}' como tipo del parámetro (@level2type), pero debe ser 'PARAMETER'. "
+                f"Usar el tipo «N'PARAMETER'», ya que con otro tipo la sentencia falla.",
+            ))
     return hallazgos
 
 
@@ -302,11 +309,11 @@ def _validar_parametros_inexistentes(texto_diccionario: str, parametros_reales: 
     reales = {p.upper(): p for p in parametros_reales}
     propiedades = leer_propiedades_extendidas(texto_diccionario)
     # «¿Quiso decir…?» solo propone parámetros que aún no están documentados.
-    documentados = {ll.texto("level2name").upper() for ll in propiedades if "PARAMETER" in ll.texto("level2type").upper()}
+    documentados = {ll.texto("level2name").upper() for ll in propiedades if ll.texto("level2type")}
     sin_documentar = [clave for clave in reales if clave not in documentados]
     hallazgos = []
     for ll in propiedades:
-        if "PARAMETER" not in ll.texto("level2type").upper():
+        if not ll.texto("level2type"):
             continue
         nombre = ll.texto("level2name")
         if not nombre or nombre.upper() in reales:
@@ -395,7 +402,7 @@ def _validar_parametros_faltantes(
     # SQL Server no distingue mayúsculas en los nombres: @nClienteId = @NCLIENTEID.
     parametros_documentados = set()
     for _, args in llamadas:
-        if "level2name" in args and "PARAMETER" in args.get("level2type", "").upper():
+        if "level2name" in args and args.get("level2type", ""):
             parametros_documentados.add(_limpiar_valor(args["level2name"]).upper())
 
     faltantes = [p for p in parametros_reales if p.upper() not in parametros_documentados]

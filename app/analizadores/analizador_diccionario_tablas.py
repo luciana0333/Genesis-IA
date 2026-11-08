@@ -211,6 +211,17 @@ def _es_de_columna(llamada: LlamadaPropiedad) -> bool:
     return llamada.texto("level2type").upper() == "COLUMN" and bool(llamada.texto("level2name"))
 
 
+# Tipos válidos de @level2type sobre una tabla (además de COLUMN, que es el del diccionario).
+_OTROS_TIPOS_NIVEL2 = {"CONSTRAINT", "INDEX", "TRIGGER"}
+
+
+def _documenta_columna(llamada: LlamadaPropiedad) -> bool:
+    """Documenta una columna aunque el @level2type esté mal escrito (N'nCodigo' en vez de N'COLUMN'):
+    caso de la usuaria (7 nov.); así igual se revisa si la columna existe."""
+    tipo = llamada.texto("level2type").upper()
+    return bool(llamada.texto("level2name")) and bool(tipo) and tipo not in _OTROS_TIPOS_NIVEL2
+
+
 def _normalizar_texto(texto: str) -> str:
     """Minúsculas, sin tildes ni espacios repetidos: para comparar descripciones."""
     sin_tildes = "".join(
@@ -270,6 +281,14 @@ def _validar_parametros(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
                 llamada.linea, "TIPO_NIVEL_INCORRECTO",
                 f"La sentencia indica el tipo de objeto '{llamada.texto('level1type')}', pero lo que se "
                 f"documenta es una tabla. Usar el tipo «N'TABLE'», ya que con otro tipo la sentencia falla.",
+            ))
+        # @level2type con otro valor (por ejemplo, el nombre de la columna copiado): debe ser COLUMN.
+        tipo2 = llamada.texto("level2type").upper()
+        if tipo2 and tipo2 != "COLUMN" and tipo2 not in _OTROS_TIPOS_NIVEL2:
+            hallazgos.append(_hallazgo(
+                llamada.linea, "TIPO_NIVEL_INCORRECTO",
+                f"La sentencia indica '{llamada.texto('level2type')}' como tipo de la columna (@level2type), pero "
+                f"debe ser 'COLUMN'. Usar el tipo «N'COLUMN'», ya que con otro tipo la sentencia falla.",
             ))
     return hallazgos
 
@@ -396,7 +415,7 @@ def _columnas_documentadas(llamadas: List[LlamadaPropiedad]) -> Set[str]:
     return {
         ll.texto("level2name").upper()
         for ll in llamadas
-        if _es_de_columna(ll) and _es_descripcion(ll)
+        if _documenta_columna(ll) and _es_descripcion(ll)
     }
 
 
@@ -525,7 +544,7 @@ def _emparejar_columnas(
     full = _nombre_completo(esquema, nombre_tabla)
     quitar, nuevos = set(), []
     for documentado, real in pares.items():
-        llamada = next((ll for ll in llamadas if _es_de_columna(ll) and ll.texto("level2name") == documentado), None)
+        llamada = next((ll for ll in llamadas if _documenta_columna(ll) and ll.texto("level2name") == documentado), None)
         esquema_doc = llamada.texto("level0name") if llamada else ""
         if esquema and esquema_doc and esquema_doc.upper() != esquema.upper():
             continue
@@ -566,7 +585,7 @@ def _validar_columnas_inexistentes(
             f"diccionario falla.",
         ), ll.texto('level2name'))
         for ll in llamadas
-        if _es_de_columna(ll) and ll.texto("level2name").upper() not in reales
+        if _documenta_columna(ll) and ll.texto("level2name").upper() not in reales
     ]
 
 
