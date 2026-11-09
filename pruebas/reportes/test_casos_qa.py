@@ -5,8 +5,8 @@ from app.analizadores.analizador_reportes import verificar_reporte as _verificar
 
 
 def verificar_reporte(sql):
-    """Estos casos revisan otras reglas: el encabezado de documentación tiene sus propias pruebas."""
-    return [h for h in _verificar_reporte(sql) if h.regla != "ENCABEZADO_PROCEDIMIENTO"]
+    """Estos casos revisan otras reglas: el encabezado y la temporal sin uso tienen sus propias pruebas."""
+    return [h for h in _verificar_reporte(sql) if h.regla not in ("ENCABEZADO_PROCEDIMIENTO", "TEMPORAL_SIN_USO")]
 
 
 ENCABEZADO = "CREATE PROCEDURE dbo.PA_GDD_Cliente_Sel_Resumen\n    @nAgenciaId INT\nAS\nBEGIN\n"

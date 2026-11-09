@@ -6,6 +6,7 @@ from typing import Dict, List, Set, Tuple
 
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
 from app.analizadores.collate_temporales import MENSAJE_COLLATE_DATABASE_DEFAULT, collate_agrupado
+from app.analizadores.temporal_sin_uso import temporal_sin_uso_agrupado
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
 from app.analizadores.comentarios_codigo import codigo_comentado_agrupado
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
@@ -1702,6 +1703,18 @@ def _validar_modificacion_sin_where(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _validar_temporal_sin_uso(texto: str, limpio: str) -> List[Hallazgo]:
+    """Temporal que se crea y se llena, pero no se lee en ninguna parte (usuaria, 8 nov.)."""
+    agrupado = temporal_sin_uso_agrupado(texto, limpio, lambda posicion: _linea(texto, posicion))
+    if not agrupado:
+        return []
+    posicion, mensaje, lineas = agrupado
+    hallazgo = _hallazgo(texto, posicion, "TEMPORAL_SIN_USO", mensaje)
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas
+    return [hallazgo]
+
+
 def _validar_temporales_sin_crear(texto: str, limpio: str) -> List[Hallazgo]:
     """Tabla temporal que se usa pero nunca se crea: el procedimiento falla al ejecutarse (crítico)."""
     resultado = temporales_sin_crear(limpio, lambda posicion: _linea(texto, posicion))
@@ -1756,6 +1769,7 @@ def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -
     hallazgos.extend(_validar_tabla_repetida(texto_sql, limpio))
     hallazgos.extend(_validar_collate_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_temporales_sin_crear(texto_sql, limpio))
+    hallazgos.extend(_validar_temporal_sin_uso(texto_sql, limpio))
     hallazgos.extend(_validar_collate_usado(texto_sql, limpio))
     hallazgos.extend(_validar_collate_openjson(texto_sql, limpio))
     hallazgos.extend(_validar_tipos_entre_temporales(texto_sql, limpio))

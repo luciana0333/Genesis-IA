@@ -61,6 +61,14 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "TEMPORAL_SIN_USO": ReglaDiccionario(
+        codigo="TEMPORAL_SIN_USO",
+        nombre="Tabla temporal llena y sin uso",
+        severidad="medio",
+        descripcion="Una tabla temporal que se crea y se llena, pero no se lee en ninguna parte del procedimiento.",
+        alcance="reporte",
+        activo=True,
+    ),
     "TEMPORAL_SIN_CREAR": ReglaDiccionario(
         codigo="TEMPORAL_SIN_CREAR",
         nombre="Tabla temporal usada sin crear",
