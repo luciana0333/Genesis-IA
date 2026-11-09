@@ -22,7 +22,8 @@ _OBJETO = r"[\w.\[\]#@]+"
 # Lado izquierdo de una condición: una columna (c.nEstado) o una función sobre ella (CAST(dFecha AS DATE)).
 _EXPRESION = r"(?:[A-Za-z_@#][\w.\[\]]*\s*\([^()]*\)|[A-Za-z_@#][\w.\[\]]*)"
 # Lado derecho: un texto, un número, una variable o una columna con su alias.
-_VALOR = r"(?:N?'[^']*'|-?\d+(?:\.\d+)?|@\w+|[A-Za-z_]\w*\.[\w\[\]]+)"
+# (o una función: «--D.FECHAPROVISION = IIF(@bFiltro = 1, @dFecha, D.FECHAPROVISION) AND»; usuaria, 8 nov.).
+_VALOR = r"(?:N?'[^']*'|-?\d+(?:\.\d+)?|@\w+|[A-Za-z_]\w*\s*\([^()]*\)|[A-Za-z_]\w*\.[\w\[\]]+)"
 
 # Un comentario de línea con código: la sentencia o, para las palabras que podrían iniciar una frase, su forma de
 # código (WHERE col = …, TOP (10), THEN 'x', JOIN tabla, SET @x = …).

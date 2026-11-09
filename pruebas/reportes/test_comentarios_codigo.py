@@ -71,6 +71,18 @@ class ComentariosCodigoTest(unittest.TestCase):
             with self.subTest(modulo=verificar.__name__):
                 self.assertEqual(_lineas(sql, verificar), [3, 4, 5])
 
+    def test_condicion_comentada_con_funcion_y_and(self):
+        # Caso de la usuaria (8 nov.): el valor es una función (IIF) y la línea termina con AND.
+        sql = ("CREATE PROCEDURE dbo.PA_X AS\nBEGIN\n"
+               "    SELECT 1 FROM #D D WHERE\n"
+               "    --D.FECHAPROVISION = IIF(@bFiltroFecha = 1, @dFechaProvision, D.FECHAPROVISION) AND \n"  # 4
+               "    D.n = 1\n"
+               "    -- el monto = suma(a) de todo\n"
+               "END")
+        for verificar in MODULOS:
+            with self.subTest(modulo=verificar.__name__):
+                self.assertEqual(_lineas(sql, verificar), [4])
+
     def test_comentarios_que_explican_no_se_marcan(self):
         sql = ("CREATE PROCEDURE dbo.PA_GDD_Cartera_Sel_Saldos AS\nBEGIN\n"
                "    -- 1. Hacia cuentas nuevas\n"
