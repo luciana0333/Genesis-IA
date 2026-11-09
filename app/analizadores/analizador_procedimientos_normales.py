@@ -7,6 +7,9 @@ from typing import Dict, List, Set, Tuple
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
 from app.analizadores.collate_temporales import MENSAJE_COLLATE_DATABASE_DEFAULT, collate_agrupado
 from app.analizadores.caracteres_danados import caracteres_danados
+from app.analizadores.variables_sin_uso import (
+    mensaje_variables_de_tabla_sin_uso, variables_de_tabla_sin_uso,
+)
 from app.analizadores.temporal_sin_uso import temporal_sin_uso_agrupado
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
 from app.analizadores.comentarios_codigo import codigo_comentado_agrupado
@@ -928,6 +931,18 @@ def _validar_comentarios(texto: str) -> List[Hallazgo]:
     return [hallazgo]
 
 
+def _validar_variables_de_tabla(texto: str, limpio: str) -> List[Hallazgo]:
+    """Variables de tabla declaradas que no se leen en ninguna parte (usuaria, 8 nov.)."""
+    casos = variables_de_tabla_sin_uso(limpio)
+    if not casos:
+        return []
+    mensaje = mensaje_variables_de_tabla_sin_uso([variable for variable, _ in casos])
+    hallazgo = _hallazgo(texto, casos[0][1], "VARIABLE_TABLA_SIN_USO", mensaje)
+    if len(casos) > 1:
+        hallazgo.lineas = sorted({_linea(texto, posicion) for _, posicion in casos})
+    return [hallazgo]
+
+
 def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
     """Variables que se declaran y nunca más aparecen (una asignación como SET @x = … ya cuenta como uso).
 
@@ -1789,6 +1804,7 @@ def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -
     hallazgos.extend(_validar_tipos_entre_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_comentarios(texto_sql))
     hallazgos.extend(_validar_variables(texto_sql, limpio))
+    hallazgos.extend(_validar_variables_de_tabla(texto_sql, limpio))
     if es_del_motor:
         hallazgos = [h for h in hallazgos if h.regla != "SELECT_ESTRELLA_PROHIBIDO"]
     # Las reglas desactivadas en el catálogo no se reportan.

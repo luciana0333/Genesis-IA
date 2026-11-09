@@ -69,6 +69,14 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "VARIABLE_TABLA_SIN_USO": ReglaDiccionario(
+        codigo="VARIABLE_TABLA_SIN_USO",
+        nombre="Variables de tabla declaradas sin uso",
+        severidad="bajo",
+        descripcion="Variables de tabla (DECLARE @T TABLE) que se declaran, pero no se leen en el procedimiento.",
+        alcance="reporte",
+        activo=True,
+    ),
     "TEMPORAL_SIN_USO": ReglaDiccionario(
         codigo="TEMPORAL_SIN_USO",
         nombre="Tabla temporal creada y no utilizada",

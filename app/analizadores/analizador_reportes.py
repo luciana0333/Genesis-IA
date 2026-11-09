@@ -14,6 +14,9 @@ from app.analizadores.esquema_entre_bases import esquemas_omitidos
 from app.analizadores.indice_forzado import indice_forzado_agrupado
 from app.analizadores.select_estrella import marcar as marcar_select_estrella, unir_select_estrella
 from app.analizadores.caracteres_danados import caracteres_danados
+from app.analizadores.variables_sin_uso import (
+    mensaje_variables_de_tabla_sin_uso, variables_de_tabla_sin_uso,
+)
 from app.analizadores.temporal_sin_uso import temporal_sin_uso_agrupado
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
 from app.analizadores.comentarios_codigo import codigo_comentado_agrupado
@@ -990,6 +993,18 @@ def _validar_funciones_reemplazables(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _validar_variables_de_tabla(texto: str, limpio: str) -> List[Hallazgo]:
+    """Variables de tabla declaradas que no se leen en ninguna parte (usuaria, 8 nov.)."""
+    casos = variables_de_tabla_sin_uso(limpio)
+    if not casos:
+        return []
+    mensaje = mensaje_variables_de_tabla_sin_uso([variable for variable, _ in casos])
+    hallazgo = _hallazgo(texto, casos[0][1], "VARIABLE_TABLA_SIN_USO", mensaje)
+    if len(casos) > 1:
+        hallazgo.lineas = sorted({_linea(texto, posicion) for _, posicion in casos})
+    return [hallazgo]
+
+
 def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
     """Variables que se declaran y nunca más aparecen (una asignación como SET @x = … ya cuenta como uso).
 
@@ -1191,6 +1206,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_left_como_like(texto_sql, sin_comentarios))
     hallazgos.extend(_validar_modificaciones_fisicas(texto_sql, limpio))
     hallazgos.extend(_validar_variables(texto_sql, limpio))
+    hallazgos.extend(_validar_variables_de_tabla(texto_sql, limpio))
     # LEFT(col, 1) IN ('A') ya se observa como LIKE (que reemplaza también al IN): no se repite.
     lineas_like = {h.linea for h in hallazgos if h.regla == "LEFT_REEMPLAZABLE_POR_LIKE"}
     hallazgos = [
