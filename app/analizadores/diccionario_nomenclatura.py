@@ -27,6 +27,8 @@ from app.analizadores.analizador_procedimientos_normales import (
 from app.analizadores.analizador_tablas import _a_pascal_case
 
 _ACCIONES_ESTANDAR = {"sel", "upd", "ins", "del"}
+_AREA_GDD = "GDD"
+_EJEMPLO_NOMBRE_GDD = "PA_GDD_Cliente_Sel_Resumen"
 _VERBO = re.compile(r"[A-Za-zÁÉÍÓÚáéíóúñÑ]+(?:ar|er|ir)", re.IGNORECASE)
 
 
@@ -38,26 +40,32 @@ def nomenclatura_procedimiento(nombre: str) -> List[Tuple[str, str]]:
                  f"PA_Tabla_Acción_Finalidad, ya que PA identifica a los procedimientos almacenados "
                  f"(ej.: {_EJEMPLO_NOMBRE}).")]
 
+    # Reportes de Gestión de Datos: PA_GDD_Tabla_Acción_Finalidad. GDD es el área, no la tabla (usuaria, 8 nov.).
+    area = []
+    if len(segmentos) > 1 and segmentos[1].upper() == _AREA_GDD:
+        area, segmentos = [segmentos[1]], [segmentos[0]] + segmentos[2:]
+    formato = "PA_GDD_Tabla_Acción_Finalidad" if area else "PA_Tabla_Acción_Finalidad"
+
     if len(segmentos) < 3 or not all(segmentos[1:3]):
         return [("PROCEDIMIENTO_NOMBRE_INCOMPLETO",
                  f"El nombre del procedimiento {nombre} no indica la tabla y la acción. Usar el formato "
-                 f"PA_Tabla_Acción_Finalidad, ya que así se entiende qué hace el procedimiento "
-                 f"(ej.: {_EJEMPLO_NOMBRE}).")]
+                 f"{formato}, ya que así se entiende qué hace el procedimiento "
+                 f"(ej.: {_EJEMPLO_NOMBRE_GDD if area else _EJEMPLO_NOMBRE}).")]
 
     tabla, accion, finalidad = segmentos[1], segmentos[2], [p for p in segmentos[3:] if p]
 
     pegada = _ACCION_PEGADA.match(accion)
     if pegada:
         abreviada = _ABREVIATURA_ACCION[pegada.group(1).lower()]
-        sugerido = "_".join(["PA", tabla, abreviada, pegada.group(2)] + finalidad)
+        sugerido = "_".join(["PA"] + area + [tabla, abreviada, pegada.group(2)] + finalidad)
         return [("PROCEDIMIENTO_ACCION_SIN_SEPARAR",
                  f"En el nombre {nombre}, la acción {pegada.group(1)} está pegada a la finalidad "
                  f"({accion}). Separar la acción con un guion bajo, ya que el formato es "
-                 f"PA_Tabla_Acción_Finalidad (ej.: {sugerido}).")]
+                 f"{formato} (ej.: {sugerido}).")]
 
     abreviatura = _ACCIONES_ABREVIADAS.get(accion.lower())
     if abreviatura and accion.lower() != abreviatura.lower():
-        sugerido = "_".join(["PA", _en_pascal(tabla), abreviatura] + [_en_pascal(x) for x in finalidad])
+        sugerido = "_".join(["PA"] + area + [_en_pascal(tabla), abreviatura] + [_en_pascal(x) for x in finalidad])
         return [("PROCEDIMIENTO_ACCION_NO_ABREVIADA",
                  f"La acción del procedimiento {nombre} está escrita como '{accion}'. Usar la abreviatura "
                  f"del manual, {abreviatura}, ya que así se nombran las acciones estándar (ej.: {sugerido}).")]
@@ -68,12 +76,12 @@ def nomenclatura_procedimiento(nombre: str) -> List[Tuple[str, str]]:
         posicion = next((i for i, parte in enumerate(finalidad) if parte.lower() in _ACCIONES_ESTANDAR), None)
         if posicion is not None:
             partes_tabla = [tabla, accion] + finalidad[:posicion]
-            sugerido = "_".join(["PA", "".join(_en_pascal(p) for p in partes_tabla)] + finalidad[posicion:])
+            sugerido = "_".join(["PA"] + area + ["".join(_en_pascal(p) for p in partes_tabla)] + finalidad[posicion:])
             return [("PROCEDIMIENTO_TABLA_SEPARADA",
                      f"En el nombre del procedimiento {nombre}, la tabla está separada con guion bajo "
                      f"({'_'.join(partes_tabla)}). Escribir la tabla sin guion bajo, ya que el formato es "
-                     f"PA_Tabla_Acción_Finalidad (ej.: {sugerido}).")]
-        sugerido = "_".join(["PA", _en_pascal(tabla), "Sel", _en_pascal(accion)] + [_en_pascal(x) for x in finalidad])
+                     f"{formato} (ej.: {sugerido}).")]
+        sugerido = "_".join(["PA"] + area + [_en_pascal(tabla), "Sel", _en_pascal(accion)] + [_en_pascal(x) for x in finalidad])
         return [("PROCEDIMIENTO_SIN_ACCION",
                  f"El nombre del procedimiento {nombre} no indica una acción: '{accion}' no es Sel, Upd, "
                  f"Ins, Del ni un verbo. Añadir la acción después de la tabla, ya que así se entiende qué "
