@@ -538,7 +538,8 @@ def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
         froms = [m.start() for m in re.finditer(r"\bFROM\b", limpio[:match.start()], re.IGNORECASE)]
         desde = froms[-1] if froms else 0
         tablas = _tablas_por_alias(limpio[desde:termina.start() if termina else len(limpio)])
-        for conversion in re.finditer(r"\b(CAST|CONVERT)\s*\(", condicion, re.IGNORECASE):
+        # También TRY_CAST y TRY_CONVERT: impiden usar el índice igual (caso de la usuaria, 8 nov.).
+        for conversion in re.finditer(r"\b((?:TRY_)?(?:CAST|CONVERT))\s*\(", condicion, re.IGNORECASE):
             # Solo si convierte una columna: CAST(GETDATE() AS DATE) o CAST(@dFecha AS DATE) no impiden
             # usar los índices de la tabla.
             argumento = _contenido_entre_parentesis(condicion, conversion.end() - 1)
@@ -613,7 +614,7 @@ def _tablas_por_alias(tramo: str) -> Dict[str, str]:
 
 def _convierte_columna_fisica(argumento: str, funcion: str, tablas: Dict[str, str], ctes: Set[str]) -> bool:
     """¿El CAST/CONVERT convierte una columna de una tabla física (no temporal, variable de tabla ni CTE)?"""
-    if funcion.upper() == "CONVERT":
+    if funcion.upper() in ("CONVERT", "TRY_CONVERT"):
         partes = [p for p, _ in _separar_por_comas(argumento)]
         dato = partes[1] if len(partes) > 1 else argumento
     else:
@@ -640,7 +641,7 @@ def _convierte_columna_fisica(argumento: str, funcion: str, tablas: Dict[str, st
 
 def _usa_columna(argumento: str, funcion: str) -> bool:
     """¿El dato que convierte un CAST(dato AS tipo) / CONVERT(tipo, dato) tiene alguna columna?"""
-    if funcion.upper() == "CONVERT":
+    if funcion.upper() in ("CONVERT", "TRY_CONVERT"):
         partes = [p for p, _ in _separar_por_comas(argumento)]
         dato = partes[1] if len(partes) > 1 else argumento
     else:
