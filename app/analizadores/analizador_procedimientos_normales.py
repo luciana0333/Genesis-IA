@@ -6,6 +6,7 @@ from typing import Dict, List, Set, Tuple
 
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
 from app.analizadores.collate_temporales import MENSAJE_COLLATE_DATABASE_DEFAULT, collate_agrupado
+from app.analizadores.caracteres_danados import caracteres_danados
 from app.analizadores.temporal_sin_uso import temporal_sin_uso_agrupado
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
 from app.analizadores.comentarios_codigo import codigo_comentado_agrupado
@@ -1703,6 +1704,18 @@ def _validar_modificacion_sin_where(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _validar_caracteres_danados(texto: str) -> List[Hallazgo]:
+    """Textos con caracteres dañados (�, DepÃ³sito) que se grabarán así en la base (usuaria, 8 nov.)."""
+    observado = caracteres_danados(texto, lambda posicion: _linea(texto, posicion))
+    if not observado:
+        return []
+    posicion, mensaje, lineas = observado
+    hallazgo = _hallazgo(texto, posicion, "CARACTERES_DANADOS", mensaje)
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas
+    return [hallazgo]
+
+
 def _validar_temporal_sin_uso(texto: str, limpio: str) -> List[Hallazgo]:
     """Temporal que se crea y se llena, pero no se lee en ninguna parte (usuaria, 8 nov.)."""
     agrupado = temporal_sin_uso_agrupado(texto, limpio, lambda posicion: _linea(texto, posicion))
@@ -1770,6 +1783,7 @@ def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -
     hallazgos.extend(_validar_collate_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_temporales_sin_crear(texto_sql, limpio))
     hallazgos.extend(_validar_temporal_sin_uso(texto_sql, limpio))
+    hallazgos.extend(_validar_caracteres_danados(texto_sql))
     hallazgos.extend(_validar_collate_usado(texto_sql, limpio))
     hallazgos.extend(_validar_collate_openjson(texto_sql, limpio))
     hallazgos.extend(_validar_tipos_entre_temporales(texto_sql, limpio))

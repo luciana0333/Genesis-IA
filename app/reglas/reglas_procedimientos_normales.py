@@ -148,6 +148,14 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "CARACTERES_DANADOS": ReglaDiccionario(
+        codigo="CARACTERES_DANADOS",
+        nombre="Caracteres especiales dañados",
+        severidad="medio",
+        descripcion="Textos con caracteres dañados (�, DepÃ³sito) por la codificación del archivo: se graban así en la base.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "TEMPORAL_SIN_USO": ReglaDiccionario(
         codigo="TEMPORAL_SIN_USO",
         nombre="Tabla temporal creada y no utilizada",

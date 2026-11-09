@@ -13,6 +13,7 @@ from app.analizadores.encabezado import encabezado_observado
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
 from app.analizadores.indice_forzado import indice_forzado_agrupado
 from app.analizadores.select_estrella import marcar as marcar_select_estrella, unir_select_estrella
+from app.analizadores.caracteres_danados import caracteres_danados
 from app.analizadores.temporal_sin_uso import temporal_sin_uso_agrupado
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
 from app.analizadores.comentarios_codigo import codigo_comentado_agrupado
@@ -1117,6 +1118,18 @@ def _agrupar_hallazgos_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
     return resumidos
 
 
+def _validar_caracteres_danados(texto: str) -> List[Hallazgo]:
+    """Textos con caracteres dañados (�, DepÃ³sito) que se grabarán así en la base (usuaria, 8 nov.)."""
+    observado = caracteres_danados(texto, lambda posicion: _linea(texto, posicion))
+    if not observado:
+        return []
+    posicion, mensaje, lineas = observado
+    hallazgo = _hallazgo(texto, posicion, "CARACTERES_DANADOS", mensaje)
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas
+    return [hallazgo]
+
+
 def _validar_temporal_sin_uso(texto: str, limpio: str) -> List[Hallazgo]:
     """Temporal que se crea y se llena, pero no se lee en ninguna parte (usuaria, 8 nov.)."""
     agrupado = temporal_sin_uso_agrupado(texto, limpio, lambda posicion: _linea(texto, posicion))
@@ -1157,6 +1170,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_tablas_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_temporales_sin_crear(texto_sql, limpio))
     hallazgos.extend(_validar_temporal_sin_uso(texto_sql, limpio))
+    hallazgos.extend(_validar_caracteres_danados(texto_sql))
     hallazgos.extend(_validar_sentencias(texto_sql, limpio))
     hallazgos.extend(_validar_sintaxis_prohibida(texto_sql, limpio))
     hallazgos.extend(_validar_varchar_max(texto_sql, limpio))
