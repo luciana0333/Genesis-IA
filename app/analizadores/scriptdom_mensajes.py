@@ -312,7 +312,7 @@ def _count(h: Dict) -> Partes:
 
 
 def _funcion_escalar(h: Dict) -> Partes:
-    return (f"Se identificó la función {h['funcion']} dentro de una consulta.",
+    return (f"Se identificó la función {h['funcion']} dentro de {h.get('contexto', 'una consulta')}.",
             "Se recomienda evaluar reemplazarla por un JOIN o un APPLY, ya que una función escalar propia se ejecuta "
             "una vez por cada fila.")
 
