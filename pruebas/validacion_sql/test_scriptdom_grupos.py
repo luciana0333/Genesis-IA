@@ -111,6 +111,9 @@ CASOS = [
     ('COUNT = 0', 'IF (SELECT COUNT(*) FROM dbo.T WHERE a = 1) = 0 SELECT 1', 'COUNT_EN_LUGAR_DE_EXISTS'),
     ('COUNT ok = 41', 'IF (SELECT COUNT(*) FROM @R) <> 41 SELECT 1', None),
     ('función escalar', 'SELECT dbo.fn_Saldo(c.cCtaCod) FROM dbo.Credito c', 'FUNCION_ESCALAR_POR_FILA'),
+    # También dentro de un UPDATE … SET y de una subconsulta sin FROM del SET (usuaria, 8 nov.).
+    ('función escalar en UPDATE', 'UPDATE A SET A.n = dbo.fn_Saldo(A.cCtaCod) FROM dbo.Credito A', 'FUNCION_ESCALAR_POR_FILA'),
+    ('función escalar en subconsulta del SET', 'UPDATE A SET A.n = (SELECT ISNULL(dbo.fn_Saldo(A.cCtaCod), 0)) FROM dbo.Credito A', 'FUNCION_ESCALAR_POR_FILA'),
     ('función escalar ok XML', "SELECT R.X.value('(@Id)[1]', 'INT') FROM @x.nodes('/r') R(X)", None),
     ('función escalar ok variable', 'SELECT dbo.fn_Actual(@c) FROM dbo.Credito c', None),
     ('función escalar ok SET', "DECLARE @n INT\nSET @n = dbo.fn_Saldo('1')\nSELECT @n", None),

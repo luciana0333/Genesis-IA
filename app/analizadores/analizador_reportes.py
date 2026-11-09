@@ -13,6 +13,11 @@ from app.analizadores.encabezado import encabezado_observado
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
 from app.analizadores.indice_forzado import indice_forzado_agrupado
 from app.analizadores.select_estrella import marcar as marcar_select_estrella, unir_select_estrella
+from app.analizadores.caracteres_danados import caracteres_danados
+from app.analizadores.variables_sin_uso import (
+    mensaje_variables_de_tabla_sin_uso, variables_de_tabla_sin_uso,
+)
+from app.analizadores.temporal_sin_uso import temporal_sin_uso_agrupado
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
 from app.analizadores.comentarios_codigo import codigo_comentado_agrupado
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
@@ -988,6 +993,18 @@ def _validar_funciones_reemplazables(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _validar_variables_de_tabla(texto: str, limpio: str) -> List[Hallazgo]:
+    """Variables de tabla declaradas que no se leen en ninguna parte (usuaria, 8 nov.)."""
+    casos = variables_de_tabla_sin_uso(limpio)
+    if not casos:
+        return []
+    mensaje = mensaje_variables_de_tabla_sin_uso([variable for variable, _ in casos])
+    hallazgo = _hallazgo(texto, casos[0][1], "VARIABLE_TABLA_SIN_USO", mensaje)
+    if len(casos) > 1:
+        hallazgo.lineas = sorted({_linea(texto, posicion) for _, posicion in casos})
+    return [hallazgo]
+
+
 def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
     """Variables que se declaran y nunca más aparecen (una asignación como SET @x = … ya cuenta como uso).
 
@@ -1024,8 +1041,12 @@ def _mensaje_sin_nolock(tablas: List[str]) -> str:
         return (f"Se identificó que la tabla {tablas[0]} no utiliza WITH (NOLOCK). Se recomienda añadir WITH (NOLOCK) "
                 f"para reducir la posibilidad de bloqueos durante la lectura de datos mientras otros procesos "
                 f"realizan operaciones sobre la tabla.")
-    lista = f"{', '.join(tablas[:-1])} y {tablas[-1]}"
-    return (f"Se identificó que las tablas {lista} no utilizan WITH (NOLOCK). Se recomienda añadir WITH (NOLOCK) "
+    if len(tablas) >= 3:
+        # Desde 3 tablas, la pantalla las muestra como cajitas (opción A de la usuaria, 8 nov.).
+        problema = f"Se identificó que las siguientes tablas no utilizan WITH (NOLOCK): {'; '.join(tablas)}."
+    else:
+        problema = f"Se identificó que las tablas {', '.join(tablas[:-1])} y {tablas[-1]} no utilizan WITH (NOLOCK)."
+    return (f"{problema} Se recomienda añadir WITH (NOLOCK) "
             f"para reducir la posibilidad de bloqueos durante la lectura de datos mientras otros procesos "
             f"realizan operaciones sobre las tablas.")
 
@@ -1033,7 +1054,12 @@ def _mensaje_sin_nolock(tablas: List[str]) -> str:
 def _agrupar_sin_nolock(grupo: List[Hallazgo]) -> Hallazgo:
     """Todas las tablas sin NOLOCK en una sola observación; las líneas van en el encabezado."""
     ordenados = sorted(grupo, key=lambda h: h.linea)
-    tablas = list({h.elemento.lower(): h.elemento for h in ordenados}.values())
+    # dbo.Cliente y [dbo].[Cliente] son la misma tabla: una vez, como se escribió primero (sin corchetes).
+    unicas: Dict[str, str] = {}
+    for h in ordenados:
+        nombre = re.sub(r"[\[\]\s]", "", h.elemento)
+        unicas.setdefault(nombre.lower(), nombre)
+    tablas = list(unicas.values())
     resumen = Hallazgo(
         linea=ordenados[0].linea,
         origen=ordenados[0].origen,
@@ -1116,6 +1142,30 @@ def _agrupar_hallazgos_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
     return resumidos
 
 
+def _validar_caracteres_danados(texto: str) -> List[Hallazgo]:
+    """Textos con caracteres dañados (�, DepÃ³sito) que se grabarán así en la base (usuaria, 8 nov.)."""
+    observado = caracteres_danados(texto, lambda posicion: _linea(texto, posicion))
+    if not observado:
+        return []
+    posicion, mensaje, lineas = observado
+    hallazgo = _hallazgo(texto, posicion, "CARACTERES_DANADOS", mensaje)
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas
+    return [hallazgo]
+
+
+def _validar_temporal_sin_uso(texto: str, limpio: str) -> List[Hallazgo]:
+    """Temporal que se crea y se llena, pero no se lee en ninguna parte (usuaria, 8 nov.)."""
+    agrupado = temporal_sin_uso_agrupado(texto, limpio, lambda posicion: _linea(texto, posicion))
+    if not agrupado:
+        return []
+    posicion, mensaje, lineas = agrupado
+    hallazgo = _hallazgo(texto, posicion, "TEMPORAL_SIN_USO", mensaje)
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas
+    return [hallazgo]
+
+
 def _validar_temporales_sin_crear(texto: str, limpio: str) -> List[Hallazgo]:
     """Tabla temporal que se usa pero nunca se crea: el procedimiento falla al ejecutarse (crítico)."""
     resultado = temporales_sin_crear(limpio, lambda posicion: _linea(texto, posicion))
@@ -1143,6 +1193,8 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_comentarios_codigo(texto_sql))
     hallazgos.extend(_validar_tablas_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_temporales_sin_crear(texto_sql, limpio))
+    hallazgos.extend(_validar_temporal_sin_uso(texto_sql, limpio))
+    hallazgos.extend(_validar_caracteres_danados(texto_sql))
     hallazgos.extend(_validar_sentencias(texto_sql, limpio))
     hallazgos.extend(_validar_sintaxis_prohibida(texto_sql, limpio))
     hallazgos.extend(_validar_varchar_max(texto_sql, limpio))
@@ -1163,6 +1215,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_left_como_like(texto_sql, sin_comentarios))
     hallazgos.extend(_validar_modificaciones_fisicas(texto_sql, limpio))
     hallazgos.extend(_validar_variables(texto_sql, limpio))
+    hallazgos.extend(_validar_variables_de_tabla(texto_sql, limpio))
     # LEFT(col, 1) IN ('A') ya se observa como LIKE (que reemplaza también al IN): no se repite.
     lineas_like = {h.linea for h in hallazgos if h.regla == "LEFT_REEMPLAZABLE_POR_LIKE"}
     hallazgos = [

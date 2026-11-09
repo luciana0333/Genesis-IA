@@ -1142,6 +1142,9 @@
   font-size: 0.76rem;
   font-weight: 600;
 }
+/* Tablas sin NOLOCK desde 3: cada tabla en su cajita, una al lado de otra (opción A de la usuaria). */
+.lista-cajitas { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 14px; }
+
 /* «COLLATE no especificado» como tabla: las columnas en código, separadas por comas; si son muchas, bajan de línea. */
 .tabla-collate > thead > tr > th:first-child { width: 200px; }
 .tabla-collate-columnas { color: var(--text-primary); font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.6; }

@@ -116,6 +116,7 @@ public class GenesisVisitante : TSqlFragmentVisitor
     private Dictionary<string, Dictionary<string, Tuple<string, string>>> origenes;
     private readonly HashSet<int> isnullRevisados = new HashSet<int>();
     private readonly Stack<bool> consultasConFrom = new Stack<bool>();
+    private int actualizacionesAbiertas;
 
     private void Agregar(string tipo, int linea, params object[] pares)
     {
@@ -583,11 +584,12 @@ public class GenesisVisitante : TSqlFragmentVisitor
         // Función escalar propia (dbo.fn_...) que recibe una columna, dentro de una consulta con FROM: se ejecuta
         // fila por fila. No cuentan los métodos de XML (R.X.value(...)) ni una función que solo recibe variables.
         if (funcion.CallTarget is MultiPartIdentifierCallTarget && !MetodosDeTipos.Contains(nombre)
-            && consultasConFrom.Count > 0 && consultasConFrom.Peek() && funcion.Parameters.Any(TieneColumna))
+            && consultasConFrom.Contains(true) && funcion.Parameters.Any(TieneColumna))
         {
             var objetivo = (MultiPartIdentifierCallTarget)funcion.CallTarget;
             string esquema = string.Join(".", objetivo.MultiPartIdentifier.Identifiers.Select(i => i.Value));
-            Agregar("FUNCION_ESCALAR_POR_FILA", funcion.StartLine, "funcion", esquema + "." + nombre);
+            Agregar("FUNCION_ESCALAR_POR_FILA", funcion.StartLine, "funcion", esquema + "." + nombre,
+                    "contexto", actualizacionesAbiertas > 0 ? "un UPDATE" : "una consulta");
         }
     }
 
@@ -726,8 +728,12 @@ public class GenesisVisitante : TSqlFragmentVisitor
         if (actualizacion.Target != null) LlenarMapa(actualizacion.Target, mapa);
         tablasDelFrom.Push(mapa);
         opcionalesDelFrom.Push(opcionales);
-        consultasConFrom.Push(false);
+        // El UPDATE recorre las filas que actualiza: una función propia sobre una columna en su SET (o en una
+        // subconsulta del SET) se ejecuta una vez por cada fila (pedido de la usuaria, 8 nov.).
+        consultasConFrom.Push(true);
+        actualizacionesAbiertas++;
         base.ExplicitVisit(actualizacion);
+        actualizacionesAbiertas--;
         consultasConFrom.Pop();
         opcionalesDelFrom.Pop();
         tablasDelFrom.Pop();

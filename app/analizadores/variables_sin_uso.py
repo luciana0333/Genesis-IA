@@ -6,6 +6,7 @@ reciba un valor. Se observa solo la que se declara y nunca más aparece:
 
     DECLARE @a INT = 1, @b INT = 2         <- @b se declara y nunca más aparece: se observa
     SET @n = 5                             <- @n vuelve a aparecer: ya tiene uso
+    DECLARE @T TABLE (n INT)               <- variable de tabla: no se revisa en esta regla
 
 Los comentarios y los textos entre comillas no cuentan: `limpio` es el SQL sin ellos (del mismo largo).
 """
@@ -57,10 +58,18 @@ def declaraciones(limpio: str) -> Dict[str, int]:
     return encontradas
 
 
+# Lo que sigue al nombre en una variable de tabla: DECLARE @T TABLE (…) o DECLARE @T AS TABLE (…).
+_ES_VARIABLE_DE_TABLA = re.compile(r"\s+(?:AS\s+)?TABLE(?![\w$#])", re.IGNORECASE)
+
+
 def variables_sin_uso(limpio: str) -> List[Tuple[str, int]]:
     """[(variable, posición de su declaración)] de las variables que nunca más aparecen después del DECLARE."""
     resultado = []
     for variable, posicion in declaraciones(limpio).items():
+        # Solo variables comunes (DECLARE @n INT): una variable de tabla (DECLARE @T TABLE (…)) es otra cosa
+        # y no se revisa aquí (pedido de la usuaria, 8 nov.).
+        if _ES_VARIABLE_DE_TABLA.match(limpio, posicion + len(variable)):
+            continue
         patron = re.compile(rf"(?<![\w@]){re.escape(variable)}(?!\w)", re.IGNORECASE)
         if not patron.search(limpio, posicion + len(variable)):
             resultado.append((variable, posicion))
@@ -77,3 +86,42 @@ def mensaje_variables_sin_uso(variables: List[str]) -> str:
     return (f"Se identificaron {len(variables)} variables que han sido declaradas, pero no se utilizan dentro del "
             f"procedimiento: {lista}. Se recomienda revisar las variables identificadas y proceder con su "
             f"eliminación si no son necesarias, ya que no cumplen ninguna función dentro del procedimiento.")
+
+
+# «Variables de tabla declaradas sin uso» (usuaria, 8 nov.): una variable de tabla que después del DECLARE no se
+# lee nunca (no aparece, o solo se llena, actualiza o borra). A diferencia de una temporal #, otro procedimiento no
+# puede leerla: solo existe dentro de este.
+_ESCRITURA_ANTES = re.compile(r"\b(?:INSERT(?:\s+INTO)?|UPDATE|DELETE(?:\s+FROM)?)\s*$", re.IGNORECASE)
+
+
+def variables_de_tabla_sin_uso(limpio: str) -> List[Tuple[str, int]]:
+    """[(variable, posición de su declaración)] de las variables de tabla que no se leen en ninguna parte."""
+    from app.analizadores.temporal_sin_uso import _es_destino_de_alias
+
+    resultado = []
+    for variable, posicion in declaraciones(limpio).items():
+        if not _ES_VARIABLE_DE_TABLA.match(limpio, posicion + len(variable)):
+            continue
+        patron = re.compile(rf"(?<![\w@]){re.escape(variable)}(?![\w$#])", re.IGNORECASE)
+        leida = False
+        for uso in patron.finditer(limpio, posicion + len(variable)):
+            if _ESCRITURA_ANTES.search(limpio, max(0, uso.start() - 60), uso.start()):
+                continue
+            if _es_destino_de_alias(limpio, uso.start(), uso.end()):
+                continue
+            leida = True
+            break
+        if not leida:
+            resultado.append((variable, posicion))
+    return resultado
+
+
+def mensaje_variables_de_tabla_sin_uso(variables: List[str]) -> str:
+    """Texto de la usuaria (8 nov.); en singular si es una sola."""
+    if len(variables) == 1:
+        return (f"Se identificó que la variable de tabla {variables[0]} está declarada, pero no se utiliza dentro del "
+                f"procedimiento. Se recomienda verificar si esta variable será necesaria en el procedimiento. De no "
+                f"ser así, eliminar su declaración para evitar código innecesario.")
+    return (f"Se identificó que las siguientes variables de tabla están declaradas, pero no se utilizan dentro del "
+            f"procedimiento: {'; '.join(variables)}. Se recomienda verificar si estas variables serán necesarias en "
+            f"el procedimiento. De no ser así, eliminar sus declaraciones para evitar código innecesario.")

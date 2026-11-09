@@ -6,6 +6,11 @@ from typing import Dict, List, Set, Tuple
 
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
 from app.analizadores.collate_temporales import MENSAJE_COLLATE_DATABASE_DEFAULT, collate_agrupado
+from app.analizadores.caracteres_danados import caracteres_danados
+from app.analizadores.variables_sin_uso import (
+    mensaje_variables_de_tabla_sin_uso, variables_de_tabla_sin_uso,
+)
+from app.analizadores.temporal_sin_uso import temporal_sin_uso_agrupado
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
 from app.analizadores.comentarios_codigo import codigo_comentado_agrupado
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
@@ -324,14 +329,26 @@ def _es_tabla_de_consulta(palabras: set) -> bool:
             or {"cons", "sistema"} <= palabras or {"const", "sistema"} <= palabras)
 
 
+# Desde 3 tablas, la pantalla las muestra como cajitas (opción A de la usuaria, 8 nov.); igual en el frontend.
+TABLAS_EN_CAJITAS = 3
+
+
+def _problema_varias_tablas(tablas: List[str]) -> str:
+    """«…sobre las tablas físicas A y B…» o, desde 3, «…sobre las siguientes tablas físicas…: A; B; C.»."""
+    if len(tablas) >= TABLAS_EN_CAJITAS:
+        return (f"Se identificaron consultas de lectura sobre las siguientes tablas físicas sin utilizar WITH "
+                f"(NOLOCK): {'; '.join(tablas)}.")
+    return (f"Se identificaron consultas de lectura sobre las tablas físicas {', '.join(tablas[:-1])} y {tablas[-1]} "
+            f"sin utilizar WITH (NOLOCK).")
+
+
 def _mensaje_consulta_sin_nolock(tablas: List[str]) -> str:
     """Texto de la usuaria (6 nov.); con varias tablas, una sola observación."""
     if len(tablas) == 1:
         return (f"Se identificó una consulta de lectura sobre la tabla física {tablas[0]} sin utilizar WITH (NOLOCK). "
                 f"Se recomienda agregar WITH (NOLOCK) a la tabla física (ej.: FROM {tablas[0]} WITH (NOLOCK)), para "
                 f"evitar que la consulta quede esperando mientras otros procesos mantienen bloqueados sus registros.")
-    lista = f"{', '.join(tablas[:-1])} y {tablas[-1]}"
-    return (f"Se identificaron consultas de lectura sobre las tablas físicas {lista} sin utilizar WITH (NOLOCK). "
+    return (f"{_problema_varias_tablas(tablas)} "
             f"Se recomienda agregar WITH (NOLOCK) a cada tabla física (ej.: FROM {tablas[0]} WITH (NOLOCK)), para "
             f"evitar que la consulta quede esperando mientras otros procesos mantienen bloqueados sus registros.")
 
@@ -343,8 +360,7 @@ def _mensaje_nolock_por_evaluar(tablas: List[str]) -> str:
                 f"Se recomienda evaluar agregar WITH (NOLOCK) a la tabla física (ej.: FROM {tablas[0]} WITH (NOLOCK)), "
                 f"para evitar esperas por bloqueos durante la lectura, validando que su uso no afecte la consistencia "
                 f"de los datos consultados.")
-    lista = f"{', '.join(tablas[:-1])} y {tablas[-1]}"
-    return (f"Se identificaron consultas de lectura sobre las tablas físicas {lista} sin utilizar WITH (NOLOCK). "
+    return (f"{_problema_varias_tablas(tablas)} "
             f"Se recomienda evaluar agregar WITH (NOLOCK) a cada tabla física (ej.: FROM {tablas[0]} WITH (NOLOCK)), "
             f"para evitar esperas por bloqueos durante la lectura, validando que su uso no afecte la consistencia de "
             f"los datos consultados.")
@@ -365,9 +381,11 @@ _NO_SON_TABLAS_FISICAS = re.compile(r"^(?:sys|information_schema)\.|^(?:inserted
 
 def _agrupar_tablas(texto: str, regla: str, casos: List[Tuple[int, str]], mensaje) -> Hallazgo:
     """Una sola observación con todas las tablas; las líneas se recorren con la barra «1 de N»."""
-    unicas: Dict[str, str] = {}  # dbo.Areas y dbo.AREAS son la misma tabla: se muestra como se escribió primero
+    # dbo.Areas, dbo.AREAS y [dbo].[Areas] son la misma tabla: una vez, como se escribió primero (sin corchetes).
+    unicas: Dict[str, str] = {}
     for _, tabla in casos:
-        unicas.setdefault(tabla.lower(), tabla)
+        nombre = re.sub(r"[\[\]\s]", "", tabla)
+        unicas.setdefault(nombre.lower(), nombre)
     tablas = list(unicas.values())
     hallazgo = _hallazgo(texto, casos[0][0], regla, mensaje(tablas))
     lineas = sorted({_linea(texto, posicion) for posicion, _ in casos})
@@ -923,6 +941,18 @@ def _validar_comentarios(texto: str) -> List[Hallazgo]:
     hallazgo = _hallazgo(texto, posicion, "CODIGO_SQL_COMENTADO", mensaje)
     if len(lineas) > 1:
         hallazgo.lineas = lineas  # «Ver en el código» recorre cada línea
+    return [hallazgo]
+
+
+def _validar_variables_de_tabla(texto: str, limpio: str) -> List[Hallazgo]:
+    """Variables de tabla declaradas que no se leen en ninguna parte (usuaria, 8 nov.)."""
+    casos = variables_de_tabla_sin_uso(limpio)
+    if not casos:
+        return []
+    mensaje = mensaje_variables_de_tabla_sin_uso([variable for variable, _ in casos])
+    hallazgo = _hallazgo(texto, casos[0][1], "VARIABLE_TABLA_SIN_USO", mensaje)
+    if len(casos) > 1:
+        hallazgo.lineas = sorted({_linea(texto, posicion) for _, posicion in casos})
     return [hallazgo]
 
 
@@ -1702,6 +1732,30 @@ def _validar_modificacion_sin_where(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _validar_caracteres_danados(texto: str) -> List[Hallazgo]:
+    """Textos con caracteres dañados (�, DepÃ³sito) que se grabarán así en la base (usuaria, 8 nov.)."""
+    observado = caracteres_danados(texto, lambda posicion: _linea(texto, posicion))
+    if not observado:
+        return []
+    posicion, mensaje, lineas = observado
+    hallazgo = _hallazgo(texto, posicion, "CARACTERES_DANADOS", mensaje)
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas
+    return [hallazgo]
+
+
+def _validar_temporal_sin_uso(texto: str, limpio: str) -> List[Hallazgo]:
+    """Temporal que se crea y se llena, pero no se lee en ninguna parte (usuaria, 8 nov.)."""
+    agrupado = temporal_sin_uso_agrupado(texto, limpio, lambda posicion: _linea(texto, posicion))
+    if not agrupado:
+        return []
+    posicion, mensaje, lineas = agrupado
+    hallazgo = _hallazgo(texto, posicion, "TEMPORAL_SIN_USO", mensaje)
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas
+    return [hallazgo]
+
+
 def _validar_temporales_sin_crear(texto: str, limpio: str) -> List[Hallazgo]:
     """Tabla temporal que se usa pero nunca se crea: el procedimiento falla al ejecutarse (crítico)."""
     resultado = temporales_sin_crear(limpio, lambda posicion: _linea(texto, posicion))
@@ -1756,11 +1810,14 @@ def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -
     hallazgos.extend(_validar_tabla_repetida(texto_sql, limpio))
     hallazgos.extend(_validar_collate_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_temporales_sin_crear(texto_sql, limpio))
+    hallazgos.extend(_validar_temporal_sin_uso(texto_sql, limpio))
+    hallazgos.extend(_validar_caracteres_danados(texto_sql))
     hallazgos.extend(_validar_collate_usado(texto_sql, limpio))
     hallazgos.extend(_validar_collate_openjson(texto_sql, limpio))
     hallazgos.extend(_validar_tipos_entre_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_comentarios(texto_sql))
     hallazgos.extend(_validar_variables(texto_sql, limpio))
+    hallazgos.extend(_validar_variables_de_tabla(texto_sql, limpio))
     if es_del_motor:
         hallazgos = [h for h in hallazgos if h.regla != "SELECT_ESTRELLA_PROHIBIDO"]
     # Las reglas desactivadas en el catálogo no se reportan.

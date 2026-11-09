@@ -268,9 +268,16 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         self.assertEqual(len(hallazgos), 1)
         self.assertEqual(hallazgos[0].lineas, [1, 2, 3, 4, 5])
         self.assertTrue(hallazgos[0].mensaje.startswith(
-            "Se identificaron consultas de lectura sobre las tablas físicas dbo.Producto, dbo.ColocProductos, "
-            "dbo.ConsSistema y dbo.Constantes sin utilizar WITH (NOLOCK). Se recomienda agregar WITH (NOLOCK) a "
+            # Desde 3 tablas: «las siguientes tablas…: A; B; C.» (la pantalla las muestra en cajitas).
+            "Se identificaron consultas de lectura sobre las siguientes tablas físicas sin utilizar WITH (NOLOCK): "
+            "dbo.Producto; dbo.ColocProductos; dbo.ConsSistema; dbo.Constantes. Se recomienda agregar WITH (NOLOCK) a "
             "cada tabla física (ej.: FROM dbo.Producto WITH (NOLOCK))"))
+        # Con 2 tablas sigue la frase de siempre; la misma tabla con corchetes cuenta una sola vez.
+        dos = [h for h in verificar_procedimiento_normal(
+            "SELECT 1 FROM dbo.Producto p\nJOIN [dbo].[Producto] q ON 1 = 1\nJOIN dbo.Constantes k ON 1 = 1")
+            if h.regla == "CONSULTA_SIN_NOLOCK"][0]
+        self.assertTrue(dos.mensaje.startswith(
+            "Se identificaron consultas de lectura sobre las tablas físicas dbo.Producto y dbo.Constantes sin utilizar"))
         self.assertNotIn("NOLOCK_POR_EVALUAR", {h.regla for h in verificar_procedimiento_normal(sql)})
 
     def test_constsistema_tambien_debe_llevar_nolock(self):
