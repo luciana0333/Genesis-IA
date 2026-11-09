@@ -30,8 +30,10 @@ class TemporalSinUsoTest(unittest.TestCase):
                 self.assertEqual(hallazgos[0].linea, 4)
                 self.assertEqual(
                     hallazgos[0].mensaje,
-                    "Se identificó que la tabla temporal #MOVX se crea y se llena, pero no se utiliza en ninguna "
-                    "consulta posterior. " + QUE_HACER_TEMPORAL_SIN_USO,
+                    "Se identificó que la tabla temporal #MOVX se crea y se llena con información, pero no se utiliza "
+                    "posteriormente en el procedimiento. Se recomienda eliminar la tabla temporal #MOVX y las "
+                    "consultas que insertan información en ella, debido a que no se utiliza posteriormente y genera "
+                    "un consumo innecesario de recursos.",
                 )
 
     def test_varias_en_una_sola_observacion(self):
@@ -40,9 +42,10 @@ class TemporalSinUsoTest(unittest.TestCase):
                "UPDATE X SET X.n = 3 FROM #A X\nCREATE NONCLUSTERED INDEX IX_B ON #B (n)\nTRUNCATE TABLE #B")
         hallazgo = _sin_uso(sql, verificar_reporte)[0]
         self.assertEqual(hallazgo.lineas, [1, 3])
-        self.assertTrue(hallazgo.mensaje.startswith(
-            "Se identificaron las siguientes tablas temporales que se llenan, pero no se utilizan en ninguna "
-            "consulta posterior: #A; #B. "))
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se identificaron las siguientes tablas temporales que se crean y se llenan con información, pero no se "
+            "utilizan posteriormente en el procedimiento: #A; #B. " + QUE_HACER_TEMPORAL_SIN_USO)
 
     def test_lo_que_no_se_marca(self):
         for sql in (

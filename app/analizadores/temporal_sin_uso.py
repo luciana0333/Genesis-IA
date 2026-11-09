@@ -34,9 +34,10 @@ _DROP = re.compile(rf"\bDROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?{_NOMBRE}(?:\s*,\s*{_N
 _UPDATE_DELETE_ALIAS = re.compile(r"\b(?:UPDATE|DELETE)\s+([A-Za-z_]\w*)\s+(?:SET|FROM)\b", re.IGNORECASE)
 _FIN_DE_SENTENCIA = re.compile(r"\b(?:INSERT|CREATE|DROP|TRUNCATE|UPDATE|DELETE|MERGE)\b|;", re.IGNORECASE)
 
+# Varias tablas: el «Qué hacer» de la usuaria (8 nov.) en plural.
 QUE_HACER_TEMPORAL_SIN_USO = (
-    "Se recomienda retirar la tabla temporal y las consultas que la llenan, ya que consumen tiempo de "
-    "procesamiento y recursos sin aportar al resultado del procedimiento."
+    "Se recomienda eliminar las tablas temporales indicadas y las consultas que insertan información en ellas, "
+    "debido a que no se utilizan posteriormente y generan un consumo innecesario de recursos."
 )
 
 
@@ -127,9 +128,14 @@ def temporal_sin_uso_agrupado(
     if not casos:
         return None
     if len(casos) == 1:
-        problema = (f"Se identificó que la tabla temporal {casos[0][0]} se crea y se llena, pero no se utiliza en "
-                    f"ninguna consulta posterior.")
+        # Texto de la usuaria (8 nov.).
+        tabla = casos[0][0]
+        mensaje = (f"Se identificó que la tabla temporal {tabla} se crea y se llena con información, pero no se "
+                   f"utiliza posteriormente en el procedimiento. Se recomienda eliminar la tabla temporal {tabla} y "
+                   f"las consultas que insertan información en ella, debido a que no se utiliza posteriormente y "
+                   f"genera un consumo innecesario de recursos.")
     else:
-        problema = (f"Se identificaron las siguientes tablas temporales que se llenan, pero no se utilizan en ninguna "
-                    f"consulta posterior: {'; '.join(nombre for nombre, _ in casos)}.")
-    return casos[0][1], f"{problema} {QUE_HACER_TEMPORAL_SIN_USO}", [linea_de(posicion) for _, posicion in casos]
+        mensaje = (f"Se identificaron las siguientes tablas temporales que se crean y se llenan con información, pero "
+                   f"no se utilizan posteriormente en el procedimiento: {'; '.join(nombre for nombre, _ in casos)}. "
+                   f"{QUE_HACER_TEMPORAL_SIN_USO}")
+    return casos[0][1], mensaje, [linea_de(posicion) for _, posicion in casos]

@@ -150,7 +150,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "TEMPORAL_SIN_USO": ReglaDiccionario(
         codigo="TEMPORAL_SIN_USO",
-        nombre="Tabla temporal llena y sin uso",
+        nombre="Tabla temporal creada y no utilizada",
         severidad="medio",
         descripcion="Una tabla temporal que se crea y se llena, pero no se lee en ninguna parte del procedimiento.",
         alcance="procedimiento",
