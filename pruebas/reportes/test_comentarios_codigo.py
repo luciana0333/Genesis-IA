@@ -58,6 +58,19 @@ class ComentariosCodigoTest(unittest.TestCase):
             with self.subTest(modulo=verificar.__name__):
                 self.assertEqual(_lineas(sql, verificar), [3, 4])
 
+    def test_comentario_que_empieza_con_parentesis_o_case(self):
+        # Caso de la usuaria (8 nov.): «--(case when CAST(…) in (select …) then …)».
+        sql = ("CREATE PROCEDURE dbo.PA_X AS\nBEGIN\n"
+               "    --(case  when CAST(PL.cEjecIni AS DATE)  in (select CAST(dferiado AS DATE) from feriado) then 2 end)\n"  # 3
+               "    --CASE WHEN EXISTS (SELECT 1 FROM #T) THEN 1 END\n"                                                   # 4
+               "    -- (select * from #X)\n"                                                                              # 5
+               "    -- (ej.: el caso de prueba)\n"
+               "    -- Case when se cumple se envía el correo\n"
+               "    SELECT 1\nEND")
+        for verificar in MODULOS:
+            with self.subTest(modulo=verificar.__name__):
+                self.assertEqual(_lineas(sql, verificar), [3, 4, 5])
+
     def test_comentarios_que_explican_no_se_marcan(self):
         sql = ("CREATE PROCEDURE dbo.PA_GDD_Cartera_Sel_Saldos AS\nBEGIN\n"
                "    -- 1. Hacia cuentas nuevas\n"
