@@ -6,6 +6,7 @@ reciba un valor. Se observa solo la que se declara y nunca más aparece:
 
     DECLARE @a INT = 1, @b INT = 2         <- @b se declara y nunca más aparece: se observa
     SET @n = 5                             <- @n vuelve a aparecer: ya tiene uso
+    DECLARE @T TABLE (n INT)               <- variable de tabla: no se revisa en esta regla
 
 Los comentarios y los textos entre comillas no cuentan: `limpio` es el SQL sin ellos (del mismo largo).
 """
@@ -57,10 +58,18 @@ def declaraciones(limpio: str) -> Dict[str, int]:
     return encontradas
 
 
+# Lo que sigue al nombre en una variable de tabla: DECLARE @T TABLE (…) o DECLARE @T AS TABLE (…).
+_ES_VARIABLE_DE_TABLA = re.compile(r"\s+(?:AS\s+)?TABLE(?![\w$#])", re.IGNORECASE)
+
+
 def variables_sin_uso(limpio: str) -> List[Tuple[str, int]]:
     """[(variable, posición de su declaración)] de las variables que nunca más aparecen después del DECLARE."""
     resultado = []
     for variable, posicion in declaraciones(limpio).items():
+        # Solo variables comunes (DECLARE @n INT): una variable de tabla (DECLARE @T TABLE (…)) es otra cosa
+        # y no se revisa aquí (pedido de la usuaria, 8 nov.).
+        if _ES_VARIABLE_DE_TABLA.match(limpio, posicion + len(variable)):
+            continue
         patron = re.compile(rf"(?<![\w@]){re.escape(variable)}(?!\w)", re.IGNORECASE)
         if not patron.search(limpio, posicion + len(variable)):
             resultado.append((variable, posicion))
