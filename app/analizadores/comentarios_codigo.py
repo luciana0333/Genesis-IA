@@ -19,6 +19,10 @@ from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_
 
 _SENTENCIAS = r"SELECT|INSERT|UPDATE|DELETE|MERGE|EXEC(?:UTE)?|DECLARE|CREATE|ALTER|DROP|TRUNCATE|WHILE|GOTO"
 _OBJETO = r"[\w.\[\]#@]+"
+# Lado izquierdo de una condición: una columna (c.nEstado) o una función sobre ella (CAST(dFecha AS DATE)).
+_EXPRESION = r"(?:[A-Za-z_@#][\w.\[\]]*\s*\([^()]*\)|[A-Za-z_@#][\w.\[\]]*)"
+# Lado derecho: un texto, un número, una variable o una columna con su alias.
+_VALOR = r"(?:N?'[^']*'|-?\d+(?:\.\d+)?|@\w+|[A-Za-z_]\w*\.[\w\[\]]+)"
 
 # Un comentario de línea con código: la sentencia o, para las palabras que podrían iniciar una frase, su forma de
 # código (WHERE col = …, TOP (10), THEN 'x', JOIN tabla, SET @x = …).
@@ -33,6 +37,9 @@ _CODIGO_EN_LINEA = re.compile(
     rf"|(?:ORDER|GROUP)\s+BY\s+[\w.\[\]@]"
     rf"|SET\s+@?[\w.]+\s*="
     rf"|UNION(?:\s+ALL)?\s*$"
+    # Una condición suelta comentada: --CAST(dFecha AS DATE)='2024-01-08', --c.nEstado = 1, --A.cCta = @cCta.
+    # Termina ahí (o sigue con AND/OR): «-- nEstado = 1 activo» es una explicación, no código.
+    rf"|{_EXPRESION}\s*(?:=|<>|!=|<=|>=)\s*{_VALOR}\s*(?:$|(?:AND|OR)\b)"
     rf")",
     re.IGNORECASE,
 )

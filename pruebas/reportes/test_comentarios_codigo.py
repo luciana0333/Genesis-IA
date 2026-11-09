@@ -47,6 +47,17 @@ class ComentariosCodigoTest(unittest.TestCase):
                 self.assertTrue(uno.mensaje.startswith(
                     "Se encontró una línea de código SQL comentada dentro del procedimiento. Retirar"))
 
+    def test_condicion_suelta_comentada(self):
+        sql = ("CREATE PROCEDURE dbo.PA_X AS\nBEGIN\n"
+               "    SELECT 1 FROM #T WHERE YEAR(dFecha) = @cAnio --CAST(dFecha AS DATE)='2024-01-08'\n"  # 3
+               "    --c.nEstado = 1\n"                                                                  # 4
+               "    -- nEstado = 1 activo\n"
+               "    -- Total = suma de saldos\n"
+               "END")
+        for verificar in MODULOS:
+            with self.subTest(modulo=verificar.__name__):
+                self.assertEqual(_lineas(sql, verificar), [3, 4])
+
     def test_comentarios_que_explican_no_se_marcan(self):
         sql = ("CREATE PROCEDURE dbo.PA_GDD_Cartera_Sel_Saldos AS\nBEGIN\n"
                "    -- 1. Hacia cuentas nuevas\n"
