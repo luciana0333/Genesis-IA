@@ -20,7 +20,9 @@ from app.analizadores.numero_comparado_con_texto import numero_comparado_con_tex
 from app.analizadores.encabezado import encabezado_observado
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
 from app.analizadores.indice_forzado import indice_forzado_agrupado
-from app.analizadores.select_estrella import marcar as marcar_select_estrella, unir_select_estrella
+from app.analizadores.select_estrella import (
+    estrellas_tras_coma, marcar as marcar_select_estrella, unir_select_estrella,
+)
 from app.analizadores.left_like import left_reemplazable_por_like
 from app.analizadores.hints_compartidos import (
     HINTS_BLOQUEO_NUEVOS, QUE_HACE_EL_AISLAMIENTO, hint_en_temporal, niveles_de_aislamiento,
@@ -693,6 +695,12 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             texto, match.start(), "SELECT_ESTRELLA_PROHIBIDO",
             f"Se identificó que se están consultando todas las columnas{de} mediante SELECT *. "
             f"{_ACCION_SELECT_ESTRELLA.format(ejemplo='SELECT cNombre, dFecha')}",
+        ), tabla))
+    # «SELECT ROW_NUMBER() OVER (…) AS NRO, * FROM #T»: el * después de una coma (usuaria, 8 nov.).
+    for posicion, tabla in estrellas_tras_coma(limpio):
+        hallazgos.append(marcar_select_estrella(_hallazgo(
+            texto, posicion, "SELECT_ESTRELLA_PROHIBIDO",
+            f"Se identificó que se están consultando todas las columnas de {tabla or 'la consulta'} mediante *.",
         ), tabla))
     # SELECT c.*: todas las columnas de la tabla del alias c.
     for match in re.finditer(r"(?<![\w.@#])([A-Za-z_]\w*)\s*\.\s*\*(?=\s*(?:,|\bFROM\b))", limpio, re.IGNORECASE):

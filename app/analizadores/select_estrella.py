@@ -4,6 +4,7 @@
 usuaria. SELECT x.* cuenta igual: se nombra la tabla del alias.
 """
 
+import re
 from typing import List, Optional, Tuple
 
 from app.modelos.hallazgo import Hallazgo
@@ -71,4 +72,21 @@ def unir_select_estrella(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
         elif not puesto:
             resultado.append(primero)
             puesto = True
+    return resultado
+
+
+# «SELECT ROW_NUMBER() OVER (…) AS NRO, * FROM #T»: el * después de una coma también trae todas las columnas
+# (caso de la usuaria, 8 nov.). COUNT(*) no cuenta: ahí el * va después de un paréntesis.
+_ESTRELLA_TRAS_COMA = re.compile(r",\s*(\*)(?=\s*(?:,|\bFROM\b))", re.IGNORECASE)
+_TABLA_DEL_FROM = re.compile(r"\bFROM\s+((?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)(?:\s*\.\s*(?:\.\s*)?(?:\[[^\]]+\]|[A-Za-z_][\w$#]*)){0,3})",
+                             re.IGNORECASE)
+
+
+def estrellas_tras_coma(limpio: str) -> List[Tuple[int, str]]:
+    """[(posición del *, tabla del FROM que le sigue)] de cada «…, *» de una lista de columnas."""
+    resultado = []
+    for match in _ESTRELLA_TRAS_COMA.finditer(limpio):
+        tabla = _TABLA_DEL_FROM.search(limpio, match.end(1))
+        nombre = re.sub(r"\s+", "", tabla.group(1)) if tabla else ""
+        resultado.append((match.start(1), nombre))
     return resultado
