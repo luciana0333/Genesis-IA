@@ -56,13 +56,36 @@ class TemporalSinUsoTest(unittest.TestCase):
             "CREATE TABLE #A (n INT)\nINSERT INTO #A SELECT 1\nEXEC dbo.PA_Usa_A",                      # otro PA
             "CREATE TABLE #A (n INT)\nINSERT INTO #A SELECT 1\n"
             "DECLARE @s NVARCHAR(100) = N'SELECT * FROM #A'\nEXEC sp_executesql @s",                   # dinámico
-            "CREATE TABLE #A (n INT)\nSELECT 1",                                                         # no se llena
             "CREATE TABLE #A (n INT)\nINSERT INTO #A SELECT 1\n-- SELECT * FROM #A\nSELECT 1",          # solo comentario
         ):
             for verificar in MODULOS:
                 with self.subTest(sql=sql[:50], modulo=verificar.__name__):
                     esperado = 1 if "-- SELECT" in sql else 0
                     self.assertEqual(len(_sin_uso(sql, verificar)), esperado)
+
+    def test_la_que_solo_se_crea_tambien(self):
+        # Caso de la usuaria (8 nov.): #tmpTardanza se crea y nunca se llena ni se usa.
+        sql = "CREATE TABLE #tmpTardanza (minTardanza INT)\nCREATE CLUSTERED INDEX IX_T ON #tmpTardanza (minTardanza)"
+        for verificar in MODULOS:
+            with self.subTest(modulo=verificar.__name__):
+                self.assertEqual(
+                    _sin_uso(sql, verificar)[0].mensaje,
+                    "Se identificó que la tabla temporal #tmpTardanza se crea, pero no se utiliza posteriormente en el "
+                    "procedimiento. Se recomienda eliminar la tabla temporal #tmpTardanza, debido a que no se utiliza "
+                    "posteriormente y genera código innecesario.",
+                )
+
+    def test_una_llenada_y_otra_solo_creada(self):
+        sql = "CREATE TABLE #A (n INT)\nINSERT INTO #A SELECT 1\nCREATE TABLE #B (n INT)\nSELECT 1"
+        hallazgo = _sin_uso(sql, verificar_reporte)[0]
+        self.assertEqual(hallazgo.lineas, [1, 3])
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se identificaron las siguientes tablas temporales que se crean, pero no se utilizan posteriormente en el "
+            "procedimiento: #A; #B. Se recomienda eliminar las tablas temporales indicadas y, de ser el caso, las "
+            "consultas que insertan información en ellas, debido a que no se utilizan posteriormente y generan un "
+            "consumo innecesario de recursos.",
+        )
 
 
 if __name__ == "__main__":

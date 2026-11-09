@@ -108,7 +108,8 @@ def temporales_sin_uso(texto: str, limpio: str) -> List[Tuple[str, int]]:
                 continue
             leida = True
             break
-        if leida or not llenada:
+        # También la que solo se crea y nunca se llena ni se lee (#tmpTardanza; usuaria, 8 nov.).
+        if leida:
             continue
         # Un procedimiento llamado después, o SQL dinámico, pueden leerla.
         if _EXEC_PROCEDIMIENTO.search(limpio, creada_en):
@@ -116,7 +117,7 @@ def temporales_sin_uso(texto: str, limpio: str) -> List[Tuple[str, int]]:
         if any(re.search(rf"(?<![\w$#@]){re.escape(nombre)}(?![\w$#])", cadena, re.IGNORECASE)
                for cadena in _textos(texto)):
             continue
-        resultado.append((nombre, creada_en))
+        resultado.append((nombre, creada_en, llenada))
     return sorted(resultado, key=lambda caso: caso[1])
 
 
@@ -127,15 +128,27 @@ def temporal_sin_uso_agrupado(
     casos = temporales_sin_uso(texto, limpio)
     if not casos:
         return None
-    if len(casos) == 1:
+    todas_llenadas = all(llenada for _, _, llenada in casos)
+    if len(casos) == 1 and todas_llenadas:
         # Texto de la usuaria (8 nov.).
         tabla = casos[0][0]
         mensaje = (f"Se identificó que la tabla temporal {tabla} se crea y se llena con información, pero no se "
                    f"utiliza posteriormente en el procedimiento. Se recomienda eliminar la tabla temporal {tabla} y "
                    f"las consultas que insertan información en ella, debido a que no se utiliza posteriormente y "
                    f"genera un consumo innecesario de recursos.")
-    else:
+    elif len(casos) == 1:
+        # Solo se crea: el mismo texto, sin «se llena» ni «consultas que insertan».
+        tabla = casos[0][0]
+        mensaje = (f"Se identificó que la tabla temporal {tabla} se crea, pero no se utiliza posteriormente en el "
+                   f"procedimiento. Se recomienda eliminar la tabla temporal {tabla}, debido a que no se utiliza "
+                   f"posteriormente y genera código innecesario.")
+    elif todas_llenadas:
         mensaje = (f"Se identificaron las siguientes tablas temporales que se crean y se llenan con información, pero "
-                   f"no se utilizan posteriormente en el procedimiento: {'; '.join(nombre for nombre, _ in casos)}. "
+                   f"no se utilizan posteriormente en el procedimiento: {'; '.join(n for n, _, _ in casos)}. "
                    f"{QUE_HACER_TEMPORAL_SIN_USO}")
-    return casos[0][1], mensaje, [linea_de(posicion) for _, posicion in casos]
+    else:
+        mensaje = (f"Se identificaron las siguientes tablas temporales que se crean, pero no se utilizan posteriormente "
+                   f"en el procedimiento: {'; '.join(n for n, _, _ in casos)}. Se recomienda eliminar las tablas "
+                   f"temporales indicadas y, de ser el caso, las consultas que insertan información en ellas, debido a "
+                   f"que no se utilizan posteriormente y generan un consumo innecesario de recursos.")
+    return casos[0][1], mensaje, [linea_de(posicion) for _, posicion, _ in casos]

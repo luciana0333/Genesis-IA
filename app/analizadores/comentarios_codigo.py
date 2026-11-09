@@ -27,8 +27,10 @@ _VALOR = r"(?:N?'[^']*'|-?\d+(?:\.\d+)?|@\w+|[A-Za-z_]\w*\.[\w\[\]]+)"
 # Un comentario de línea con código: la sentencia o, para las palabras que podrían iniciar una frase, su forma de
 # código (WHERE col = …, TOP (10), THEN 'x', JOIN tabla, SET @x = …).
 _CODIGO_EN_LINEA = re.compile(
-    rf"--\s*(?:"
+    # Puede empezar con paréntesis: «--(case when CAST(…) in (select …) then …)» (caso de la usuaria, 8 nov.).
+    rf"--\s*(?:\(\s*)*(?:"
     rf"(?:{_SENTENCIAS})\b"
+    rf"|CASE\s+WHEN\s+(?:(?:NOT\s+)?EXISTS\b|{_EXPRESION}\s*(?:=|<>|!=|<=|>=|<|>|\bIN\b|\bIS\b|\bLIKE\b|\bBETWEEN\b|\bNOT\b))"
     rf"|(?:WHERE|AND|OR|ON|HAVING)\s+{_OBJETO}\s*(?:=|<>|!=|<|>|\bIN\b|\bLIKE\b|\bIS\b|\bBETWEEN\b|\bNOT\b)"
     rf"|TOP\s*\(?\s*\d"
     rf"|(?:THEN|ELSE)\s+(?:'|\d|NULL\b)"

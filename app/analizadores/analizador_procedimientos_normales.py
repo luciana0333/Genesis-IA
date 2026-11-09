@@ -20,7 +20,9 @@ from app.analizadores.numero_comparado_con_texto import numero_comparado_con_tex
 from app.analizadores.encabezado import encabezado_observado
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
 from app.analizadores.indice_forzado import indice_forzado_agrupado
-from app.analizadores.select_estrella import marcar as marcar_select_estrella, unir_select_estrella
+from app.analizadores.select_estrella import (
+    estrellas_tras_coma, marcar as marcar_select_estrella, unir_select_estrella,
+)
 from app.analizadores.left_like import left_reemplazable_por_like
 from app.analizadores.hints_compartidos import (
     HINTS_BLOQUEO_NUEVOS, QUE_HACE_EL_AISLAMIENTO, hint_en_temporal, niveles_de_aislamiento,
@@ -536,7 +538,8 @@ def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
         froms = [m.start() for m in re.finditer(r"\bFROM\b", limpio[:match.start()], re.IGNORECASE)]
         desde = froms[-1] if froms else 0
         tablas = _tablas_por_alias(limpio[desde:termina.start() if termina else len(limpio)])
-        for conversion in re.finditer(r"\b(CAST|CONVERT)\s*\(", condicion, re.IGNORECASE):
+        # También TRY_CAST y TRY_CONVERT: impiden usar el índice igual (caso de la usuaria, 8 nov.).
+        for conversion in re.finditer(r"\b((?:TRY_)?(?:CAST|CONVERT))\s*\(", condicion, re.IGNORECASE):
             # Solo si convierte una columna: CAST(GETDATE() AS DATE) o CAST(@dFecha AS DATE) no impiden
             # usar los índices de la tabla.
             argumento = _contenido_entre_parentesis(condicion, conversion.end() - 1)
@@ -611,7 +614,7 @@ def _tablas_por_alias(tramo: str) -> Dict[str, str]:
 
 def _convierte_columna_fisica(argumento: str, funcion: str, tablas: Dict[str, str], ctes: Set[str]) -> bool:
     """¿El CAST/CONVERT convierte una columna de una tabla física (no temporal, variable de tabla ni CTE)?"""
-    if funcion.upper() == "CONVERT":
+    if funcion.upper() in ("CONVERT", "TRY_CONVERT"):
         partes = [p for p, _ in _separar_por_comas(argumento)]
         dato = partes[1] if len(partes) > 1 else argumento
     else:
@@ -638,7 +641,7 @@ def _convierte_columna_fisica(argumento: str, funcion: str, tablas: Dict[str, st
 
 def _usa_columna(argumento: str, funcion: str) -> bool:
     """¿El dato que convierte un CAST(dato AS tipo) / CONVERT(tipo, dato) tiene alguna columna?"""
-    if funcion.upper() == "CONVERT":
+    if funcion.upper() in ("CONVERT", "TRY_CONVERT"):
         partes = [p for p, _ in _separar_por_comas(argumento)]
         dato = partes[1] if len(partes) > 1 else argumento
     else:
@@ -693,6 +696,12 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             texto, match.start(), "SELECT_ESTRELLA_PROHIBIDO",
             f"Se identificó que se están consultando todas las columnas{de} mediante SELECT *. "
             f"{_ACCION_SELECT_ESTRELLA.format(ejemplo='SELECT cNombre, dFecha')}",
+        ), tabla))
+    # «SELECT ROW_NUMBER() OVER (…) AS NRO, * FROM #T»: el * después de una coma (usuaria, 8 nov.).
+    for posicion, tabla in estrellas_tras_coma(limpio):
+        hallazgos.append(marcar_select_estrella(_hallazgo(
+            texto, posicion, "SELECT_ESTRELLA_PROHIBIDO",
+            f"Se identificó que se están consultando todas las columnas de {tabla or 'la consulta'} mediante *.",
         ), tabla))
     # SELECT c.*: todas las columnas de la tabla del alias c.
     for match in re.finditer(r"(?<![\w.@#])([A-Za-z_]\w*)\s*\.\s*\*(?=\s*(?:,|\bFROM\b))", limpio, re.IGNORECASE):

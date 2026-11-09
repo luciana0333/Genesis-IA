@@ -12,7 +12,9 @@ from app.analizadores.numero_comparado_con_texto import numero_comparado_con_tex
 from app.analizadores.encabezado import encabezado_observado
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
 from app.analizadores.indice_forzado import indice_forzado_agrupado
-from app.analizadores.select_estrella import marcar as marcar_select_estrella, unir_select_estrella
+from app.analizadores.select_estrella import (
+    estrellas_tras_coma, marcar as marcar_select_estrella, unir_select_estrella,
+)
 from app.analizadores.caracteres_danados import caracteres_danados
 from app.analizadores.variables_sin_uso import (
     mensaje_variables_de_tabla_sin_uso, variables_de_tabla_sin_uso,
@@ -1196,6 +1198,12 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_temporal_sin_uso(texto_sql, limpio))
     hallazgos.extend(_validar_caracteres_danados(texto_sql))
     hallazgos.extend(_validar_sentencias(texto_sql, limpio))
+    # «…, * FROM #T»: el * después de una coma también es SELECT * (usuaria, 8 nov.).
+    for posicion, tabla in estrellas_tras_coma(limpio):
+        if tabla and re.match(_CATALOGOS_PROHIBIDOS, tabla, re.IGNORECASE):
+            continue  # ya lo marca «Catálogo de sistema prohibido»
+        hallazgos.append(marcar_select_estrella(_hallazgo(
+            texto_sql, posicion, "SELECT_ESTRELLA_PROHIBIDO", "Se identificó el uso de SELECT *."), tabla))
     hallazgos.extend(_validar_sintaxis_prohibida(texto_sql, limpio))
     hallazgos.extend(_validar_varchar_max(texto_sql, limpio))
     hallazgos.extend(_validar_drop_table_if_exists(texto_sql))

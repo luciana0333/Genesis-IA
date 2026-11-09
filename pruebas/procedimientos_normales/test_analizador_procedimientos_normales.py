@@ -1216,5 +1216,23 @@ class TextoCastEnJoinTest(unittest.TestCase):
             "unión.",
         )
 
+    def test_try_cast_y_try_convert_tambien(self):
+        # Caso de la usuaria (8 nov.): ON TRY_CAST(CO1.nConsValor AS VARCHAR) = RHPNL.nRHPeriodoEstado.
+        casos = {
+            "SELECT 1 FROM #P RHPNL\nINNER JOIN Constante CO1 ON TRY_CAST(CO1.nConsValor AS VARCHAR) = "
+            "RHPNL.nRHPeriodoEstado": "Se identificó un TRY_CAST en la condición del JOIN con la tabla Constante.",
+            "SELECT 1 FROM #A a JOIN dbo.T t ON TRY_CONVERT(INT, t.cCod) = a.n":
+                "Se identificó un TRY_CONVERT en la condición del JOIN con la tabla dbo.T.",
+        }
+        for sql, inicio in casos.items():
+            with self.subTest(sql=sql):
+                hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "CAST_EN_JOIN_PROHIBIDO")
+                self.assertTrue(hallazgo.mensaje.startswith(inicio))
+        # Sobre una temporal o una variable no se marca, igual que CAST.
+        for sql in ("SELECT 1 FROM #A a JOIN #B b ON TRY_CAST(b.n AS INT) = a.n",
+                    "SELECT 1 FROM #A a JOIN dbo.T t ON t.n = TRY_CAST(@x AS INT)"):
+            with self.subTest(sql=sql):
+                self.assertNotIn("CAST_EN_JOIN_PROHIBIDO", {h.regla for h in verificar_procedimiento_normal(sql)})
+
 if __name__ == "__main__":
     unittest.main()
