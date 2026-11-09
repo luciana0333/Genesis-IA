@@ -329,14 +329,26 @@ def _es_tabla_de_consulta(palabras: set) -> bool:
             or {"cons", "sistema"} <= palabras or {"const", "sistema"} <= palabras)
 
 
+# Desde 3 tablas, la pantalla las muestra como cajitas (opción A de la usuaria, 8 nov.); igual en el frontend.
+TABLAS_EN_CAJITAS = 3
+
+
+def _problema_varias_tablas(tablas: List[str]) -> str:
+    """«…sobre las tablas físicas A y B…» o, desde 3, «…sobre las siguientes tablas físicas…: A; B; C.»."""
+    if len(tablas) >= TABLAS_EN_CAJITAS:
+        return (f"Se identificaron consultas de lectura sobre las siguientes tablas físicas sin utilizar WITH "
+                f"(NOLOCK): {'; '.join(tablas)}.")
+    return (f"Se identificaron consultas de lectura sobre las tablas físicas {', '.join(tablas[:-1])} y {tablas[-1]} "
+            f"sin utilizar WITH (NOLOCK).")
+
+
 def _mensaje_consulta_sin_nolock(tablas: List[str]) -> str:
     """Texto de la usuaria (6 nov.); con varias tablas, una sola observación."""
     if len(tablas) == 1:
         return (f"Se identificó una consulta de lectura sobre la tabla física {tablas[0]} sin utilizar WITH (NOLOCK). "
                 f"Se recomienda agregar WITH (NOLOCK) a la tabla física (ej.: FROM {tablas[0]} WITH (NOLOCK)), para "
                 f"evitar que la consulta quede esperando mientras otros procesos mantienen bloqueados sus registros.")
-    lista = f"{', '.join(tablas[:-1])} y {tablas[-1]}"
-    return (f"Se identificaron consultas de lectura sobre las tablas físicas {lista} sin utilizar WITH (NOLOCK). "
+    return (f"{_problema_varias_tablas(tablas)} "
             f"Se recomienda agregar WITH (NOLOCK) a cada tabla física (ej.: FROM {tablas[0]} WITH (NOLOCK)), para "
             f"evitar que la consulta quede esperando mientras otros procesos mantienen bloqueados sus registros.")
 
@@ -348,8 +360,7 @@ def _mensaje_nolock_por_evaluar(tablas: List[str]) -> str:
                 f"Se recomienda evaluar agregar WITH (NOLOCK) a la tabla física (ej.: FROM {tablas[0]} WITH (NOLOCK)), "
                 f"para evitar esperas por bloqueos durante la lectura, validando que su uso no afecte la consistencia "
                 f"de los datos consultados.")
-    lista = f"{', '.join(tablas[:-1])} y {tablas[-1]}"
-    return (f"Se identificaron consultas de lectura sobre las tablas físicas {lista} sin utilizar WITH (NOLOCK). "
+    return (f"{_problema_varias_tablas(tablas)} "
             f"Se recomienda evaluar agregar WITH (NOLOCK) a cada tabla física (ej.: FROM {tablas[0]} WITH (NOLOCK)), "
             f"para evitar esperas por bloqueos durante la lectura, validando que su uso no afecte la consistencia de "
             f"los datos consultados.")
@@ -370,9 +381,11 @@ _NO_SON_TABLAS_FISICAS = re.compile(r"^(?:sys|information_schema)\.|^(?:inserted
 
 def _agrupar_tablas(texto: str, regla: str, casos: List[Tuple[int, str]], mensaje) -> Hallazgo:
     """Una sola observación con todas las tablas; las líneas se recorren con la barra «1 de N»."""
-    unicas: Dict[str, str] = {}  # dbo.Areas y dbo.AREAS son la misma tabla: se muestra como se escribió primero
+    # dbo.Areas, dbo.AREAS y [dbo].[Areas] son la misma tabla: una vez, como se escribió primero (sin corchetes).
+    unicas: Dict[str, str] = {}
     for _, tabla in casos:
-        unicas.setdefault(tabla.lower(), tabla)
+        nombre = re.sub(r"[\[\]\s]", "", tabla)
+        unicas.setdefault(nombre.lower(), nombre)
     tablas = list(unicas.values())
     hallazgo = _hallazgo(texto, casos[0][0], regla, mensaje(tablas))
     lineas = sorted({_linea(texto, posicion) for posicion, _ in casos})

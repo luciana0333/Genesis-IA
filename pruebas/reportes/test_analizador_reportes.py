@@ -31,12 +31,12 @@ class TestAnalizadorReportes(unittest.TestCase):
         ]
 
         self.assertEqual(len(hallazgos), 1)
-        # Texto de la usuaria: todas las tablas en una frase; las líneas van aparte (encabezado).
+        # Desde 3 tablas: «las siguientes tablas…: A; B; C.» (la pantalla las muestra en cajitas, usuaria 8 nov.).
         self.assertEqual(
             hallazgos[0].mensaje,
-            "Se identificó que las tablas dbo.Cliente, dbo.Persona y DBCMACICA.dbo.Agencias no utilizan "
-            "WITH (NOLOCK). Se recomienda añadir WITH (NOLOCK) para reducir la posibilidad de bloqueos durante "
-            "la lectura de datos mientras otros procesos realizan operaciones sobre las tablas.",
+            "Se identificó que las siguientes tablas no utilizan WITH (NOLOCK): dbo.Cliente; dbo.Persona; "
+            "DBCMACICA.dbo.Agencias. Se recomienda añadir WITH (NOLOCK) para reducir la posibilidad de bloqueos "
+            "durante la lectura de datos mientras otros procesos realizan operaciones sobre las tablas.",
         )
         self.assertEqual(hallazgos[0].lineas, [2, 3, 4])
 

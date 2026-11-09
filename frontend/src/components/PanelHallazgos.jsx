@@ -5,6 +5,10 @@ import { tokenizarSql } from '../utils/resaltadoSql';
 import { contarPorSeveridad, desglosarGrupo, normalizarSeveridad, ordenarHallazgos, separarMensaje } from '../utils/hallazgos';
 import { TablaTiposColumnas } from './TablaTiposColumnas';
 import { TablaColumnasSinCollate, collateEnTabla } from './TablaColumnasSinCollate';
+
+// Observaciones de NOLOCK: desde 3 tablas se muestran en cajitas (igual que TABLAS_EN_CAJITAS en el backend).
+const REGLAS_EN_CAJITAS = new Set(['TABLA_FISICA_SIN_NOLOCK', 'CONSULTA_SIN_NOLOCK', 'NOLOCK_POR_EVALUAR']);
+const TABLAS_EN_CAJITAS = 3;
 import { EncabezadoSeccion } from './EncabezadoSeccion';
 import { EstadoInicial } from './EstadoInicial';
 import { EstadoVacio } from './EstadoVacio';
@@ -153,6 +157,9 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
   // «COLLATE no especificado en tabla temporal» desde 3 tablas: Tabla | Columnas sin COLLATE.
   const tablaCollate = !tablaTipos && collateEnTabla(hallazgo);
   const enTabla = tablaTipos || tablaCollate;
+  // Tablas sin NOLOCK desde 3: cada tabla en su cajita, una al lado de otra (opción A de la usuaria, 8 nov.).
+  const enCajitas = !enTabla && Boolean(intro) && REGLAS_EN_CAJITAS.has(hallazgo.regla)
+    && ocurrencias.length >= TABLAS_EN_CAJITAS;
 
   return (
     <article className={`finding sev-${severidad}${enTabla ? ' finding-tabla' : ''}`}>
@@ -171,6 +178,10 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
           tablaTipos
             ? <TablaTiposColumnas grupos={hallazgo.grupos} filaActiva={vinetaActiva} />
             : <TablaColumnasSinCollate grupos={hallazgo.grupos} filaActiva={vinetaActiva} />
+        ) : enCajitas ? (
+          <div className="lista-cajitas">
+            {ocurrencias.map((texto) => <code key={texto} className="tabla-tipos-columna">{texto}</code>)}
+          </div>
         ) : (
           <>
             {ocurrencias.length > 1 ? (

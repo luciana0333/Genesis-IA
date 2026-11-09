@@ -139,3 +139,30 @@ describe('PanelHallazgos · «COLLATE no especificado en tabla temporal» como t
     expect(screen.getByText('Líneas 1, 2')).toBeInTheDocument();
   });
 });
+
+describe('PanelHallazgos · tablas sin NOLOCK en cajitas', () => {
+  const NOLOCK = (tablas) => ({
+    regla: 'NOLOCK_POR_EVALUAR',
+    severidad: 'bajo',
+    linea: 1,
+    mensaje: tablas.length >= 3
+      ? `Se identificaron consultas de lectura sobre las siguientes tablas físicas sin utilizar WITH (NOLOCK): ${tablas.join('; ')}. Se recomienda evaluar agregar WITH (NOLOCK) a cada tabla física.`
+      : `Se identificaron consultas de lectura sobre las tablas físicas ${tablas.join(' y ')} sin utilizar WITH (NOLOCK). Se recomienda evaluar agregar WITH (NOLOCK) a cada tabla física.`,
+  });
+
+  it('desde 3 tablas: la introducción y una cajita por tabla', () => {
+    const { container } = render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS}
+      hallazgos={[NOLOCK(['Parametro', 'Captaciones', 'CAPTACIONES.CAP_CTS_SUELDOS'])]} />);
+    expect(screen.getByText('Se identificaron consultas de lectura sobre las siguientes tablas físicas sin utilizar WITH (NOLOCK):'))
+      .toBeInTheDocument();
+    const cajitas = [...container.querySelectorAll('.lista-cajitas code')].map((c) => c.textContent);
+    expect(cajitas).toEqual(['Parametro', 'Captaciones', 'CAPTACIONES.CAP_CTS_SUELDOS']);
+    expect(container.querySelector('.finding-list')).toBeNull();
+  });
+
+  it('con 2 tablas sigue la frase', () => {
+    const { container } = render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS}
+      hallazgos={[NOLOCK(['Parametro', 'OpeTpo'])]} />);
+    expect(container.querySelector('.lista-cajitas')).toBeNull();
+  });
+});

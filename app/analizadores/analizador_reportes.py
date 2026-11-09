@@ -1041,8 +1041,12 @@ def _mensaje_sin_nolock(tablas: List[str]) -> str:
         return (f"Se identificó que la tabla {tablas[0]} no utiliza WITH (NOLOCK). Se recomienda añadir WITH (NOLOCK) "
                 f"para reducir la posibilidad de bloqueos durante la lectura de datos mientras otros procesos "
                 f"realizan operaciones sobre la tabla.")
-    lista = f"{', '.join(tablas[:-1])} y {tablas[-1]}"
-    return (f"Se identificó que las tablas {lista} no utilizan WITH (NOLOCK). Se recomienda añadir WITH (NOLOCK) "
+    if len(tablas) >= 3:
+        # Desde 3 tablas, la pantalla las muestra como cajitas (opción A de la usuaria, 8 nov.).
+        problema = f"Se identificó que las siguientes tablas no utilizan WITH (NOLOCK): {'; '.join(tablas)}."
+    else:
+        problema = f"Se identificó que las tablas {', '.join(tablas[:-1])} y {tablas[-1]} no utilizan WITH (NOLOCK)."
+    return (f"{problema} Se recomienda añadir WITH (NOLOCK) "
             f"para reducir la posibilidad de bloqueos durante la lectura de datos mientras otros procesos "
             f"realizan operaciones sobre las tablas.")
 
@@ -1050,7 +1054,12 @@ def _mensaje_sin_nolock(tablas: List[str]) -> str:
 def _agrupar_sin_nolock(grupo: List[Hallazgo]) -> Hallazgo:
     """Todas las tablas sin NOLOCK en una sola observación; las líneas van en el encabezado."""
     ordenados = sorted(grupo, key=lambda h: h.linea)
-    tablas = list({h.elemento.lower(): h.elemento for h in ordenados}.values())
+    # dbo.Cliente y [dbo].[Cliente] son la misma tabla: una vez, como se escribió primero (sin corchetes).
+    unicas: Dict[str, str] = {}
+    for h in ordenados:
+        nombre = re.sub(r"[\[\]\s]", "", h.elemento)
+        unicas.setdefault(nombre.lower(), nombre)
+    tablas = list(unicas.values())
     resumen = Hallazgo(
         linea=ordenados[0].linea,
         origen=ordenados[0].origen,
