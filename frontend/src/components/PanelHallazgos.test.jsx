@@ -16,10 +16,9 @@ const RIESGO = {
   severidad: 'medio',
   linea: 1,
   complementario: true,
-  mensaje: "Se identificó una comparación en la que un texto se convierte implícitamente a número: "
-    + "«SUBSTRING(cCtaCod, 9, 1) = 1» → «SUBSTRING(cCtaCod, 9, 1) = '1'» (consulta 2). Se recomienda comparar "
-    + 'con un valor de texto, como se indica, ya que si el dato no es numérico la consulta generará un error de '
-    + 'conversión.',
+  mensaje: 'Se identificó una conversión implícita sobre la comparación SUBSTRING(cCtaCod, 9, 1) = 1. Se recomienda '
+    + "comparar con un valor de texto ('1'), validando que el resultado no cambie, ya que un valor no numérico "
+    + 'genera un error de conversión.',
 };
 
 describe('PanelHallazgos · riesgos identificados por Genesis', () => {

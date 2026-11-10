@@ -35,7 +35,7 @@ def _expresion(conversion: re.Match) -> str:
 
 
 def _casos(sentencias: List[Dict]) -> Dict[Tuple[str, str], Dict]:
-    """{(lo encontrado, la corrección): {consultas, nodos}} en el orden en que aparecen."""
+    """{(la comparación, el valor en texto): {consultas, nodos}} en el orden en que aparecen."""
     casos: Dict[Tuple[str, str], Dict] = {}
     for sentencia in sentencias:
         for nodo in sentencia["nodos"]:
@@ -47,10 +47,10 @@ def _casos(sentencias: List[Dict]) -> Dict[Tuple[str, str], Dict]:
                     antes = _COMPARACION_ANTES.search(texto[:conversion.start()])
                     if despues:
                         operador, numero = despues.group(1), despues.group(2)
-                        clave = (f"«{expresion} {operador} {numero}»", f"{expresion} {operador} '{numero}'")
+                        clave = (f"{expresion} {operador} {numero}", f"'{numero}'")
                     elif antes:
                         numero, operador = antes.group(1), antes.group(2)
-                        clave = (f"«{numero} {operador} {expresion}»", f"'{numero}' {operador} {expresion}")
+                        clave = (f"{numero} {operador} {expresion}", f"'{numero}'")
                     else:
                         # Sin comparación (asignación a una variable numérica, cálculo): suele ser intencional y no
                         # decide un resultado. Solo se observan las comparaciones (decisión de la usuaria, 1 nov.).
@@ -64,28 +64,23 @@ def _casos(sentencias: List[Dict]) -> Dict[Tuple[str, str], Dict]:
     return casos
 
 
-def _consultas(numeros: List[int]) -> str:
-    if len(numeros) == 1:
-        return f"consulta {numeros[0]}"
-    return f"consultas {', '.join(map(str, numeros[:-1]))} y {numeros[-1]}"
-
-
 def conversion_texto_a_numero(sentencias: List[Dict]) -> List[Hallazgo]:
     casos = _casos(sentencias)
     if not casos:
         return []
-    lista = "; ".join(
-        f"{encontrado} → «{correccion}» ({_consultas(caso['consultas'])})"
-        for (encontrado, correccion), caso in casos.items()
-    )
+    # Texto de la usuaria (9 nov.): directo, sin «(consulta N)» (la imagen ya la marca) y sin afirmar más de lo seguro:
+    # con número, ' ' vale 0 y '01' vale 1; con texto no, por eso se pide validar que el resultado no cambie.
     if len(casos) == 1:
-        mensaje = (f"Se identificó una comparación en la que un texto se convierte implícitamente a número: {lista}. "
-                   f"Se recomienda comparar con un valor de texto, como se indica, ya que si el dato no es numérico "
-                   f"la consulta generará un error de conversión.")
+        (comparacion, valor), = casos
+        mensaje = (f"Se identificó una conversión implícita sobre la comparación {comparacion}. Se recomienda comparar "
+                   f"con un valor de texto ({valor}), validando que el resultado no cambie, ya que un valor no numérico "
+                   f"genera un error de conversión.")
     else:
-        mensaje = (f"Se identificaron {len(casos)} comparaciones en las que un texto se convierte implícitamente a "
-                   f"número: {lista}. Se recomienda comparar con valores de texto, como se indica en cada caso, ya "
-                   f"que si el dato no es numérico la consulta generará un error de conversión.")
+        comparaciones = "; ".join(comparacion for comparacion, _ in casos)
+        valores = "; ".join(valor for _, valor in casos)
+        mensaje = (f"Se identificaron conversiones implícitas sobre las comparaciones: {comparaciones}. Se recomienda "
+                   f"comparar con valores de texto ({valores}), validando que el resultado no cambie, ya que un valor "
+                   f"no numérico genera un error de conversión.")
     hallazgo = Hallazgo(
         linea=1,
         origen=OrigenAnalisis.PLAN_EJECUCION,
@@ -145,11 +140,11 @@ def columna_texto_convertida(sentencias: List[Dict]) -> List[Hallazgo]:
     lista = "; ".join(f"{columna} de {tabla} a {tipo}" for columna, tabla, tipo in casos)
     # Texto de la usuaria (9 nov.).
     if len(casos) == 1:
-        mensaje = (f"Se identificó una conversión implícita sobre la columna {lista}. Se recomienda definir la columna "
-                   f"con el tipo de dato correcto, ya que un valor con formato inválido genera un error de conversión.")
+        mensaje = (f"Se identificó una conversión implícita sobre la columna {lista}. Se recomienda revisar el tipo de "
+                   f"dato de la columna, ya que un valor con formato inválido genera un error de conversión.")
     else:
-        mensaje = (f"Se identificaron conversiones implícitas sobre las columnas: {lista}. Se recomienda definir las "
-                   f"columnas con el tipo de dato correcto, ya que un valor con formato inválido genera un error de "
+        mensaje = (f"Se identificaron conversiones implícitas sobre las columnas: {lista}. Se recomienda revisar el tipo "
+                   f"de dato de las columnas, ya que un valor con formato inválido genera un error de "
                    f"conversión.")
     hallazgo = Hallazgo(
         linea=1,
