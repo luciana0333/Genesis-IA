@@ -63,6 +63,16 @@ REGLAS_PLANES_EJECUCION = {
         alcance="plan_ejecucion",
         activo=True,
     ),
+    "COLUMNA_TEXTO_CONVERTIDA": ReglaDiccionario(
+        codigo="COLUMNA_TEXTO_CONVERTIDA",
+        nombre="Columna de texto convertida",
+        severidad="medio",
+        descripcion="Riesgo identificado por Genesis (sin alerta de SQL Server): una columna de texto (cFecha) que el "
+                    "plan convierte implícitamente a fecha o número; si algún valor no tiene el formato esperado, la "
+                    "consulta genera un error de conversión.",
+        alcance="plan_ejecucion",
+        activo=True,
+    ),
     "CONVERSION_IMPLICITA": ReglaDiccionario(
         codigo="CONVERSION_IMPLICITA",
         nombre="Conversion implicita",
