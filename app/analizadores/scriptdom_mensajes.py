@@ -90,14 +90,18 @@ def _punto_y_coma(h: Dict) -> Partes:
     instruccion = h["instruccion"]
     fin = h.get("fin", h["anterior"])
     termina = (h.get("termina") or "").strip()
-    # Solo con una palabra (END, una columna) se dice cómo queda: «1;» o «);» no aclaran nada.
-    # Sin «(línea N)» del THROW: la tarjeta ya la muestra; directo (usuaria, 9 nov.).
+    # Texto dictado por la usuaria (10 nov.) para el bloque END; sin la línea del THROW (la tarjeta ya la muestra).
     error = 319 if instruccion == "WITH" else 102
-    if termina.replace("_", "").isalpha() and len(termina) <= 30:
-        que_hacer = f"Cambiar {termina} por {termina};, ya que sin el «;» SQL Server no ejecuta el código (error {error})."
-    else:
-        que_hacer = f"Agregar el «;», ya que sin él SQL Server no ejecuta el código (error {error})."
-    return (f"Se identificó que falta «;» al final de la línea {fin}, antes del {instruccion}.", que_hacer)
+    if termina.upper() == "END":
+        return (f"Se identificó la ausencia de «;» al finalizar el bloque END, antes de la instrucción {instruccion}.",
+                f"Se recomienda agregar el punto y coma (;) al finalizar el bloque (END;), para evitar el error de "
+                f"sintaxis {error} durante la ejecución del procedimiento.")
+    # Otra instrucción (PRINT, SELECT, SET…): el mismo texto, con la línea donde termina (sin «(OFF;)» ni «(1;)»,
+    # que no aclaran).
+    return (f"Se identificó la ausencia de «;» al finalizar la instrucción de la línea {fin}, antes de la instrucción "
+            f"{instruccion}.",
+            f"Se recomienda agregar el punto y coma (;) al finalizar esa instrucción, para evitar el error de sintaxis "
+            f"{error} durante la ejecución del procedimiento.")
 
 
 def _throw_transaccion(h: Dict) -> Partes:
@@ -482,6 +486,7 @@ MENSAJES: Dict[str, Tuple[Severidad, Callable[[Dict], Optional[Partes]]]] = {
     "DOS_IDENTITY": (Severidad.CRITICO, _dos_identity),
     "ALIAS_REPETIDO_EN_FROM": (Severidad.CRITICO, _alias),
     "PUNTO_Y_COMA_FALTANTE": (Severidad.CRITICO, _punto_y_coma),
+    "PUNTO_Y_COMA_ANTES_DE_WITH": (Severidad.CRITICO, _punto_y_coma),
     "THROW_TOMADO_COMO_ALIAS": (Severidad.CRITICO, _throw_alias),
     "THROW_TOMADO_COMO_TRANSACCION": (Severidad.CRITICO, _throw_transaccion),
     "VARIABLE_NO_DECLARADA": (Severidad.CRITICO, _no_declarada),

@@ -1485,7 +1485,9 @@ public class GenesisVisitante : TSqlFragmentVisitor
                 // Dónde se escribe el «;»: la línea donde TERMINA la instrucción anterior (en un IF … BEGIN … END,
                 // la del END), no donde empieza (usuaria, 9 nov.: «línea 17» apuntaba al IF y confundía).
                 var ultima = anterior.ScriptTokenStream[anterior.LastTokenIndex];
-                Agregar("PUNTO_Y_COMA_FALTANTE", sentencia.StartLine, "instruccion", instruccion, "anterior", anterior.StartLine,
+                // Una regla por instrucción, cada una con su título (usuaria, 10 nov.: «Falta de punto y coma (;) antes de THROW»).
+                Agregar(instruccion == "WITH" ? "PUNTO_Y_COMA_ANTES_DE_WITH" : "PUNTO_Y_COMA_FALTANTE", sentencia.StartLine,
+                        "instruccion", instruccion, "anterior", anterior.StartLine,
                         "fin", ultima.Line, "termina", ultima.Text);
             }
 

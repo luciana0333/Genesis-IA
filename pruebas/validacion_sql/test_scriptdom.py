@@ -63,9 +63,9 @@ class EstructuraTest(unittest.TestCase):
             "CREATE TABLE #T (a INT PRIMARY KEY, b INT,\n PRIMARY KEY (b))": [(2, "DOS_PRIMARY_KEY")],      # 8110
             "SELECT 1 FROM #A x\nJOIN #B x ON 1 = 1": [(2, "ALIAS_REPETIDO_EN_FROM")],                    # 1011
             "SELECT 1 FROM #C JOIN #C ON 1 = 1": [(1, "ALIAS_REPETIDO_EN_FROM")],                          # 1013
-            "DECLARE @n INT = 1\nWITH C AS (SELECT 1 AS n) SELECT n FROM C": [(2, "PUNTO_Y_COMA_FALTANTE")],  # 319
+            "DECLARE @n INT = 1\nWITH C AS (SELECT 1 AS n) SELECT n FROM C": [(2, "PUNTO_Y_COMA_ANTES_DE_WITH")],  # 319
             "DECLARE @i INT = 0; WHILE @i < 1 BEGIN SET @i += 1 END\nWITH C AS (SELECT 1 AS n) SELECT n FROM C":
-                [(2, "PUNTO_Y_COMA_FALTANTE")],
+                [(2, "PUNTO_Y_COMA_ANTES_DE_WITH")],
             "BEGIN TRY SELECT 1/0 END TRY BEGIN CATCH DECLARE @x INT SET @x = 1\nTHROW END CATCH":         # 102
                 [(2, "PUNTO_Y_COMA_FALTANTE")],
             # Sin error, pero THROW queda como nombre de columna y el error no se relanza.
@@ -122,8 +122,16 @@ class PuntoYComaThrowTest(unittest.TestCase):
         sql = _CATCH + " BEGIN\n  ROLLBACK TRANSACTION\n END\n THROW\nEND CATCH"
         self.assertEqual(self._hallazgos(sql), [(
             9, "PUNTO_Y_COMA_FALTANTE",
-            "Se identificó que falta «;» al final de la línea 8, antes del THROW. Cambiar END por END;, ya que sin el "
-            "«;» SQL Server no ejecuta el código (error 102).")])
+            "Se identificó la ausencia de «;» al finalizar el bloque END, antes de la instrucción THROW. Se recomienda "
+            "agregar el punto y coma (;) al finalizar el bloque (END;), para evitar el error de sintaxis 102 durante "
+            "la ejecución del procedimiento.")])
+
+    def test_otra_instruccion_antes_del_throw_dice_su_linea(self):
+        mensaje = self._hallazgos("BEGIN TRY\n SELECT 1/0;\nEND TRY\nBEGIN CATCH\n PRINT 1\n THROW\nEND CATCH")[0][2]
+        self.assertEqual(mensaje, "Se identificó la ausencia de «;» al finalizar la instrucción de la línea 5, antes de "
+                                  "la instrucción THROW. Se recomienda agregar el punto y coma (;) al finalizar esa "
+                                  "instrucción, para evitar el error de sintaxis 102 durante la ejecución del "
+                                  "procedimiento.")
 
     def test_punto_y_coma_dentro_del_bloque_no_basta(self):
         sql = _CATCH + " BEGIN\n  ROLLBACK TRANSACTION;\n END\n THROW\nEND CATCH"
@@ -154,11 +162,13 @@ class PuntoYComaThrowTest(unittest.TestCase):
         self.assertTrue(mensaje.endswith("ya que sin él el error original se pierde y el código continúa como si no "
                                          "hubiera fallado."))
 
-    def test_with_tras_un_numero_no_muestra_como_queda(self):
-        mensaje = self._hallazgos("DECLARE @n INT = 1\nWITH C AS (SELECT 1 AS n) SELECT n FROM C")[0][2]
-        self.assertEqual(mensaje, "Se identificó que falta «;» al final de la línea 1, antes del WITH. Agregar el «;», "
-                                  "ya que sin él SQL Server no ejecuta el código (error 319).")
-        self.assertIn("(error 319)", mensaje)
+    def test_with_tiene_su_propia_regla_y_error_319(self):
+        regla, mensaje = self._hallazgos("DECLARE @n INT = 1\nWITH C AS (SELECT 1 AS n) SELECT n FROM C")[0][1:]
+        self.assertEqual(regla, "PUNTO_Y_COMA_ANTES_DE_WITH")
+        self.assertEqual(mensaje, "Se identificó la ausencia de «;» al finalizar la instrucción de la línea 1, antes de "
+                                  "la instrucción WITH. Se recomienda agregar el punto y coma (;) al finalizar esa "
+                                  "instrucción, para evitar el error de sintaxis 319 durante la ejecución del "
+                                  "procedimiento.")
 
 
 if __name__ == "__main__":
