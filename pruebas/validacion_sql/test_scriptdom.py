@@ -63,9 +63,9 @@ class EstructuraTest(unittest.TestCase):
             "CREATE TABLE #T (a INT PRIMARY KEY, b INT,\n PRIMARY KEY (b))": [(2, "DOS_PRIMARY_KEY")],      # 8110
             "SELECT 1 FROM #A x\nJOIN #B x ON 1 = 1": [(2, "ALIAS_REPETIDO_EN_FROM")],                    # 1011
             "SELECT 1 FROM #C JOIN #C ON 1 = 1": [(1, "ALIAS_REPETIDO_EN_FROM")],                          # 1013
-            "DECLARE @n INT = 1\nWITH C AS (SELECT 1 AS n) SELECT n FROM C": [(2, "PUNTO_Y_COMA_FALTANTE")],  # 319
+            "DECLARE @n INT = 1\nWITH C AS (SELECT 1 AS n) SELECT n FROM C": [(2, "PUNTO_Y_COMA_ANTES_DE_WITH")],  # 319
             "DECLARE @i INT = 0; WHILE @i < 1 BEGIN SET @i += 1 END\nWITH C AS (SELECT 1 AS n) SELECT n FROM C":
-                [(2, "PUNTO_Y_COMA_FALTANTE")],
+                [(2, "PUNTO_Y_COMA_ANTES_DE_WITH")],
             "BEGIN TRY SELECT 1/0 END TRY BEGIN CATCH DECLARE @x INT SET @x = 1\nTHROW END CATCH":         # 102
                 [(2, "PUNTO_Y_COMA_FALTANTE")],
             # Sin error, pero THROW queda como nombre de columna y el error no se relanza.
@@ -106,6 +106,69 @@ class EstructuraTest(unittest.TestCase):
         hallazgo = validar_estructura("SELECT 1\nELSE\n SELECT 2")[0]
         self.assertIn("en la línea 2, columna 1:", hallazgo.mensaje)
         self.assertIn("'ELSE'", hallazgo.mensaje)
+
+
+# Casos de la usuaria (9 nov.), probados en SQL Server (PARSEONLY y ejecución real en su SQL Express).
+_CATCH = "BEGIN TRY\n SELECT 1/0;\nEND TRY\nBEGIN CATCH\n IF @@TRANCOUNT > 0\n"
+
+
+@unittest.skipUnless(HAY_SCRIPTDOM, "ScriptDom no está en esta PC (viene con SSMS)")
+class PuntoYComaThrowTest(unittest.TestCase):
+    def _hallazgos(self, sql):
+        return [(h.linea, h.regla, h.mensaje) for h in validar_estructura(sql)]
+
+    def test_falta_punto_y_coma_tras_end_senala_la_linea_del_end(self):
+        # Su script: el «;» va después del END (línea 8), no en el IF (línea 5) donde empieza la instrucción.
+        sql = _CATCH + " BEGIN\n  ROLLBACK TRANSACTION\n END\n THROW\nEND CATCH"
+        self.assertEqual(self._hallazgos(sql), [(
+            9, "PUNTO_Y_COMA_FALTANTE",
+            "Se identificó la ausencia de «;» al finalizar el bloque END, antes de la instrucción THROW. Se recomienda "
+            "agregar el punto y coma (;) al finalizar el bloque (END;), para evitar el error de sintaxis 102 durante "
+            "la ejecución del procedimiento.")])
+
+    def test_otra_instruccion_antes_del_throw_dice_su_linea(self):
+        mensaje = self._hallazgos("BEGIN TRY\n SELECT 1/0;\nEND TRY\nBEGIN CATCH\n PRINT 1\n THROW\nEND CATCH")[0][2]
+        self.assertEqual(mensaje, "Se identificó la ausencia de «;» al finalizar la instrucción de la línea 5, antes de "
+                                  "la instrucción THROW. Se recomienda agregar el punto y coma (;) al finalizar esa "
+                                  "instrucción, para evitar el error de sintaxis 102 durante la ejecución del "
+                                  "procedimiento.")
+
+    def test_punto_y_coma_dentro_del_bloque_no_basta(self):
+        sql = _CATCH + " BEGIN\n  ROLLBACK TRANSACTION;\n END\n THROW\nEND CATCH"
+        self.assertEqual([(l, r) for l, r, _ in self._hallazgos(sql)], [(9, "PUNTO_Y_COMA_FALTANTE")])
+
+    def test_con_punto_y_coma_en_su_lugar_no_se_marca(self):
+        for sql in (_CATCH + " BEGIN\n  ROLLBACK TRANSACTION\n END;\n THROW\nEND CATCH",
+                    _CATCH + " BEGIN\n  ROLLBACK TRANSACTION\n END\n ;THROW\nEND CATCH",
+                    _CATCH + "  ROLLBACK TRANSACTION;\n THROW\nEND CATCH",
+                    "BEGIN TRAN T1;\nROLLBACK TRANSACTION T1;"):
+            with self.subTest(sql=sql):
+                self.assertNotIn("PUNTO_Y_COMA_FALTANTE", [r for _, r, _ in self._hallazgos(sql)])
+                self.assertNotIn("THROW_TOMADO_COMO_TRANSACCION", [r for _, r, _ in self._hallazgos(sql)])
+
+    def test_rollback_seguido_de_throw_lo_toma_como_nombre(self):
+        hallazgos = self._hallazgos(_CATCH + "  ROLLBACK TRANSACTION\n THROW\nEND CATCH")
+        self.assertEqual(hallazgos, [(
+            7, "THROW_TOMADO_COMO_TRANSACCION",
+            "Se identificó un THROW después de un ROLLBACK TRANSACTION sin «;» (línea 6), por lo que SQL Server lo "
+            "toma como el nombre de la transacción y el error nunca se relanza. Agregar «;» al final del ROLLBACK "
+            "TRANSACTION, ya que sin él falla al ejecutarse (error 6401) y el error original se pierde.")])
+        self.assertEqual(validar_estructura(_CATCH + "  ROLLBACK TRANSACTION\n THROW\nEND CATCH")[0].severidad.value,
+                         "critico")
+
+    def test_commit_seguido_de_throw_continua_sin_error(self):
+        mensaje = [m for _, r, m in self._hallazgos("BEGIN TRY\n SELECT 1;\nEND TRY\nBEGIN CATCH\n COMMIT TRANSACTION\n"
+                                                     " THROW\nEND CATCH") if r == "THROW_TOMADO_COMO_TRANSACCION"][0]
+        self.assertTrue(mensaje.endswith("ya que sin él el error original se pierde y el código continúa como si no "
+                                         "hubiera fallado."))
+
+    def test_with_tiene_su_propia_regla_y_error_319(self):
+        regla, mensaje = self._hallazgos("DECLARE @n INT = 1\nWITH C AS (SELECT 1 AS n) SELECT n FROM C")[0][1:]
+        self.assertEqual(regla, "PUNTO_Y_COMA_ANTES_DE_WITH")
+        self.assertEqual(mensaje, "Se identificó la ausencia de «;» al finalizar la instrucción de la línea 1, antes de "
+                                  "la instrucción WITH. Se recomienda agregar el punto y coma (;) al finalizar esa "
+                                  "instrucción, para evitar el error de sintaxis 319 durante la ejecución del "
+                                  "procedimiento.")
 
 
 if __name__ == "__main__":

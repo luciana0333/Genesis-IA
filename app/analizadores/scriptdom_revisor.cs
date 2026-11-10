@@ -1444,6 +1444,19 @@ public class GenesisVisitante : TSqlFragmentVisitor
     {
         if (profundidadCatch > 0 && profundidadGuarda == 0 && profundidadCatchProtegido == 0)
             Agregar("ROLLBACK_SIN_VALIDAR", deshacer.StartLine);
+        RevisarThrowComoNombre(deshacer, "ROLLBACK TRANSACTION");
+    }
+
+    public override void Visit(CommitTransactionStatement confirmar) { RevisarThrowComoNombre(confirmar, "COMMIT TRANSACTION"); }
+
+    // «ROLLBACK TRANSACTION» y en la línea siguiente «THROW», sin «;»: SQL Server acepta el código, pero toma THROW como el
+    // nombre de la transacción (error 6401 al ejecutarse) y el error original nunca se relanza (probado en SQL Server).
+    private void RevisarThrowComoNombre(TransactionStatement sentencia, string instruccion)
+    {
+        var nombre = sentencia.Name != null ? sentencia.Name.Identifier : null;
+        if (nombre != null && nombre.QuoteType == QuoteType.NotQuoted
+            && string.Equals(nombre.Value, "THROW", StringComparison.OrdinalIgnoreCase))
+            Agregar("THROW_TOMADO_COMO_TRANSACCION", nombre.StartLine, "instruccion", instruccion, "inicio", sentencia.StartLine);
     }
 
     // --- Listas de instrucciones: «;», @@ROWCOUNT y código después de RETURN -----------------------------
@@ -1468,7 +1481,15 @@ public class GenesisVisitante : TSqlFragmentVisitor
             if (conCte != null && conCte.WithCtesAndXmlNamespaces != null) instruccion = "WITH";
             else if (sentencia is ThrowStatement) instruccion = "THROW";
             if (instruccion != null && !TerminaEnPuntoYComa(anterior))
-                Agregar("PUNTO_Y_COMA_FALTANTE", sentencia.StartLine, "instruccion", instruccion, "anterior", anterior.StartLine);
+            {
+                // Dónde se escribe el «;»: la línea donde TERMINA la instrucción anterior (en un IF … BEGIN … END,
+                // la del END), no donde empieza (usuaria, 9 nov.: «línea 17» apuntaba al IF y confundía).
+                var ultima = anterior.ScriptTokenStream[anterior.LastTokenIndex];
+                // Una regla por instrucción, cada una con su título (usuaria, 10 nov.: «Falta de punto y coma (;) antes de THROW»).
+                Agregar(instruccion == "WITH" ? "PUNTO_Y_COMA_ANTES_DE_WITH" : "PUNTO_Y_COMA_FALTANTE", sentencia.StartLine,
+                        "instruccion", instruccion, "anterior", anterior.StartLine,
+                        "fin", ultima.Line, "termina", ultima.Text);
+            }
 
             // @@ROWCOUNT / @@ERROR justo después de un SET, DECLARE o PRINT: ya no son los del INSERT/UPDATE.
             TSqlFragment dondeSeLee = sentencia is IfStatement ? (TSqlFragment)((IfStatement)sentencia).Predicate
