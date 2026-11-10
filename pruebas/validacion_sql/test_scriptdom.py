@@ -108,5 +108,57 @@ class EstructuraTest(unittest.TestCase):
         self.assertIn("'ELSE'", hallazgo.mensaje)
 
 
+# Casos de la usuaria (9 nov.), probados en SQL Server (PARSEONLY y ejecución real en su SQL Express).
+_CATCH = "BEGIN TRY\n SELECT 1/0;\nEND TRY\nBEGIN CATCH\n IF @@TRANCOUNT > 0\n"
+
+
+@unittest.skipUnless(HAY_SCRIPTDOM, "ScriptDom no está en esta PC (viene con SSMS)")
+class PuntoYComaThrowTest(unittest.TestCase):
+    def _hallazgos(self, sql):
+        return [(h.linea, h.regla, h.mensaje) for h in validar_estructura(sql)]
+
+    def test_falta_punto_y_coma_tras_end_senala_la_linea_del_end(self):
+        # Su script: el «;» va después del END (línea 8), no en el IF (línea 5) donde empieza la instrucción.
+        sql = _CATCH + " BEGIN\n  ROLLBACK TRANSACTION\n END\n THROW\nEND CATCH"
+        self.assertEqual(self._hallazgos(sql), [(
+            9, "PUNTO_Y_COMA_FALTANTE",
+            "Se identificó que falta «;» antes del THROW (línea 9). Agregar «;» al final de la línea 8 («END;»), ya "
+            "que sin él SQL Server no ejecuta el código (error 102).")])
+
+    def test_punto_y_coma_dentro_del_bloque_no_basta(self):
+        sql = _CATCH + " BEGIN\n  ROLLBACK TRANSACTION;\n END\n THROW\nEND CATCH"
+        self.assertEqual([(l, r) for l, r, _ in self._hallazgos(sql)], [(9, "PUNTO_Y_COMA_FALTANTE")])
+
+    def test_con_punto_y_coma_en_su_lugar_no_se_marca(self):
+        for sql in (_CATCH + " BEGIN\n  ROLLBACK TRANSACTION\n END;\n THROW\nEND CATCH",
+                    _CATCH + " BEGIN\n  ROLLBACK TRANSACTION\n END\n ;THROW\nEND CATCH",
+                    _CATCH + "  ROLLBACK TRANSACTION;\n THROW\nEND CATCH",
+                    "BEGIN TRAN T1;\nROLLBACK TRANSACTION T1;"):
+            with self.subTest(sql=sql):
+                self.assertNotIn("PUNTO_Y_COMA_FALTANTE", [r for _, r, _ in self._hallazgos(sql)])
+                self.assertNotIn("THROW_TOMADO_COMO_TRANSACCION", [r for _, r, _ in self._hallazgos(sql)])
+
+    def test_rollback_seguido_de_throw_lo_toma_como_nombre(self):
+        hallazgos = self._hallazgos(_CATCH + "  ROLLBACK TRANSACTION\n THROW\nEND CATCH")
+        self.assertEqual(hallazgos, [(
+            7, "THROW_TOMADO_COMO_TRANSACCION",
+            "Se identificó un THROW después de un ROLLBACK TRANSACTION sin «;» (línea 6), por lo que SQL Server lo "
+            "toma como el nombre de la transacción y el error nunca se relanza. Agregar «;» al final del ROLLBACK "
+            "TRANSACTION, ya que sin él falla al ejecutarse (error 6401) y el error original se pierde.")])
+        self.assertEqual(validar_estructura(_CATCH + "  ROLLBACK TRANSACTION\n THROW\nEND CATCH")[0].severidad.value,
+                         "critico")
+
+    def test_commit_seguido_de_throw_continua_sin_error(self):
+        mensaje = [m for _, r, m in self._hallazgos("BEGIN TRY\n SELECT 1;\nEND TRY\nBEGIN CATCH\n COMMIT TRANSACTION\n"
+                                                     " THROW\nEND CATCH") if r == "THROW_TOMADO_COMO_TRANSACCION"][0]
+        self.assertTrue(mensaje.endswith("ya que sin él el error original se pierde y el código continúa como si no "
+                                         "hubiera fallado."))
+
+    def test_with_tras_un_numero_no_muestra_como_queda(self):
+        mensaje = self._hallazgos("DECLARE @n INT = 1\nWITH C AS (SELECT 1 AS n) SELECT n FROM C")[0][2]
+        self.assertIn("Agregar «;» al final de la línea 1, ya que", mensaje)
+        self.assertIn("(error 319)", mensaje)
+
+
 if __name__ == "__main__":
     unittest.main()

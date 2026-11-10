@@ -23,6 +23,7 @@ export const NOMBRES_REGLAS = {
   ALIAS_REPETIDO_EN_FROM: 'Alias repetido en el FROM',
   PUNTO_Y_COMA_FALTANTE: 'Falta «;» antes de WITH o THROW',
   THROW_TOMADO_COMO_ALIAS: 'THROW que no relanza el error',
+  THROW_TOMADO_COMO_TRANSACCION: 'THROW tomado como nombre de transacción',
   VARIABLE_NO_DECLARADA: 'Variable sin declarar',
   VARIABLE_DECLARADA_DOS_VECES: 'Variable declarada dos veces',
   UNION_COLUMNAS_DISTINTAS: 'UNION con distinta cantidad de columnas',

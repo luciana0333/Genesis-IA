@@ -85,10 +85,26 @@ def _alias(h: Dict) -> Partes:
 
 
 def _punto_y_coma(h: Dict) -> Partes:
+    # Texto aprobado por la usuaria (9 nov.): la línea donde se escribe el «;» (donde termina la instrucción anterior) y
+    # cómo queda («END;»); probado en SQL Server: el «;» dentro del bloque (ROLLBACK TRANSACTION;) no basta.
     instruccion = h["instruccion"]
-    return (f"Se identificó que la instrucción anterior al {instruccion} (línea {h['anterior']}) no termina en «;».",
-            f"Agregar «;» al final de esa instrucción, ya que SQL Server necesita el «;» antes de un {instruccion} y "
-            f"no ejecutará el código sin él (error {319 if instruccion == 'WITH' else 102}).")
+    fin = h.get("fin", h["anterior"])
+    termina = (h.get("termina") or "").strip()
+    # Solo una palabra (END, una columna): «1;» o «);» no aclaran nada.
+    como_queda = f" («{termina};»)" if termina.replace("_", "").isalpha() and len(termina) <= 30 else ""
+    return (f"Se identificó que falta «;» antes del {instruccion} (línea {h['linea']}).",
+            f"Agregar «;» al final de la línea {fin}{como_queda}, ya que sin él SQL Server no ejecuta el código "
+            f"(error {319 if instruccion == 'WITH' else 102}).")
+
+
+def _throw_transaccion(h: Dict) -> Partes:
+    return (f"Se identificó un THROW después de un {h['instruccion']} sin «;» (línea {h['inicio']}), por lo que SQL "
+            f"Server lo toma como el nombre de la transacción y el error nunca se relanza.",
+            # Probado en SQL Server (9 nov.): ROLLBACK busca una transacción llamada THROW (error 6401); COMMIT ignora
+            # el nombre, confirma y sigue sin error.
+            f"Agregar «;» al final del {h['instruccion']}, ya que sin él "
+            + ("falla al ejecutarse (error 6401) y el error original se pierde." if h["instruccion"].startswith("ROLLBACK")
+               else "el error original se pierde y el código continúa como si no hubiera fallado."))
 
 
 def _throw_alias(h: Dict) -> Partes:
@@ -464,6 +480,7 @@ MENSAJES: Dict[str, Tuple[Severidad, Callable[[Dict], Optional[Partes]]]] = {
     "ALIAS_REPETIDO_EN_FROM": (Severidad.CRITICO, _alias),
     "PUNTO_Y_COMA_FALTANTE": (Severidad.CRITICO, _punto_y_coma),
     "THROW_TOMADO_COMO_ALIAS": (Severidad.CRITICO, _throw_alias),
+    "THROW_TOMADO_COMO_TRANSACCION": (Severidad.CRITICO, _throw_transaccion),
     "VARIABLE_NO_DECLARADA": (Severidad.CRITICO, _no_declarada),
     "VARIABLE_DECLARADA_DOS_VECES": (Severidad.CRITICO, _dos_veces),
     "UNION_COLUMNAS_DISTINTAS": (Severidad.CRITICO, _union),
