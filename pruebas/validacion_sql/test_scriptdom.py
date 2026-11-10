@@ -122,8 +122,8 @@ class PuntoYComaThrowTest(unittest.TestCase):
         sql = _CATCH + " BEGIN\n  ROLLBACK TRANSACTION\n END\n THROW\nEND CATCH"
         self.assertEqual(self._hallazgos(sql), [(
             9, "PUNTO_Y_COMA_FALTANTE",
-            "Se identificó que falta «;» antes del THROW (línea 9). Agregar «;» al final de la línea 8 («END;»), ya "
-            "que sin él SQL Server no ejecuta el código (error 102).")])
+            "Se identificó que falta «;» al final de la línea 8, antes del THROW. Cambiar END por END;, ya que sin el "
+            "«;» SQL Server no ejecuta el código (error 102).")])
 
     def test_punto_y_coma_dentro_del_bloque_no_basta(self):
         sql = _CATCH + " BEGIN\n  ROLLBACK TRANSACTION;\n END\n THROW\nEND CATCH"
@@ -156,7 +156,8 @@ class PuntoYComaThrowTest(unittest.TestCase):
 
     def test_with_tras_un_numero_no_muestra_como_queda(self):
         mensaje = self._hallazgos("DECLARE @n INT = 1\nWITH C AS (SELECT 1 AS n) SELECT n FROM C")[0][2]
-        self.assertIn("Agregar «;» al final de la línea 1, ya que", mensaje)
+        self.assertEqual(mensaje, "Se identificó que falta «;» al final de la línea 1, antes del WITH. Agregar el «;», "
+                                  "ya que sin él SQL Server no ejecuta el código (error 319).")
         self.assertIn("(error 319)", mensaje)
 
 

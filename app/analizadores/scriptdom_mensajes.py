@@ -90,11 +90,14 @@ def _punto_y_coma(h: Dict) -> Partes:
     instruccion = h["instruccion"]
     fin = h.get("fin", h["anterior"])
     termina = (h.get("termina") or "").strip()
-    # Solo una palabra (END, una columna): «1;» o «);» no aclaran nada.
-    como_queda = f" («{termina};»)" if termina.replace("_", "").isalpha() and len(termina) <= 30 else ""
-    return (f"Se identificó que falta «;» antes del {instruccion} (línea {h['linea']}).",
-            f"Agregar «;» al final de la línea {fin}{como_queda}, ya que sin él SQL Server no ejecuta el código "
-            f"(error {319 if instruccion == 'WITH' else 102}).")
+    # Solo con una palabra (END, una columna) se dice cómo queda: «1;» o «);» no aclaran nada.
+    # Sin «(línea N)» del THROW: la tarjeta ya la muestra; directo (usuaria, 9 nov.).
+    error = 319 if instruccion == "WITH" else 102
+    if termina.replace("_", "").isalpha() and len(termina) <= 30:
+        que_hacer = f"Cambiar {termina} por {termina};, ya que sin el «;» SQL Server no ejecuta el código (error {error})."
+    else:
+        que_hacer = f"Agregar el «;», ya que sin él SQL Server no ejecuta el código (error {error})."
+    return (f"Se identificó que falta «;» al final de la línea {fin}, antes del {instruccion}.", que_hacer)
 
 
 def _throw_transaccion(h: Dict) -> Partes:
