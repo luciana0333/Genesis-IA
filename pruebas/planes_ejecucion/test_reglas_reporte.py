@@ -80,7 +80,10 @@ class TestConversionImplicitaReporte(unittest.TestCase):
         self.assertEqual(_hallazgos(_plan(EXPLICITA)), [])
 
     def test_conversion_implicita_sin_alerta_no_cuenta(self):
-        self.assertEqual(_hallazgos(_plan("", convert_sin_alerta=True)), [])
+        # Sin alerta no es «Conversión implícita detectada»; la columna de texto (cCodigo) va como riesgo de Genesis.
+        hallazgos = _hallazgos(_plan("", convert_sin_alerta=True))
+        self.assertEqual([h.regla for h in hallazgos], ["COLUMNA_TEXTO_CONVERTIDA"])
+        self.assertTrue(hallazgos[0].complementario)
 
     def test_plan_de_ejemplo_solo_tiene_conversiones_explicitas(self):
         self.assertEqual(analizar_plan_reporte(construir_diagrama(EJEMPLO.read_bytes())), [])
