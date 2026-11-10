@@ -141,10 +141,8 @@ def columna_texto_convertida(sentencias: List[Dict]) -> List[Hallazgo]:
     casos = _casos_columna_texto(sentencias)
     if not casos:
         return []
-    lista = "; ".join(
-        f"{columna} de {tabla} a {tipo} ({_consultas(caso['consultas'])})"
-        for (columna, tabla, tipo), caso in casos.items()
-    )
+    # Sin «(consulta N)»: la imagen ya marca la consulta y el operador (usuaria, 9 nov.).
+    lista = "; ".join(f"{columna} de {tabla} a {tipo}" for columna, tabla, tipo in casos)
     # Texto de la usuaria (9 nov.).
     if len(casos) == 1:
         mensaje = (f"Se identificó una conversión implícita sobre la columna {lista}. Se recomienda definir la columna "

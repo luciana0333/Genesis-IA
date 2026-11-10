@@ -31,22 +31,22 @@ class ColumnaTextoConvertidaTest(unittest.TestCase):
                 self.assertEqual(hallazgos[0].nodos, [{"consulta": 1, "nodo": "0"}])
                 self.assertEqual(
                     hallazgos[0].mensaje,
-                    "Se identificó una conversión implícita sobre la columna cFecha de #CtaSaldoAuxTemp a datetime "
-                    "(consulta 1). Se recomienda definir la columna con el tipo de dato correcto, ya que un valor con "
+                    "Se identificó una conversión implícita sobre la columna cFecha de #CtaSaldoAuxTemp a datetime. "
+                    "Se recomienda definir la columna con el tipo de dato correcto, ya que un valor con "
                     "formato inválido genera un error de conversión.",
                 )
 
     def test_columna_con_base_esquema_y_alias_a_numero(self):
         expresion = "CONVERT_IMPLICIT(int,[DBCMACICA].[dbo].[Cuenta].[cCodigo] as [A].[cCodigo],0)"
-        self.assertIn("cCodigo de Cuenta a int (consulta 1)", _riesgos(_plan([expresion]))[0].mensaje)
+        self.assertIn("cCodigo de Cuenta a int. ", _riesgos(_plan([expresion]))[0].mensaje)
 
     def test_varias_columnas_en_lista(self):
         otra = "CONVERT_IMPLICIT(numeric(18,2),#Saldos.[cMonto] as [S].[cMonto],0)"
         mensaje = _riesgos(_plan([_FECHA, otra]))[0].mensaje
         self.assertEqual(
             mensaje,
-            "Se identificaron conversiones implícitas sobre las columnas: cFecha de #CtaSaldoAuxTemp a datetime "
-            "(consulta 1); cMonto de #Saldos a numeric(18,2) (consulta 1). Se recomienda definir las columnas con el "
+            "Se identificaron conversiones implícitas sobre las columnas: cFecha de #CtaSaldoAuxTemp a datetime; "
+            "cMonto de #Saldos a numeric(18,2). Se recomienda definir las columnas con el "
             "tipo de dato correcto, ya que un valor con formato inválido genera un error de conversión.")
 
     def test_lo_que_no_se_observa(self):
@@ -73,7 +73,8 @@ class ColumnaTextoConvertidaTest(unittest.TestCase):
         predicado = {"nombre": "Defined Values", "texto": f"[Expr1005] = Scalar Operator({_FECHA})"}
         sentencias = [{"numero": n, "nodos": [{"id": "1", "predicados": [predicado]}]} for n in (2, 4)]
         hallazgo = columna_texto_convertida(sentencias)[0]
-        self.assertIn("a datetime (consultas 2 y 4)", hallazgo.mensaje)
+        self.assertIn("a datetime. Se recomienda", hallazgo.mensaje)
+        self.assertNotIn("consulta", hallazgo.mensaje)
         self.assertEqual(hallazgo.nodos, [{"consulta": 2, "nodo": "1"}, {"consulta": 4, "nodo": "1"}])
 
 
