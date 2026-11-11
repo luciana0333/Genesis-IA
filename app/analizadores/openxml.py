@@ -10,10 +10,10 @@ Una sola observación con todas las variables del PA. Vive en su propio módulo 
 import re
 from typing import Callable, List, Optional, Tuple
 
-# EXEC sp_xml_preparedocument @nIdXml OUTPUT, … — también EXECUTE, con esquema (sys.) o corchetes y con el
-# nombre del parámetro (@hdoc = @nIdXml OUTPUT).
+# EXEC sp_xml_preparedocument @nIdXml OUTPUT, … — también EXECUTE, con el estado de retorno (EXEC @ret = …), con
+# esquema (sys.) o corchetes y con el nombre del parámetro (@hdoc = @nIdXml OUTPUT).
 _PREPARA = re.compile(
-    r"\bEXEC(?:UTE)?\s+(?:\[?\w+\]?\s*\.\s*)*\[?sp_xml_preparedocument\]?\s+(?:@hdoc\s*=\s*)?(?P<variable>@\w+)",
+    r"\bEXEC(?:UTE)?\s+(?:@\w+\s*=\s*)?(?:\[?\w+\]?\s*\.\s*)*\[?sp_xml_preparedocument\]?\s+(?:@hdoc\s*=\s*)?(?P<variable>@\w+)",
     re.IGNORECASE,
 )
 
