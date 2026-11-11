@@ -87,6 +87,15 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "OPENXML_EN_LUGAR_DE_METODOS_NATIVOS": ReglaDiccionario(
+        codigo="OPENXML_EN_LUGAR_DE_METODOS_NATIVOS",
+        nombre="Uso de OPENXML en lugar de métodos nativos",
+        severidad="alto",
+        descripcion="sp_xml_preparedocument (OPENXML) reserva memoria del servidor y obliga a liberarla con "
+                    "sp_xml_removedocument; se deben usar los métodos nativos .nodes() y .value().",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "HINT_PLAN_PROHIBIDO": ReglaDiccionario(
         codigo="HINT_PLAN_PROHIBIDO",
         nombre="Comando que le dice al motor qué hacer",
