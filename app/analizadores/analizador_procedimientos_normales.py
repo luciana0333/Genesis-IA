@@ -20,6 +20,7 @@ from app.analizadores.numero_comparado_con_texto import numero_comparado_con_tex
 from app.analizadores.encabezado import encabezado_observado
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
 from app.analizadores.indice_forzado import indice_forzado_agrupado
+from app.analizadores.openxml import openxml_agrupado
 from app.analizadores.select_estrella import (
     estrellas_tras_coma, marcar as marcar_select_estrella, unir_select_estrella,
 )
@@ -229,6 +230,18 @@ def _validar_indice_forzado(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgo = _hallazgo(texto, posicion, "INDICE_FORZADO", mensaje)
     if len(lineas) > 1:
         hallazgo.lineas = lineas  # «Ver en el código» recorre cada índice
+    return [hallazgo]
+
+
+def _validar_openxml(texto: str, limpio: str) -> List[Hallazgo]:
+    """sp_xml_preparedocument (OPENXML): usar .nodes() y .value(). Una observación con todas (usuaria, 11 nov.)."""
+    agrupado = openxml_agrupado(limpio, lambda posicion: _linea(texto, posicion))
+    if not agrupado:
+        return []
+    posicion, mensaje, lineas = agrupado
+    hallazgo = _hallazgo(texto, posicion, "OPENXML_EN_LUGAR_DE_METODOS_NATIVOS", mensaje)
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas  # «Ver en el código» recorre cada sp_xml_preparedocument
     return [hallazgo]
 
 
@@ -1791,6 +1804,7 @@ def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -
     hallazgos.extend(_validar_hints(texto_sql, limpio))
     hallazgos.extend(_validar_hints_bloqueo(texto_sql, limpio))
     hallazgos.extend(_validar_indice_forzado(texto_sql, limpio))
+    hallazgos.extend(_validar_openxml(texto_sql, limpio))
     hallazgos.extend(_validar_temporales(texto_sql, limpio))
     hallazgos.extend(_validar_update_from_nolock(texto_sql, limpio))
     hallazgos.extend(_validar_modificacion_sin_where(texto_sql, limpio))
