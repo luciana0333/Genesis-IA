@@ -1,4 +1,7 @@
-"""«Palabra repetida en la descripción» en los dos diccionarios (caso de la usuaria, 11 nov.: «repositorio de de RRHH»)."""
+"""«Palabra repetida en la descripción» en los dos diccionarios (caso de la usuaria, 11 nov.: «repositorio de de RRHH»).
+
+Texto directo de la usuaria y UNA sola observación con todas las repeticiones del diccionario.
+"""
 
 import unittest
 
@@ -36,17 +39,33 @@ class PalabraRepetidaTest(unittest.TestCase):
         self.assertEqual(hallazgos[0].linea, 3)  # la línea del @value
         self.assertEqual(
             hallazgos[0].mensaje,
-            "Se identificó la palabra «de» repetida en la descripción del procedimiento "
-            "dbo.PA_RHCargosTabla_Sel_ObtenerCargosNuevos («…el repositorio de de RRHH.EstructuraCAPDetalle»). Se "
-            "recomienda corregir la descripción, ya que la palabra repetida afecta la claridad de la documentación.",
+            "Se identificó la palabra repetida «de de» en la descripción del diccionario. Se recomienda corregir la "
+            "descripción eliminando la palabra repetida, ya que genera redundancia.",
         )
 
-    def test_en_el_procedimiento_y_en_un_parametro_va_en_una_observacion(self):
+    def test_dos_en_la_misma_descripcion(self):
+        hallazgo = _repetidas(verificar_diccionario(_PA, _dicc_pa("Procedimiento que que obtiene los del del cargos")))[0]
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se identificaron palabras repetidas en la descripción del diccionario: «que que» y «del del». Se "
+            "recomienda corregir la descripción eliminando las palabras repetidas, ya que generan redundancia.",
+        )
+
+    def test_varias_descripciones_en_una_sola_observacion(self):
         hallazgos = _repetidas(verificar_diccionario(
             _PA, _dicc_pa(_SU_DESCRIPCION, "Código del del área de recursos humanos")))
         self.assertEqual(len(hallazgos), 1)
-        self.assertIn("Se identificaron 2 descripciones con palabras repetidas", hallazgos[0].mensaje)
-        self.assertIn("parámetro @cRHAreaCod: «Código del del área…»", hallazgos[0].mensaje)
+        self.assertEqual(hallazgos[0].lineas, [3, 6])  # el @value de cada descripción
+        self.assertEqual(
+            hallazgos[0].mensaje,
+            "Se identificaron palabras repetidas en las descripciones del diccionario: «de de» y «del del». Se "
+            "recomienda corregir las descripciones eliminando las palabras repetidas, ya que generan redundancia.",
+        )
+
+    def test_misma_repeticion_en_dos_descripciones_se_nombra_una_vez(self):
+        hallazgo = _repetidas(verificar_diccionario(_PA, _dicc_pa(_SU_DESCRIPCION, "Código de de área")))[0]
+        self.assertEqual(hallazgo.mensaje.count("«de de»"), 1)
+        self.assertIn("las descripciones del diccionario", hallazgo.mensaje)
 
     def test_diccionario_de_tablas_columna_y_tabla(self):
         tabla = "CREATE TABLE dbo.Cargo (\n nCargoId INT NOT NULL,\n cNombre VARCHAR(50) NULL\n)"
@@ -62,12 +81,11 @@ class PalabraRepetidaTest(unittest.TestCase):
         hallazgos = _repetidas(verificar_diccionario_tablas(tabla, diccionario))
         self.assertEqual(len(hallazgos), 1)
         self.assertEqual(hallazgos[0].severidad.value, "bajo")
-        self.assertIn("tabla dbo.Cargo", hallazgos[0].mensaje)
-        self.assertIn("columna cNombre: «Nombre del del cargo»", hallazgos[0].mensaje)
+        self.assertIn("en las descripciones del diccionario: «que que» y «del del».", hallazgos[0].mensaje)
 
     def test_que_detecta_y_que_no(self):
-        self.assertEqual(palabras_repetidas("El el monto"), [("el", "El el monto")])
-        self.assertEqual([p for p, _ in palabras_repetidas("Indica que que el valor de de la tasa")], ["que", "de"])
+        self.assertEqual(palabras_repetidas("El el monto"), ["El el"])
+        self.assertEqual(palabras_repetidas("Indica que que el valor de de la tasa"), ["que que", "de de"])
         for texto in ("Monto 1 1 total",                 # números
                       "Código del cliente",              # sin repetición
                       "nana banana",                     # parte de otra palabra

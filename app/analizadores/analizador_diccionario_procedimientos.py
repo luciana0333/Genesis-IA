@@ -25,9 +25,7 @@ from app.analizadores.diccionario_varios import (
     agrupar_varios, nombres_del_script, objetos_sin_script, por_objeto, sin_otros_objetos,
 )
 from app.analizadores.objetos_repetidos import hallazgo_repetidos, quitar_creaciones_repetidas
-from app.analizadores.palabra_repetida import (
-    QUE_HACER_PALABRA_REPETIDA, elemento_palabra_repetida, mensaje_palabra_repetida, palabras_repetidas,
-)
+from app.analizadores.palabra_repetida import palabra_repetida_agrupada
 from app.analizadores.ortografia import (
     ACCION_ORTOGRAFIA, elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico,
 )
@@ -651,26 +649,26 @@ def _validar_ortografia(
 def _validar_palabras_repetidas(
     llamadas: List[Tuple[int, Dict[str, str]]], texto_diccionario: str, esquema: str, nombre_proc: str
 ) -> List[Hallazgo]:
-    """«…el repositorio de de RRHH…»: la misma palabra dos veces seguidas (usuaria, 11 nov.)."""
-    hallazgos = []
-    for pos, args in llamadas:
-        if "PROCEDURE" not in args.get("level1type", "").upper() or "value" not in args:
-            continue
-        casos = palabras_repetidas(_texto_de_valor(args["value"]))
-        if not casos:
-            continue
-        if "PARAMETER" in args.get("level2type", "").upper():
-            objeto = f"del parámetro {_limpiar_valor(args.get('level2name', '?'))}"
-        else:
-            objeto = f"del procedimiento {_nombre_completo(esquema, nombre_proc)}"
-        hallazgos.append(con_elemento(Hallazgo(
-            linea=_numero_linea(texto_diccionario, _posicion_valor(texto_diccionario, pos)),
-            origen=OrigenAnalisis.DICCIONARIO,
-            severidad=Severidad(REGLAS_DICCIONARIO_PROCEDIMIENTOS["PALABRA_REPETIDA"].severidad),
-            regla="PALABRA_REPETIDA",
-            mensaje=mensaje_palabra_repetida(objeto, casos),
-        ), elemento_palabra_repetida(objeto, casos)))
-    return hallazgos
+    """«…el repositorio de de RRHH…»: una sola observación con todas las del diccionario (usuaria, 11 nov.)."""
+    descripciones = [
+        (_numero_linea(texto_diccionario, _posicion_valor(texto_diccionario, pos)), _texto_de_valor(args["value"]))
+        for pos, args in llamadas
+        if "PROCEDURE" in args.get("level1type", "").upper() and "value" in args
+    ]
+    agrupado = palabra_repetida_agrupada(descripciones)
+    if not agrupado:
+        return []
+    linea, mensaje, lineas = agrupado
+    hallazgo = Hallazgo(
+        linea=linea,
+        origen=OrigenAnalisis.DICCIONARIO,
+        severidad=Severidad(REGLAS_DICCIONARIO_PROCEDIMIENTOS["PALABRA_REPETIDA"].severidad),
+        regla="PALABRA_REPETIDA",
+        mensaje=mensaje,
+    )
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas
+    return [hallazgo]
 
 
 def _validar_descripcion_vs_nombre(
@@ -732,10 +730,6 @@ _PLANTILLAS_AGRUPADAS = {
         "parámetros con la descripción vacía",
         "Completar la descripción indicando para qué se usa cada parámetro, de modo que quede claro para "
         "quien consulte el procedimiento.",
-    ),
-    "PALABRA_REPETIDA": (
-        "descripciones con palabras repetidas",
-        QUE_HACER_PALABRA_REPETIDA,
     ),
     "ERROR_ORTOGRAFICO": (
         "descripciones con errores de escritura",
