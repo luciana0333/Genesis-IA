@@ -225,7 +225,7 @@ REGLAS_TABLAS = {
     # Usuaria, 11 nov.: en una tabla o columna nueva, validar si el VARCHAR(MAX) puede tener una longitud definida.
     "COLUMNA_VARCHAR_MAX": ReglaDiccionario(
         codigo="COLUMNA_VARCHAR_MAX",
-        nombre="Columna VARCHAR(MAX) en tabla nueva",
+        nombre="Uso de VARCHAR(MAX)",
         severidad="medio",
         descripcion="Una columna nueva (N)VARCHAR(MAX) que no guarda JSON, XML ni HTML: validar si puede tener una "
                     "longitud definida.",

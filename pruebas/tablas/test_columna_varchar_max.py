@@ -1,4 +1,4 @@
-"""Tablas: «Columna VARCHAR(MAX) en tabla nueva» (texto de la usuaria, 11 nov.)."""
+"""Tablas: «Uso de VARCHAR(MAX)» en columnas nuevas (título y texto de la usuaria, 11 nov.)."""
 
 import unittest
 
@@ -33,10 +33,10 @@ class ColumnaVarcharMaxTest(unittest.TestCase):
                 self.assertEqual(hallazgos[0].linea, 6)
                 self.assertEqual(
                     hallazgos[0].mensaje,
-                    "Se identificó la columna cDetalle definida como VARCHAR(MAX) en la tabla nueva "
-                    "CONTABILIDAD.LogReprocesoDevengado. Se recomienda validar si es posible asignarle una longitud "
-                    "definida (ej.: VARCHAR(500)), ya que VARCHAR(MAX) solo se justifica para JSON, XML, HTML o "
-                    "textos de gran tamaño.",
+                    "Se identificó que la columna cDetalle de la tabla CONTABILIDAD.LogReprocesoDevengado está "
+                    "definida como VARCHAR(MAX). Se recomienda evaluar la asignación de una longitud definida (por "
+                    "ejemplo, VARCHAR(500)), reservando VARCHAR(MAX) para campos que almacenen contenido extenso, "
+                    "como JSON, XML o HTML.",
                 )
 
     def test_varias_columnas_en_una_observacion(self):
@@ -45,13 +45,14 @@ class ColumnaVarcharMaxTest(unittest.TestCase):
         hallazgo = _max(sql)[0]
         self.assertEqual(hallazgo.lineas, [3, 4])
         self.assertTrue(hallazgo.mensaje.startswith(
-            "Se identificaron las columnas cDetalle y cObservacion definidas como (N)VARCHAR(MAX) en la tabla nueva "
-            "dbo.Nota. Se recomienda validar si es posible asignarles una longitud definida (ej.: VARCHAR(500))"))
+            "Se identificó que las columnas cDetalle y cObservacion de la tabla dbo.Nota están definidas como "
+            "(N)VARCHAR(MAX). Se recomienda evaluar la asignación de una longitud definida en cada una (por ejemplo, "
+            "VARCHAR(500)), reservando VARCHAR(MAX)"))
 
     def test_columna_nueva_en_un_alter(self):
         sql = "ALTER TABLE dbo.Nota ADD cComentario VARCHAR(MAX) NULL"
-        self.assertIn("Se identificó la columna cComentario definida como VARCHAR(MAX) como columna nueva de la tabla "
-                      "dbo.Nota.", _max(sql)[0].mensaje)
+        self.assertIn("Se identificó que la columna cComentario de la tabla dbo.Nota está definida como VARCHAR(MAX).",
+                      _max(sql)[0].mensaje)
 
     def test_varias_tablas_en_el_script(self):
         otra = ("CREATE TABLE dbo.Nota (\n nNotaId INT IDENTITY(1,1) NOT NULL,\n cObservacion VARCHAR(MAX) NOT NULL,\n"
@@ -60,10 +61,10 @@ class ColumnaVarcharMaxTest(unittest.TestCase):
         self.assertEqual(len(hallazgos), 1)
         self.assertEqual(
             hallazgos[0].mensaje,
-            "Se identificaron dos tablas con columnas nuevas (N)VARCHAR(MAX): cDetalle "
-            "(CONTABILIDAD.LogReprocesoDevengado); cObservacion (dbo.Nota). Se recomienda validar si es posible "
-            "asignarles una longitud definida (ej.: VARCHAR(500)), ya que VARCHAR(MAX) solo se justifica para JSON, "
-            "XML, HTML o textos de gran tamaño.",
+            "Se identificaron dos tablas con columnas definidas como (N)VARCHAR(MAX): cDetalle "
+            "(CONTABILIDAD.LogReprocesoDevengado); cObservacion (dbo.Nota). Se recomienda evaluar la asignación de "
+            "una longitud definida en cada una (por ejemplo, VARCHAR(500)), reservando VARCHAR(MAX) para campos que "
+            "almacenen contenido extenso, como JSON, XML o HTML.",
         )
 
     def test_lo_que_no_se_marca(self):

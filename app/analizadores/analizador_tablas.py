@@ -871,9 +871,9 @@ _PLANTILLAS_AGRUPADAS = {
         "tabla nueva no debe almacenar valores nulos.",
     ),
     "COLUMNA_VARCHAR_MAX": (
-        "tablas con columnas nuevas (N)VARCHAR(MAX)",
-        "Se recomienda validar si es posible asignarles una longitud definida (ej.: VARCHAR(500)), ya que "
-        "VARCHAR(MAX) solo se justifica para JSON, XML, HTML o textos de gran tamaño.",
+        "tablas con columnas definidas como (N)VARCHAR(MAX)",
+        "Se recomienda evaluar la asignación de una longitud definida en cada una (por ejemplo, VARCHAR(500)), "
+        "reservando VARCHAR(MAX) para campos que almacenen contenido extenso, como JSON, XML o HTML.",
     ),
     "COLUMNA_NOT_NULL_SIN_DEFAULT_EN_ALTER": (
         "columnas nuevas NOT NULL sin valor por defecto",
@@ -1110,17 +1110,18 @@ def _validar_varchar_max(
     tipos = {tipo for _, tipo in casos}
     tipo = tipos.pop() if len(tipos) == 1 else "(N)VARCHAR(MAX)"
     ejemplo = casos[0][1].replace("MAX", "500")
-    donde = f"en la tabla nueva {referencia}" if es_create else f"como columna nueva de la tabla {referencia}"
+    reservado = "VARCHAR(MAX)" if tipo == "(N)VARCHAR(MAX)" else tipo
     nombres = [columna.nombre for columna, _ in casos]
+    # Texto de la usuaria (11 nov.); en plural cuando son varias columnas.
     if len(casos) == 1:
-        mensaje = (f"Se identificó la columna {nombres[0]} definida como {tipo} {donde}. Se recomienda validar si "
-                   f"es posible asignarle una longitud definida (ej.: {ejemplo}), ya que {tipo} solo se justifica "
-                   f"para JSON, XML, HTML o textos de gran tamaño.")
+        mensaje = (f"Se identificó que la columna {nombres[0]} de la tabla {referencia} está definida como {tipo}. "
+                   f"Se recomienda evaluar la asignación de una longitud definida (por ejemplo, {ejemplo}), "
+                   f"reservando {reservado} para campos que almacenen contenido extenso, como JSON, XML o HTML.")
     else:
-        donde = f"en la tabla nueva {referencia}" if es_create else f"como columnas nuevas de la tabla {referencia}"
-        mensaje = (f"Se identificaron las columnas {_enumerar(nombres)} definidas como {tipo} {donde}. Se recomienda "
-                   f"validar si es posible asignarles una longitud definida (ej.: {ejemplo}), ya que {tipo} solo se "
-                   f"justifica para JSON, XML, HTML o textos de gran tamaño.")
+        mensaje = (f"Se identificó que las columnas {_enumerar(nombres)} de la tabla {referencia} están definidas "
+                   f"como {tipo}. Se recomienda evaluar la asignación de una longitud definida en cada una (por "
+                   f"ejemplo, {ejemplo}), reservando {reservado} para campos que almacenen contenido extenso, como "
+                   f"JSON, XML o HTML.")
     hallazgo = _hallazgo(texto, casos[0][0].posicion, "COLUMNA_VARCHAR_MAX", mensaje)
     # Con varias tablas en el script se juntan en una sola observación: «cDetalle (dbo.A); cObs (dbo.B)».
     hallazgo.elemento = _enumerar(nombres)
