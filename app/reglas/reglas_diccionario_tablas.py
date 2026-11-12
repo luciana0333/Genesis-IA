@@ -199,6 +199,14 @@ REGLAS_DICCIONARIO_TABLAS = {
         activo=True,
     ),
 
+    "PALABRA_REPETIDA": ReglaDiccionario(
+        codigo="PALABRA_REPETIDA",
+        nombre="Palabra repetida en la descripción",
+        severidad="bajo",
+        descripcion="La misma palabra aparece dos veces seguidas en una descripción («de de»).",
+        alcance="tabla",
+        activo=True,
+    ),
     "ERROR_ORTOGRAFICO": ReglaDiccionario(
         codigo="ERROR_ORTOGRAFICO",
         nombre="Errores ortográficos en la descripción",

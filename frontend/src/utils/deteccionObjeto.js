@@ -1,23 +1,30 @@
 // Comentarios y textos ('...'): lo que haya adentro (un CREATE en SQL dinámico, un comentario) no cuenta.
 const COMENTARIOS_Y_TEXTOS = /'(?:[^']|'')*'|--[^\r\n]*|\/\*[\s\S]*?\*\//g;
-const OBJETO = /\b(?:CREATE|ALTER)\s+(?:OR\s+ALTER\s+)?(TABLE|PROC(?:EDURE)?)\s+(?![#@])/i;
+const OBJETO = /\b(?:CREATE|ALTER)\s+(?:OR\s+ALTER\s+)?(TABLE|PROC(?:EDURE)?|FUNCTION)\s+(?![#@])/i;
+
+/** TABLE → 'tabla', FUNCTION → 'funcion', PROC/PROCEDURE → 'procedimiento'. */
+const tipoDe = (palabra) => {
+  const objeto = palabra.toUpperCase();
+  if (objeto === 'TABLE') return 'tabla';
+  return objeto === 'FUNCTION' ? 'funcion' : 'procedimiento';
+};
 
 const sinComentariosNiTextos = (sql) => sql.replace(COMENTARIOS_Y_TEXTOS, ' ');
 
 /**
- * Tipo de diccionario que corresponde al SQL pegado: 'tabla',
- * 'procedimiento' o null si todavía no se reconoce el objeto.
+ * Tipo de diccionario que corresponde al SQL pegado: 'tabla', 'procedimiento',
+ * 'funcion' o null si todavía no se reconoce el objeto.
  * Replica app/analizadores/deteccion_objeto.py del backend.
  */
 export function detectarTipoDiccionario(sql = '') {
   const coincidencia = sinComentariosNiTextos(sql).match(OBJETO);
   if (!coincidencia) return null;
-  return coincidencia[1].toUpperCase() === 'TABLE' ? 'tabla' : 'procedimiento';
+  return tipoDe(coincidencia[1]);
 }
 
 const PARTE = String.raw`(?:\[[^\]]+\]|[\w#@$]+)`;
 const NOMBRE = new RegExp(
-  String.raw`\b(?:CREATE|ALTER)\s+(?:OR\s+ALTER\s+)?(TABLE|PROC(?:EDURE)?)\s+(${PARTE}(?:\s*\.\s*${PARTE}){0,2})`,
+  String.raw`\b(?:CREATE|ALTER)\s+(?:OR\s+ALTER\s+)?(TABLE|PROC(?:EDURE)?|FUNCTION)\s+(${PARTE}(?:\s*\.\s*${PARTE}){0,2})`,
   'gi',
 );
 
@@ -38,7 +45,7 @@ export function extraerNombreObjeto(sql = '') {
 export function extraerNombresObjetos(sql = '') {
   const objetos = [...sinComentariosNiTextos(sql).matchAll(NOMBRE)]
     .map((coincidencia) => ({
-      tipo: coincidencia[1].toUpperCase() === 'TABLE' ? 'tabla' : 'procedimiento',
+      tipo: tipoDe(coincidencia[1]),
       nombre: coincidencia[2].replace(/\s+/g, '').replace(/[[\]]/g, ''),
     }))
     .filter(({ nombre }) => !/^[#@]/.test(nombre.split('.').pop()));

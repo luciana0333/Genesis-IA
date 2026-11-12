@@ -203,6 +203,14 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
         alcance="procedimiento",
         activo=True,
     ),
+    "PALABRA_REPETIDA": ReglaDiccionario(
+        codigo="PALABRA_REPETIDA",
+        nombre="Palabra repetida en la descripción",
+        severidad="bajo",
+        descripcion="La misma palabra aparece dos veces seguidas en una descripción («de de»).",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "ERROR_ORTOGRAFICO": ReglaDiccionario(
         codigo="ERROR_ORTOGRAFICO",
         nombre="Errores ortográficos en la descripción",
@@ -266,5 +274,47 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
         ),
         alcance="procedimiento",
         activo=False,
+    ),
+
+    # Diccionario de funciones (usuaria, 11 nov.): mismas reglas que el procedimiento; estas nombran a la función.
+    "FUNCION_SIN_DESCRIPCION": ReglaDiccionario(
+        codigo="FUNCION_SIN_DESCRIPCION",
+        nombre="Función no documentada",
+        severidad="alto",
+        descripcion="Toda función nueva debe tener su descripción en el diccionario.",
+        alcance="funcion",
+        activo=True,
+    ),
+    "DESCRIPCION_FUNCION_VACIA": ReglaDiccionario(
+        codigo="DESCRIPCION_FUNCION_VACIA",
+        nombre="Función sin descripción",
+        severidad="medio",
+        descripcion="El diccionario de la función está documentado, pero su descripción está vacía.",
+        alcance="funcion",
+        activo=True,
+    ),
+    "FUNCION_DUPLICADA": ReglaDiccionario(
+        codigo="FUNCION_DUPLICADA",
+        nombre="Función duplicada en el script",
+        severidad="critico",
+        descripcion="La misma función se crea más de una vez en el script.",
+        alcance="funcion",
+        activo=True,
+    ),
+    "FUNCION_FUERA_DEL_SCRIPT": ReglaDiccionario(
+        codigo="FUNCION_FUERA_DEL_SCRIPT",
+        nombre="Función documentada que no está en el script",
+        severidad="medio",
+        descripcion="El diccionario documenta una función cuyo CREATE/ALTER no está en el script.",
+        alcance="funcion",
+        activo=True,
+    ),
+    "NOMBRE_FUNCION_NO_COINCIDE": ReglaDiccionario(
+        codigo="NOMBRE_FUNCION_NO_COINCIDE",
+        nombre="Nombre de la función no coincide",
+        severidad="alto",
+        descripcion="El @level1name del diccionario no coincide con el nombre de la función.",
+        alcance="funcion",
+        activo=True,
     ),
 }

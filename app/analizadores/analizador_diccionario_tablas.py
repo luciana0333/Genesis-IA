@@ -16,6 +16,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, juntar_ortografia, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_tabla
+from app.analizadores.palabra_repetida import palabra_repetida_agrupada
 from app.analizadores.nombre_por_prefijo import emparejar_por_prefijo, solo_un_error_por_sentencia
 from app.analizadores.diccionario_varios import (
     agrupar_varios, es_otro_objeto, nombres_del_script, objetos_sin_script, por_objeto,
@@ -744,6 +745,25 @@ def _validar_ortografia(
     return hallazgos
 
 
+def _validar_palabras_repetidas(
+    llamadas: List[LlamadaPropiedad], esquema: Optional[str], nombre_tabla: str, texto_diccionario: str = "",
+) -> List[Hallazgo]:
+    """«…el repositorio de de RRHH…»: una sola observación con todas las del diccionario (usuaria, 11 nov.)."""
+    descripciones = [
+        (_linea_valor(ll, texto_diccionario), ll.texto("value"))
+        for ll in llamadas
+        if _es_descripcion(ll) and ll.texto("value") and (_es_de_columna(ll) or _es_de_tabla(ll))
+    ]
+    agrupado = palabra_repetida_agrupada(descripciones)
+    if not agrupado:
+        return []
+    linea, mensaje, lineas = agrupado
+    hallazgo = _hallazgo(linea, "PALABRA_REPETIDA", mensaje)
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas
+    return [hallazgo]
+
+
 def _validar_descripciones_vacias(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
     return [
         con_elemento(_hallazgo(
@@ -1063,6 +1083,7 @@ def _revisar_tabla(texto_tabla: str, texto_diccionario: str) -> List[Hallazgo]:
     hallazgos += nombre_mal_escrito
     hallazgos += _validar_descripciones_vacias(llamadas)
     hallazgos += _validar_ortografia(llamadas, esquema, nombre_tabla, columnas_reales, texto_diccionario)
+    hallazgos += _validar_palabras_repetidas(llamadas, esquema, nombre_tabla, texto_diccionario)
     hallazgos += _validar_valores_sin_comillas(llamadas)
     hallazgos += _validar_descripciones_repetidas(llamadas)
 

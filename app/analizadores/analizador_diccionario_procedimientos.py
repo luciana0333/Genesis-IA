@@ -25,6 +25,8 @@ from app.analizadores.diccionario_varios import (
     agrupar_varios, nombres_del_script, objetos_sin_script, por_objeto, sin_otros_objetos,
 )
 from app.analizadores.objetos_repetidos import hallazgo_repetidos, quitar_creaciones_repetidas
+from app.analizadores.palabra_repetida import palabra_repetida_agrupada
+from app.analizadores.objeto_programable import FUNCION, POR_CLAVE, PROCEDIMIENTO, actual, restaurar, usar
 from app.analizadores.ortografia import (
     ACCION_ORTOGRAFIA, elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico,
 )
@@ -41,13 +43,14 @@ from app.reglas.reglas_diccionario_procedimientos import REGLAS_DICCIONARIO_PROC
 # EXTRACCION - leer la "realidad" (el procedimiento)
 # ---------------------------------------------------------------------------
 
-# Encabezado del procedimiento: CREATE, ALTER o CREATE OR ALTER, PROC o PROCEDURE,
-# y el nombre con o sin esquema y corchetes.
-_ENCABEZADO = re.compile(
-    r"\b(CREATE(?:\s+OR\s+ALTER)?|ALTER)\s+PROC(?:EDURE)?\s+"
-    r"(?:\[[^\]]+\]|[\w$#]+)(?:\s*\.\s*(?:\[[^\]]+\]|[\w$#]+)){0,2}",
-    re.IGNORECASE,
-)
+# Encabezado del objeto: CREATE, ALTER o CREATE OR ALTER, PROC/PROCEDURE o FUNCTION, y el nombre con o sin
+# esquema y corchetes. Depende del objeto en revisión (objeto_programable).
+def _encabezado():
+    return actual().encabezado
+
+
+# Se conserva el nombre para quien lo importe: el de procedimientos.
+_ENCABEZADO = PROCEDIMIENTO.encabezado
 
 
 def _sin_comentarios_ni_textos(texto: str) -> str:
@@ -62,26 +65,27 @@ def _sin_comentarios_ni_textos(texto: str) -> str:
 def extraer_parametros(texto_procedimiento: str) -> Set[str]:
     """Parámetros declarados entre el nombre del procedimiento y su AS."""
     limpio = _sin_comentarios_ni_textos(texto_procedimiento)
-    encabezado = _ENCABEZADO.search(limpio)
+    encabezado = _encabezado().search(limpio)
     if not encabezado:
         return set()
     resto = limpio[encabezado.end():]
-    fin = re.search(r"\bAS\b", resto, re.IGNORECASE)
+    # Procedimiento: hasta su AS. Función: hasta RETURNS (RETURNS @Resultado TABLE … no es un parámetro).
+    fin = actual().fin_parametros.search(resto)
     bloque = resto[:fin.start()] if fin else resto
     return set(re.findall(r"(?<![@\w])@\w+", bloque))
 
 
 def extraer_tipo_sentencia(texto_procedimiento: str) -> str:
-    """CREATE o ALTER. CREATE OR ALTER cuenta como CREATE: puede crear un procedimiento nuevo."""
-    encabezado = _ENCABEZADO.search(_sin_comentarios_ni_textos(texto_procedimiento))
+    """CREATE o ALTER. CREATE OR ALTER cuenta como CREATE: puede crear un objeto nuevo."""
+    encabezado = _encabezado().search(_sin_comentarios_ni_textos(texto_procedimiento))
     if not encabezado:
         return "DESCONOCIDO"
     return "ALTER" if encabezado.group(1).upper() == "ALTER" else "CREATE"
 
 
 def extraer_esquema_y_nombre(texto_procedimiento: str) -> Tuple[Optional[str], Optional[str]]:
-    """Devuelve (esquema, nombre) del procedimiento, o (None, None)."""
-    encabezado = _ENCABEZADO.search(_sin_comentarios_ni_textos(texto_procedimiento))
+    """Devuelve (esquema, nombre) del procedimiento o de la función, o (None, None)."""
+    encabezado = _encabezado().search(_sin_comentarios_ni_textos(texto_procedimiento))
     if not encabezado:
         return None, None
     # Hasta tres partes (Base.Esquema.Nombre): el nombre es la última y el esquema la anterior.
@@ -94,13 +98,13 @@ def _validar_esquema_declarado(texto_procedimiento: str, esquema: Optional[str],
     """El procedimiento indica su esquema en el CREATE o ALTER."""
     if esquema:
         return []
-    m = re.search(r"(?:CREATE|ALTER)\s+PROC", texto_procedimiento, re.IGNORECASE)
+    m = _encabezado().search(texto_procedimiento)
     return [Hallazgo(
         linea=_numero_linea(texto_procedimiento, m.start() if m else 0),
         origen=OrigenAnalisis.DICCIONARIO,
         severidad=Severidad(REGLAS_DICCIONARIO_PROCEDIMIENTOS["OBJETO_SIN_ESQUEMA"].severidad),
         regla="OBJETO_SIN_ESQUEMA",
-        mensaje=f"El procedimiento {nombre_proc} no indica su esquema. Anteponer el esquema al nombre, "
+        mensaje=f"{actual().El} {nombre_proc} no indica su esquema. Anteponer el esquema al nombre, "
                 f"ya que así se evita crear o modificar el objeto en un esquema equivocado y el "
                 f"diccionario puede documentarlo correctamente (ej.: dbo.{nombre_proc}).",
     )]
@@ -108,9 +112,9 @@ def _validar_esquema_declarado(texto_procedimiento: str, esquema: Optional[str],
 
 def _validar_nomenclatura(texto_procedimiento: str, tipo_sentencia: str, nombre_proc: str) -> List[Hallazgo]:
     """Al crear el procedimiento, su nombre sigue PA_Tabla_Acción_Finalidad (en ALTER no se revisa)."""
-    if tipo_sentencia != "CREATE":
+    if tipo_sentencia != "CREATE" or not actual().revisa_nomenclatura:
         return []
-    m = _ENCABEZADO.search(_sin_comentarios_ni_textos(texto_procedimiento))
+    m = _encabezado().search(_sin_comentarios_ni_textos(texto_procedimiento))
     linea = _numero_linea(texto_procedimiento, m.start() if m else 0)
     return [
         Hallazgo(
@@ -156,7 +160,7 @@ def _es_sentencia_de_procedimiento(args: Dict[str, str]) -> bool:
     """La llamada documenta al procedimiento en sí (no a un PARAMETER)."""
     level1type = args.get("level1type", "").upper()
     level2type = args.get("level2type", "").upper()
-    return "PROCEDURE" in level1type and not level2type
+    return actual().tipo_sql in level1type and not level2type
 
 
 def _es_descripcion_procedimiento_valida(args: Dict[str, str]) -> bool:
@@ -165,7 +169,7 @@ def _es_descripcion_procedimiento_valida(args: Dict[str, str]) -> bool:
     """
     level1type = args.get("level1type", "").upper()
     level2type = args.get("level2type", "").upper()
-    if "PROCEDURE" not in level1type:
+    if actual().tipo_sql not in level1type:
         return False
     if level2type:  # PARAMETER, o un tipo mal escrito: no es la descripción del procedimiento
         return False
@@ -204,9 +208,9 @@ def _validar_esquema(
                     origen=OrigenAnalisis.DICCIONARIO,
                     severidad=Severidad.ALTO,
                     regla="ESQUEMA_NO_COINCIDE",
-                    mensaje=f"El diccionario indica el esquema '{valor}', pero el procedimiento está "
+                    mensaje=f"El diccionario indica el esquema '{valor}', pero {actual().el} está "
                             f"en '{esquema_real}'. Corregir el esquema en el diccionario por "
-                            f"'{esquema_real}', ya que no coincide con el esquema del procedimiento y "
+                            f"'{esquema_real}', ya que no coincide con el esquema {actual().del_} y "
                             f"la documentación quedaría en un objeto que no existe."
                 ))
     return hallazgos
@@ -232,7 +236,7 @@ def _validar_descripciones_vacias(
                     regla="DESCRIPCION_VACIA",
                     mensaje=f"El parámetro {nombre_param} figura en el diccionario, pero no cuenta con una "
                             f"descripción. Completar la descripción indicando para qué se usa el "
-                            f"parámetro, de modo que quede claro para quien consulte el procedimiento."
+                            f"parámetro, de modo que quede claro para quien consulte {actual().el}."
                 ), nombre_param))
     return hallazgos
 
@@ -297,7 +301,7 @@ def _emparejar_parametros(
         nuevos.append(con_elemento(_hallazgo_catalogo(
             inexistentes[documentado].linea, "PARAMETRO_NOMBRE_INCORRECTO",
             f"Se identificó que en el diccionario se documenta el parámetro {documentado}, que no existe en el "
-            f"procedimiento {full}, pero parece referirse a {real}. Corregir el nombre del parámetro en el "
+            f"{actual().nombre} {full}, pero parece referirse a {real}. Corregir el nombre del parámetro en el "
             f"diccionario (ej.: @level2name = N'{real}'), ya que SQL Server no encuentra el parámetro y el script "
             f"del diccionario falla.",
         ), f"{documentado} → {real}"))
@@ -322,7 +326,7 @@ def _validar_parametros_inexistentes(texto_diccionario: str, parametros_reales: 
         sugerencia = f" (¿quiso decir '{reales[parecido[0]]}'?)" if parecido else ""
         hallazgos.append(con_elemento(_hallazgo_catalogo(
             ll.linea, "PARAMETRO_NO_EXISTE",
-            f"Se verificó que el parámetro {nombre} está documentado, pero no existe en el procedimiento "
+            f"Se verificó que el parámetro {nombre} está documentado, pero no existe en {actual().el} "
             f"{nombre_proc}{sugerencia}. Corregir el nombre del parámetro en el diccionario o retirar la sentencia, "
             f"ya que SQL Server no encuentra el parámetro y el script del diccionario falla.",
         ), nombre))
@@ -341,11 +345,13 @@ def _validar_nombre_propiedad(texto_diccionario: str, esquema: Optional[str], no
             continue
         if "PARAMETER" in ll.texto("level2type").upper():
             objeto = f"parámetro {ll.texto('level2name')}"
+            de_objeto = f"del {objeto}"
         else:
-            objeto = f"procedimiento {_nombre_completo(esquema, nombre_proc)}"
+            objeto = f"{actual().nombre} {_nombre_completo(esquema, nombre_proc)}"
+            de_objeto = f"{actual().del_} {_nombre_completo(esquema, nombre_proc)}"
         hallazgos.append(con_elemento(_hallazgo_catalogo(
             ll.linea, "NOMBRE_PROPIEDAD_INCORRECTO",
-            f"La propiedad del {objeto} se registra como '{nombre}', por lo que no se reconocerá como "
+            f"La propiedad {de_objeto} se registra como '{nombre}', por lo que no se reconocerá como "
             f"su descripción. Usar «N'MS_Description'» como nombre de la propiedad, ya que es el nombre estándar "
             f"de las descripciones del diccionario.",
         ), f"{objeto} ('{nombre}')"))
@@ -367,7 +373,7 @@ def _validar_duplicados(texto_diccionario: str) -> List[Hallazgo]:
             clave, objeto = ("parametro", nombre.upper()), f"parámetro {nombre}"
         elif ll.texto("level1name") and not ll.texto("level2type"):
             nombre = ll.texto("level1name")
-            clave, objeto = ("procedimiento", nombre.upper()), f"procedimiento {nombre}"
+            clave, objeto = ("objeto", nombre.upper()), f"{actual().nombre} {nombre}"
         else:
             continue
         if clave not in vistos:
@@ -378,7 +384,10 @@ def _validar_duplicados(texto_diccionario: str) -> List[Hallazgo]:
             origen=OrigenAnalisis.DICCIONARIO,
             severidad=Severidad(REGLAS_DICCIONARIO_PROCEDIMIENTOS["DOCUMENTACION_DUPLICADA"].severidad),
             regla="DOCUMENTACION_DUPLICADA",
-            mensaje=f"Se identificó que el {objeto} se encuentra documentado dos veces, siendo la primera "
+            mensaje=f"Se identificó que {'el' if objeto.startswith('parámetro') else actual().el.split()[0]} "
+                    f"{objeto} se encuentra "
+                    f"{'documentado' if objeto.startswith('parámetro') else actual().documentado} dos veces, "
+                    f"siendo la primera "
                     f"declaración en la línea {vistos[clave]}. Se recomienda retirar una de las declaraciones "
                     f"duplicadas, ya que SQL Server genera un error al intentar registrar nuevamente la misma "
                     f"propiedad.",
@@ -418,7 +427,7 @@ def _validar_parametros_faltantes(
                 regla="VALIDAR_DOCUMENTACION_ALTER",
                 mensaje=(
                     f"El parámetro {p} no se encuentra en el diccionario, aunque podría estar "
-                    f"documentado previamente al tratarse de una modificación del procedimiento (ALTER PROCEDURE). "
+                    f"documentado previamente al tratarse de una modificación {actual().del_} ({actual().alter}). "
                     f"Verificar si ya cuenta con descripción en el diccionario y, de no tenerla, incluir la "
                     f"descripción respectiva."
                 ),
@@ -432,10 +441,10 @@ def _validar_parametros_faltantes(
             severidad=Severidad.ALTO,
             regla="PARAMETRO_FALTANTE",
             mensaje=(
-                f"El parámetro {p} del procedimiento {_nombre_completo(esquema, nombre_proc)} no se encuentra "
+                f"El parámetro {p} {actual().del_} {_nombre_completo(esquema, nombre_proc)} no se encuentra "
                 f"documentado. Se recomienda añadirlo al "
-                f"diccionario del procedimiento con su descripción, ya que todo parámetro de un "
-                f"procedimiento nuevo debe estar documentado."
+                f"diccionario {actual().del_} con su descripción, ya que todo parámetro de "
+                f"{actual().un_nuevo} debe estar documentado."
             ),
         ), p))
 
@@ -460,8 +469,8 @@ def _validar_alter_sin_diccionario(
             severidad=Severidad.BAJO,
             regla="ALTER_SIN_DICCIONARIO",
             mensaje=(
-                f"Se detectó que el procedimiento {_nombre_completo(esquema, nombre_proc)} se modifica "
-                f"(ALTER PROCEDURE), pero no se adjuntó su diccionario. Incluir la documentación de los "
+                f"Se detectó que {actual().el} {_nombre_completo(esquema, nombre_proc)} se modifica "
+                f"({actual().alter}), pero no se adjuntó su diccionario. Incluir la documentación de los "
                 f"parámetros que se agreguen o modifiquen, para mantener el diccionario actualizado."
             )
         )]
@@ -476,7 +485,7 @@ def _validar_nombre_procedimiento(
     """El @level1name debe coincidir exactamente con el nombre real."""
     hallazgos = []
     for pos, args in llamadas:
-        if "level1name" in args and "PROCEDURE" in args.get("level1type", "").upper():
+        if "level1name" in args and actual().tipo_sql in args.get("level1type", "").upper():
             valor = _limpiar_valor(args["level1name"])
             # Vacío (N'') no es «no coincide»: lo marca _validar_nombres_vacios.
             if valor and valor.lower() != nombre_proc.lower():
@@ -485,9 +494,9 @@ def _validar_nombre_procedimiento(
                     origen=OrigenAnalisis.DICCIONARIO,
                     severidad=Severidad.ALTO,
                     regla="NOMBRE_NO_COINCIDE",
-                    mensaje=f"El diccionario indica el nombre '{valor}', pero el procedimiento "
+                    mensaje=f"El diccionario indica el nombre '{valor}', pero {actual().el} "
                             f"se llama '{nombre_proc}'. Corregir el nombre en el diccionario por "
-                            f"'{nombre_proc}', ya que no coincide con el nombre del procedimiento y "
+                            f"'{nombre_proc}', ya que no coincide con el nombre {actual().del_} y "
                             f"la documentación quedaría en un objeto que no existe."
                 ))
     return hallazgos
@@ -509,8 +518,8 @@ def _validar_nombres_vacios(
     hallazgos = []
     for pos, args in llamadas:
         for clave, que, ejemplo in (
-            ("level0name", "el esquema del procedimiento", esquema or "dbo"),
-            ("level1name", "el nombre del procedimiento", nombre_proc or "PA_Tabla_Sel_Finalidad"),
+            ("level0name", f"el esquema {actual().del_}", esquema or "dbo"),
+            ("level1name", f"el nombre {actual().del_}", nombre_proc or actual().ejemplo_nombre),
             ("level2name", "el nombre del parámetro", "@nParametro"),
         ):
             if clave in args and _limpiar_valor(args[clave]) == "":
@@ -570,9 +579,9 @@ def _validar_procedimiento_documentado(
             origen=OrigenAnalisis.DICCIONARIO,
             severidad=Severidad.MEDIO,
             regla="DESCRIPCION_PROCEDIMIENTO_VACIA",
-            mensaje=f"Se comprobó que el diccionario del procedimiento {_nombre_completo(esquema, nombre_proc)} "
+            mensaje=f"Se comprobó que el diccionario {actual().del_} {_nombre_completo(esquema, nombre_proc)} "
                     f"está documentado, pero su descripción se encuentra vacía. Incluir la descripción respectiva "
-                    f"que indique la finalidad del procedimiento, para así contar con una documentación completa."
+                    f"que indique la finalidad {actual().del_}, para así contar con una documentación completa."
         )]
 
     if tipo_sentencia == "ALTER":
@@ -581,9 +590,10 @@ def _validar_procedimiento_documentado(
             origen=OrigenAnalisis.DICCIONARIO,
             severidad=Severidad.BAJO,
             regla="VALIDAR_DOCUMENTACION_ALTER",
-            mensaje=f"El diccionario no incluye la descripción del procedimiento "
-                    f"{_nombre_completo(esquema, nombre_proc)}, aunque podría estar documentado previamente al "
-                    f"tratarse de una modificación (ALTER PROCEDURE). Verificar si ya cuenta con descripción en "
+            mensaje=f"El diccionario no incluye la descripción {actual().del_} "
+                    f"{_nombre_completo(esquema, nombre_proc)}, aunque podría estar {actual().documentado} "
+                    f"previamente al tratarse de una modificación ({actual().alter}). Verificar si ya cuenta con "
+                    f"descripción en "
                     f"el diccionario y, de no tenerla, incluir la descripción respectiva."
         )]
 
@@ -592,9 +602,9 @@ def _validar_procedimiento_documentado(
         origen=OrigenAnalisis.DICCIONARIO,
         severidad=Severidad.ALTO,
         regla="PROCEDIMIENTO_SIN_DESCRIPCION",
-        mensaje=f"El procedimiento {_nombre_completo(esquema, nombre_proc)} no se encuentra "
-                f"documentado. Añadir la descripción del procedimiento al diccionario, ya que todo "
-                f"procedimiento nuevo debe estar documentado."
+        mensaje=f"{actual().El} {_nombre_completo(esquema, nombre_proc)} no se encuentra "
+                f"{actual().documentado}. Añadir la descripción {actual().del_} al diccionario, ya que "
+                f"{actual().todo_nuevo} debe estar {actual().documentado}."
     )]
 
 
@@ -619,7 +629,7 @@ def _validar_ortografia(
     nombres_objeto = {esquema or "", nombre_proc, *parametros_reales}
     hallazgos = []
     for pos, args in llamadas:
-        if "PROCEDURE" not in args.get("level1type", "").upper() or "value" not in args:
+        if actual().tipo_sql not in args.get("level1type", "").upper() or "value" not in args:
             continue
         descripcion = _texto_de_valor(args["value"])
         if not descripcion.strip():
@@ -627,8 +637,9 @@ def _validar_ortografia(
         if "PARAMETER" in args.get("level2type", "").upper():
             lugar = ("parámetro", _limpiar_valor(args.get("level2name", "?")))
         else:
-            lugar = ("procedimiento", _nombre_completo(esquema, nombre_proc))
-        objeto = f"del {lugar[0]} {lugar[1]}"
+            lugar = (actual().nombre, _nombre_completo(esquema, nombre_proc))
+        objeto = (f"del {lugar[0]} {lugar[1]}" if lugar[0] == "parámetro"
+                  else f"{actual().del_} {lugar[1]}")
         errores = palabras_mal_escritas(descripcion, nombres_objeto)
         if not errores:
             continue
@@ -638,11 +649,36 @@ def _validar_ortografia(
             origen=OrigenAnalisis.DICCIONARIO,
             severidad=Severidad.MEDIO,
             regla="ERROR_ORTOGRAFICO",
-            mensaje=redactar_error_ortografico(objeto, errores, "del procedimiento"),
+            mensaje=redactar_error_ortografico(objeto, errores, actual().del_),
         ), elemento_ortografico(objeto, errores)))
         # Para juntar la misma palabra de varias descripciones en una sola línea (juntar_ortografia).
         hallazgos[-1].errores, hallazgos[-1].lugar = errores, lugar
     return hallazgos
+
+
+def _validar_palabras_repetidas(
+    llamadas: List[Tuple[int, Dict[str, str]]], texto_diccionario: str, esquema: str, nombre_proc: str
+) -> List[Hallazgo]:
+    """«…el repositorio de de RRHH…»: una sola observación con todas las del diccionario (usuaria, 11 nov.)."""
+    descripciones = [
+        (_numero_linea(texto_diccionario, _posicion_valor(texto_diccionario, pos)), _texto_de_valor(args["value"]))
+        for pos, args in llamadas
+        if actual().tipo_sql in args.get("level1type", "").upper() and "value" in args
+    ]
+    agrupado = palabra_repetida_agrupada(descripciones)
+    if not agrupado:
+        return []
+    linea, mensaje, lineas = agrupado
+    hallazgo = Hallazgo(
+        linea=linea,
+        origen=OrigenAnalisis.DICCIONARIO,
+        severidad=Severidad(REGLAS_DICCIONARIO_PROCEDIMIENTOS["PALABRA_REPETIDA"].severidad),
+        regla="PALABRA_REPETIDA",
+        mensaje=mensaje,
+    )
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas
+    return [hallazgo]
 
 
 def _validar_descripcion_vs_nombre(
@@ -688,23 +724,41 @@ _REGLAS_GENERALES = {
     "ALTER_SIN_DICCIONARIO", "PARAMETRO_FALTANTE",
 }
 
-# Reglas que, repetidas, se reportan una vez con la lista de elementos.
-_PLANTILLAS_AGRUPADAS = {
-    "PARAMETRO_FALTANTE": (
-        "parámetros sin documentar",
-        "Se recomienda añadir los parámetros faltantes al diccionario del procedimiento, cada uno "
-        "con su descripción, ya que todo parámetro de un procedimiento nuevo debe estar documentado.",
-    ),
-    "VALIDAR_DOCUMENTACION_ALTER": (
-        "parámetros que no se encuentran en el diccionario",
-        "Verificar si ya cuentan con descripción en el diccionario, al tratarse de una modificación del "
-        "procedimiento (ALTER PROCEDURE), y, de no tenerla, incluir la descripción respectiva de cada uno.",
-    ),
-    "DESCRIPCION_VACIA": (
-        "parámetros con la descripción vacía",
-        "Completar la descripción indicando para qué se usa cada parámetro, de modo que quede claro para "
-        "quien consulte el procedimiento.",
-    ),
+# Reglas que, repetidas, se reportan una vez con la lista de elementos (según el objeto en revisión).
+def _plantillas_agrupadas() -> Dict[str, Tuple[str, str]]:
+    o = actual()
+    return {
+        "PARAMETRO_FALTANTE": (
+            "parámetros sin documentar",
+            f"Se recomienda añadir los parámetros faltantes al diccionario {o.del_}, cada uno "
+            f"con su descripción, ya que todo parámetro de {o.un_nuevo} debe estar documentado.",
+        ),
+        "VALIDAR_DOCUMENTACION_ALTER": (
+            "parámetros que no se encuentran en el diccionario",
+            f"Verificar si ya cuentan con descripción en el diccionario, al tratarse de una modificación "
+            f"{o.del_} ({o.alter}), y, de no tenerla, incluir la descripción respectiva de cada uno.",
+        ),
+        "DESCRIPCION_VACIA": (
+            "parámetros con la descripción vacía",
+            f"Completar la descripción indicando para qué se usa cada parámetro, de modo que quede claro para "
+            f"quien consulte {o.el}.",
+        ),
+        "PARAMETRO_NO_EXISTE": (
+            f"parámetros documentados que no existen en {o.el}",
+            "Corregir el nombre de cada parámetro en el diccionario o retirar esas sentencias, ya que SQL Server "
+            "no encuentra esos parámetros y el script del diccionario falla.",
+        ),
+        "PARAMETRO_NOMBRE_INCORRECTO": (
+            f"parámetros documentados con un nombre que no existe en {o.el}",
+            "Corregir el nombre de cada parámetro en el diccionario, ya que SQL Server no encuentra esos "
+            "parámetros y el script del diccionario falla.",
+        ),
+        **_PLANTILLAS_COMUNES,
+    }
+
+
+# Las que no nombran al objeto.
+_PLANTILLAS_COMUNES = {
     "ERROR_ORTOGRAFICO": (
         "descripciones con errores de escritura",
         ACCION_ORTOGRAFIA,
@@ -712,16 +766,6 @@ _PLANTILLAS_AGRUPADAS = {
     "DESCRIPCION_NO_COINCIDE_CON_NOMBRE": (
         "parámetros cuya descripción no coincide con su nombre",
         "Se recomienda revisar la descripción o el nombre de cada parámetro, ya que deben referirse al mismo dato.",
-    ),
-    "PARAMETRO_NO_EXISTE": (
-        "parámetros documentados que no existen en el procedimiento",
-        "Corregir el nombre de cada parámetro en el diccionario o retirar esas sentencias, ya que SQL Server "
-        "no encuentra esos parámetros y el script del diccionario falla.",
-    ),
-    "PARAMETRO_NOMBRE_INCORRECTO": (
-        "parámetros documentados con un nombre que no existe en el procedimiento",
-        "Corregir el nombre de cada parámetro en el diccionario, ya que SQL Server no encuentra esos parámetros "
-        "y el script del diccionario falla.",
     ),
     "NOMBRE_PROPIEDAD_INCORRECTO": (
         "propiedades con el nombre mal escrito",
@@ -740,7 +784,34 @@ def _nombre_del_encabezado(m: re.Match) -> str:
     return m.group(0).split(".")[-1].split()[-1].strip().strip("[]")
 
 
+# Con una función, las reglas que nombran al procedimiento llevan su propio código (y su título en pantalla).
+_CODIGOS_DE_FUNCION = {
+    "PROCEDIMIENTO_SIN_DESCRIPCION": "FUNCION_SIN_DESCRIPCION",
+    "DESCRIPCION_PROCEDIMIENTO_VACIA": "DESCRIPCION_FUNCION_VACIA",
+    "PROCEDIMIENTO_DUPLICADO": "FUNCION_DUPLICADA",
+    "PROCEDIMIENTO_FUERA_DEL_SCRIPT": "FUNCION_FUERA_DEL_SCRIPT",
+    "NOMBRE_NO_COINCIDE": "NOMBRE_FUNCION_NO_COINCIDE",
+}
+
+
 def verificar_diccionario(
+    texto_procedimiento: str,
+    texto_diccionario: str,
+    objeto: str = "procedimiento",
+) -> List[Hallazgo]:
+    """Diccionario de un procedimiento (por defecto) o de una función (objeto="funcion"): mismas reglas."""
+    token = usar(POR_CLAVE.get(objeto, PROCEDIMIENTO))
+    try:
+        hallazgos = _verificar_diccionario(texto_procedimiento, texto_diccionario)
+    finally:
+        restaurar(token)
+    if objeto == FUNCION.clave:
+        for hallazgo in hallazgos:
+            hallazgo.regla = _CODIGOS_DE_FUNCION.get(hallazgo.regla, hallazgo.regla)
+    return hallazgos
+
+
+def _verificar_diccionario(
     texto_procedimiento: str,
     texto_diccionario: str
 ) -> List[Hallazgo]:
@@ -752,23 +823,23 @@ def verificar_diccionario(
     diccionario y las observaciones se juntan por regla.
     """
     # Un procedimiento creado dos veces se avisa una vez y se revisa solo su primera copia.
-    texto_procedimiento, repetidos = quitar_creaciones_repetidas(texto_procedimiento, "procedimiento")
+    texto_procedimiento, repetidos = quitar_creaciones_repetidas(texto_procedimiento, actual().clave)
     duplicado = hallazgo_repetidos(
-        repetidos, "procedimiento", "PROCEDIMIENTO_DUPLICADO",
+        repetidos, actual().clave, "PROCEDIMIENTO_DUPLICADO",
         REGLAS_DICCIONARIO_PROCEDIMIENTOS["PROCEDIMIENTO_DUPLICADO"].severidad, OrigenAnalisis.DICCIONARIO,
     )
     if duplicado:
         duplicado.seccion = "objeto"
-    varios = por_objeto(texto_procedimiento, texto_diccionario, _ENCABEZADO, _nombre_del_encabezado)
+    varios = por_objeto(texto_procedimiento, texto_diccionario, _encabezado(), _nombre_del_encabezado)
     if varios is None:
         # Si el diccionario documenta además otros procedimientos (que no vinieron en el script), se
         # revisa solo lo de este y los otros se avisan una vez como «procedimiento fuera del script».
-        nombres = nombres_del_script(texto_procedimiento, _ENCABEZADO, _nombre_del_encabezado)
+        nombres = nombres_del_script(texto_procedimiento, _encabezado(), _nombre_del_encabezado)
         propio = sin_otros_objetos(texto_diccionario, nombres[0]) if len(nombres) == 1 else None
         hallazgos = agrupar(
             juntar_ortografia(_revisar_procedimiento(texto_procedimiento, propio or texto_diccionario),
                               ACCION_ORTOGRAFIA),
-            _PLANTILLAS_AGRUPADAS,
+            _plantillas_agrupadas(),
         )
         if propio is not None:
             hallazgos += _procedimientos_fuera_del_script(texto_diccionario, nombres)
@@ -778,10 +849,10 @@ def verificar_diccionario(
             for hallazgo in _revisar_procedimiento(texto, diccionario):
                 hallazgo.objeto = nombre
                 hallazgos.append(hallazgo)
-        hallazgos = agrupar_varios(juntar_ortografia(hallazgos, ACCION_ORTOGRAFIA), _PLANTILLAS_AGRUPADAS,
-                                   "el procedimiento")
+        hallazgos = agrupar_varios(juntar_ortografia(hallazgos, ACCION_ORTOGRAFIA), _plantillas_agrupadas(),
+                                   actual().el)
         hallazgos += _procedimientos_fuera_del_script(
-            texto_diccionario, nombres_del_script(texto_procedimiento, _ENCABEZADO, _nombre_del_encabezado)
+            texto_diccionario, nombres_del_script(texto_procedimiento, _encabezado(), _nombre_del_encabezado)
         )
     hallazgos += _documentacion_existente_en_alter(texto_procedimiento, texto_diccionario)
     return ([duplicado] if duplicado else []) + hallazgos
@@ -798,7 +869,8 @@ def _documentacion_existente_en_alter(texto_procedimiento: str, texto_diccionari
     se pide validar. Va en una sola observación para todo el script (CREATE OR ALTER cuenta como CREATE).
     """
     alterados: Dict[str, str] = {}
-    for encabezado in _ENCABEZADO.finditer(_sin_comentarios_ni_textos(texto_procedimiento)):
+    o = actual()
+    for encabezado in _encabezado().finditer(_sin_comentarios_ni_textos(texto_procedimiento)):
         if encabezado.group(1).upper() != "ALTER":
             continue
         esquema, nombre = extraer_esquema_y_nombre(encabezado.group(0))
@@ -810,7 +882,7 @@ def _documentacion_existente_en_alter(texto_procedimiento: str, texto_diccionari
         if ll.operacion != "add" or ll.texto("name").upper() != "MS_DESCRIPTION":
             continue
         nombre = alterados.get(ll.texto("level1name").upper())
-        if not nombre or "PROCEDURE" not in ll.texto("level1type").upper():
+        if not nombre or o.tipo_sql not in ll.texto("level1type").upper():
             continue
         partes = por_procedimiento.setdefault(nombre, {"procedimiento": [], "parametros": []})
         if "PARAMETER" in ll.texto("level2type").upper():
@@ -833,8 +905,8 @@ def _documentacion_existente_en_alter(texto_procedimiento: str, texto_diccionari
             de_parametros = (f"el parámetro {parametros[0]}" if len(parametros) == 1
                              else f"los parámetros {_enumerar(parametros)}")
         else:
-            return "el procedimiento"
-        return f"el procedimiento y {de_parametros}" if partes["procedimiento"] else de_parametros
+            return o.el
+        return f"{o.el} y {de_parametros}" if partes["procedimiento"] else de_parametros
 
     accion = ("Verificar si ya cuentan con descripción en el diccionario, ya que de ser así la ejecución del "
               "script fallará. En ese caso, retirar esas sentencias o reemplazarlas por sentencias de "
@@ -845,14 +917,14 @@ def _documentacion_existente_en_alter(texto_procedimiento: str, texto_diccionari
     if len(por_procedimiento) == 1:
         nombre, partes = next(iter(por_procedimiento.items()))
         if not partes["parametros"]:
-            mensaje = (f"Se identificó que el diccionario agrega la descripción del procedimiento {nombre}, que ya "
+            mensaje = (f"Se identificó que el diccionario agrega la descripción {o.del_} {nombre}, que ya "
                        f"existe (ALTER). {accion}")
         else:
-            mensaje = (f"Se identificó que el diccionario agrega descripciones al procedimiento {nombre}, que ya "
+            mensaje = (f"Se identificó que el diccionario agrega descripciones {o.al} {nombre}, que ya "
                        f"existe (ALTER): {detalle(partes)}. {accion}")
     else:
         casos = "; ".join(f"{nombre}: {detalle(partes)}" for nombre, partes in por_procedimiento.items())
-        mensaje = (f"Se identificaron {len(por_procedimiento)} procedimientos que ya existen (ALTER) a los que el "
+        mensaje = (f"Se identificaron {len(por_procedimiento)} {o.plural} que ya existen (ALTER) a los que el "
                    f"diccionario agrega descripciones: {casos}. {accion}")
     orden = sorted(lineas)
     hallazgo = Hallazgo(
@@ -876,18 +948,19 @@ def _procedimientos_fuera_del_script(texto_diccionario: str, nombres: List[str])
     lineas = sorted({linea for _, de_uno in faltantes for linea in de_uno})
     lista = "; ".join(nombre for nombre, _ in faltantes)
     unico = len(faltantes) == 1
+    o = actual()
     hallazgo = Hallazgo(
         linea=lineas[0],
         origen=OrigenAnalisis.DICCIONARIO,
         severidad=Severidad(REGLAS_DICCIONARIO_PROCEDIMIENTOS["PROCEDIMIENTO_FUERA_DEL_SCRIPT"].severidad),
         regla="PROCEDIMIENTO_FUERA_DEL_SCRIPT",
         mensaje=(
-            f"Se identificó documentación del procedimiento {lista}, que no está en el script de los procedimientos. "
+            f"Se identificó documentación {o.del_} {lista}, que no está en el script de los {o.plural}. "
             if unico else
-            f"Se identificaron {len(faltantes)} procedimientos documentados que no están en el script de los "
-            f"procedimientos: {lista}. "
+            f"Se identificaron {len(faltantes)} {o.plural} {'documentados' if o is PROCEDIMIENTO else 'documentadas'} "
+            f"que no están en el script de los {o.plural}: {lista}. "
         ) + (
-            f"Se recomienda adjuntar el CREATE PROCEDURE de {'ese procedimiento' if unico else 'cada uno'} para "
+            f"Se recomienda adjuntar el {o.create} de {o.ese if unico else ('cada uno' if o is PROCEDIMIENTO else 'cada una')} para "
             f"revisar su documentación, o retirar esas sentencias si no corresponden a este pase."
         ),
     )
@@ -896,10 +969,14 @@ def _procedimientos_fuera_del_script(texto_diccionario: str, nombres: List[str])
     return [hallazgo]
 
 
-def diccionario_por_procedimiento(texto_procedimiento: str, texto_diccionario: str):
-    """[(texto del procedimiento, su diccionario)] — una sola entrada si el script tiene uno."""
-    texto_procedimiento, _ = quitar_creaciones_repetidas(texto_procedimiento, "procedimiento")
-    varios = por_objeto(texto_procedimiento, texto_diccionario, _ENCABEZADO, _nombre_del_encabezado)
+def diccionario_por_procedimiento(texto_procedimiento: str, texto_diccionario: str, objeto: str = "procedimiento"):
+    """[(texto del objeto, su diccionario)] — una sola entrada si el script tiene uno."""
+    token = usar(POR_CLAVE.get(objeto, PROCEDIMIENTO))
+    try:
+        texto_procedimiento, _ = quitar_creaciones_repetidas(texto_procedimiento, actual().clave)
+        varios = por_objeto(texto_procedimiento, texto_diccionario, _encabezado(), _nombre_del_encabezado)
+    finally:
+        restaurar(token)
     return [(texto_procedimiento, texto_diccionario)] if varios is None else [(t, d) for _, t, d in varios]
 
 
@@ -942,13 +1019,14 @@ def _revisar_procedimiento(texto_procedimiento: str, texto_diccionario: str) -> 
     hallazgos = solo_un_error_por_sentencia(hallazgos, {"PARAMETRO_NO_EXISTE", "PARAMETRO_NOMBRE_INCORRECTO"})
     hallazgos += _validar_nombre_propiedad(texto_diccionario, esquema, nombre_proc)
     hallazgos += _validar_ortografia(llamadas, texto_diccionario, esquema, nombre_proc, parametros_reales)
+    hallazgos += _validar_palabras_repetidas(llamadas, texto_diccionario, esquema, nombre_proc)
     hallazgos += _validar_descripcion_vs_nombre(llamadas, texto_diccionario)
     if REGLAS_DICCIONARIO_PROCEDIMIENTOS["VALOR_SIN_COMILLAS"].activo:
         hallazgos += _validar_valores_sin_comillas(llamadas, texto_diccionario)
 
     # Los parámetros se ubican en su línea del CREATE/ALTER.
     for hallazgo in hallazgos:
-        if getattr(hallazgo, "elemento", None) and hallazgo.regla not in ("DESCRIPCION_VACIA", "NOMBRE_PROPIEDAD_INCORRECTO"):
+        if getattr(hallazgo, "elemento", None) and hallazgo.regla not in ("DESCRIPCION_VACIA", "NOMBRE_PROPIEDAD_INCORRECTO", "PALABRA_REPETIDA"):
             ubicar(hallazgo, texto_procedimiento)
     asignar_secciones(hallazgos, _REGLAS_DEL_OBJETO, _REGLAS_GENERALES)
     return hallazgos

@@ -46,6 +46,30 @@ export const DICCIONARIO_PROCEDIMIENTO = `EXEC sys.sp_addextendedproperty
 @level1type=N'PROCEDURE', @level1name=N'PA_Cliente_Sel_PorId'
 GO`;
 
+export const SQL_FUNCION = `CREATE FUNCTION CLICKTOPAY.FN_Cliente_Nombre
+(
+    @nClienteId INT
+)
+RETURNS VARCHAR(100)
+AS
+BEGIN
+    RETURN (SELECT cNombre FROM CLICKTOPAY.Cliente WHERE nClienteId = @nClienteId);
+END;`;
+
+export const DICCIONARIO_FUNCION = `EXEC sys.sp_addextendedproperty
+@name=N'MS_Description',
+@value=N'Función que devuelve el nombre del cliente',
+@level0type=N'SCHEMA', @level0name=N'CLICKTOPAY',
+@level1type=N'FUNCTION', @level1name=N'FN_Cliente_Nombre'
+GO
+EXEC sys.sp_addextendedproperty
+@name=N'MS_Description',
+@value=N'Identificador del cliente',
+@level0type=N'SCHEMA', @level0name=N'CLICKTOPAY',
+@level1type=N'FUNCTION', @level1name=N'FN_Cliente_Nombre',
+@level2type=N'PARAMETER', @level2name=N'@nClienteId'
+GO`;
+
 export const DICCIONARIO_TABLA = `EXEC sys.sp_addextendedproperty
 @name=N'MS_Description',
 @value=N'Tabla que almacena la informacion del cliente',

@@ -819,6 +819,25 @@ def _separar_por_comas(contenido: str) -> List[tuple]:
     return partes
 
 
+# Lo que empieza otra sentencia. No se corta en SELECT (INSERT … SELECT es una sola), ni en SET o END (UPDATE … SET,
+# CASE … END van dentro de la misma).
+_INICIO_DE_SENTENCIA = re.compile(
+    r";|\b(?:INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|TRUNCATE|DECLARE|WHILE|RETURN|EXEC(?:UTE)?)\b",
+    re.IGNORECASE,
+)
+_TEMPORAL = re.compile(r"(?<![\w@#])([#@][A-Za-z_]\w*)")
+
+
+def _temporales_relacionadas(limpio: str) -> set:
+    """Pares {#A, #B} de temporales (o variables de tabla) que aparecen juntas en una misma sentencia."""
+    pares = set()
+    cortes = [0] + [m.start() for m in _INICIO_DE_SENTENCIA.finditer(limpio)] + [len(limpio)]
+    for inicio, fin in zip(cortes, cortes[1:]):
+        nombres = {n.lower() for n in _TEMPORAL.findall(limpio[inicio:fin])}
+        pares |= {frozenset((a, b)) for a in nombres for b in nombres if a != b}
+    return pares
+
+
 def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
     """
     Una misma columna declarada en varias tablas temporales (#T) o variables de
@@ -852,6 +871,25 @@ def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
                 tablas.append(tabla)
                 # Línea donde la temporal define la columna («Ir a la línea» del detalle).
                 datos["linea_de_tabla"][(tipo, tabla.lower())] = _linea(texto, posicion)
+
+    # Solo cuentan las temporales que se relacionan (usuaria, 11 nov.: «c1» VARCHAR(2) en #TmpDetalle y
+    # VARCHAR(MAX) en #TmpVss, que nunca se cruzan, no es un riesgo): una llena a la otra, se unen con JOIN o
+    # se actualizan entre sí, es decir, aparecen en la misma sentencia.
+    relacionadas = _temporales_relacionadas(limpio)
+    for datos in columnas.values():
+        if len(datos["tipos"]) < 2:
+            continue
+        cruzadas = {
+            tabla.lower()
+            for tipo, tablas in datos["tipos"].items() for tabla in tablas
+            for otro_tipo, otras in datos["tipos"].items() if otro_tipo != tipo
+            for otra in otras if frozenset((tabla.lower(), otra.lower())) in relacionadas
+        }
+        datos["tipos"] = {
+            tipo: [t for t in tablas if t.lower() in cruzadas]
+            for tipo, tablas in datos["tipos"].items()
+            if any(t.lower() in cruzadas for t in tablas)
+        }
 
     # Todas las columnas en una sola observación, una viñeta corta por columna (texto de la usuaria, 7 nov.):
     # «'cCodAge': VARCHAR(3) en 8 tablas temporales y VARCHAR(5) en #FIN». Un tipo en una sola tabla lleva su

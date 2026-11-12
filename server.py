@@ -120,12 +120,12 @@ class GenesisHandler(SimpleHTTPRequestHandler):
 
         # En diccionarios, el tipo se toma del propio SQL: una tabla revisada
         # con las reglas de procedimientos devolvería 0 hallazgos en silencio.
-        if tipo in ('tabla', 'procedimiento') and modo_revision != 'tabla_estructura':
+        if tipo in ('tabla', 'procedimiento', 'funcion') and modo_revision != 'tabla_estructura':
             detectado = detectar_objeto(sql_text)
             if detectado is None:
                 self._send_json({
-                    'error': 'No se reconoce el objeto: pega el CREATE/ALTER TABLE o el '
-                             'CREATE/ALTER PROCEDURE que documenta el diccionario.'
+                    'error': 'No se reconoce el objeto: pega el CREATE/ALTER TABLE, PROCEDURE o '
+                             'FUNCTION que documenta el diccionario.'
                 }, status=400)
                 return
             tipo = detectado
@@ -136,12 +136,13 @@ class GenesisHandler(SimpleHTTPRequestHandler):
                 hallazgos = verificar_reporte(sql_text)
             elif tipo == 'procedimiento_normal':
                 hallazgos = verificar_procedimiento_normal(sql_text, es_del_motor)
-            elif tipo == 'procedimiento':
-                hallazgos = verificar_diccionario(sql_text, dict_text)
-                # Con varios procedimientos en el script, el faltante se arma uno por uno.
+            elif tipo in ('procedimiento', 'funcion'):
+                # La función se revisa con las mismas reglas que el procedimiento (usuaria, 11 nov.).
+                hallazgos = verificar_diccionario(sql_text, dict_text, tipo)
+                # Con varios objetos en el script, el faltante se arma uno por uno.
                 faltante = unir_faltantes([
-                    diccionario_faltante_procedimiento(texto, diccionario)
-                    for texto, diccionario in diccionario_por_procedimiento(sql_text, dict_text)
+                    diccionario_faltante_procedimiento(texto, diccionario, tipo)
+                    for texto, diccionario in diccionario_por_procedimiento(sql_text, dict_text, tipo)
                 ])
             elif tipo == 'tabla_estructura' or modo_revision == 'tabla_estructura':
                 hallazgos = verificar_tabla(sql_text, es_dbcmaica) if sql_text.strip() else []

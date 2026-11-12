@@ -27,9 +27,13 @@ _VALOR = r"(?:N?'[^']*'|-?\d+(?:\.\d+)?|@\w+|[A-Za-z_]\w*\s*\([^()]*\)|[A-Za-z_]
 
 # Un comentario de línea con código: la sentencia o, para las palabras que podrían iniciar una frase, su forma de
 # código (WHERE col = …, TOP (10), THEN 'x', JOIN tabla, SET @x = …).
+# Una línea de encabezado «Etiqueta: valor» no es código: «-- Create date: 05-09-2012», «-- Update:», «-- Update
+# date:» (plantilla de SSMS; caso de la usuaria, 11 nov.). Hasta tres palabras y los dos puntos.
+_ETIQUETA = r"(?:[A-Za-zÁÉÍÓÚÑáéíóúñ]+[ \t]+){0,2}[A-Za-zÁÉÍÓÚÑáéíóúñ]+[ \t]*:(?!:)"
+
 _CODIGO_EN_LINEA = re.compile(
     # Puede empezar con paréntesis: «--(case when CAST(…) in (select …) then …)» (caso de la usuaria, 8 nov.).
-    rf"--\s*(?:\(\s*)*(?:"
+    rf"--\s*(?!{_ETIQUETA})(?:\(\s*)*(?:"
     rf"(?:{_SENTENCIAS})\b"
     rf"|CASE\s+WHEN\s+(?:(?:NOT\s+)?EXISTS\b|{_EXPRESION}\s*(?:=|<>|!=|<=|>=|<|>|\bIN\b|\bIS\b|\bLIKE\b|\bBETWEEN\b|\bNOT\b))"
     rf"|(?:WHERE|AND|OR|ON|HAVING)\s+{_OBJETO}\s*(?:=|<>|!=|<|>|\bIN\b|\bLIKE\b|\bIS\b|\bBETWEEN\b|\bNOT\b)"
@@ -46,7 +50,7 @@ _CODIGO_EN_LINEA = re.compile(
     rf")",
     re.IGNORECASE,
 )
-_CODIGO_EN_BLOQUE = re.compile(rf"/\*\s*(?:{_SENTENCIAS})\b", re.IGNORECASE)
+_CODIGO_EN_BLOQUE = re.compile(rf"/\*\s*(?!{_ETIQUETA})(?:{_SENTENCIAS})\b", re.IGNORECASE)
 
 
 def _comentarios(texto: str) -> List[Tuple[int, str]]:

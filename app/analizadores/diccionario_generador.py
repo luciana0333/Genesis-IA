@@ -14,6 +14,7 @@ import re
 from typing import List, Optional, Set
 
 from app.analizadores import analizador_diccionario_procedimientos as procedimientos
+from app.analizadores.objeto_programable import POR_CLAVE, PROCEDIMIENTO, actual, restaurar, usar
 from app.analizadores import analizador_diccionario_tablas as tablas
 from app.analizadores import descripciones_sugeridas as sugeridas
 from app.analizadores.propiedades_extendidas import descripcion_mal_escrita, leer_propiedades_extendidas
@@ -164,7 +165,19 @@ def diccionario_faltante_tabla(texto_tabla: str, texto_diccionario: str) -> Opti
     return _armar(f"Diccionario faltante de la tabla {esquema_sql}.{nombre}", sentencias, elementos)
 
 
-def diccionario_faltante_procedimiento(texto_procedimiento: str, texto_diccionario: str) -> Optional[dict]:
+def diccionario_faltante_procedimiento(
+    texto_procedimiento: str, texto_diccionario: str, objeto: str = "procedimiento",
+) -> Optional[dict]:
+    """Diccionario faltante de un procedimiento o de una función (objeto="funcion")."""
+    token = usar(POR_CLAVE.get(objeto, PROCEDIMIENTO))
+    try:
+        return _faltante_procedimiento(texto_procedimiento, texto_diccionario)
+    finally:
+        restaurar(token)
+
+
+def _faltante_procedimiento(texto_procedimiento: str, texto_diccionario: str) -> Optional[dict]:
+    o = actual()
     esquema, nombre = procedimientos.extraer_esquema_y_nombre(texto_procedimiento)
     if nombre is None or procedimientos.extraer_tipo_sentencia(texto_procedimiento) != "CREATE":
         # En un ALTER PROCEDURE no se sabe qué ya estaba documentado: solo se pide validar.
@@ -174,7 +187,7 @@ def diccionario_faltante_procedimiento(texto_procedimiento: str, texto_diccionar
         ll.texto("level2name").upper() for ll in llamadas if "PARAMETER" in ll.texto("level2type").upper()
     }
     procedimiento_documentado = any(
-        "PROCEDURE" in ll.texto("level1type").upper() and "PARAMETER" not in ll.texto("level2type").upper()
+        o.tipo_sql in ll.texto("level1type").upper() and "PARAMETER" not in ll.texto("level2type").upper()
         for ll in llamadas
     )
 
@@ -186,14 +199,14 @@ def diccionario_faltante_procedimiento(texto_procedimiento: str, texto_diccionar
     sentencias, elementos = [], []
     if not procedimiento_documentado:
         sentencias.append(_sentencia(
-            "finalidad del procedimiento", sugeridas.sugerir_procedimiento(nombre), esquema_sql, "PROCEDURE", nombre,
+            f"finalidad {o.del_}", sugeridas.sugerir_procedimiento(nombre), esquema_sql, o.tipo_sql, nombre,
         ))
-        elementos.append(f"procedimiento {nombre}")
+        elementos.append(f"{o.nombre} {nombre}")
     faltantes = {p for p in procedimientos.extraer_parametros(texto_procedimiento) if p.upper() not in documentados}
     for parametro in _en_orden(faltantes, texto_procedimiento):
         sentencias.append(_sentencia(
             "para qué se usa el parámetro", sugeridas.sugerir_columna(parametro, entidad, es_parametro=True, accion=accion),
-            esquema_sql, "PROCEDURE", nombre, "PARAMETER", parametro,
+            esquema_sql, o.tipo_sql, nombre, "PARAMETER", parametro,
         ))
         elementos.append(parametro)
-    return _armar(f"Diccionario faltante del procedimiento {esquema_sql}.{nombre}", sentencias, elementos)
+    return _armar(f"Diccionario faltante {o.del_} {esquema_sql}.{nombre}", sentencias, elementos)

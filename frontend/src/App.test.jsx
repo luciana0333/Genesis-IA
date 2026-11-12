@@ -98,13 +98,18 @@ describe('App', () => {
     expect(cuerpo).toMatchObject({ esDbcmaica: true });
   });
 
-  it('en Diccionarios solo ofrece diccionario de procedimiento y de tabla', async () => {
+  it('en Diccionarios ofrece diccionario de procedimiento, de función y de tabla', async () => {
     const usuario = userEvent.setup();
     render(<App />);
     const selector = screen.getByLabelText('Tipo de revisión');
 
     const opciones = within(selector).getAllByRole('option').map((opcion) => opcion.textContent);
-    expect(opciones).toEqual(['Diccionario de procedimiento', 'Diccionario de tabla']);
+    expect(opciones).toEqual(['Diccionario de procedimiento', 'Diccionario de función', 'Diccionario de tabla']);
+
+    // Diccionario de función (usuaria, 11 nov.): mismas cajitas, con su ejemplo.
+    await usuario.selectOptions(selector, 'funcion');
+    expect(screen.getByLabelText('SQL de la función').value).toContain('CREATE FUNCTION');
+    expect(screen.getByLabelText('Código del diccionario de función').value).toContain("@level1type=N'FUNCTION'");
 
     await usuario.selectOptions(selector, 'tabla');
     expect(screen.getByLabelText('SQL de la tabla (CREATE / ALTER)').value).toContain('CREATE TABLE');
