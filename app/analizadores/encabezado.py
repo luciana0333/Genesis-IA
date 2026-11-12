@@ -16,7 +16,14 @@ AS o del BEGIN):
     *****************************************************************/
 
 Una sola regla: sin encabezado, o con datos que faltan (se nombran solo los que faltan). Se aceptan los nombres
-que usa cada equipo (PROPÓSITO, CREADO POR, FECHA CREACIÓN, HISTORIAL DE CAMBIOS...).
+que usa cada equipo (PROPÓSITO, CREADO POR, FECHA CREACIÓN, HISTORIAL DE CAMBIOS...) y la plantilla en inglés de
+SSMS (caso de la usuaria, 11 nov.):
+
+    -- Author:      LFCE
+    -- Create date: 05-09-2012
+    -- Description: Inserta en tablas Datos de las Trx VISA
+    -- AAAA-MM-DD - USER -  Descripcion del cambio
+    -- 2016-04-29 - KAAY -  Agrega Registro de Usuario a NETLogConciliacion
 """
 
 import re
@@ -27,9 +34,10 @@ _COMENTARIO = re.compile(r"/\*[\s\S]*?(?:\*/|$)|--[^\n]*")
 
 # Cada dato con su etiqueta y un valor en la misma línea («Autor | LMPE» o «Autor: LMPE»). La fila de títulos de
 # «Control de Cambios» (Fecha | Autor | Descripción) no cuenta como valor: tras la etiqueta viene otra etiqueta.
-_DESCRIPCION = r"(?:Descripci[oó]n|Prop[oó]sito|Objetivo)"
-_AUTOR = r"(?:Autor|Creado\s+por|Elaborado\s+por|Desarrollado\s+por|Responsable)"
-_ETIQUETAS = rf"(?:Nombre|{_DESCRIPCION}|{_AUTOR}|Fecha|Motivo)\b"
+_DESCRIPCION = r"(?:Descripci[oó]n|Prop[oó]sito|Objetivo|Description)"
+_AUTOR = r"(?:Autor|Creado\s+por|Elaborado\s+por|Desarrollado\s+por|Responsable|Author)"
+_FECHA = r"(?:Fecha|Date)"
+_ETIQUETAS = rf"(?:Nombre|Name|{_DESCRIPCION}|{_AUTOR}|{_FECHA}|Motivo)\b"
 _EXEC = r"\bEXEC(?:UTE)?\s+[\w\[]"
 _DATOS = (
     # El nombre puede ir en su propia línea o en el EXEC de ejemplo, que lo nombra.
@@ -37,12 +45,16 @@ _DATOS = (
      re.compile(rf"\bNombre\b[^|:\n]*[|:]\s*(?!{_ETIQUETAS})[\w\[]|{_EXEC}", re.IGNORECASE)),
     ("la descripción", re.compile(rf"\b{_DESCRIPCION}\b[^|:\n]*[|:]\s*(?!{_ETIQUETAS})\w", re.IGNORECASE)),
     ("el autor", re.compile(rf"\b{_AUTOR}\b[^|:\n]*[|:]\s*(?!{_ETIQUETAS})\w", re.IGNORECASE)),
-    ("la fecha", re.compile(r"\bFecha\b[^|:\n]*[|:]\s*[^|\n]*\d", re.IGNORECASE)),
+    ("la fecha", re.compile(rf"\b{_FECHA}\b[^|:\n]*[|:]\s*[^|\n]*\d", re.IGNORECASE)),
     # El título («Control de Cambios», «Historial de cambios») o, sin título, la fila de títulos de la tabla de
     # cambios en una línea: «Fecha  Autor  Descripción» (o Responsable / Motivo).
     ("el control de cambios",
      re.compile(r"\b(?:Control|Historial)\s+de\s+(?:cambios|modificaciones)\b"
-                r"|\bFecha\b[^\n]*\b(?:Autor|Responsable|Usuario)\b[^\n]*\b(?:Descripci[oó]n|Motivo|Detalle)\b",
+                r"|\bChange\s+(?:history|log)\b|\bDescripci[oó]n\s+del\s+cambio\b"
+                r"|\bFecha\b[^\n]*\b(?:Autor|Responsable|Usuario)\b[^\n]*\b(?:Descripci[oó]n|Motivo|Detalle)\b"
+                # Un cambio registrado: «2016-04-29 - KAAY - Agrega Registro…» o «29/04/2016 | KAAY | …».
+                r"|\b\d{4}-\d{2}-\d{2}\s*[-|]\s*\w+\s*[-|]\s*\w"
+                r"|\b\d{2}/\d{2}/\d{4}\s*[-|]\s*\w+\s*[-|]\s*\w",
                 re.IGNORECASE)),
     ("el ejemplo de ejecución (EXEC)", re.compile(_EXEC, re.IGNORECASE)),
 )

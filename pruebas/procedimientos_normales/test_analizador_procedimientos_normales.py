@@ -327,7 +327,10 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         sql = (
             f"CREATE TABLE #Clientes (nId INT, cNombre VARCHAR(40) {collate});\n"
             f"CREATE TABLE #Resumen (nId INT, cNombre VARCHAR(30) {collate});\n"
-            f"DECLARE @T TABLE (cNombre VARCHAR(40) {collate});\nSELECT t.cNombre FROM @T t;"
+            f"DECLARE @T TABLE (cNombre VARCHAR(40) {collate});\nSELECT t.cNombre FROM @T t;\n"
+            # Las temporales se cruzan (11 nov.: solo cuentan las que se relacionan en una sentencia).
+            f"INSERT INTO #Resumen (nId, cNombre) SELECT nId, cNombre FROM #Clientes;\n"
+            f"INSERT INTO @T (cNombre) SELECT cNombre FROM #Resumen;"
         )
         hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "TIPO_DISTINTO_ENTRE_TEMPORALES"]
         self.assertEqual([(h.linea, h.severidad.value) for h in hallazgos], [(1, "medio")])
@@ -350,7 +353,8 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
     def test_caso_de_la_usuaria_un_tipo_por_tabla(self):
         collate = "COLLATE SQL_Latin1_General_CP1_CI_AS"
         sql = (f"CREATE TABLE #ColocConfigInfRiesgos (cCalifInt CHAR(5) {collate});\n"
-               f"DECLARE @tCalifPrioridad TABLE (cCalifInt VARCHAR(10) {collate});\nSELECT 1")
+               f"DECLARE @tCalifPrioridad TABLE (cCalifInt VARCHAR(10) {collate});\n"
+               f"INSERT INTO @tCalifPrioridad (cCalifInt) SELECT cCalifInt FROM #ColocConfigInfRiesgos;")
         mensajes = [h.mensaje for h in verificar_procedimiento_normal(sql) if h.regla == "TIPO_DISTINTO_ENTRE_TEMPORALES"]
         self.assertEqual(len(mensajes), 1)
         self.assertIn(": 'cCalifInt': CHAR(5) en #ColocConfigInfRiesgos y VARCHAR(10) en @tCalifPrioridad. ", mensajes[0])
@@ -361,7 +365,9 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
                "CREATE TABLE #Zona (cCodZona CHAR(2), cDesZona VARCHAR(40));\n"
                "CREATE TABLE #ZonaAgencia (cCodZona CHAR(2), cCodAge CHAR(2));\n"
                "CREATE TABLE #TB_AGENCIA (cCodZona VARCHAR(2), cDesZona VARCHAR(40));\n"
-               "CREATE TABLE #TB_ZONAX (cCodZona VARCHAR(2), cDesZona VARCHAR(40));\n")
+               "CREATE TABLE #TB_ZONAX (cCodZona VARCHAR(2), cDesZona VARCHAR(40));\n"
+               "SELECT 1 FROM #Data D JOIN #Zona Z ON Z.cCodZona = D.cCodZona JOIN #ZonaAgencia ZA ON 1 = 1 "
+               "JOIN #TB_AGENCIA A ON 1 = 1 JOIN #TB_ZONAX X ON 1 = 1;\n")
         hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "TIPO_DISTINTO_ENTRE_TEMPORALES"]
         self.assertEqual(len(hallazgos), 1)
         self.assertTrue(hallazgos[0].mensaje.startswith(
@@ -381,6 +387,25 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             {"tipo": "VARCHAR(40)", "tablas": ["#Zona", "#TB_AGENCIA", "#TB_ZONAX"], "lineas": [2, 4, 5]},
         ])
         self.assertEqual(hallazgos[0].lineas, [1, 2, 3, 4, 5, 1, 2, 4, 5])
+
+    def test_temporales_que_no_se_cruzan_no_se_comparan(self):
+        # Caso de la usuaria (11 nov., PA_NET_InsertaDataTrxBaseII): «c1» VARCHAR(2) en #TmpDetalle y VARCHAR(MAX) en
+        # #TmpVss/#TmpOtros; cada una se llena de su XML y va a su propia tabla: nunca se cruzan.
+        sql = ("CREATE TABLE #TmpDetalle (c1 VARCHAR(2), c2 VARCHAR(2));\n"
+               "CREATE TABLE #TmpVss (c0 VARCHAR(10), c1 VARCHAR(MAX));\n"
+               "CREATE TABLE #TmpOtros (c0 VARCHAR(10), c1 VARCHAR(MAX));\n"
+               "INSERT INTO #TmpDetalle (c1, c2) SELECT T.F.value('(c1)[1]', 'VARCHAR(2)'), 'x' "
+               "FROM @pXMLDetalle.nodes('/a') AS T(F)\n"
+               "INSERT INTO #TmpVss (c0, c1) SELECT T.F.value('(c0)[1]', 'VARCHAR(10)'), 'y' "
+               "FROM @pXMLDetalleVSS.nodes('/a') AS T(F)\n"
+               "INSERT INTO dbo.Detalle SELECT c1 FROM #TmpDetalle\n"
+               "INSERT INTO dbo.Vss SELECT c0, c1 FROM #TmpVss\n"
+               "INSERT INTO dbo.Otros SELECT c0, c1 FROM #TmpOtros")
+        self.assertNotIn("TIPO_DISTINTO_ENTRE_TEMPORALES", {h.regla for h in verificar_procedimiento_normal(sql)})
+        # Si una pasa sus datos a la otra, sí se compara.
+        cruzadas = sql + "\nINSERT INTO #TmpVss (c0, c1) SELECT 'a', c1 FROM #TmpDetalle"
+        hallazgo = next(h for h in verificar_procedimiento_normal(cruzadas) if h.regla == "TIPO_DISTINTO_ENTRE_TEMPORALES")
+        self.assertIn("'c1': VARCHAR(2) en #TmpDetalle y VARCHAR(MAX) en #TmpVss.", hallazgo.mensaje)
 
     def test_misma_columna_con_el_mismo_tipo_es_valida(self):
         sql = "CREATE TABLE #A (nId INT, nMonto DECIMAL(18, 2));\nCREATE TABLE #B (nId INT, nMonto DECIMAL(18,2));"
