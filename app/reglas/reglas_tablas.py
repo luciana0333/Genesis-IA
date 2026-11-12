@@ -222,4 +222,14 @@ REGLAS_TABLAS = {
         "INDICE_DUPLICADO", "Índice duplicado", "medio",
         "No debe haber dos índices con las mismas columnas clave (ni uno igual a la clave primaria).",
     ),
+    # Usuaria, 11 nov.: en una tabla o columna nueva, validar si el VARCHAR(MAX) puede tener una longitud definida.
+    "COLUMNA_VARCHAR_MAX": ReglaDiccionario(
+        codigo="COLUMNA_VARCHAR_MAX",
+        nombre="Columna VARCHAR(MAX) en tabla nueva",
+        severidad="medio",
+        descripcion="Una columna nueva (N)VARCHAR(MAX) que no guarda JSON, XML ni HTML: validar si puede tener una "
+                    "longitud definida.",
+        alcance="tabla",
+        activo=True,
+    ),
 }

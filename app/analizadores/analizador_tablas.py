@@ -23,6 +23,7 @@ from app.analizadores.diccionario_agrupar import agrupar, con_elemento
 from app.analizadores.ortografia import disponible as diccionario_disponible, es_palabra_valida, separar_palabras
 from app.analizadores.objetos_repetidos import hallazgo_repetidos, quitar_creaciones_repetidas
 from app.analizadores.siglas import es_sigla_aprobada, uso_de_siglas
+from app.analizadores.varchar_max_html import nombre_de_html, prefijo_json
 from app.reglas.reglas_tablas import REGLAS_TABLAS
 
 
@@ -869,6 +870,11 @@ _PLANTILLAS_AGRUPADAS = {
         "Definir cada columna como NOT NULL o asignarle un valor por defecto (DEFAULT), ya que una "
         "tabla nueva no debe almacenar valores nulos.",
     ),
+    "COLUMNA_VARCHAR_MAX": (
+        "tablas con columnas nuevas (N)VARCHAR(MAX)",
+        "Se recomienda validar si es posible asignarles una longitud definida (ej.: VARCHAR(500)), ya que "
+        "VARCHAR(MAX) solo se justifica para JSON, XML, HTML o textos de gran tamaño.",
+    ),
     "COLUMNA_NOT_NULL_SIN_DEFAULT_EN_ALTER": (
         "columnas nuevas NOT NULL sin valor por defecto",
         "Agregue un DEFAULT a cada una o defínalas como NULL, ya que el ALTER TABLE fallará si la tabla ya "
@@ -1082,6 +1088,48 @@ def _agrupar_entre_tablas(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
     return resultado
 
 
+_TIPO_MAX = re.compile(r"^\s*(N?VARCHAR)\s*\(\s*MAX\s*\)", re.IGNORECASE)
+
+
+def _validar_varchar_max(
+    texto: str, columnas: List[ColumnaNueva], referencia: str, es_create: bool,
+) -> List[Hallazgo]:
+    """Columnas nuevas (N)VARCHAR(MAX): validar si pueden tener una longitud definida. Una sola observación
+    por tabla (texto de la usuaria, 11 nov.). No se marcan las que por su nombre guardan JSON, XML o HTML."""
+    casos = []
+    for columna in columnas:
+        tipo = _TIPO_MAX.match(columna.definicion)
+        if not tipo:
+            continue
+        nombre = columna.nombre
+        if prefijo_json(nombre) or nombre_de_html(nombre) or re.search(r"json|xml|html", nombre, re.IGNORECASE):
+            continue
+        casos.append((columna, f"{tipo.group(1).upper()}(MAX)"))
+    if not casos:
+        return []
+    tipos = {tipo for _, tipo in casos}
+    tipo = tipos.pop() if len(tipos) == 1 else "(N)VARCHAR(MAX)"
+    ejemplo = casos[0][1].replace("MAX", "500")
+    donde = f"en la tabla nueva {referencia}" if es_create else f"como columna nueva de la tabla {referencia}"
+    nombres = [columna.nombre for columna, _ in casos]
+    if len(casos) == 1:
+        mensaje = (f"Se identificó la columna {nombres[0]} definida como {tipo} {donde}. Se recomienda validar si "
+                   f"es posible asignarle una longitud definida (ej.: {ejemplo}), ya que {tipo} solo se justifica "
+                   f"para JSON, XML, HTML o textos de gran tamaño.")
+    else:
+        donde = f"en la tabla nueva {referencia}" if es_create else f"como columnas nuevas de la tabla {referencia}"
+        mensaje = (f"Se identificaron las columnas {_enumerar(nombres)} definidas como {tipo} {donde}. Se recomienda "
+                   f"validar si es posible asignarles una longitud definida (ej.: {ejemplo}), ya que {tipo} solo se "
+                   f"justifica para JSON, XML, HTML o textos de gran tamaño.")
+    hallazgo = _hallazgo(texto, casos[0][0].posicion, "COLUMNA_VARCHAR_MAX", mensaje)
+    # Con varias tablas en el script se juntan en una sola observación: «cDetalle (dbo.A); cObs (dbo.B)».
+    hallazgo.elemento = _enumerar(nombres)
+    lineas = sorted({_numero_linea(texto, columna.posicion) for columna, _ in casos})
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas
+    return [hallazgo]
+
+
 def _verificar_una_tabla(texto_sql: str, es_dbcmaica: bool) -> List[Hallazgo]:
     """Valida un CREATE TABLE o ALTER TABLE según el manual de nomenclatura."""
     texto = _sin_comentarios(texto_sql)
@@ -1106,6 +1154,7 @@ def _verificar_una_tabla(texto_sql: str, es_dbcmaica: bool) -> List[Hallazgo]:
             ))
         hallazgos += _validar_tabla(texto, esquema, tabla, referencia)
         hallazgos += _validar_clave_primaria(texto, tabla, referencia, columnas)
+        hallazgos += _validar_varchar_max(texto, columnas, referencia, es_create=True)
         for columna in columnas:
             hallazgos += _validar_columna(texto, columna, referencia, pertenece_a_dbcmaica)
             # La PK y las columnas IDENTITY ya son NOT NULL implícitamente.
@@ -1123,6 +1172,7 @@ def _verificar_una_tabla(texto_sql: str, es_dbcmaica: bool) -> List[Hallazgo]:
                 f"Se identificó que la tabla {tabla} no tiene declarado un esquema. Se recomienda añadir el "
                 f"esquema; si es dbo, definirlo explícitamente.",
             ))
+        hallazgos += _validar_varchar_max(texto, _columnas_alter(texto), referencia, es_create=False)
         for columna in _columnas_alter(texto):
             hallazgos += _validar_columna(texto, columna, referencia, pertenece_a_dbcmaica)
             definicion = columna.definicion

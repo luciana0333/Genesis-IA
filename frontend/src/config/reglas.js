@@ -136,6 +136,7 @@ export const NOMBRES_REGLAS = {
   MODIFICACION_TABLA_FISICA: 'Modificación de tabla física',
   VARIABLE_DECLARADA_SIN_USO: 'Variables declaradas sin uso',
   PROCEDIMIENTO_SIN_DESCRIPCION: 'Procedimiento no documentado',
+  COLUMNA_VARCHAR_MAX: 'Columna VARCHAR(MAX) en tabla nueva',
   FUNCION_SIN_DESCRIPCION: 'Función no documentada',
   DESCRIPCION_FUNCION_VACIA: 'Función sin descripción',
   FUNCION_DUPLICADA: 'Función duplicada en el script',
