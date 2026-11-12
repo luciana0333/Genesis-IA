@@ -16,6 +16,9 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, juntar_ortografia, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_tabla
+from app.analizadores.palabra_repetida import (
+    QUE_HACER_PALABRA_REPETIDA, elemento_palabra_repetida, mensaje_palabra_repetida, palabras_repetidas,
+)
 from app.analizadores.nombre_por_prefijo import emparejar_por_prefijo, solo_un_error_por_sentencia
 from app.analizadores.diccionario_varios import (
     agrupar_varios, es_otro_objeto, nombres_del_script, objetos_sin_script, por_objeto,
@@ -744,6 +747,28 @@ def _validar_ortografia(
     return hallazgos
 
 
+def _validar_palabras_repetidas(
+    llamadas: List[LlamadaPropiedad], esquema: Optional[str], nombre_tabla: str, texto_diccionario: str = "",
+) -> List[Hallazgo]:
+    """«…el repositorio de de RRHH…»: la misma palabra dos veces seguidas (usuaria, 11 nov.)."""
+    hallazgos = []
+    for ll in llamadas:
+        if not (_es_descripcion(ll) and ll.texto("value")):
+            continue
+        if _es_de_columna(ll):
+            objeto = f"de la columna {ll.texto('level2name')}"
+        elif _es_de_tabla(ll):
+            objeto = f"de la tabla {_nombre_completo(esquema, nombre_tabla)}"
+        else:
+            continue
+        casos = palabras_repetidas(ll.texto("value"))
+        if casos:
+            hallazgos.append(con_elemento(_hallazgo(
+                _linea_valor(ll, texto_diccionario), "PALABRA_REPETIDA", mensaje_palabra_repetida(objeto, casos),
+            ), elemento_palabra_repetida(objeto, casos)))
+    return hallazgos
+
+
 def _validar_descripciones_vacias(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
     return [
         con_elemento(_hallazgo(
@@ -888,6 +913,10 @@ _PLANTILLAS_AGRUPADAS = {
         "columnas documentadas con un nombre que no existe en la tabla",
         "Corregir el nombre de cada columna en el diccionario, ya que SQL Server no encuentra esas columnas y el "
         "script del diccionario falla.",
+    ),
+    "PALABRA_REPETIDA": (
+        "descripciones con palabras repetidas",
+        QUE_HACER_PALABRA_REPETIDA,
     ),
     "ERROR_ORTOGRAFICO": (
         "descripciones con errores de escritura",
@@ -1063,6 +1092,7 @@ def _revisar_tabla(texto_tabla: str, texto_diccionario: str) -> List[Hallazgo]:
     hallazgos += nombre_mal_escrito
     hallazgos += _validar_descripciones_vacias(llamadas)
     hallazgos += _validar_ortografia(llamadas, esquema, nombre_tabla, columnas_reales, texto_diccionario)
+    hallazgos += _validar_palabras_repetidas(llamadas, esquema, nombre_tabla, texto_diccionario)
     hallazgos += _validar_valores_sin_comillas(llamadas)
     hallazgos += _validar_descripciones_repetidas(llamadas)
 

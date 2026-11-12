@@ -25,6 +25,9 @@ from app.analizadores.diccionario_varios import (
     agrupar_varios, nombres_del_script, objetos_sin_script, por_objeto, sin_otros_objetos,
 )
 from app.analizadores.objetos_repetidos import hallazgo_repetidos, quitar_creaciones_repetidas
+from app.analizadores.palabra_repetida import (
+    QUE_HACER_PALABRA_REPETIDA, elemento_palabra_repetida, mensaje_palabra_repetida, palabras_repetidas,
+)
 from app.analizadores.ortografia import (
     ACCION_ORTOGRAFIA, elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico,
 )
@@ -645,6 +648,31 @@ def _validar_ortografia(
     return hallazgos
 
 
+def _validar_palabras_repetidas(
+    llamadas: List[Tuple[int, Dict[str, str]]], texto_diccionario: str, esquema: str, nombre_proc: str
+) -> List[Hallazgo]:
+    """«…el repositorio de de RRHH…»: la misma palabra dos veces seguidas (usuaria, 11 nov.)."""
+    hallazgos = []
+    for pos, args in llamadas:
+        if "PROCEDURE" not in args.get("level1type", "").upper() or "value" not in args:
+            continue
+        casos = palabras_repetidas(_texto_de_valor(args["value"]))
+        if not casos:
+            continue
+        if "PARAMETER" in args.get("level2type", "").upper():
+            objeto = f"del parámetro {_limpiar_valor(args.get('level2name', '?'))}"
+        else:
+            objeto = f"del procedimiento {_nombre_completo(esquema, nombre_proc)}"
+        hallazgos.append(con_elemento(Hallazgo(
+            linea=_numero_linea(texto_diccionario, _posicion_valor(texto_diccionario, pos)),
+            origen=OrigenAnalisis.DICCIONARIO,
+            severidad=Severidad(REGLAS_DICCIONARIO_PROCEDIMIENTOS["PALABRA_REPETIDA"].severidad),
+            regla="PALABRA_REPETIDA",
+            mensaje=mensaje_palabra_repetida(objeto, casos),
+        ), elemento_palabra_repetida(objeto, casos)))
+    return hallazgos
+
+
 def _validar_descripcion_vs_nombre(
     llamadas: List[Tuple[int, Dict[str, str]]], texto_diccionario: str
 ) -> List[Hallazgo]:
@@ -704,6 +732,10 @@ _PLANTILLAS_AGRUPADAS = {
         "parámetros con la descripción vacía",
         "Completar la descripción indicando para qué se usa cada parámetro, de modo que quede claro para "
         "quien consulte el procedimiento.",
+    ),
+    "PALABRA_REPETIDA": (
+        "descripciones con palabras repetidas",
+        QUE_HACER_PALABRA_REPETIDA,
     ),
     "ERROR_ORTOGRAFICO": (
         "descripciones con errores de escritura",
@@ -942,13 +974,14 @@ def _revisar_procedimiento(texto_procedimiento: str, texto_diccionario: str) -> 
     hallazgos = solo_un_error_por_sentencia(hallazgos, {"PARAMETRO_NO_EXISTE", "PARAMETRO_NOMBRE_INCORRECTO"})
     hallazgos += _validar_nombre_propiedad(texto_diccionario, esquema, nombre_proc)
     hallazgos += _validar_ortografia(llamadas, texto_diccionario, esquema, nombre_proc, parametros_reales)
+    hallazgos += _validar_palabras_repetidas(llamadas, texto_diccionario, esquema, nombre_proc)
     hallazgos += _validar_descripcion_vs_nombre(llamadas, texto_diccionario)
     if REGLAS_DICCIONARIO_PROCEDIMIENTOS["VALOR_SIN_COMILLAS"].activo:
         hallazgos += _validar_valores_sin_comillas(llamadas, texto_diccionario)
 
     # Los parámetros se ubican en su línea del CREATE/ALTER.
     for hallazgo in hallazgos:
-        if getattr(hallazgo, "elemento", None) and hallazgo.regla not in ("DESCRIPCION_VACIA", "NOMBRE_PROPIEDAD_INCORRECTO"):
+        if getattr(hallazgo, "elemento", None) and hallazgo.regla not in ("DESCRIPCION_VACIA", "NOMBRE_PROPIEDAD_INCORRECTO", "PALABRA_REPETIDA"):
             ubicar(hallazgo, texto_procedimiento)
     asignar_secciones(hallazgos, _REGLAS_DEL_OBJETO, _REGLAS_GENERALES)
     return hallazgos
