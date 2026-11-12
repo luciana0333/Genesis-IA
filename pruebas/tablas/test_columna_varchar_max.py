@@ -34,9 +34,10 @@ class ColumnaVarcharMaxTest(unittest.TestCase):
                 self.assertEqual(
                     hallazgos[0].mensaje,
                     "Se identificó que la columna cDetalle de la tabla CONTABILIDAD.LogReprocesoDevengado está "
-                    "definida como VARCHAR(MAX). Se recomienda evaluar la asignación de una longitud definida (por "
-                    "ejemplo, VARCHAR(500)), reservando VARCHAR(MAX) para campos que almacenen contenido extenso, "
-                    "como JSON, XML o HTML.",
+                    "definida como VARCHAR(MAX). Se recomienda establecer una longitud específica para la columna "
+                    "(por ejemplo, VARCHAR(500)), de acuerdo con la cantidad de texto que se espera almacenar. "
+                    "Utilizar VARCHAR(MAX) solo cuando sea necesario guardar textos muy extensos, como JSON, XML o "
+                    "HTML.",
                 )
 
     def test_varias_columnas_en_una_observacion(self):
@@ -46,8 +47,8 @@ class ColumnaVarcharMaxTest(unittest.TestCase):
         self.assertEqual(hallazgo.lineas, [3, 4])
         self.assertTrue(hallazgo.mensaje.startswith(
             "Se identificó que las columnas cDetalle y cObservacion de la tabla dbo.Nota están definidas como "
-            "(N)VARCHAR(MAX). Se recomienda evaluar la asignación de una longitud definida en cada una (por ejemplo, "
-            "VARCHAR(500)), reservando VARCHAR(MAX)"))
+            "(N)VARCHAR(MAX). Se recomienda establecer una longitud específica para cada columna (por ejemplo, "
+            "VARCHAR(500)), de acuerdo con la cantidad de texto que se espera almacenar."))
 
     def test_columna_nueva_en_un_alter(self):
         sql = "ALTER TABLE dbo.Nota ADD cComentario VARCHAR(MAX) NULL"
@@ -62,9 +63,10 @@ class ColumnaVarcharMaxTest(unittest.TestCase):
         self.assertEqual(
             hallazgos[0].mensaje,
             "Se identificaron dos tablas con columnas definidas como (N)VARCHAR(MAX): cDetalle "
-            "(CONTABILIDAD.LogReprocesoDevengado); cObservacion (dbo.Nota). Se recomienda evaluar la asignación de "
-            "una longitud definida en cada una (por ejemplo, VARCHAR(500)), reservando VARCHAR(MAX) para campos que "
-            "almacenen contenido extenso, como JSON, XML o HTML.",
+            "(CONTABILIDAD.LogReprocesoDevengado); cObservacion (dbo.Nota). Se recomienda establecer una longitud "
+            "específica para cada columna (por ejemplo, VARCHAR(500)), de acuerdo con la cantidad de texto que se "
+            "espera almacenar. Utilizar VARCHAR(MAX) solo cuando sea necesario guardar textos muy extensos, como "
+            "JSON, XML o HTML.",
         )
 
     def test_lo_que_no_se_marca(self):

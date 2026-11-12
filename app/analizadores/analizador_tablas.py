@@ -872,8 +872,9 @@ _PLANTILLAS_AGRUPADAS = {
     ),
     "COLUMNA_VARCHAR_MAX": (
         "tablas con columnas definidas como (N)VARCHAR(MAX)",
-        "Se recomienda evaluar la asignación de una longitud definida en cada una (por ejemplo, VARCHAR(500)), "
-        "reservando VARCHAR(MAX) para campos que almacenen contenido extenso, como JSON, XML o HTML.",
+        "Se recomienda establecer una longitud específica para cada columna (por ejemplo, VARCHAR(500)), de acuerdo "
+        "con la cantidad de texto que se espera almacenar. Utilizar VARCHAR(MAX) solo cuando sea necesario guardar "
+        "textos muy extensos, como JSON, XML o HTML.",
     ),
     "COLUMNA_NOT_NULL_SIN_DEFAULT_EN_ALTER": (
         "columnas nuevas NOT NULL sin valor por defecto",
@@ -1115,13 +1116,14 @@ def _validar_varchar_max(
     # Texto de la usuaria (11 nov.); en plural cuando son varias columnas.
     if len(casos) == 1:
         mensaje = (f"Se identificó que la columna {nombres[0]} de la tabla {referencia} está definida como {tipo}. "
-                   f"Se recomienda evaluar la asignación de una longitud definida (por ejemplo, {ejemplo}), "
-                   f"reservando {reservado} para campos que almacenen contenido extenso, como JSON, XML o HTML.")
+                   f"Se recomienda establecer una longitud específica para la columna (por ejemplo, {ejemplo}), de "
+                   f"acuerdo con la cantidad de texto que se espera almacenar. Utilizar {reservado} solo cuando sea "
+                   f"necesario guardar textos muy extensos, como JSON, XML o HTML.")
     else:
         mensaje = (f"Se identificó que las columnas {_enumerar(nombres)} de la tabla {referencia} están definidas "
-                   f"como {tipo}. Se recomienda evaluar la asignación de una longitud definida en cada una (por "
-                   f"ejemplo, {ejemplo}), reservando {reservado} para campos que almacenen contenido extenso, como "
-                   f"JSON, XML o HTML.")
+                   f"como {tipo}. Se recomienda establecer una longitud específica para cada columna (por ejemplo, "
+                   f"{ejemplo}), de acuerdo con la cantidad de texto que se espera almacenar. Utilizar {reservado} "
+                   f"solo cuando sea necesario guardar textos muy extensos, como JSON, XML o HTML.")
     hallazgo = _hallazgo(texto, casos[0][0].posicion, "COLUMNA_VARCHAR_MAX", mensaje)
     # Con varias tablas en el script se juntan en una sola observación: «cDetalle (dbo.A); cObs (dbo.B)».
     hallazgo.elemento = _enumerar(nombres)
