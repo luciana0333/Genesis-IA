@@ -20,8 +20,9 @@ _COMENTARIOS = re.compile(r"--[^\n]*|/\*[\s\S]*?\*/")
 _CREACION = {
     "tabla": re.compile(rf"\bCREATE\s+TABLE\s+{_NOMBRE}", re.IGNORECASE),
     "procedimiento": re.compile(rf"\bCREATE\s+PROC(?:EDURE)?\s+{_NOMBRE}", re.IGNORECASE),
+    "funcion": re.compile(rf"\bCREATE\s+FUNCTION\s+{_NOMBRE}", re.IGNORECASE),
 }
-_SIGUIENTE_OBJETO = re.compile(r"\b(?:CREATE|ALTER)\s+(?:OR\s+ALTER\s+)?(?:TABLE|PROC(?:EDURE)?)\b", re.IGNORECASE)
+_SIGUIENTE_OBJETO = re.compile(r"\b(?:CREATE|ALTER)\s+(?:OR\s+ALTER\s+)?(?:TABLE|PROC(?:EDURE)?|FUNCTION)\b", re.IGNORECASE)
 _GO = re.compile(r"^\s*GO\s*$", re.IGNORECASE | re.MULTILINE)
 
 _EN_LETRAS = {2: "dos", 3: "tres", 4: "cuatro", 5: "cinco", 6: "seis", 7: "siete", 8: "ocho", 9: "nueve", 10: "diez"}
@@ -64,7 +65,7 @@ def _fin_de_procedimiento(limpio: str, desde: int) -> int:
 
 def quitar_creaciones_repetidas(texto: str, tipo: str) -> Tuple[str, List[Tuple[str, List[int]]]]:
     """
-    tipo: «tabla» o «procedimiento». Devuelve el texto sin las creaciones repetidas y la lista
+    tipo: «tabla», «procedimiento» o «funcion». Devuelve el texto sin las creaciones repetidas y la lista
     [(nombre, líneas de cada CREATE)] de los objetos que se crean más de una vez.
     """
     limpio = _COMENTARIOS.sub(lambda m: _en_blanco(m.group(0)), texto or "")
@@ -94,7 +95,10 @@ def hallazgo_repetidos(
     """Una sola observación con todos los objetos creados más de una vez (o None si no hay)."""
     if not repetidas:
         return None
-    objeto, sentencia = ("la tabla", "CREATE TABLE") if tipo == "tabla" else ("el procedimiento", "CREATE PROCEDURE")
+    objeto, sentencia, plural = {
+        "tabla": ("la tabla", "CREATE TABLE", "tablas"),
+        "funcion": ("la función", "CREATE FUNCTION", "funciones"),
+    }.get(tipo, ("el procedimiento", "CREATE PROCEDURE", "procedimientos"))
     motivo = "ya que SQL Server genera un error al intentar crear un objeto que ya existe."
     if len(repetidas) == 1:
         nombre, lineas = repetidas[0]
@@ -103,7 +107,6 @@ def hallazgo_repetidos(
                    f"Se recomienda retirar {'una de las sentencias' if len(lineas) == 2 else 'las sentencias repetidas'} "
                    f"{sentencia}, {motivo}")
     else:
-        plural = "tablas" if tipo == "tabla" else "procedimientos"
         cantidad = _EN_LETRAS.get(len(repetidas), str(len(repetidas)))
         # Las líneas van en el encabezado de la observación, no en el texto.
         casos = "; ".join(nombre for nombre, _ in repetidas)
