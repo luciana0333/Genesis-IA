@@ -50,7 +50,8 @@ class OpenXmlTest(unittest.TestCase):
         for llamada in ("EXECUTE sp_xml_preparedocument @h OUTPUT, @Xml",
                         "EXEC sys.sp_xml_preparedocument @h OUTPUT, @Xml",
                         "EXEC [sys].[sp_xml_preparedocument] @h OUTPUT, @Xml",
-                        "exec SP_XML_PREPAREDOCUMENT @hdoc = @h OUTPUT, @xmltext = @Xml"):
+                        "exec SP_XML_PREPAREDOCUMENT @hdoc = @h OUTPUT, @xmltext = @Xml",
+                        "EXEC @ret = sp_xml_preparedocument @h OUTPUT, @Xml"):  # estado de retorno (batería, 11 nov.)
             with self.subTest(llamada=llamada):
                 sql = f"CREATE PROCEDURE dbo.PA_X @Xml XML AS\nBEGIN\n DECLARE @h INT;\n {llamada};\nEND"
                 self.assertIn("correspondiente a @h.", _hallazgos(sql)[0].mensaje)
