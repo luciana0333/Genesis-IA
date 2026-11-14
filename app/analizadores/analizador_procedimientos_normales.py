@@ -11,7 +11,7 @@ from app.analizadores.variables_sin_uso import (
     mensaje_variables_de_tabla_sin_uso, variables_de_tabla_sin_uso,
 )
 from app.analizadores.temporal_sin_uso import temporal_sin_uso_agrupado
-from app.analizadores.temporales_sin_crear import temporales_sin_crear
+from app.analizadores.temporales_sin_crear import temporales_externas, temporales_sin_crear
 from app.analizadores.comentarios_codigo import codigo_comentado_agrupado
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.create_or_alter import create_or_alter
@@ -1817,14 +1817,23 @@ def _validar_temporal_sin_uso(texto: str, limpio: str) -> List[Hallazgo]:
 
 
 def _validar_temporales_sin_crear(texto: str, limpio: str) -> List[Hallazgo]:
-    """Tabla temporal que se usa pero nunca se crea: el procedimiento falla al ejecutarse (crítico)."""
-    resultado = temporales_sin_crear(limpio, lambda posicion: _linea(texto, posicion))
-    if not resultado:
-        return []
-    posicion, mensaje, grupos, lineas = resultado
-    hallazgo = _hallazgo(texto, posicion, "TEMPORAL_SIN_CREAR", mensaje)
-    hallazgo.grupos, hallazgo.lineas = grupos, lineas
-    return [hallazgo]
+    """Tabla temporal que se usa pero nunca se crea: el procedimiento falla al ejecutarse (crítico). Si su
+    creación está documentada en el encabezado, es «Tabla temporal externa» (bajo; usuaria, 13 nov.)."""
+    hallazgos = []
+    for regla, resultado in (
+        ("TEMPORAL_SIN_CREAR", temporales_sin_crear(limpio, lambda posicion: _linea(texto, posicion), texto)),
+        ("TEMPORAL_EXTERNA", temporales_externas(texto, limpio, lambda posicion: _linea(texto, posicion))),
+    ):
+        if not resultado:
+            continue
+        posicion, mensaje, grupos, lineas = resultado
+        hallazgo = _hallazgo(texto, posicion, regla, mensaje)
+        hallazgo.grupos, hallazgo.lineas = grupos, lineas
+        if regla == "TEMPORAL_EXTERNA":
+            # Lo encontrado ocupa dos oraciones (texto de la usuaria): el «Qué hacer» empieza en «Se recomienda».
+            hallazgo.inicio_que_hacer = mensaje.index("Se recomienda")
+        hallazgos.append(hallazgo)
+    return hallazgos
 
 
 def verificar_procedimiento_normal(texto_sql: str, es_del_motor: bool = False) -> List[Hallazgo]:

@@ -134,7 +134,7 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
   const severidad = normalizarSeveridad(hallazgo.severidad);
   const titulo = tituloHallazgo(hallazgo);
   const mensaje = hallazgo.mensaje || 'Revisa este hallazgo.';
-  const { problema, solucion } = separarMensaje(mensaje);
+  const { problema, solucion } = separarMensaje(mensaje, hallazgo.inicioQueHacer);
   const desglose = desglosarGrupo(problema);
   const { intro, ocurrencias } = desglose;
   // Las líneas salen del texto agrupado o, si la observación las trae aparte, de hallazgo.lineas.

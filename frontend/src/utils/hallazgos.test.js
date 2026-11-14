@@ -121,3 +121,28 @@ describe('separarMensaje con «por lo que» en una oración posterior', () => {
     });
   });
 });
+
+describe('separarMensaje con el inicio del «Qué hacer» indicado por la regla', () => {
+  // Caso de la usuaria (13 nov.): lo encontrado ocupa dos oraciones y no debe pasar al «Qué hacer».
+  const mensaje = 'Se identificó que la tabla temporal #Personas no se crea en este procedimiento. Según lo indicado en '
+    + 'el encabezado, esta es creada por otro procedimiento que se ejecuta previamente. Se recomienda verificar que '
+    + 'dicho procedimiento cree la tabla #Personas antes de ejecutar este procedimiento, para evitar errores al '
+    + 'intentar utilizarla.';
+
+  it('corta donde indica la regla', () => {
+    expect(separarMensaje(mensaje, mensaje.indexOf('Se recomienda'))).toEqual({
+      problema: 'Se identificó que la tabla temporal #Personas no se crea en este procedimiento. Según lo indicado en '
+        + 'el encabezado, esta es creada por otro procedimiento que se ejecuta previamente.',
+      solucion: 'Se recomienda verificar que dicho procedimiento cree la tabla #Personas antes de ejecutar este '
+        + 'procedimiento, para evitar errores al intentar utilizarla.',
+    });
+  });
+
+  it('sin indicación (o con un valor inválido) corta en la primera oración, como siempre', () => {
+    for (const inicio of [null, undefined, 0, -1, 9999]) {
+      expect(separarMensaje(mensaje, inicio).problema).toBe(
+        'Se identificó que la tabla temporal #Personas no se crea en este procedimiento.',
+      );
+    }
+  });
+});
