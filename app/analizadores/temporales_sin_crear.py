@@ -82,16 +82,17 @@ def temporales_externas(
     if not orden:
         return None
     tablas = [nombres[clave] for clave in orden]
-    # Texto aprobado por la usuaria (13 nov.).
+    # Texto claro para cualquier persona (usuaria, 13 nov.).
     if len(tablas) == 1:
-        mensaje = (f"Se identificó que la tabla temporal {tablas[0]} no se crea dentro del procedimiento, ya que es "
-                   f"una tabla externa; su creación figura en el encabezado para realizar pruebas. Se recomienda "
-                   f"validar que el procedimiento que lo llama cree la tabla {tablas[0]} antes de ejecutarlo.")
+        mensaje = (f"Se identificó que la tabla temporal {tablas[0]} no se crea en este procedimiento, sino en el "
+                   f"procedimiento que lo ejecuta (así lo indica el encabezado). Se recomienda asegurarse de que el "
+                   f"procedimiento que ejecuta a este cree primero la tabla {tablas[0]}, ya que, si la tabla no "
+                   f"existe, este procedimiento falla.")
     else:
-        mensaje = (f"Se identificó que las tablas temporales {_enumerar(tablas)} no se crean dentro del procedimiento, "
-                   f"ya que son tablas externas; su creación figura en el encabezado para realizar pruebas. Se "
-                   f"recomienda validar que el procedimiento que lo llama cree las tablas {_enumerar(tablas)} antes "
-                   f"de ejecutarlo.")
+        mensaje = (f"Se identificó que las tablas temporales {_enumerar(tablas)} no se crean en este procedimiento, "
+                   f"sino en el procedimiento que lo ejecuta (así lo indica el encabezado). Se recomienda asegurarse "
+                   f"de que el procedimiento que ejecuta a este cree primero las tablas {_enumerar(tablas)}, ya que, "
+                   f"si alguna no existe, este procedimiento falla.")
     grupos = [{"nombre": nombres[clave], "tipo": "Tabla",
                "lineas": sorted({linea_de(posicion) for posicion in usos[clave]})} for clave in orden]
     return min(usos[orden[0]]), mensaje, grupos, [n for grupo in grupos for n in grupo["lineas"]]

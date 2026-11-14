@@ -53,9 +53,10 @@ class TemporalExternaTest(unittest.TestCase):
                 self.assertEqual(hallazgo.lineas, [21, 22])
                 self.assertEqual(
                     hallazgo.mensaje,
-                    "Se identificó que la tabla temporal #Personas no se crea dentro del procedimiento, ya que es una "
-                    "tabla externa; su creación figura en el encabezado para realizar pruebas. Se recomienda validar "
-                    "que el procedimiento que lo llama cree la tabla #Personas antes de ejecutarlo.",
+                    "Se identificó que la tabla temporal #Personas no se crea en este procedimiento, sino en el "
+                    "procedimiento que lo ejecuta (así lo indica el encabezado). Se recomienda asegurarse de que el "
+                    "procedimiento que ejecuta a este cree primero la tabla #Personas, ya que, si la tabla no existe, "
+                    "este procedimiento falla.",
                 )
 
     def test_sin_documentar_sigue_siendo_critico(self):
@@ -118,9 +119,10 @@ class TemporalExternaTest(unittest.TestCase):
         mensaje = _reglas(encabezado + cuerpo, verificar_procedimiento_normal)["TEMPORAL_EXTERNA"].mensaje
         self.assertEqual(
             mensaje,
-            "Se identificó que las tablas temporales #Personas y #Agencias no se crean dentro del procedimiento, ya "
-            "que son tablas externas; su creación figura en el encabezado para realizar pruebas. Se recomienda "
-            "validar que el procedimiento que lo llama cree las tablas #Personas y #Agencias antes de ejecutarlo.",
+            "Se identificó que las tablas temporales #Personas y #Agencias no se crean en este procedimiento, sino "
+            "en el procedimiento que lo ejecuta (así lo indica el encabezado). Se recomienda asegurarse de que el "
+            "procedimiento que ejecuta a este cree primero las tablas #Personas y #Agencias, ya que, si alguna no "
+            "existe, este procedimiento falla.",
         )
 
     def test_si_la_crea_el_propio_procedimiento_no_se_marca(self):
