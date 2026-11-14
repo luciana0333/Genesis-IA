@@ -31,12 +31,43 @@ class VariablesTablaSinUsoTest(unittest.TestCase):
                     "para evitar código innecesario.",
                 )
 
-    def test_una_sola_en_singular_y_solo_llenada_cuenta_como_sin_uso(self):
-        hallazgo = _sin_uso("DECLARE @T TABLE (n INT)\nINSERT INTO @T SELECT 1\nUPDATE A SET A.n = 2 FROM @T A",
-                            verificar_reporte)[0]
+    def test_una_sola_en_singular(self):
+        hallazgo = _sin_uso("DECLARE @T TABLE (n INT)\nSELECT 1", verificar_reporte)[0]
         self.assertTrue(hallazgo.mensaje.startswith(
             "Se identificó que la variable de tipo tabla @T está declarada en el procedimiento, pero no se utiliza "
             "en ninguna parte del código. Se recomienda verificar si esta variable es necesaria"))
+
+    def test_se_llena_pero_no_se_lee_tiene_su_propio_texto(self):
+        # Usuaria (13 nov.): «no se utiliza en ninguna parte» no sería exacto, porque sí se llena.
+        sql = "DECLARE @T TABLE (n INT)\nINSERT INTO @T SELECT 1\nUPDATE A SET A.n = 2 FROM @T A"
+        for verificar in MODULOS:
+            with self.subTest(modulo=verificar.__name__):
+                self.assertEqual(_sin_uso(sql, verificar), [])
+                hallazgo = next(h for h in verificar(sql) if h.regla == "VARIABLE_TABLA_LLENADA_SIN_USO")
+                self.assertEqual(hallazgo.severidad.value, "bajo")
+                self.assertEqual(
+                    hallazgo.mensaje,
+                    "Se identificó que la variable de tipo tabla @T se llena con información, pero no se lee en "
+                    "ninguna parte del código. Se recomienda validar si la información almacenada en esta variable de "
+                    "tipo tabla es necesaria para el proceso y, de no ser así, eliminar su declaración y las consultas "
+                    "utilizadas para insertar dicha información.",
+                )
+
+    def test_declaradas_y_llenadas_van_en_observaciones_separadas(self):
+        sql = ("DECLARE @TEstadoEmergencia TABLE (n INT)\nDECLARE @TSuspensionPerfecta TABLE (n INT)\n"
+               "DECLARE @TLlena1 TABLE (n INT)\nDECLARE @TLlena2 TABLE (n INT)\n"
+               "INSERT INTO @TLlena1 SELECT 1\nINSERT @TLlena2 (n) VALUES (2)")
+        for verificar in MODULOS:
+            with self.subTest(modulo=verificar.__name__):
+                reglas = {h.regla: h for h in verificar(sql) if h.regla.startswith("VARIABLE_TABLA")}
+                self.assertIn("@TEstadoEmergencia; @TSuspensionPerfecta.", reglas["VARIABLE_TABLA_SIN_USO"].mensaje)
+                self.assertEqual(reglas["VARIABLE_TABLA_SIN_USO"].lineas, [1, 2])
+                self.assertTrue(reglas["VARIABLE_TABLA_LLENADA_SIN_USO"].mensaje.startswith(
+                    "Se identificó que las siguientes variables de tipo tabla se llenan con información, pero no se "
+                    "leen en ninguna parte del código: @TLlena1; @TLlena2. Se recomienda validar si la información "
+                    "almacenada en estas variables de tipo tabla es necesaria para el proceso y, de no ser así, "
+                    "eliminar sus declaraciones y las consultas utilizadas para insertar dicha información."))
+                self.assertEqual(reglas["VARIABLE_TABLA_LLENADA_SIN_USO"].lineas, [3, 4])
 
     def test_lo_que_no_se_marca(self):
         for sql in (

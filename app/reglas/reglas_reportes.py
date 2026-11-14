@@ -69,6 +69,15 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "VARIABLE_TABLA_LLENADA_SIN_USO": ReglaDiccionario(
+        codigo="VARIABLE_TABLA_LLENADA_SIN_USO",
+        nombre="Variables de tipo tabla llenadas sin uso",
+        severidad="bajo",
+        descripcion="Una variable de tipo tabla se llena (INSERT INTO @T …) pero no se lee en ninguna parte (usuaria, "
+                    "13 nov.).",
+        alcance="reporte",
+        activo=True,
+    ),
     "VARIABLE_TABLA_SIN_USO": ReglaDiccionario(
         codigo="VARIABLE_TABLA_SIN_USO",
         nombre="Variables de tipo tabla declaradas sin uso",

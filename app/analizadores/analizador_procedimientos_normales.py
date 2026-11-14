@@ -8,7 +8,8 @@ from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html
 from app.analizadores.collate_temporales import MENSAJE_COLLATE_DATABASE_DEFAULT, collate_agrupado
 from app.analizadores.caracteres_danados import caracteres_danados
 from app.analizadores.variables_sin_uso import (
-    mensaje_variables_de_tabla_sin_uso, variables_de_tabla_sin_uso,
+    mensaje_variables_de_tabla_llenadas, mensaje_variables_de_tabla_sin_uso, variables_de_tabla_llenadas,
+    variables_de_tabla_sin_uso,
 )
 from app.analizadores.temporal_sin_uso import temporal_sin_uso_agrupado
 from app.analizadores.temporales_sin_crear import temporales_sin_crear
@@ -1005,15 +1006,24 @@ def _validar_comentarios(texto: str) -> List[Hallazgo]:
 
 
 def _validar_variables_de_tabla(texto: str, limpio: str) -> List[Hallazgo]:
-    """Variables de tabla declaradas que no se leen en ninguna parte (usuaria, 8 nov.)."""
+    """Variables de tabla declaradas que no se leen en ninguna parte (usuaria, 8 nov.). Las que solo se declaran y las
+    que se llenan pero no se leen van en observaciones separadas, cada una con su texto (13 nov.)."""
     casos = variables_de_tabla_sin_uso(limpio)
     if not casos:
         return []
-    mensaje = mensaje_variables_de_tabla_sin_uso([variable for variable, _ in casos])
-    hallazgo = _hallazgo(texto, casos[0][1], "VARIABLE_TABLA_SIN_USO", mensaje)
-    if len(casos) > 1:
-        hallazgo.lineas = sorted({_linea(texto, posicion) for _, posicion in casos})
-    return [hallazgo]
+    llenadas = set(variables_de_tabla_llenadas(limpio, [variable for variable, _ in casos]))
+    hallazgos = []
+    for grupo, regla, redactar in (
+        ([c for c in casos if c[0] not in llenadas], "VARIABLE_TABLA_SIN_USO", mensaje_variables_de_tabla_sin_uso),
+        ([c for c in casos if c[0] in llenadas], "VARIABLE_TABLA_LLENADA_SIN_USO", mensaje_variables_de_tabla_llenadas),
+    ):
+        if not grupo:
+            continue
+        hallazgo = _hallazgo(texto, grupo[0][1], regla, redactar([variable for variable, _ in grupo]))
+        if len(grupo) > 1:
+            hallazgo.lineas = sorted({_linea(texto, posicion) for _, posicion in grupo})
+        hallazgos.append(hallazgo)
+    return hallazgos
 
 
 def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
