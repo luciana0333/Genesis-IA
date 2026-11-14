@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { IconoCopiar, IconoImagen, IconoMira } from '../../components/Iconos';
 
 /**
  * Botones al pie de cada hallazgo del plan: ver la captura del operador (como la que se pega en el
@@ -62,9 +63,12 @@ export function CapturaHallazgo({ hallazgo, sentencias = [], archivo, onIrAlPlan
   return (
     <div className="captura-hallazgo">
       <div className="captura-acciones">
-        <button type="button" className="captura-boton" onClick={alVer}>{visible ? 'Ocultar imagen' : 'Ver imagen del plan'}</button>
-        <button type="button" className="captura-boton" onClick={alCopiar}>Copiar imagen</button>
-        {onIrAlPlan && <button type="button" className="captura-boton" onClick={alIrAlPlan}>Ir al plan</button>}
+        {/* Opción A elegida por la usuaria (13 nov.): el mismo estilo que «Ver en el código». */}
+        <button type="button" className="captura-boton" onClick={alVer}>
+          <IconoImagen />{visible ? 'Ocultar imagen' : 'Ver imagen del plan'}
+        </button>
+        <button type="button" className="captura-boton" onClick={alCopiar}><IconoCopiar />Copiar imagen</button>
+        {onIrAlPlan && <button type="button" className="captura-boton" onClick={alIrAlPlan}><IconoMira />Ir al plan</button>}
         {estado && <span className="captura-estado" role="status">{estado}</span>}
       </div>
       {visible && captura && <img className="captura-imagen" src={captura.url} width={captura.ancho} alt={`Captura del plan: ${hallazgo.regla}`} />}

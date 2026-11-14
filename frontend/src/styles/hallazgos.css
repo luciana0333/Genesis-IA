@@ -185,7 +185,9 @@
 .resultados-tablero {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
-  gap: 16px;
+  /* 28 px, como el resto del panel: con 16 px el texto sin tarjeta («Riesgos identificados por Genesis») quedaba
+     pegado al panel rojo (usuaria, 13 nov.). */
+  gap: 28px;
   align-items: start;
   margin-top: 4px;
 }
@@ -345,11 +347,13 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-top: 22px;
+  margin-top: 32px;
 }
 
 .riesgos-genesis > .section-heading {
   margin-bottom: 4px;
+  /* Alineado con el texto de las fichas (20 px adentro), no con su borde (usuaria, 13 nov.). */
+  padding-left: 20px;
 }
 
 .finding {
