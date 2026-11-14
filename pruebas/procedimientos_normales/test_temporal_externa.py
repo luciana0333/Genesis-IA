@@ -53,9 +53,10 @@ class TemporalExternaTest(unittest.TestCase):
                 self.assertEqual(hallazgo.lineas, [21, 22])
                 self.assertEqual(
                     hallazgo.mensaje,
-                    "Se identificó que la tabla temporal #Personas no se crea en este procedimiento, sino en otro "
-                    "procedimiento que se ejecuta antes (así lo indica el encabezado). Se recomienda verificar que ese "
-                    "otro procedimiento siempre cree la tabla #Personas, ya que sin ella este procedimiento falla.",
+                    "Se identificó que la tabla temporal #Personas no se crea en este procedimiento. Según lo "
+                    "indicado en el encabezado, esta es creada por otro procedimiento que se ejecuta previamente. Se "
+                    "recomienda verificar que dicho procedimiento cree la tabla #Personas antes de ejecutar este "
+                    "procedimiento, para evitar errores al intentar utilizarla.",
                 )
 
     def test_sin_documentar_sigue_siendo_critico(self):
@@ -118,10 +119,10 @@ class TemporalExternaTest(unittest.TestCase):
         mensaje = _reglas(encabezado + cuerpo, verificar_procedimiento_normal)["TEMPORAL_EXTERNA"].mensaje
         self.assertEqual(
             mensaje,
-            "Se identificó que las tablas temporales #Personas y #Agencias no se crean en este procedimiento, sino "
-            "en otro procedimiento que se ejecuta antes (así lo indica el encabezado). Se recomienda verificar que ese "
-            "otro procedimiento siempre cree las tablas #Personas y #Agencias, ya que sin ellas este procedimiento "
-            "falla.",
+            "Se identificó que las tablas temporales #Personas y #Agencias no se crean en este procedimiento. Según "
+            "lo indicado en el encabezado, estas son creadas por otro procedimiento que se ejecuta previamente. Se "
+            "recomienda verificar que dicho procedimiento cree las tablas #Personas y #Agencias antes de ejecutar "
+            "este procedimiento, para evitar errores al intentar utilizarlas.",
         )
 
     def test_si_la_crea_el_propio_procedimiento_no_se_marca(self):

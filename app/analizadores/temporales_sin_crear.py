@@ -82,16 +82,17 @@ def temporales_externas(
     if not orden:
         return None
     tablas = [nombres[clave] for clave in orden]
-    # Texto claro para cualquier persona (usuaria, 13 nov.).
+    # Texto dictado por la usuaria (13 nov.); en plural con varias tablas.
     if len(tablas) == 1:
-        mensaje = (f"Se identificó que la tabla temporal {tablas[0]} no se crea en este procedimiento, sino en otro "
-                   f"procedimiento que se ejecuta antes (así lo indica el encabezado). Se recomienda verificar que ese "
-                   f"otro procedimiento siempre cree la tabla {tablas[0]}, ya que sin ella este procedimiento falla.")
+        mensaje = (f"Se identificó que la tabla temporal {tablas[0]} no se crea en este procedimiento. Según lo "
+                   f"indicado en el encabezado, esta es creada por otro procedimiento que se ejecuta previamente. Se "
+                   f"recomienda verificar que dicho procedimiento cree la tabla {tablas[0]} antes de ejecutar este "
+                   f"procedimiento, para evitar errores al intentar utilizarla.")
     else:
-        mensaje = (f"Se identificó que las tablas temporales {_enumerar(tablas)} no se crean en este procedimiento, "
-                   f"sino en otro procedimiento que se ejecuta antes (así lo indica el encabezado). Se recomienda "
-                   f"verificar que ese otro procedimiento siempre cree las tablas {_enumerar(tablas)}, ya que sin "
-                   f"ellas este procedimiento falla.")
+        mensaje = (f"Se identificó que las tablas temporales {_enumerar(tablas)} no se crean en este procedimiento. "
+                   f"Según lo indicado en el encabezado, estas son creadas por otro procedimiento que se ejecuta "
+                   f"previamente. Se recomienda verificar que dicho procedimiento cree las tablas {_enumerar(tablas)} "
+                   f"antes de ejecutar este procedimiento, para evitar errores al intentar utilizarlas.")
     grupos = [{"nombre": nombres[clave], "tipo": "Tabla",
                "lineas": sorted({linea_de(posicion) for posicion in usos[clave]})} for clave in orden]
     return min(usos[orden[0]]), mensaje, grupos, [n for grupo in grupos for n in grupo["lineas"]]
