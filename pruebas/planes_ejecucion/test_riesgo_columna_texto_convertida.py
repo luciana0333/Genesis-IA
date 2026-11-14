@@ -31,9 +31,9 @@ class ColumnaTextoConvertidaTest(unittest.TestCase):
                 self.assertEqual(hallazgos[0].nodos, [{"consulta": 1, "nodo": "0"}])
                 self.assertEqual(
                     hallazgos[0].mensaje,
-                    "Se identificó una conversión implícita sobre la columna cFecha de #CtaSaldoAuxTemp a datetime. "
-                    "Se recomienda revisar el tipo de dato de la columna, ya que un valor con "
-                    "formato inválido genera un error de conversión.",
+                    "Se identificó una conversión implícita de la columna de texto cFecha de #CtaSaldoAuxTemp a "
+                    "datetime. Se recomienda corregir la conversión implícita identificada, definiendo la columna con "
+                    "el tipo de dato que corresponde y validando que el cambio no altere el resultado esperado.",
                 )
 
     def test_columna_con_base_esquema_y_alias_a_numero(self):
@@ -45,9 +45,10 @@ class ColumnaTextoConvertidaTest(unittest.TestCase):
         mensaje = _riesgos(_plan([_FECHA, otra]))[0].mensaje
         self.assertEqual(
             mensaje,
-            "Se identificaron conversiones implícitas sobre las columnas: cFecha de #CtaSaldoAuxTemp a datetime; "
-            "cMonto de #Saldos a numeric(18,2). Se recomienda revisar el tipo de dato "
-            "de las columnas, ya que un valor con formato inválido genera un error de conversión.")
+            "Se identificaron conversiones implícitas de las columnas de texto: cFecha de #CtaSaldoAuxTemp a "
+            "datetime; cMonto de #Saldos a numeric(18,2). Se recomienda corregir las conversiones implícitas "
+            "identificadas, definiendo cada columna con el tipo de dato que corresponde y validando que el cambio no "
+            "altere el resultado esperado.")
 
     def test_lo_que_no_se_observa(self):
         no_cuentan = [

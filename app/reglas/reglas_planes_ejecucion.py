@@ -56,7 +56,7 @@ REGLAS_PLANES_EJECUCION = {
     ),
     "CONVERSION_TEXTO_A_NUMERO": ReglaDiccionario(
         codigo="CONVERSION_TEXTO_A_NUMERO",
-        nombre="Conversión de texto a número",
+        nombre="Conversión implícita de texto a número",
         severidad="medio",
         descripcion="Riesgo identificado por Genesis (sin alerta de SQL Server): SUBSTRING, LEFT o RIGHT convertido "
                     "implícitamente a número; si el dato no es numérico, la consulta genera un error de conversión.",
@@ -65,7 +65,7 @@ REGLAS_PLANES_EJECUCION = {
     ),
     "COLUMNA_TEXTO_CONVERTIDA": ReglaDiccionario(
         codigo="COLUMNA_TEXTO_CONVERTIDA",
-        nombre="Columna de texto convertida",
+        nombre="Conversión implícita de columna de texto",
         severidad="medio",
         descripcion="Riesgo identificado por Genesis (sin alerta de SQL Server): una columna de texto (cFecha) que el "
                     "plan convierte implícitamente a fecha o número; si algún valor no tiene el formato esperado, la "
