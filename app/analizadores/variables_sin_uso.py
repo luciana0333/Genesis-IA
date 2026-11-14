@@ -116,12 +116,38 @@ def variables_de_tabla_sin_uso(limpio: str) -> List[Tuple[str, int]]:
     return resultado
 
 
-def mensaje_variables_de_tabla_sin_uso(variables: List[str]) -> str:
-    """Texto de la usuaria (8 nov.); en singular si es una sola."""
+_INSERT_ANTES = re.compile(r"\bINSERT(?:\s+INTO)?\s*$", re.IGNORECASE)
+
+
+def variables_de_tabla_llenadas(limpio: str, variables: List[str]) -> List[str]:
+    """De las variables de tabla sin uso, las que sí se llenan (INSERT INTO @T …): se llenan pero no se leen."""
+    llenadas = []
+    for variable in variables:
+        patron = re.compile(rf"(?<![\w@]){re.escape(variable)}(?![\w$#])", re.IGNORECASE)
+        if any(_INSERT_ANTES.search(limpio, max(0, uso.start() - 60), uso.start()) for uso in patron.finditer(limpio)):
+            llenadas.append(variable)
+    return llenadas
+
+
+def mensaje_variables_de_tabla_llenadas(variables: List[str]) -> str:
+    """Se llenan pero no se leen. «Qué hacer» de la usuaria (13 nov.); en singular si es una sola."""
     if len(variables) == 1:
-        return (f"Se identificó que la variable de tabla {variables[0]} está declarada, pero no se utiliza dentro del "
-                f"procedimiento. Se recomienda verificar si esta variable será necesaria en el procedimiento. De no "
-                f"ser así, eliminar su declaración para evitar código innecesario.")
-    return (f"Se identificó que las siguientes variables de tabla están declaradas, pero no se utilizan dentro del "
-            f"procedimiento: {'; '.join(variables)}. Se recomienda verificar si estas variables serán necesarias en "
-            f"el procedimiento. De no ser así, eliminar sus declaraciones para evitar código innecesario.")
+        return (f"Se identificó que la variable de tipo tabla {variables[0]} se llena con información, pero no se lee "
+                f"en ninguna parte del código. Se recomienda validar si la información almacenada en esta variable de "
+                f"tipo tabla es necesaria para el proceso y, de no ser así, eliminar su declaración y las consultas "
+                f"utilizadas para insertar dicha información.")
+    return (f"Se identificó que las siguientes variables de tipo tabla se llenan con información, pero no se leen en "
+            f"ninguna parte del código: {'; '.join(variables)}. Se recomienda validar si la información almacenada en "
+            f"estas variables de tipo tabla es necesaria para el proceso y, de no ser así, eliminar sus declaraciones "
+            f"y las consultas utilizadas para insertar dicha información.")
+
+
+def mensaje_variables_de_tabla_sin_uso(variables: List[str]) -> str:
+    """Texto de la usuaria (13 nov.); en singular si es una sola."""
+    if len(variables) == 1:
+        return (f"Se identificó que la variable de tipo tabla {variables[0]} está declarada en el procedimiento, pero "
+                f"no se utiliza en ninguna parte del código. Se recomienda verificar si esta variable es necesaria y, "
+                f"de no ser así, retirar su declaración para evitar código innecesario.")
+    return (f"Se identificó que las siguientes variables de tipo tabla están declaradas en el procedimiento, pero no "
+            f"se utilizan en ninguna parte del código: {'; '.join(variables)}. Se recomienda verificar si estas "
+            f"variables son necesarias y, de no ser así, retirar sus declaraciones para evitar código innecesario.")
