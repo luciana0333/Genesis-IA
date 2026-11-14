@@ -176,6 +176,9 @@ class GenesisHandler(SimpleHTTPRequestHandler):
                 'severidad': severidad,
                 'regla': hallazgo.regla,
                 'mensaje': hallazgo.mensaje,
+                # Dónde empieza el «Qué hacer» cuando lo que se encontró tiene varias oraciones (si no, la
+                # pantalla corta en la primera oración, como siempre).
+                'inicioQueHacer': getattr(hallazgo, 'inicio_que_hacer', None),
                 # En qué cajita está la línea (p. ej. 'indices'); None = el SQL principal.
                 'seccion': getattr(hallazgo, 'seccion', None),
                 # Líneas de una observación que junta varias (p. ej. tablas sin NOLOCK).
@@ -222,6 +225,7 @@ class GenesisHandler(SimpleHTTPRequestHandler):
             'hallazgos': [
                 {'linea': h.linea, 'origen': h.origen.value, 'severidad': h.severidad.value, 'regla': h.regla,
                  'mensaje': h.mensaje, 'lineas': getattr(h, 'lineas', None),
+                 'inicioQueHacer': getattr(h, 'inicio_que_hacer', None),
                  # Consulta para validar si las columnas aceptan NULL (ISNULL sobre columnas).
                  'consulta': getattr(h, 'consulta', None)}
                 for h in hallazgos

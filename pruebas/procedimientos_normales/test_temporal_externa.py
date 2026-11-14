@@ -51,6 +51,8 @@ class TemporalExternaTest(unittest.TestCase):
                 hallazgo = reglas["TEMPORAL_EXTERNA"]
                 self.assertEqual(hallazgo.severidad.value, "bajo")
                 self.assertEqual(hallazgo.lineas, [21, 22])
+                # Lo encontrado ocupa dos oraciones: la pantalla corta el «Qué hacer» donde indica la regla.
+                self.assertEqual(hallazgo.mensaje[hallazgo.inicio_que_hacer:][:22], "Se recomienda verifica")
                 self.assertEqual(
                     hallazgo.mensaje,
                     "Se identificó que la tabla temporal #Personas no se crea en este procedimiento. Según lo "

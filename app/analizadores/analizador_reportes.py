@@ -1181,6 +1181,9 @@ def _validar_temporales_sin_crear(texto: str, limpio: str) -> List[Hallazgo]:
         posicion, mensaje, grupos, lineas = resultado
         hallazgo = _hallazgo(texto, posicion, regla, mensaje)
         hallazgo.grupos, hallazgo.lineas = grupos, lineas
+        if regla == "TEMPORAL_EXTERNA":
+            # Lo encontrado ocupa dos oraciones (texto de la usuaria): el «Qué hacer» empieza en «Se recomienda».
+            hallazgo.inicio_que_hacer = mensaje.index("Se recomienda")
         hallazgos.append(hallazgo)
     return hallazgos
 

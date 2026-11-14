@@ -33,7 +33,11 @@ export function formatearKb(valor) {
  * Los mensajes siguen el formato "qué pasa. Qué hacer.": se separa la primera
  * oración (el problema) del resto (la corrección) para mostrarlos por separado.
  */
-export function separarMensaje(texto) {
+export function separarMensaje(texto, inicioQueHacer = null) {
+  // La regla indica dónde empieza el «Qué hacer» cuando lo encontrado ocupa varias oraciones (13 nov.).
+  if (Number.isInteger(inicioQueHacer) && inicioQueHacer > 0 && inicioQueHacer < texto.length) {
+    return { problema: texto.slice(0, inicioQueHacer).trim(), solucion: texto.slice(inicioQueHacer).trim() };
+  }
   const porLoQue = texto.search(/, por lo que se recomienda/i);
   const corte = texto.search(/(?<=[.?])\s+(?=[A-ZÁÉÍÓÚÑ¿(])/);
   // "Se ha identificado que…, por lo que se recomienda…" (en la primera oración): la recomendación va aparte.
