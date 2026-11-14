@@ -78,8 +78,10 @@ function ResumenLateral({ conteo, total, filtro, onFiltrar }) {
   );
 }
 
-const DESCRIPCION_RIESGOS = 'Hallazgos detectados al analizar el plan de ejecución, para los que SQL Server no emite '
-  + 'alerta. Se recomienda revisarlos antes del pase a producción.';
+// Texto de la usuaria (13 nov.).
+const DESCRIPCION_RIESGOS = 'Se identificaron hallazgos que Genesis evaluó y clasificó como riesgos durante el análisis '
+  + 'del código y del plan de ejecución. Se recomienda revisar estos hallazgos y realizar las correcciones '
+  + 'correspondientes antes del pase a producción.';
 
 // Cajitas secundarias del formulario: la línea del hallazgo es de esa cajita.
 const SECCIONES = { indices: 'Índices' };
