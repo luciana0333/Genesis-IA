@@ -499,8 +499,10 @@ def _validar_modificaciones_fisicas(texto: str, limpio: str) -> List[Hallazgo]:
                 match.start(2),
                 "MODIFICACION_TABLA_FISICA",
                 f"Se identificó que el reporte modifica la tabla {tabla} con {' '.join(match.group(1).upper().split())}. "
-                f"Se recomienda mover ese cambio a un procedimiento de negocio, ya que un reporte solo debe "
-                f"consultar datos y no alterar la información.",
+                # «Qué hacer» con el texto de la usuaria (13 nov.; política del DBA).
+                f"Se recomienda gestionar este cambio con el equipo de Proyectos, ya que el área de Gestión de "
+                f"Datos debe limitarse a realizar consultas de información y no crear ni modificar tablas dentro de "
+                f"las bases de datos.",
             ))
     return hallazgos
 
