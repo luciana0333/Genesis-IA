@@ -53,10 +53,9 @@ class TemporalExternaTest(unittest.TestCase):
                 self.assertEqual(hallazgo.lineas, [21, 22])
                 self.assertEqual(
                     hallazgo.mensaje,
-                    "Se identificó que la tabla temporal #Personas no se crea en este procedimiento, sino en el "
-                    "procedimiento que lo ejecuta (así lo indica el encabezado). Se recomienda asegurarse de que el "
-                    "procedimiento que ejecuta a este cree primero la tabla #Personas, ya que, si la tabla no existe, "
-                    "este procedimiento falla.",
+                    "Se identificó que la tabla temporal #Personas no se crea en este procedimiento, sino en otro "
+                    "procedimiento que se ejecuta antes (así lo indica el encabezado). Se recomienda verificar que ese "
+                    "otro procedimiento siempre cree la tabla #Personas, ya que sin ella este procedimiento falla.",
                 )
 
     def test_sin_documentar_sigue_siendo_critico(self):
@@ -120,9 +119,9 @@ class TemporalExternaTest(unittest.TestCase):
         self.assertEqual(
             mensaje,
             "Se identificó que las tablas temporales #Personas y #Agencias no se crean en este procedimiento, sino "
-            "en el procedimiento que lo ejecuta (así lo indica el encabezado). Se recomienda asegurarse de que el "
-            "procedimiento que ejecuta a este cree primero las tablas #Personas y #Agencias, ya que, si alguna no "
-            "existe, este procedimiento falla.",
+            "en otro procedimiento que se ejecuta antes (así lo indica el encabezado). Se recomienda verificar que ese "
+            "otro procedimiento siempre cree las tablas #Personas y #Agencias, ya que sin ellas este procedimiento "
+            "falla.",
         )
 
     def test_si_la_crea_el_propio_procedimiento_no_se_marca(self):
