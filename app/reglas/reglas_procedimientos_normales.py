@@ -181,6 +181,15 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "TEMPORAL_EXTERNA": ReglaDiccionario(
+        codigo="TEMPORAL_EXTERNA",
+        nombre="Tabla temporal externa",
+        severidad="bajo",
+        descripcion="Temporal local que crea el procedimiento que lo llama, documentada en el encabezado (usuaria, "
+                    "13 nov.); sin esa documentación es «Tabla temporal usada sin crear» (crítico).",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "TEMPORAL_SIN_CREAR": ReglaDiccionario(
         codigo="TEMPORAL_SIN_CREAR",
         nombre="Tabla temporal usada sin crear",

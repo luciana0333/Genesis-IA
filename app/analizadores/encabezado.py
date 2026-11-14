@@ -93,6 +93,15 @@ def _enumerar(datos: List[str]) -> str:
     return datos[0] if len(datos) == 1 else f"{', '.join(datos[:-1])} ni {datos[-1]}"
 
 
+def comentarios_del_encabezado(texto: str, limpio: str) -> List[str]:
+    """Los comentarios del encabezado (antes del CREATE/ALTER, o justo después del AS o del BEGIN)."""
+    procedimiento = _PROCEDIMIENTO.search(limpio)
+    if not procedimiento:
+        return []
+    zona = texto[:_inicio_del_cuerpo(limpio, procedimiento.end())]
+    return [c.group(0) for c in _COMENTARIO.finditer(zona)]
+
+
 def encabezado_observado(texto: str, limpio: str) -> Optional[Tuple[int, str]]:
     """(posición, mensaje) si el procedimiento no tiene encabezado o le faltan datos; None si está completo.
 
