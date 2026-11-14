@@ -352,6 +352,8 @@
 
 .riesgos-genesis > .section-heading {
   margin-bottom: 4px;
+  /* Alineado con el texto de las fichas (20 px adentro), no con su borde (usuaria, 13 nov.). */
+  padding-left: 20px;
 }
 
 .finding {
