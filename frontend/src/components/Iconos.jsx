@@ -12,6 +12,7 @@ import {
   ChevronRight,
   ChevronUp,
   Crosshair,
+  Image as ImagenLucide,
   FolderArchive,
   Timer,
   ChartColumn,
@@ -83,6 +84,7 @@ export const IconoReloj = crearIcono(Timer);
 export const IconoAumentar = crearIcono(ChevronUp);
 export const IconoDisminuir = crearIcono(ChevronDown);
 export const IconoMira = crearIcono(Crosshair);
+export const IconoImagen = crearIcono(ImagenLucide);
 
 // Estados
 export const IconoEscudoCheck = crearIcono(ShieldCheck);
