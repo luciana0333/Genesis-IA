@@ -311,7 +311,7 @@ class TestDiccionarioTablasAlter(unittest.TestCase):
     def test_descripcion_de_la_tabla_en_un_alter_solo_pide_validar(self):
         tabla = (
             "EXEC sys.sp_addextendedproperty @name = N'MS_Description', "
-            "@value = N'Estados posibles de una solicitud', @level0type = N'SCHEMA', @level0name = N'dbo', "
+            "@value = N'Tabla de estados posibles de una solicitud', @level0type = N'SCHEMA', @level0name = N'dbo', "
             "@level1type = N'TABLE', @level1name = N'Estado';"
         )
         diccionario = "\n".join([
@@ -394,7 +394,7 @@ class TestCatalogoDiccionarioTablas(unittest.TestCase):
         vacia = verificar_diccionario_tablas(
             caso6.TABLA,
             caso6.diccionario_correcto(";").replace(
-                "Archivos adjuntos registrados para cada solicitud", ""
+                "Tabla de archivos adjuntos registrados para cada solicitud", ""
             ),
         )
         self.assertEqual([h.regla for h in vacia], ["DESCRIPCION_TABLA_VACIA"])
@@ -508,7 +508,7 @@ class TestActualizacionSinDescripcionPrevia(unittest.TestCase):
 
     def test_update_en_create_marca_tabla_y_columnas(self):
         diccionario = "\n".join([
-            _propiedad("update", "Registra los clientes"),
+            _propiedad("update", "Tabla que registra los clientes"),
             _propiedad("update", "Identificador del cliente", "nClienteId"),
         ])
         hallazgos = self._reglas("CREATE TABLE dbo.Cliente (nClienteId INT NOT NULL)", diccionario)
@@ -523,7 +523,7 @@ class TestActualizacionSinDescripcionPrevia(unittest.TestCase):
     def test_update_de_columna_existente_en_un_alter_es_correcto(self):
         self.assertEqual(self._reglas("ALTER TABLE dbo.Cliente ADD cTelefono VARCHAR(20) NULL",
                                       _propiedad("add", "Teléfono del cliente", "cTelefono") + "\n"
-                                      + _propiedad("update", "Registra los clientes")
+                                      + _propiedad("update", "Tabla que registra los clientes")
                                       + "\n" + _propiedad("update", "Correo del cliente", "cCorreo")), [])
 
     def test_update_sigue_revisando_vacios_y_ortografia(self):

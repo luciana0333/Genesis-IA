@@ -13,7 +13,7 @@ END;"""
 
 DICCIONARIO_PROCEDIMIENTO = """EXEC sys.sp_addextendedproperty
 @name=N'MS_Description',
-@value=N'Consulta la información del cliente',
+@value=N'Procedimiento que consulta la información del cliente',
 @level0type=N'SCHEMA', @level0name=N'CLICKTOPAY',
 @level1type=N'PROCEDURE', @level1name=N''
 GO"""
@@ -23,7 +23,7 @@ TABLA = """CREATE TABLE CLICKTOPAY.Cliente (
     CONSTRAINT PK_Cliente PRIMARY KEY CLUSTERED (nClienteId)
 );"""
 
-DICCIONARIO_TABLA = """EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Clientes',
+DICCIONARIO_TABLA = """EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Tabla de clientes',
 @level0type=N'SCHEMA', @level0name=N'CLICKTOPAY', @level1type=N'TABLE', @level1name=N''
 GO"""
 

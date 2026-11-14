@@ -23,7 +23,7 @@ END
 DICCIONARIO = """
 EXEC sys.sp_addextendedproperty
 @name=N'MS_Description',
-@value=N'Busca el contrato de un trabajador',
+@value=N'Procedimiento que busca el contrato de un trabajador',
 @level0type=N'SCHEMA',
 @level0name=N'RRHH',
 @level1type=N'PROCEDURE',

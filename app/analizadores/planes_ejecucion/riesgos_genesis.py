@@ -35,7 +35,7 @@ def _expresion(conversion: re.Match) -> str:
 
 
 def _casos(sentencias: List[Dict]) -> Dict[Tuple[str, str], Dict]:
-    """{(la comparación, el valor en texto): {consultas, nodos}} en el orden en que aparecen."""
+    """{(la expresión de texto, el número con que se compara): {consultas, nodos}} en el orden en que aparecen."""
     casos: Dict[Tuple[str, str], Dict] = {}
     for sentencia in sentencias:
         for nodo in sentencia["nodos"]:
@@ -46,11 +46,9 @@ def _casos(sentencias: List[Dict]) -> Dict[Tuple[str, str], Dict]:
                     despues = _COMPARACION_DESPUES.match(texto, conversion.end())
                     antes = _COMPARACION_ANTES.search(texto[:conversion.start()])
                     if despues:
-                        operador, numero = despues.group(1), despues.group(2)
-                        clave = (f"{expresion} {operador} {numero}", f"'{numero}'")
+                        clave = (expresion, despues.group(2))
                     elif antes:
-                        numero, operador = antes.group(1), antes.group(2)
-                        clave = (f"{numero} {operador} {expresion}", f"'{numero}'")
+                        clave = (expresion, antes.group(1))
                     else:
                         # Sin comparación (asignación a una variable numérica, cálculo): suele ser intencional y no
                         # decide un resultado. Solo se observan las comparaciones (decisión de la usuaria, 1 nov.).
@@ -68,19 +66,18 @@ def conversion_texto_a_numero(sentencias: List[Dict]) -> List[Hallazgo]:
     casos = _casos(sentencias)
     if not casos:
         return []
-    # Texto de la usuaria (9 nov.): directo, sin «(consulta N)» (la imagen ya la marca) y sin afirmar más de lo seguro:
-    # con número, ' ' vale 0 y '01' vale 1; con texto no, por eso se pide validar que el resultado no cambie.
+    # Modelo de redacción de la usuaria (13 nov.) para los riesgos de Genesis. Sin «(consulta N)» (la imagen ya la
+    # marca) y pidiendo validar el resultado: con número, ' ' vale 0 y '01' vale 1; con texto no.
     if len(casos) == 1:
-        (comparacion, valor), = casos
-        mensaje = (f"Se identificó una conversión implícita sobre la comparación {comparacion}. Se recomienda comparar "
-                   f"con un valor de texto ({valor}), validando que el resultado no cambie, ya que un valor no numérico "
-                   f"genera un error de conversión.")
+        (expresion, numero), = casos
+        mensaje = (f"Se identificó una conversión implícita al comparar {expresion} con el valor numérico {numero}. "
+                   f"Se recomienda corregir la conversión implícita identificada, realizando la comparación con un "
+                   f"valor del mismo tipo de dato y validando que el cambio no altere el resultado esperado.")
     else:
-        comparaciones = "; ".join(comparacion for comparacion, _ in casos)
-        valores = "; ".join(valor for _, valor in casos)
-        mensaje = (f"Se identificaron conversiones implícitas sobre las comparaciones: {comparaciones}. Se recomienda "
-                   f"comparar con valores de texto ({valores}), validando que el resultado no cambie, ya que un valor "
-                   f"no numérico genera un error de conversión.")
+        comparaciones = "; ".join(f"{expresion} con el valor numérico {numero}" for expresion, numero in casos)
+        mensaje = (f"Se identificaron conversiones implícitas al comparar: {comparaciones}. Se recomienda corregir "
+                   f"las conversiones implícitas identificadas, realizando cada comparación con un valor del mismo tipo "
+                   f"de dato y validando que el cambio no altere el resultado esperado.")
     hallazgo = Hallazgo(
         linea=1,
         origen=OrigenAnalisis.PLAN_EJECUCION,
@@ -138,14 +135,15 @@ def columna_texto_convertida(sentencias: List[Dict]) -> List[Hallazgo]:
         return []
     # Sin «(consulta N)»: la imagen ya marca la consulta y el operador (usuaria, 9 nov.).
     lista = "; ".join(f"{columna} de {tabla} a {tipo}" for columna, tabla, tipo in casos)
-    # Texto de la usuaria (9 nov.).
+    # Modelo de redacción de la usuaria (13 nov.) para los riesgos de Genesis.
     if len(casos) == 1:
-        mensaje = (f"Se identificó una conversión implícita sobre la columna {lista}. Se recomienda revisar el tipo de "
-                   f"dato de la columna, ya que un valor con formato inválido genera un error de conversión.")
+        mensaje = (f"Se identificó una conversión implícita de la columna de texto {lista}. Se recomienda corregir la "
+                   f"conversión implícita identificada, definiendo la columna con el tipo de dato que corresponde y "
+                   f"validando que el cambio no altere el resultado esperado.")
     else:
-        mensaje = (f"Se identificaron conversiones implícitas sobre las columnas: {lista}. Se recomienda revisar el tipo "
-                   f"de dato de las columnas, ya que un valor con formato inválido genera un error de "
-                   f"conversión.")
+        mensaje = (f"Se identificaron conversiones implícitas de las columnas de texto: {lista}. Se recomienda corregir "
+                   f"las conversiones implícitas identificadas, definiendo cada columna con el tipo de dato que "
+                   f"corresponde y validando que el cambio no altere el resultado esperado.")
     hallazgo = Hallazgo(
         linea=1,
         origen=OrigenAnalisis.PLAN_EJECUCION,

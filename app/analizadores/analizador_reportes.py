@@ -17,10 +17,11 @@ from app.analizadores.select_estrella import (
 )
 from app.analizadores.caracteres_danados import caracteres_danados
 from app.analizadores.variables_sin_uso import (
-    mensaje_variables_de_tabla_sin_uso, variables_de_tabla_sin_uso,
+    mensaje_variables_de_tabla_llenadas, mensaje_variables_de_tabla_sin_uso, variables_de_tabla_llenadas,
+    variables_de_tabla_sin_uso,
 )
 from app.analizadores.temporal_sin_uso import temporal_sin_uso_agrupado
-from app.analizadores.temporales_sin_crear import temporales_sin_crear
+from app.analizadores.temporales_sin_crear import temporales_externas, temporales_sin_crear
 from app.analizadores.comentarios_codigo import codigo_comentado_agrupado
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.left_like import left_reemplazable_por_like
@@ -499,8 +500,10 @@ def _validar_modificaciones_fisicas(texto: str, limpio: str) -> List[Hallazgo]:
                 match.start(2),
                 "MODIFICACION_TABLA_FISICA",
                 f"Se identificó que el reporte modifica la tabla {tabla} con {' '.join(match.group(1).upper().split())}. "
-                f"Se recomienda mover ese cambio a un procedimiento de negocio, ya que un reporte solo debe "
-                f"consultar datos y no alterar la información.",
+                # «Qué hacer» con el texto de la usuaria (13 nov.; política del DBA).
+                f"Se recomienda gestionar este cambio con el equipo de Proyectos, ya que el área de Gestión de "
+                f"Datos debe limitarse a realizar consultas de información y no crear ni modificar tablas dentro de "
+                f"las bases de datos.",
             ))
     return hallazgos
 
@@ -996,15 +999,24 @@ def _validar_funciones_reemplazables(texto: str, limpio: str) -> List[Hallazgo]:
 
 
 def _validar_variables_de_tabla(texto: str, limpio: str) -> List[Hallazgo]:
-    """Variables de tabla declaradas que no se leen en ninguna parte (usuaria, 8 nov.)."""
+    """Variables de tabla declaradas que no se leen en ninguna parte (usuaria, 8 nov.). Las que solo se declaran y las
+    que se llenan pero no se leen van en observaciones separadas, cada una con su texto (13 nov.)."""
     casos = variables_de_tabla_sin_uso(limpio)
     if not casos:
         return []
-    mensaje = mensaje_variables_de_tabla_sin_uso([variable for variable, _ in casos])
-    hallazgo = _hallazgo(texto, casos[0][1], "VARIABLE_TABLA_SIN_USO", mensaje)
-    if len(casos) > 1:
-        hallazgo.lineas = sorted({_linea(texto, posicion) for _, posicion in casos})
-    return [hallazgo]
+    llenadas = set(variables_de_tabla_llenadas(limpio, [variable for variable, _ in casos]))
+    hallazgos = []
+    for grupo, regla, redactar in (
+        ([c for c in casos if c[0] not in llenadas], "VARIABLE_TABLA_SIN_USO", mensaje_variables_de_tabla_sin_uso),
+        ([c for c in casos if c[0] in llenadas], "VARIABLE_TABLA_LLENADA_SIN_USO", mensaje_variables_de_tabla_llenadas),
+    ):
+        if not grupo:
+            continue
+        hallazgo = _hallazgo(texto, grupo[0][1], regla, redactar([variable for variable, _ in grupo]))
+        if len(grupo) > 1:
+            hallazgo.lineas = sorted({_linea(texto, posicion) for _, posicion in grupo})
+        hallazgos.append(hallazgo)
+    return hallazgos
 
 
 def _validar_variables(texto: str, limpio: str) -> List[Hallazgo]:
@@ -1169,14 +1181,23 @@ def _validar_temporal_sin_uso(texto: str, limpio: str) -> List[Hallazgo]:
 
 
 def _validar_temporales_sin_crear(texto: str, limpio: str) -> List[Hallazgo]:
-    """Tabla temporal que se usa pero nunca se crea: el procedimiento falla al ejecutarse (crítico)."""
-    resultado = temporales_sin_crear(limpio, lambda posicion: _linea(texto, posicion))
-    if not resultado:
-        return []
-    posicion, mensaje, grupos, lineas = resultado
-    hallazgo = _hallazgo(texto, posicion, "TEMPORAL_SIN_CREAR", mensaje)
-    hallazgo.grupos, hallazgo.lineas = grupos, lineas
-    return [hallazgo]
+    """Tabla temporal que se usa pero nunca se crea: el procedimiento falla al ejecutarse (crítico). Si su
+    creación está documentada en el encabezado, es «Tabla temporal externa» (bajo; usuaria, 13 nov.)."""
+    hallazgos = []
+    for regla, resultado in (
+        ("TEMPORAL_SIN_CREAR", temporales_sin_crear(limpio, lambda posicion: _linea(texto, posicion), texto)),
+        ("TEMPORAL_EXTERNA", temporales_externas(texto, limpio, lambda posicion: _linea(texto, posicion))),
+    ):
+        if not resultado:
+            continue
+        posicion, mensaje, grupos, lineas = resultado
+        hallazgo = _hallazgo(texto, posicion, regla, mensaje)
+        hallazgo.grupos, hallazgo.lineas = grupos, lineas
+        if regla == "TEMPORAL_EXTERNA":
+            # Lo encontrado ocupa dos oraciones (texto de la usuaria): el «Qué hacer» empieza en «Se recomienda».
+            hallazgo.inicio_que_hacer = mensaje.index("Se recomienda")
+        hallazgos.append(hallazgo)
+    return hallazgos
 
 
 def verificar_reporte(texto_sql: str) -> List[Hallazgo]:

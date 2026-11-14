@@ -41,7 +41,7 @@ END;`;
 
 export const DICCIONARIO_PROCEDIMIENTO = `EXEC sys.sp_addextendedproperty
 @name=N'MS_Description',
-@value=N'Consulta la informacion del cliente',
+@value=N'Procedimiento que consulta la informacion del cliente',
 @level0type=N'SCHEMA', @level0name=N'CLICKTOPAY',
 @level1type=N'PROCEDURE', @level1name=N'PA_Cliente_Sel_PorId'
 GO`;

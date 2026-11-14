@@ -45,18 +45,18 @@ class RiesgoTextoANumeroTest(unittest.TestCase):
                 self.assertEqual(hallazgos[0].nodos, [{"consulta": 1, "nodo": "0"}])
                 self.assertEqual(
                     hallazgos[0].mensaje,
-                    "Se identificó una conversión implícita sobre la comparación SUBSTRING(cCtaCod, 9, 1) = 1. Se "
-                    "recomienda comparar con un valor de texto ('1'), validando que el resultado no cambie, ya que un "
-                    "valor no numérico genera un error de conversión.",
+                    "Se identificó una conversión implícita al comparar SUBSTRING(cCtaCod, 9, 1) con el valor "
+                    "numérico 1. Se recomienda corregir la conversión implícita identificada, realizando la comparación "
+                    "con un valor del mismo tipo de dato y validando que el cambio no altere el resultado esperado.",
                 )
 
     def test_misma_comparacion_repetida_sale_una_vez(self):
-        self.assertEqual(_riesgos(_plan([_CASE, _CASE.replace("'SOLES'", "'S'")]))[0].mensaje.count("SUBSTRING(cCtaCod, 9, 1) = 1"), 1)
+        self.assertEqual(_riesgos(_plan([_CASE, _CASE.replace("'SOLES'", "'S'")]))[0].mensaje.count("SUBSTRING(cCtaCod, 9, 1) con el valor numérico 1"), 1)
 
     def test_left_y_constante_antes(self):
         expresion = "CASE WHEN (10)=CONVERT_IMPLICIT(smallint,left([dbo].[Cuenta].[cCodigo],(2)),0) THEN 1 END"
         mensaje = _riesgos(_plan([expresion]))[0].mensaje
-        self.assertIn("comparación 10 = LEFT(cCodigo, 2). Se recomienda comparar con un valor de texto ('10')", mensaje)
+        self.assertIn("al comparar LEFT(cCodigo, 2) con el valor numérico 10.", mensaje)
 
     def test_asignacion_sin_comparacion_no_se_observa(self):
         # SELECT @nMoneda = SUBSTRING(cCtaCod, 9, 1) con @nMoneda INT: suele ser intencional (decisión de la usuaria).
@@ -78,9 +78,10 @@ class RiesgoTextoANumeroTest(unittest.TestCase):
         mensaje = _riesgos(_plan([_CASE, otro]))[0].mensaje
         self.assertEqual(
             mensaje,
-            "Se identificaron conversiones implícitas sobre las comparaciones: SUBSTRING(cCtaCod, 9, 1) = 1; "
-            "RIGHT(cCodigo, 1) <> 0. Se recomienda comparar con valores de texto ('1'; '0'), validando que el "
-            "resultado no cambie, ya que un valor no numérico genera un error de conversión.")
+            "Se identificaron conversiones implícitas al comparar: SUBSTRING(cCtaCod, 9, 1) con el valor numérico 1; "
+            "RIGHT(cCodigo, 1) con el valor numérico 0. Se recomienda corregir las conversiones implícitas "
+            "identificadas, realizando cada comparación con un valor del mismo tipo de dato y validando que el cambio "
+            "no altere el resultado esperado.")
 
     def test_no_se_observa(self):
         casos = (

@@ -165,9 +165,18 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "VARIABLE_TABLA_LLENADA_SIN_USO": ReglaDiccionario(
+        codigo="VARIABLE_TABLA_LLENADA_SIN_USO",
+        nombre="Variables de tipo tabla llenadas sin uso",
+        severidad="bajo",
+        descripcion="Una variable de tipo tabla se llena (INSERT INTO @T …) pero no se lee en ninguna parte (usuaria, "
+                    "13 nov.).",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "VARIABLE_TABLA_SIN_USO": ReglaDiccionario(
         codigo="VARIABLE_TABLA_SIN_USO",
-        nombre="Variables de tabla declaradas sin uso",
+        nombre="Variables de tipo tabla declaradas sin uso",
         severidad="bajo",
         descripcion="Variables de tabla (DECLARE @T TABLE) que se declaran, pero no se leen en el procedimiento.",
         alcance="procedimiento",
@@ -178,6 +187,15 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         nombre="Tabla temporal creada y no utilizada",
         severidad="medio",
         descripcion="Una tabla temporal que se crea y se llena, pero no se lee en ninguna parte del procedimiento.",
+        alcance="procedimiento",
+        activo=True,
+    ),
+    "TEMPORAL_EXTERNA": ReglaDiccionario(
+        codigo="TEMPORAL_EXTERNA",
+        nombre="Tabla temporal externa",
+        severidad="bajo",
+        descripcion="Temporal local que crea el procedimiento que lo llama, documentada en el encabezado (usuaria, "
+                    "13 nov.); sin esa documentación es «Tabla temporal usada sin crear» (crítico).",
         alcance="procedimiento",
         activo=True,
     ),

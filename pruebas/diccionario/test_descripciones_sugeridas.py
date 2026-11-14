@@ -116,7 +116,7 @@ class TestContextoDelCreate(unittest.TestCase):
             for linea in diccionario_faltante_tabla(TABLA_COMPLETA, "")["script"].splitlines() if "@value" in linea
         ]
         self.assertEqual(valores, [
-            "Registra la información de los clientes",
+            "Tabla que registra la información de los clientes",
             "Identificador único del cliente. Clave primaria, se genera automáticamente",
             "Identificador de la agencia asociada al cliente. Referencia a la tabla Agencia",
             "Identificador del tipo de documento asociado al cliente. Referencia a la tabla TipoDocumento",

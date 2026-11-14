@@ -20,7 +20,7 @@ EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Nombre del cli
 """
 PROCEDIMIENTO = "CREATE PROCEDURE dbo.PA_Cliente_Sel_PorId\n  @nIdCliente INT,\n  @cNombre VARCHAR(10)\nAS\nSELECT 1\n"
 DICCIONARIO_PROCEDIMIENTO = (
-    "EXEC sys.sp_addextendedproperty N'MS_Description', N'Consulta el cliente', N'SCHEMA', N'dbo', N'PROCEDURE', N'PA_Cliente_Sel_PorId'\n"
+    "EXEC sys.sp_addextendedproperty N'MS_Description', N'Procedimiento que consulta el cliente', N'SCHEMA', N'dbo', N'PROCEDURE', N'PA_Cliente_Sel_PorId'\n"
     "GO\n"
     "EXEC sys.sp_addextendedproperty N'MS_Description', N'', N'SCHEMA', N'dbo', N'PROCEDURE', N'PA_Cliente_Sel_PorId', N'PARAMETER', N'@nIdCliente'\n"
 )

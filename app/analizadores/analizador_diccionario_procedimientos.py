@@ -26,6 +26,7 @@ from app.analizadores.diccionario_varios import (
 )
 from app.analizadores.objetos_repetidos import hallazgo_repetidos, quitar_creaciones_repetidas
 from app.analizadores.palabra_repetida import palabra_repetida_agrupada
+from app.analizadores.descripcion_formato import descripcion_sin_formato
 from app.analizadores.objeto_programable import FUNCION, POR_CLAVE, PROCEDIMIENTO, actual, restaurar, usar
 from app.analizadores.ortografia import (
     ACCION_ORTOGRAFIA, elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico,
@@ -681,6 +682,26 @@ def _validar_palabras_repetidas(
     return [hallazgo]
 
 
+def _validar_formato_descripcion(
+    llamadas: List[Tuple[int, Dict[str, str]]], texto_diccionario: str, esquema: Optional[str], nombre_proc: str,
+) -> List[Hallazgo]:
+    """La descripción del procedimiento debe iniciar con «Procedimiento» y la de la función con «Función» (13 nov.)."""
+    hallazgos = []
+    for pos, args in llamadas:
+        if not _es_sentencia_de_procedimiento(args) or "value" not in args:
+            continue
+        if _limpiar_valor(args.get("level1name", "")).upper() != nombre_proc.upper():
+            continue
+        mensaje = descripcion_sin_formato(
+            actual().clave, _nombre_completo(esquema, nombre_proc), _texto_de_valor(args["value"]))
+        if mensaje:
+            hallazgos.append(_hallazgo_catalogo(
+                _numero_linea(texto_diccionario, _posicion_valor(texto_diccionario, pos)),
+                "DESCRIPCION_SIN_FORMATO_ESTANDAR", mensaje,
+            ))
+    return hallazgos
+
+
 def _validar_descripcion_vs_nombre(
     llamadas: List[Tuple[int, Dict[str, str]]], texto_diccionario: str
 ) -> List[Hallazgo]:
@@ -1020,6 +1041,7 @@ def _revisar_procedimiento(texto_procedimiento: str, texto_diccionario: str) -> 
     hallazgos += _validar_nombre_propiedad(texto_diccionario, esquema, nombre_proc)
     hallazgos += _validar_ortografia(llamadas, texto_diccionario, esquema, nombre_proc, parametros_reales)
     hallazgos += _validar_palabras_repetidas(llamadas, texto_diccionario, esquema, nombre_proc)
+    hallazgos += _validar_formato_descripcion(llamadas, texto_diccionario, esquema, nombre_proc)
     hallazgos += _validar_descripcion_vs_nombre(llamadas, texto_diccionario)
     if REGLAS_DICCIONARIO_PROCEDIMIENTOS["VALOR_SIN_COMILLAS"].activo:
         hallazgos += _validar_valores_sin_comillas(llamadas, texto_diccionario)

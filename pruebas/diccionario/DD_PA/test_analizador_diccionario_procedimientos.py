@@ -53,7 +53,7 @@ class TestDiccionarioProcedimientos(unittest.TestCase):
         diccionario = """
         -- EXEC sys.sp_addextendedproperty @level2name='@parametroFalso';
         EXEC sys.sp_addextendedproperty
-        @name=N'MS_Description', @value=N'Actualiza el correo del cliente',
+        @name=N'MS_Description', @value=N'Procedimiento que actualiza el correo del cliente',
         @level0type=N'SCHEMA', @level0name='CLICKTOPAY',
         @level1type=N'PROCEDURE', @level1name='PA_Cliente_Upd_Correo';
         EXEC sys.sp_addextendedproperty
@@ -178,7 +178,7 @@ class TestOrtografiaProcedimientos(unittest.TestCase):
         procedimiento = "CREATE PROCEDURE dbo.PA_Cliente_Consultar\n    @nClienteId INT\nAS\nBEGIN\n    SELECT 1\nEND"
         diccionario = (
             "EXEC sys.sp_addextendedproperty @name = N'MS_Description', "
-            "@value = N'Consulta la información del clienet', @level0type = N'SCHEMA', @level0name = N'dbo', "
+            "@value = N'Procedimiento que consulta la información del clienet', @level0type = N'SCHEMA', @level0name = N'dbo', "
             "@level1type = N'PROCEDURE', @level1name = N'PA_Cliente_Consultar';\n"
             "EXEC sys.sp_addextendedproperty @name = N'MS_Description', "
             "@value = N'Identificadodr del cliente', @level0type = N'SCHEMA', @level0name = N'dbo', "
