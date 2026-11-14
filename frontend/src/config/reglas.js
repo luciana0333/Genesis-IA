@@ -145,7 +145,7 @@ export const NOMBRES_REGLAS = {
   PROCEDIMIENTO_SIN_ESQUEMA: 'Procedimiento sin esquema',
   CREATE_OR_ALTER: 'Uso de CREATE OR ALTER',
   TEMPORAL_SIN_USO: 'Tabla temporal creada y no utilizada',
-  VARIABLE_TABLA_SIN_USO: 'Variables de tabla declaradas sin uso',
+  VARIABLE_TABLA_SIN_USO: 'Variables de tipo tabla declaradas sin uso',
   CARACTERES_DANADOS: 'Caracteres especiales dañados',
   COLUMNA_NUMERICA_CON_TEXTO: 'Comparación de columna numérica con texto',
   ENCABEZADO_PROCEDIMIENTO: 'Procedimiento sin encabezado completo',

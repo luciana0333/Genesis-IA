@@ -25,18 +25,18 @@ class VariablesTablaSinUsoTest(unittest.TestCase):
                 self.assertEqual(hallazgos[0].lineas, [4, 5])
                 self.assertEqual(
                     hallazgos[0].mensaje,
-                    "Se identificó que las siguientes variables de tabla están declaradas, pero no se utilizan dentro "
-                    "del procedimiento: @TEstadoEmergencia; @TSuspensionPerfecta. Se recomienda verificar si estas "
-                    "variables serán necesarias en el procedimiento. De no ser así, eliminar sus declaraciones para "
-                    "evitar código innecesario.",
+                    "Se identificó que las siguientes variables de tipo tabla están declaradas en el procedimiento, "
+                    "pero no se utilizan en ninguna parte del código: @TEstadoEmergencia; @TSuspensionPerfecta. Se "
+                    "recomienda verificar si estas variables son necesarias y, de no ser así, retirar sus declaraciones "
+                    "para evitar código innecesario.",
                 )
 
     def test_una_sola_en_singular_y_solo_llenada_cuenta_como_sin_uso(self):
         hallazgo = _sin_uso("DECLARE @T TABLE (n INT)\nINSERT INTO @T SELECT 1\nUPDATE A SET A.n = 2 FROM @T A",
                             verificar_reporte)[0]
         self.assertTrue(hallazgo.mensaje.startswith(
-            "Se identificó que la variable de tabla @T está declarada, pero no se utiliza dentro del procedimiento. "
-            "Se recomienda verificar si esta variable será necesaria"))
+            "Se identificó que la variable de tipo tabla @T está declarada en el procedimiento, pero no se utiliza "
+            "en ninguna parte del código. Se recomienda verificar si esta variable es necesaria"))
 
     def test_lo_que_no_se_marca(self):
         for sql in (

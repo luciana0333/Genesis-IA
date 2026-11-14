@@ -71,7 +71,7 @@ REGLAS_REPORTES = {
     ),
     "VARIABLE_TABLA_SIN_USO": ReglaDiccionario(
         codigo="VARIABLE_TABLA_SIN_USO",
-        nombre="Variables de tabla declaradas sin uso",
+        nombre="Variables de tipo tabla declaradas sin uso",
         severidad="bajo",
         descripcion="Variables de tabla (DECLARE @T TABLE) que se declaran, pero no se leen en el procedimiento.",
         alcance="reporte",
