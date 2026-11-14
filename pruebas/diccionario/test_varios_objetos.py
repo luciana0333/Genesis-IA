@@ -33,10 +33,10 @@ GO"""
 
 def diccionario_tablas(*extra):
     return "\n".join([
-        propiedad("Totalizado de bonos de los ejecutivos", "table", "EsquemaTotalizadoEjecutivos"),
+        propiedad("Tabla de totalizado de bonos de los ejecutivos", "table", "EsquemaTotalizadoEjecutivos"),
         propiedad("Identificador del ejecutivo", "table", "EsquemaTotalizadoEjecutivos", "column", "nIdEjecutivo"),
         propiedad("Bono de gestión comercial", "table", "EsquemaTotalizadoEjecutivos", "column", "nBonoComercial"),
-        propiedad("Totalizado de bonos de los supervisores", "table", "EsquemaTotalizadoSupervisores"),
+        propiedad("Tabla de totalizado de bonos de los supervisores", "table", "EsquemaTotalizadoSupervisores"),
         propiedad("Identificador del supervisor", "table", "EsquemaTotalizadoSupervisores", "column", "nIdSupervisor"),
         propiedad("Bono de gestión comercial", "table", "EsquemaTotalizadoSupervisores", "column", "nBonoComercial"),
         *extra,
@@ -58,7 +58,7 @@ def diccionario_procedimientos(*extra):
     filas = []
     for nombre in ("PA_EsquemaTotalizado_Sel_Ejecutivos", "PA_EsquemaTotalizado_Sel_Supervisores"):
         filas += [
-            propiedad("Obtiene el totalizado de bonos", "procedure", nombre),
+            propiedad("Procedimiento que obtiene el totalizado de bonos", "procedure", nombre),
             propiedad("Periodo a consultar", "procedure", nombre, "parameter", "@nPeriodo"),
             propiedad("Código de la agencia", "procedure", nombre, "parameter", "@cCodAgencia"),
         ]

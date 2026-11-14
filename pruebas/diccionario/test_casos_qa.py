@@ -19,7 +19,7 @@ BEGIN
 END"""
 
 
-def sentencia(descripcion="Consulta el cliente", parametro=None, nombre="PA_Cliente_Sel_PorId"):
+def sentencia(descripcion="Procedimiento que consulta el cliente", parametro=None, nombre="PA_Cliente_Sel_PorId"):
     nivel2 = f", @level2type=N'PARAMETER', @level2name=N'{parametro}'" if parametro else ""
     return (f"EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'{descripcion}', "
             f"@level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'PROCEDURE', "
@@ -88,7 +88,7 @@ class TestDiccionarioDeTablaQA(unittest.TestCase):
             return (f"EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'{desc}', "
                     f"@level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', "
                     f"@level1name=N'{tabla}'{nivel2}\nGO")
-        return "\n".join([s("Almacena los clientes"), s("Identificador del cliente", "nClienteId"),
+        return "\n".join([s("Tabla que almacena los clientes"), s("Identificador del cliente", "nClienteId"),
                           s("Nombre del cliente", "cNombre")])
 
     def test_nombre_con_base_de_datos(self):

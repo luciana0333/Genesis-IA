@@ -207,6 +207,15 @@ REGLAS_DICCIONARIO_TABLAS = {
         alcance="tabla",
         activo=True,
     ),
+    "DESCRIPCION_SIN_FORMATO_ESTANDAR": ReglaDiccionario(
+        codigo="DESCRIPCION_SIN_FORMATO_ESTANDAR",
+        nombre="Descripción sin formato estándar",
+        severidad="bajo",
+        descripcion="La descripción del objeto debe iniciar con la palabra de su tipo: «Tabla», «Procedimiento» o "
+                    "«Función» (usuaria, 13 nov.).",
+        alcance="tabla",
+        activo=True,
+    ),
     "ERROR_ORTOGRAFICO": ReglaDiccionario(
         codigo="ERROR_ORTOGRAFICO",
         nombre="Errores ortográficos en la descripción",

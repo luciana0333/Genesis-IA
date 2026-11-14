@@ -44,12 +44,12 @@ class TestGeneradorTablas(unittest.TestCase):
         self.assertEqual(script.count("EXEC sys.sp_addextendedproperty"), 4)
         self.assertIn("@level1type = N'TABLE', @level1name = N'Cliente';", script)
         self.assertIn("@level2type = N'COLUMN', @level2name = N'cApellido';", script)
-        self.assertIn("@value = N'Registra la información de los clientes',  -- Sugerida: revisar y mejorar", script)
+        self.assertIn("@value = N'Tabla que registra la información de los clientes',  -- Sugerida: revisar y mejorar", script)
         self.assertIn("@value = N'Apellido del cliente',  -- Sugerida: revisar y mejorar", script)
 
     def test_solo_genera_lo_que_falta(self):
         tabla = (
-            "EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Registra los clientes', "
+            "EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Tabla que registra los clientes', "
             "@level0type=N'SCHEMA', @level0name=N'CLICKTOPAY', @level1type=N'TABLE', @level1name=N'Cliente';"
         )
         faltante = diccionario_faltante_tabla(TABLA, tabla + "\n" + COLUMNA_NOMBRE)

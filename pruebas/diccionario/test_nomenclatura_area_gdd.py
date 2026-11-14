@@ -8,7 +8,7 @@ from app.analizadores.diccionario_nomenclatura import nomenclatura_procedimiento
 DICCIONARIO = """BEGIN TRY
     BEGIN TRANSACTION ProcesoDiccionario;
     EXEC sys.sp_addextendedproperty @name=N'MS_Description',
-        @value=N'Job de carga para BiCobranzasDetalle. Trunca la tabla y carga la data periódicamente.',
+        @value=N'Procedimiento de job de carga para BiCobranzasDetalle. Trunca la tabla y carga la data periódicamente.',
         @level0type=N'SCHEMA', @level0name=N'dbo',
         @level1type=N'PROCEDURE', @level1name=N'PA_GDD_CobranzasDetalle_Ins_CargaPeriodica';
     EXEC sys.sp_addextendedproperty @name=N'MS_Description',

@@ -17,6 +17,7 @@ from typing import Dict, List, Optional, Set, Tuple
 from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, juntar_ortografia, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_tabla
 from app.analizadores.palabra_repetida import palabra_repetida_agrupada
+from app.analizadores.descripcion_formato import descripcion_sin_formato
 from app.analizadores.nombre_por_prefijo import emparejar_por_prefijo, solo_un_error_por_sentencia
 from app.analizadores.diccionario_varios import (
     agrupar_varios, es_otro_objeto, nombres_del_script, objetos_sin_script, por_objeto,
@@ -764,6 +765,20 @@ def _validar_palabras_repetidas(
     return [hallazgo]
 
 
+def _validar_formato_descripcion(
+    llamadas: List[LlamadaPropiedad], esquema: Optional[str], nombre_tabla: str, texto_diccionario: str = "",
+) -> List[Hallazgo]:
+    """La descripción de la tabla debe iniciar con la palabra «Tabla» (usuaria, 13 nov.)."""
+    hallazgos = []
+    for ll in llamadas:
+        if not (_es_descripcion(ll) and _es_de_tabla(ll)) or ll.texto("level1name").upper() != nombre_tabla.upper():
+            continue
+        mensaje = descripcion_sin_formato("tabla", _nombre_completo(esquema, nombre_tabla), ll.texto("value"))
+        if mensaje:
+            hallazgos.append(_hallazgo(_linea_valor(ll, texto_diccionario), "DESCRIPCION_SIN_FORMATO_ESTANDAR", mensaje))
+    return hallazgos
+
+
 def _validar_descripciones_vacias(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
     return [
         con_elemento(_hallazgo(
@@ -1084,6 +1099,7 @@ def _revisar_tabla(texto_tabla: str, texto_diccionario: str) -> List[Hallazgo]:
     hallazgos += _validar_descripciones_vacias(llamadas)
     hallazgos += _validar_ortografia(llamadas, esquema, nombre_tabla, columnas_reales, texto_diccionario)
     hallazgos += _validar_palabras_repetidas(llamadas, esquema, nombre_tabla, texto_diccionario)
+    hallazgos += _validar_formato_descripcion(llamadas, esquema, nombre_tabla, texto_diccionario)
     hallazgos += _validar_valores_sin_comillas(llamadas)
     hallazgos += _validar_descripciones_repetidas(llamadas)
 
