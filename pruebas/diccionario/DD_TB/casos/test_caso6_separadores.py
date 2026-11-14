@@ -77,7 +77,7 @@ EXEC sys.sp_addextendedproperty
 """
 
 _DESCRIPCIONES = [
-    (None, "Archivos adjuntos registrados para cada solicitud"),
+    (None, "Tabla de archivos adjuntos registrados para cada solicitud"),
     ("nSolicitudArchivoId", "Identificador único del archivo de la solicitud"),
     ("nSolicitudId", "Identificador de la solicitud asociada"),
     ("cNombreArchivo", "Nombre del archivo adjunto"),

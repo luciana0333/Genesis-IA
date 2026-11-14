@@ -122,6 +122,14 @@ def _sentencia(
     return "\n".join(lineas) + "\nGO"
 
 
+def _con_inicio(palabra: str, sugerencia: Optional[str]) -> Optional[str]:
+    """«Registra la información…» -> «Tabla que registra la información…»: la descripción del objeto inicia con la
+    palabra de su tipo (regla «Descripción sin formato estándar», usuaria 13 nov.)."""
+    if not sugerencia:
+        return sugerencia
+    return f"{palabra} que {sugerencia[:1].lower()}{sugerencia[1:]}"
+
+
 def _armar(titulo: str, sentencias: List[str], elementos: List[str]) -> Optional[dict]:
     if not sentencias:
         return None
@@ -151,7 +159,7 @@ def diccionario_faltante_tabla(texto_tabla: str, texto_diccionario: str) -> Opti
     esquema_sql = esquema or "dbo"
     sentencias, elementos = [], []
     if es_create and not tabla_documentada:
-        sentencias.append(_sentencia("finalidad de la tabla", sugeridas.sugerir_tabla(nombre), esquema_sql, "TABLE", nombre))
+        sentencias.append(_sentencia("finalidad de la tabla", _con_inicio("Tabla", sugeridas.sugerir_tabla(nombre)), esquema_sql, "TABLE", nombre))
         elementos.append(f"tabla {nombre}")
     unicas = {c.upper(): c for c in requeridas}
     faltantes = {c for clave, c in unicas.items() if clave not in documentadas}
@@ -199,7 +207,8 @@ def _faltante_procedimiento(texto_procedimiento: str, texto_diccionario: str) ->
     sentencias, elementos = [], []
     if not procedimiento_documentado:
         sentencias.append(_sentencia(
-            f"finalidad {o.del_}", sugeridas.sugerir_procedimiento(nombre), esquema_sql, o.tipo_sql, nombre,
+            f"finalidad {o.del_}", _con_inicio(o.nombre.capitalize(), sugeridas.sugerir_procedimiento(nombre)),
+            esquema_sql, o.tipo_sql, nombre,
         ))
         elementos.append(f"{o.nombre} {nombre}")
     faltantes = {p for p in procedimientos.extraer_parametros(texto_procedimiento) if p.upper() not in documentados}

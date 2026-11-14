@@ -25,10 +25,10 @@ def _descripcion(valor, tipo, nombre, tipo2=None, nombre2=None):
     return sentencia + "\nGO\n"
 
 
-DICC_TABLA = (_descripcion("Clientes de la caja", "TABLE", "Cliente")
+DICC_TABLA = (_descripcion("Tabla de clientes de la caja", "TABLE", "Cliente")
               + _descripcion("Identificador del cliente", "TABLE", "Cliente", "COLUMN", "nClienteId")
               + _descripcion("Nombre del cliente", "TABLE", "Cliente", "COLUMN", "cNombre"))
-DICC_PROC = (_descripcion("Obtiene los datos del cliente", "PROCEDURE", "PA_Cliente_Sel_Datos")
+DICC_PROC = (_descripcion("Procedimiento que obtiene los datos del cliente", "PROCEDURE", "PA_Cliente_Sel_Datos")
              + _descripcion("Identificador del cliente", "PROCEDURE", "PA_Cliente_Sel_Datos", "PARAMETER",
                             "@pnClienteId"))
 
@@ -90,7 +90,7 @@ def _tabla(nombre):
 
 
 def _diccionario(nombre):
-    return (_descripcion(f"Registro de {nombre}", "TABLE", nombre)
+    return (_descripcion(f"Tabla de registro de {nombre}", "TABLE", nombre)
             + _descripcion("Identificador del registro", "TABLE", nombre, "COLUMN", f"n{nombre}Id")
             + _descripcion("Descripción del registro", "TABLE", nombre, "COLUMN", "cDescripcion")
             + _descripcion("Estado del registro", "TABLE", nombre, "COLUMN", "nEstado"))

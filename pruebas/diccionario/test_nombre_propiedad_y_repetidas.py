@@ -47,7 +47,7 @@ class TestDescripcionMalEscrita(unittest.TestCase):
 class TestNombrePropiedadTablas(unittest.TestCase):
     def test_columna_con_nombre_mal_escrito_no_se_marca_como_no_documentada(self):
         diccionario = "\n".join([
-            _tabla("Registra los clientes de la caja"),
+            _tabla("Tabla que registra los clientes de la caja"),
             _tabla("Identificador del cliente", "nClienteId"),
             _tabla("Nombre del cliente", "cNombre", nombre="MS_Descripcion"),
             _tabla("Apellido del cliente", "cApellido"),
@@ -65,7 +65,7 @@ class TestNombrePropiedadTablas(unittest.TestCase):
 
     def test_tabla_con_nombre_mal_escrito_no_se_marca_como_no_documentada(self):
         diccionario = "\n".join([
-            _tabla("Registra los clientes de la caja", nombre="Descripcion"),
+            _tabla("Tabla que registra los clientes de la caja", nombre="Descripcion"),
             _tabla("Identificador del cliente", "nClienteId"),
             _tabla("Nombre del cliente", "cNombre"),
             _tabla("Apellido del cliente", "cApellido"),
@@ -77,7 +77,7 @@ class TestNombrePropiedadTablas(unittest.TestCase):
 class TestNombrePropiedadProcedimientos(unittest.TestCase):
     def test_procedimiento_y_parametro_con_nombre_mal_escrito(self):
         diccionario = "\n".join([
-            _proc("Consulta los datos del cliente", nombre="MS_Descripcion"),
+            _proc("Procedimiento que consulta los datos del cliente", nombre="MS_Descripcion"),
             _proc("Identificador del cliente", "@nClienteId", nombre="Descripcion"),
         ])
         hallazgos = verificar_diccionario(PROCEDIMIENTO, diccionario)
@@ -86,14 +86,14 @@ class TestNombrePropiedadProcedimientos(unittest.TestCase):
         self.assertIn("parámetro @nClienteId ('Descripcion')", hallazgos[0].mensaje)
 
     def test_con_el_nombre_correcto_no_marca_nada(self):
-        diccionario = "\n".join([_proc("Consulta los datos del cliente"), _proc("Identificador del cliente", "@nClienteId")])
+        diccionario = "\n".join([_proc("Procedimiento que consulta los datos del cliente"), _proc("Identificador del cliente", "@nClienteId")])
         self.assertEqual(verificar_diccionario(PROCEDIMIENTO, diccionario), [])
 
 
 class TestDescripcionRepetida(unittest.TestCase):
     def test_dos_columnas_con_la_misma_descripcion(self):
         diccionario = "\n".join([
-            _tabla("Registra los clientes de la caja"),
+            _tabla("Tabla que registra los clientes de la caja"),
             _tabla("Identificador del cliente", "nClienteId"),
             _tabla("Nombre del cliente", "cNombre"),
             _tabla("Nombre  del  CLIENTE", "cApellido"),
@@ -106,7 +106,7 @@ class TestDescripcionRepetida(unittest.TestCase):
             "Las columnas cNombre y cApellido tienen la misma descripción: 'Nombre del cliente'."))
 
     def test_tres_columnas_con_la_misma_descripcion(self):
-        diccionario = "\n".join([_tabla("Registra los clientes de la caja")] + [
+        diccionario = "\n".join([_tabla("Tabla que registra los clientes de la caja")] + [
             _tabla("Dato del cliente", columna) for columna in ("nClienteId", "cNombre", "cApellido")
         ])
         hallazgos = [h for h in verificar_diccionario_tablas(TABLA, diccionario) if h.regla == "DESCRIPCION_REPETIDA"]
@@ -115,7 +115,7 @@ class TestDescripcionRepetida(unittest.TestCase):
 
     def test_la_misma_columna_dos_veces_es_documentacion_duplicada(self):
         diccionario = "\n".join([
-            _tabla("Registra los clientes de la caja"),
+            _tabla("Tabla que registra los clientes de la caja"),
             _tabla("Identificador del cliente", "nClienteId"),
             _tabla("Nombre del cliente", "cNombre"),
             _tabla("Nombre del cliente", "cNombre"),

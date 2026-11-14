@@ -27,7 +27,7 @@ def duplicados(diccionario):
 class TestDocumentacionDuplicadaProcedimiento(unittest.TestCase):
     def test_parametro_documentado_dos_veces(self):
         diccionario = "\n".join([
-            sentencia("Consulta el cliente por su identificador"),
+            sentencia("Procedimiento que consulta el cliente por su identificador"),
             sentencia("Identificador del cliente", "@nClienteId"),
             sentencia("Código del cliente", "@cCodigo"),
             sentencia("Identificador del cliente", "@nClienteId"),
@@ -40,10 +40,10 @@ class TestDocumentacionDuplicadaProcedimiento(unittest.TestCase):
 
     def test_procedimiento_y_parametro_repetidos_se_agrupan(self):
         diccionario = "\n".join([
-            sentencia("Consulta el cliente por su identificador"),
+            sentencia("Procedimiento que consulta el cliente por su identificador"),
             sentencia("Identificador del cliente", "@nClienteId"),
             sentencia("Código del cliente", "@cCodigo"),
-            sentencia("Consulta el cliente por su identificador"),
+            sentencia("Procedimiento que consulta el cliente por su identificador"),
             sentencia("Identificador del cliente", "@nClienteId"),
         ])
         hallazgos = duplicados(diccionario)
@@ -54,7 +54,7 @@ class TestDocumentacionDuplicadaProcedimiento(unittest.TestCase):
 
     def test_sin_repetidos_no_reporta(self):
         diccionario = "\n".join([
-            sentencia("Consulta el cliente por su identificador"),
+            sentencia("Procedimiento que consulta el cliente por su identificador"),
             sentencia("Identificador del cliente", "@nClienteId"),
             sentencia("Código del cliente", "@cCodigo"),
         ])
@@ -64,7 +64,7 @@ class TestDocumentacionDuplicadaProcedimiento(unittest.TestCase):
         actualizar = sentencia("Identificador único del cliente", "@nClienteId").replace(
             "sp_addextendedproperty", "sp_updateextendedproperty")
         diccionario = "\n".join([
-            sentencia("Consulta el cliente por su identificador"),
+            sentencia("Procedimiento que consulta el cliente por su identificador"),
             sentencia("Identificador del cliente", "@nClienteId"),
             actualizar,
         ])

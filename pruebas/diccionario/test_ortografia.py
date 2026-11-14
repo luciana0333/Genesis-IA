@@ -12,14 +12,14 @@ DESCRIPCIONES_CORRECTAS = [
     "Indica si el registro se encuentra activo (1=Activo, 0=Inactivo)",
     "Correo electrónico de contacto del cliente",
     "Tabla que almacena la información del cliente",
-    "Archivos adjuntos registrados para cada solicitud",
+    "Tabla de archivos adjuntos registrados para cada solicitud",
     "Monto del desembolso del crédito en soles",
     "Número de cuotas pendientes del préstamo",
     "Usuario que registra la operación",
     "Fecha y hora de la última actualización",
     "Observaciones ingresadas por el analista",
     "Código del producto crediticio",
-    "Estados que puede tener una solicitud",
+    "Tabla de estados que puede tener una solicitud",
     "Clientes que tienen deuda vencida",
     "Campo que sirve para auditar cambios",
     "Motivo por el cual se rechaza la solicitud",
@@ -56,7 +56,7 @@ class TestOrtografia(unittest.TestCase):
     def test_palabra_con_mayusculas_sueltas_al_final_se_revisa(self):
         # Caso reportado: 'clienteYY' se ignoraba por tener mayúsculas internas.
         self.assertEqual(
-            ortografia.palabras_mal_escritas("Consulta la información del clienteYY"),
+            ortografia.palabras_mal_escritas("Procedimiento que consulta la información del clienteYY"),
             [("clienteYY", ["cliente"])],
         )
         self.assertEqual(ortografia.palabras_mal_escritas("Estado ActivoX del registro"), [("ActivoX", ["Activo"])])
@@ -72,7 +72,7 @@ class TestOrtografia(unittest.TestCase):
         procedimiento = "CREATE PROCEDURE CLICKTOPAY.PA_Cliente_Consultar AS BEGIN SELECT 1 END"
         diccionario_proc = (
             "EXEC sys.sp_addextendedproperty\n@name=N'MS_Description',\n"
-            "@value=N'Consulta la información del clienteYY',\n"
+            "@value=N'Procedimiento que consulta la información del clienteYY',\n"
             "@level0type=N'SCHEMA', @level0name=N'CLICKTOPAY',\n"
             "@level1type=N'PROCEDURE', @level1name=N'PA_Cliente_Consultar'\nGO"
         )
@@ -82,7 +82,7 @@ class TestOrtografia(unittest.TestCase):
         tabla = "CREATE TABLE CLICKTOPAY.Cliente (nClienteId INT NOT NULL);"
         diccionario_tabla = (
             "EXEC sys.sp_addextendedproperty @name=N'MS_Description', "
-            "@value=N'Información del clienteYY', @level0type=N'SCHEMA', @level0name=N'CLICKTOPAY', "
+            "@value=N'Tabla de información del clienteYY', @level0type=N'SCHEMA', @level0name=N'CLICKTOPAY', "
             "@level1type=N'TABLE', @level1name=N'Cliente';\n"
             "EXEC sys.sp_addextendedproperty @name=N'MS_Description', "
             "@value=N'Identificador del cliente', @level0type=N'SCHEMA', @level0name=N'CLICKTOPAY', "
@@ -158,7 +158,7 @@ class TestOrtografia(unittest.TestCase):
         tabla = "CREATE TABLE dbo.Estado (nEstadoId INT NOT NULL);"
         diccionario = (
             "EXEC sys.sp_addextendedproperty @name = N'MS_Description', "
-            "@value = N'Estados que puede tener una solicitud', "
+            "@value = N'Tabla de estados que puede tener una solicitud', "
             "@level0type = N'SCHEMA', @level0name = dbo, @level1type = N'TABLE', @level1name = Estado;\n"
             "-- nEstadoId\n"
             "EXEC sys.sp_addextendedproperty \n@name = N'MS_Description',\n"
