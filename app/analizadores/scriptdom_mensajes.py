@@ -259,9 +259,10 @@ def _varias_filas(h: Dict) -> Partes:
 
 
 def _not_in(h: Dict) -> Partes:
-    return (f"Se identificó {h['expresion']} NOT IN (SELECT …).",
-            "Se recomienda usar NOT EXISTS, ya que si la subconsulta devuelve un solo NULL, NOT IN no trae ninguna "
-            "fila.")
+    # Texto de la usuaria (18 nov.).
+    return ("Se identificó el uso de NOT IN (SELECT ...) para excluir registros mediante una subconsulta.",
+            "Se recomienda evaluar su reemplazo por NOT EXISTS, ya que si la subconsulta devuelve valores NULL, la "
+            "comparación con NOT IN puede generar resultados inesperados.")
 
 
 def _top(h: Dict) -> Partes:
@@ -731,7 +732,6 @@ _PLURALES: Dict[str, Tuple[str, Callable[[Dict], str], Optional[str]]] = {
     "PARAMETRO_SIN_USO": ("parámetros que no se usan", lambda h: h["variable"], None),
     "PARAMETRO_OUTPUT_SIN_VALOR": ("parámetros OUTPUT que nunca reciben un valor", lambda h: h["variable"], None),
     "FUNCION_ESCALAR_POR_FILA": ("funciones escalares dentro de una consulta", lambda h: h["funcion"], None),
-    "NOT_IN_SUBCONSULTA": ("casos de NOT IN (SELECT …)", lambda h: h["expresion"], None),
     "TOP_SIN_ORDER_BY": ("TOP sin ORDER BY", lambda h: h["top"], None),
     "LIKE_COMODIN_INICIO": ("LIKE con el comodín al inicio", lambda h: f"{h['columna']} LIKE '{h['patron']}'", None),
     "OR_ENTRE_COLUMNAS": ("OR entre columnas en el WHERE", lambda h: f"{h['primera']} OR {h['segunda']}", None),

@@ -182,7 +182,8 @@ class GruposTest(unittest.TestCase):
             "SELECT TOP 1 a FROM dbo.T\nSELECT TOP 5 b FROM dbo.U":
                 ("TOP_SIN_ORDER_BY", "Se identificaron 2 TOP sin ORDER BY: TOP 1 y TOP 5. "),
             "SELECT a FROM dbo.T WHERE a NOT IN (SELECT b FROM dbo.U)\nSELECT a FROM dbo.T WHERE c NOT IN (SELECT d FROM dbo.U)":
-                ("NOT_IN_SUBCONSULTA", "Se identificaron 2 casos de NOT IN (SELECT …): a y c. "),
+                ("NOT_IN_SUBCONSULTA", "Se identificaron 2 casos de uso de NOT IN (SELECT ...) para excluir registros "
+                                       "mediante una subconsulta. Se recomienda evaluar su reemplazo por NOT EXISTS"),
             "CREATE PROCEDURE dbo.PA_X @pnA INT, @pnB INT AS\nBEGIN\n SELECT 1\nEND":
                 ("PARAMETRO_SIN_USO", "Se identificaron 2 parámetros que no se usan: @pnA y @pnB. Se recomienda retirarlos"),
         }
