@@ -107,6 +107,19 @@ class TestAnalizadorReportes(unittest.TestCase):
         reglas = [hallazgo.regla for hallazgo in verificar_reporte(sql)]
         self.assertNotIn("SELECT_INTO_PROHIBIDO", reglas)
 
+    def test_variable_into_no_es_select_into(self):
+        # Caso del 17 nov.: @Into es una variable; «SELECT @Into AS cDato» no crea ninguna tabla.
+        for sql in ("DECLARE @Into VARCHAR(50) = 'x';\nSELECT @Into AS cDato;",
+                    "DECLARE @into VARCHAR(50);\nSET @into = (SELECT TOP 1 cNombre FROM dbo.Persona WITH (NOLOCK));\n"
+                    "SELECT @INTO AS cDato, @into cOtro;",
+                    "DECLARE @Into VARCHAR(50);\nINSERT INTO #T (cDato) SELECT @Into;"):
+            with self.subTest(sql=sql):
+                self.assertNotIn("SELECT_INTO_PROHIBIDO", {h.regla for h in verificar_reporte(sql)})
+        # Un SELECT INTO real se sigue marcando, aunque en la lista haya variables @Into o @From.
+        sql = "SELECT @Into AS cA, @From AS cB INTO #Nueva FROM dbo.Persona WITH (NOLOCK);"
+        hallazgo = next(h for h in verificar_reporte(sql) if h.regla == "SELECT_INTO_PROHIBIDO")
+        self.assertIn("la tabla temporal #Nueva", hallazgo.mensaje)
+
     def test_detecta_select_into_en_la_misma_sentencia(self):
         sql = "SELECT cNombre INTO #Tmp FROM dbo.Cliente WITH(NOLOCK);"
 

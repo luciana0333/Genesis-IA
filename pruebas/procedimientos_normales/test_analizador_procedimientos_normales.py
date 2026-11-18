@@ -111,6 +111,19 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
                 hallazgo = verificar_procedimiento_normal(f"CREATE PROCEDURE dbo.{nombre} AS SELECT 1;")[0]
                 self.assertIn(f"(ej.: {sugerido}).", hallazgo.mensaje)
 
+    def test_variable_into_no_es_select_into(self):
+        # Caso del 17 nov.: @Into es una variable; «SELECT @Into AS cDato» no crea ninguna tabla.
+        for sql in ("DECLARE @Into VARCHAR(50) = 'x';\nSELECT @Into AS cDato;",
+                    "DECLARE @into VARCHAR(50);\nSET @into = (SELECT TOP 1 cNombre FROM dbo.Persona WITH (NOLOCK));\n"
+                    "SELECT @INTO AS cDato, @into cOtro;",
+                    "DECLARE @Into VARCHAR(50);\nINSERT INTO #T (cDato) SELECT @Into;"):
+            with self.subTest(sql=sql):
+                self.assertNotIn("SELECT_INTO_PROHIBIDO", {h.regla for h in verificar_procedimiento_normal(sql)})
+        # Un SELECT INTO real se sigue marcando, aunque en la lista haya variables @Into o @From.
+        sql = "SELECT @Into AS cA, @From AS cB INTO #Nueva FROM dbo.Persona WITH (NOLOCK);"
+        hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "SELECT_INTO_PROHIBIDO")
+        self.assertIn("la tabla #Nueva se crea con SELECT INTO", hallazgo.mensaje)
+
     def test_select_into_tras_begin_o_sin_punto_y_coma(self):
         tras_begin = "CREATE PROCEDURE dbo.PA_C_Sel\nAS\nBEGIN\n    SELECT c.n INTO #T FROM dbo.Cliente c;\nEND"
         self.assertIn(("SELECT_INTO_PROHIBIDO", 4), [(h.regla, h.linea) for h in verificar_procedimiento_normal(tras_begin)])

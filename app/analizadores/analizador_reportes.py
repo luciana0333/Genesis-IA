@@ -380,8 +380,10 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     reglas = [
         (
-            r"(?is)\b(?P<pos>SELECT)\b(?:(?!\b(?:SELECT|INSERT|MERGE|OUTPUT|FROM|UPDATE|DELETE|FETCH)\b|;).)*?"
-            r"\bINTO\s+(?P<tabla>[#\w\[\].]+)",
+            # Una palabra con @, # o $ delante es una variable (@Into, @From…), no una instrucción (usuaria, 17 nov.).
+            r"(?is)(?<![\w@#$])(?P<pos>SELECT)\b"
+            r"(?:(?!(?<![\w@#$])(?:SELECT|INSERT|MERGE|OUTPUT|FROM|UPDATE|DELETE|FETCH)\b|;).)*?"
+            r"(?<![\w@#$])INTO\s+(?P<tabla>[#\w\[\].]+)",
             "SELECT_INTO_PROHIBIDO",
             lambda m: (
                 f"Se identificó el uso de SELECT INTO para crear la tabla "

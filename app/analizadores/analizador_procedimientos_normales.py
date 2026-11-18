@@ -687,9 +687,11 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     # Cada SELECT seguido de INTO sin pasar por otra sentencia ni por su FROM: así se
     # detecta también justo después de BEGIN o de una sentencia sin ";". Las subconsultas entre
     # paréntesis no cuentan: SELECT (SELECT MAX(n) FROM B) AS nMax INTO #C sigue siendo un SELECT INTO.
+    # Una palabra con @, # o $ delante es una variable (@Into, @From…), no una instrucción (usuaria, 17 nov.:
+    # «DECLARE @Into VARCHAR(50)… SELECT @Into AS cDato» se leía como SELECT INTO a la tabla «AS»).
     for match in re.finditer(
-        r"(?is)\b(SELECT)\b(?:(?!\b(?:SELECT|INSERT|MERGE|OUTPUT|FROM|UPDATE|DELETE|FETCH|GO)\b|;).)*?"
-        r"\bINTO\b\s*([#@]?[\w\[\].]*)",
+        r"(?is)(?<![\w@#$])(SELECT)\b(?:(?!(?<![\w@#$])(?:SELECT|INSERT|MERGE|OUTPUT|FROM|UPDATE|DELETE|FETCH|GO)\b|;).)*?"
+        r"(?<![\w@#$])INTO\b\s*([#@]?[\w\[\].]*)",
         sin_parentesis_cerrados(limpio),
     ):
         destino = match.group(2).strip()
