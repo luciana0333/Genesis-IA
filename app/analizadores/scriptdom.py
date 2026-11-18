@@ -20,6 +20,7 @@ import glob
 import json
 import os
 import queue
+import re
 import subprocess
 import sys
 import threading
@@ -221,7 +222,57 @@ LECTOR_SCRIPTDOM = _LectorScriptDom()
 CON_CONSULTA_DE_NULOS = {"ISNULL_VALIDAR_NULOS", "ISNULL_EN_CONDICION"}
 
 
-def mensaje_error_sintaxis(error: Dict) -> str:
+# «Fin de archivo inesperado»: el código termina con algo sin cerrar (un BEGIN, un paréntesis, un CASE…).
+ERROR_FIN_DE_ARCHIVO = 46029
+_BLOQUE = re.compile(
+    r"(?<![\w@#$])(?:(BEGIN)(?!\s+(?:TRAN|TRANSACTION|DISTRIBUTED|DIALOG|CONVERSATION)\b)|(CASE)|(END))\b",
+    re.IGNORECASE,
+)
+
+
+def _sin_cerrar(sql: str) -> List[str]:
+    """Lo que quedó abierto al final, del más externo al más interno: ['BEGIN', 'CASE', '(']. Sin comentarios ni
+    textos: cada BEGIN (también BEGIN TRY / CATCH) y cada CASE se cierran con su END, en orden."""
+    from app.analizadores.analizador_procedimientos_normales import _quitar_comentarios
+    limpio = _quitar_comentarios(sql)
+    pila: List[str] = []
+    for marca in _BLOQUE.finditer(limpio):
+        if marca.group(3):
+            if pila:
+                pila.pop()
+        else:
+            pila.append("BEGIN" if marca.group(1) else "CASE")
+    if limpio.count("(") > limpio.count(")"):
+        pila.append("(")
+    return pila
+
+
+def _que_no_se_podra(sql: str) -> str:
+    objeto = re.search(r"\b(?:CREATE|ALTER)\s+(?:OR\s+ALTER\s+)?(PROC(?:EDURE)?|FUNCTION|TRIGGER|VIEW)\b", sql,
+                       re.IGNORECASE)
+    if not objeto:
+        return "ejecutar el código"
+    tipo = objeto.group(1).upper()
+    return {"FUNCTION": "crear la función", "TRIGGER": "crear el trigger", "VIEW": "crear la vista"}.get(
+        tipo, "crear el procedimiento")
+
+
+def ultima_linea(sql: str) -> int:
+    """Última línea con contenido: la de «Fin de archivo inesperado» es una que no existe (una más que el código)."""
+    lineas = sql.splitlines()
+    while lineas and not lineas[-1].strip():
+        lineas.pop()
+    return max(1, len(lineas))
+
+
+def mensaje_error_sintaxis(error: Dict, sql: str = "") -> str:
+    # Falta el END de un BEGIN (texto de la usuaria, 18 nov.). Solo cuando es seguro: si lo abierto es un
+    # paréntesis o un CASE, sigue el mensaje general.
+    if error.get("numero") == ERROR_FIN_DE_ARCHIVO and sql and _sin_cerrar(sql) and set(_sin_cerrar(sql)) == {"BEGIN"}:
+        return ("Se identificó que el código termina sin cerrar un bloque BEGIN. Se recomienda revisar que cada BEGIN "
+                f"tenga su END, ya que SQL Server no podrá {_que_no_se_podra(sql)}.")
+    if error.get("numero") == ERROR_FIN_DE_ARCHIVO and sql:
+        error = {**error, "linea": ultima_linea(sql), "columna": 1}
     mensaje = str(error.get("mensaje", "")).strip()
     if mensaje and not mensaje.endswith("."):
         mensaje += "."
@@ -247,7 +298,9 @@ def validar_estructura(sql: str) -> Optional[List[Hallazgo]]:
     if lectura is None:
         return None
     hallazgos = [
-        _hallazgo(error.get("linea"), "ERROR_SINTAXIS", mensaje_error_sintaxis(error)) for error in lectura["errores"]
+        _hallazgo(ultima_linea(sql) if error.get("numero") == ERROR_FIN_DE_ARCHIVO else error.get("linea"),
+                  "ERROR_SINTAXIS", mensaje_error_sintaxis(error, sql))
+        for error in lectura["errores"]
     ]
     por_tipo: Dict[str, List[Dict]] = {}
     for hecho in lectura["hechos"]:

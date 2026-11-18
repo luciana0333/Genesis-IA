@@ -21,6 +21,43 @@ class MensajeTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAY_SCRIPTDOM, "ScriptDom no está en esta PC (viene con SSMS)")
+class FinDeArchivoTest(unittest.TestCase):
+    """«Fin de archivo inesperado» (18 nov.): si falta el END de un BEGIN, el texto de la usuaria y la última línea
+    que existe; si lo abierto es un paréntesis o un CASE, el mensaje general, también con la última línea."""
+
+    def _error(self, sql):
+        errores = [h for h in validar_estructura(sql) if h.regla == "ERROR_SINTAXIS"]
+        self.assertEqual(len(errores), 1)
+        return errores[0]
+
+    def test_falta_el_end_de_un_begin(self):
+        casos = {
+            "CREATE PROCEDURE dbo.PA_X AS\nBEGIN\n SET NOCOUNT ON;\n SELECT 1;\n\n\n": ("crear el procedimiento", 4),
+            # PA del correo (17 nov.): TRY/CATCH completos, falta el END del BEGIN principal.
+            "ALTER PROCEDURE dbo.PA_X AS\nBEGIN\n BEGIN TRY;\n  BEGIN TRANSACTION;\n  SELECT 1;\n  COMMIT TRANSACTION;\n"
+            " END TRY\n BEGIN CATCH\n  IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;\n  THROW;\n END CATCH": ("crear el procedimiento", 11),
+            "CREATE FUNCTION dbo.FN_X() RETURNS INT AS\nBEGIN\n RETURN 1;\n": ("crear la función", 3),
+            "IF 1 = 1\nBEGIN\n SELECT CASE WHEN 1 = 1 THEN 1 END;\n": ("ejecutar el código", 3),
+        }
+        for sql, (que, linea) in casos.items():
+            with self.subTest(sql=sql):
+                error = self._error(sql)
+                self.assertEqual(error.mensaje,
+                                 "Se identificó que el código termina sin cerrar un bloque BEGIN. Se recomienda revisar "
+                                 f"que cada BEGIN tenga su END, ya que SQL Server no podrá {que}.")
+                self.assertEqual(error.linea, linea)
+
+    def test_otro_cierre_pendiente_sigue_con_el_mensaje_general(self):
+        for sql, linea in {"SELECT (1 + 2\n": 1, "SELECT CASE WHEN 1 = 1 THEN 1\n": 1,
+                           "CREATE PROCEDURE dbo.PA_X AS\nBEGIN\n SELECT (1 + 2\n": 3}.items():
+            with self.subTest(sql=sql):
+                error = self._error(sql)
+                self.assertTrue(error.mensaje.startswith(f"Se identificó un error de sintaxis en la línea {linea}, columna 1: "
+                                                         "Fin de archivo inesperado."), error.mensaje)
+                self.assertEqual(error.linea, linea)
+
+
+@unittest.skipUnless(HAY_SCRIPTDOM, "ScriptDom no está en esta PC (viene con SSMS)")
 class EstructuraTest(unittest.TestCase):
     def _lineas(self, sql):
         return [(h.linea, h.regla, h.severidad.value) for h in validar_estructura(sql)]
