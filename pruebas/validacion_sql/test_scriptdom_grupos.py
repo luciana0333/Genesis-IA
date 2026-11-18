@@ -163,7 +163,56 @@ class GruposTest(unittest.TestCase):
         self.assertEqual(len(top), 1)
         self.assertEqual(top[0].lineas, [1, 2, 3])
         self.assertEqual(top[0].severidad.value, "medio")
-        self.assertTrue(top[0].mensaje.startswith("Se identificaron 3 casos, en las líneas 1, 2, 3: se identificó un TOP 1"))
+        # Sin redundar (18 nov.): iguales, una sola frase; las líneas van arriba, no en el texto.
+        self.assertTrue(top[0].mensaje.startswith("Se identificaron 3 casos de TOP 1 sin ORDER BY. "), top[0].mensaje)
+
+    def test_agrupados_sin_redundar(self):
+        """18 nov. (usuaria): lo común una sola vez; si cambia algo en medio, la frase en plural y solo lo que cambia."""
+        casos = {
+            "SELECT CASE WHEN a = 1 THEN 1 END,\n CASE WHEN b = 1 THEN 2 END FROM dbo.T WITH (NOLOCK)":
+                ("CASE_SIN_ELSE", "Se identificaron 2 casos de CASE sin ELSE. Se recomienda agregar un ELSE"),
+            "CREATE TABLE #A (c INT)\nCREATE TABLE #B (c INT)\nINSERT INTO #A (c) SELECT c FROM dbo.T ORDER BY c\n"
+            "INSERT INTO #B (c) SELECT c FROM dbo.T ORDER BY c":
+                ("ORDER_BY_EN_INSERT", "Se identificaron 2 casos de ORDER BY al insertar datos con SELECT en las tablas #A y "
+                                       "#B. Se recomienda retirar el ORDER BY, ya que la tabla no conserva ese orden al "
+                                       "consultarla."),
+            "SET @a = 1\nSET @b = 2":
+                ("VARIABLE_NO_DECLARADA", "Se identificaron 2 variables que se usan sin estar declaradas (o antes de su "
+                                          "DECLARE): @a y @b. Declararlas con DECLARE antes de usarlas"),
+            "SELECT TOP 1 a FROM dbo.T\nSELECT TOP 5 b FROM dbo.U":
+                ("TOP_SIN_ORDER_BY", "Se identificaron 2 TOP sin ORDER BY: TOP 1 y TOP 5. "),
+            "SELECT a FROM dbo.T WHERE a NOT IN (SELECT b FROM dbo.U)\nSELECT a FROM dbo.T WHERE c NOT IN (SELECT d FROM dbo.U)":
+                ("NOT_IN_SUBCONSULTA", "Se identificaron 2 casos de NOT IN (SELECT …): a y c. "),
+            "CREATE PROCEDURE dbo.PA_X @pnA INT, @pnB INT AS\nBEGIN\n SELECT 1\nEND":
+                ("PARAMETRO_SIN_USO", "Se identificaron 2 parámetros que no se usan: @pnA y @pnB. Se recomienda retirarlos"),
+        }
+        for sql, (regla, inicio) in casos.items():
+            with self.subTest(regla=regla):
+                hallazgo = next(h for h in validar_estructura(sql) if h.regla == regla)
+                self.assertTrue(hallazgo.mensaje.startswith(inicio), hallazgo.mensaje)
+                self.assertNotIn("se identificó", hallazgo.mensaje)  # no se repite en minúscula en cada caso
+                self.assertNotIn("líneas", hallazgo.mensaje)
+
+    def test_order_by_en_insert_a_tabla_fisica_pide_validar_identity(self):
+        # Comprobado en SQL Server (18 nov.): sin IDENTITY el ORDER BY se ignora; con IDENTITY define la numeración.
+        sql = ("CREATE TABLE #E (c INT)\nINSERT INTO #E (c) SELECT c FROM dbo.T ORDER BY c\n"
+               "INSERT INTO EnvioEstadoCta.ColocCapExtractoAho (c) SELECT c FROM #E ORDER BY c")
+        hallazgo = next(h for h in validar_estructura(sql) if h.regla == "ORDER_BY_EN_INSERT")
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se identificaron 2 casos de ORDER BY al insertar datos con SELECT en las tablas #E y "
+            "EnvioEstadoCta.ColocCapExtractoAho. Se recomienda retirar el ORDER BY, ya que la tabla no conserva ese "
+            "orden al consultarla. En el caso de la tabla física, validar previamente que no tenga una columna "
+            "IDENTITY, ya que en ese caso el ORDER BY define la numeración de los registros.",
+        )
+        self.assertNotIn("trabajo", hallazgo.mensaje)
+
+    def test_division_con_divisores_distintos_no_junta_el_que_hacer(self):
+        # El «Qué hacer» nombra el divisor: si son distintos, cada caso queda con el suyo a la vista.
+        hallazgo = next(h for h in validar_estructura("DECLARE @a INT = 1, @b INT = 0, @c INT = 0\nSELECT @a / @b\nSELECT @a / @c")
+                        if h.regla == "DIVISION_SIN_NULLIF")
+        self.assertTrue(hallazgo.mensaje.startswith("Se identificaron 2 casos: La división @a / @b sin proteger el divisor; "
+                                                    "La división @a / @c sin proteger el divisor."), hallazgo.mensaje)
 
     def test_isnull_se_reescribe_sin_perder_los_null(self):
         hallazgo = next(h for h in validar_estructura("SELECT a FROM dbo.T WHERE ISNULL(bEvaluado, 0) = 0")
