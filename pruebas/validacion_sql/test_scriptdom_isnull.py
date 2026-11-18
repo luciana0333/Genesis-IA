@@ -53,6 +53,11 @@ class IsnullTest(unittest.TestCase):
             "LEFT JOIN dbo.CreditoCuota q ON q.cCtaCod = c.cCtaCod\nSELECT ISNULL(nMonto, 0) FROM #R",
             "CREATE TABLE #R (nMonto DECIMAL(18,2))\nINSERT INTO #R (nMonto) SELECT a.nMonto FROM dbo.A a\n"
             "INSERT INTO #R (nMonto) SELECT b.nOtro FROM dbo.B b\nSELECT ISNULL(nMonto, 0) FROM #R",
+            # 18 nov. (PA del correo): la columna de la CTE viene de una variable, que sí puede llegar en NULL.
+            "DECLARE @cCopia VARCHAR(300)\n;WITH MP AS (SELECT @cCopia AS cCopia, c.nId FROM dbo.Credito c)\n"
+            "SELECT ISNULL(MP.cCopia, '') FROM MP",
+            "DECLARE @cCopia VARCHAR(300)\n;WITH MensajesPreparados AS (SELECT @cCopia AS cCopiaDestinatarios)\n"
+            "SELECT ISNULL(cCopiaDestinatarios, '') FROM MensajesPreparados",
         ):
             with self.subTest(sql=sql):
                 self.assertEqual(_isnull(sql), [])

@@ -195,6 +195,43 @@ def _varchar_sin_tamano(h: Dict) -> Partes:
             f"{_cantidad(int(h['largo']), 'carácter', 'caracteres')} sin avisar.")
 
 
+# Formatos de fecha de CONVERT cuyo resultado nunca pasa de 30 caracteres, con su largo máximo. Medido en SQL Server
+# (18 nov.) con DATETIME, DATETIME2(7), DATETIMEOFFSET(7), DATE, TIME(7) y SMALLDATETIME. Los demás (9, 13, 21, 25,
+# 109, 113, 121, 130, 131) llegan a 34-37 con DATETIME2 o DATETIMEOFFSET y sí se cortan: siguen en VARCHAR_SIN_TAMANO.
+# Los formatos 0-3 y 126 también sirven para números: tampoco se toman como fecha.
+LARGO_POR_FORMATO_DE_FECHA = {
+    4: 8, 5: 8, 6: 9, 7: 10, 8: 15, 10: 8, 11: 8, 12: 6, 14: 23, 20: 26, 22: 27, 23: 10, 24: 15,
+    100: 26, 101: 10, 102: 10, 103: 10, 104: 10, 105: 10, 106: 11, 107: 12, 108: 15, 110: 10, 111: 10, 112: 8,
+    114: 23, 120: 26, 127: 28,
+}
+
+
+def es_formato_de_fecha_corto(estilo) -> bool:
+    try:
+        return int(estilo) in LARGO_POR_FORMATO_DE_FECHA
+    except (TypeError, ValueError):
+        return False
+
+
+def _varchar_sin_tamano_fecha(h: Dict) -> Partes:
+    # Texto de la usuaria (18 nov.).
+    estilo = int(h["estilo"])
+    return (f"Se identificó un caso de CONVERT({h['tipoDato']}, ..., {estilo}) sin especificar el tamaño del tipo de dato.",
+            f"Se recomienda especificar el tamaño de {h['tipoDato']} según el formato de fecha utilizado, por ejemplo, "
+            f"{h['tipoDato']}({LARGO_POR_FORMATO_DE_FECHA[estilo]}) para el formato {estilo}, a fin de definir "
+            f"explícitamente la longitud del resultado.")
+
+
+def mensaje_varchar_sin_tamano_fecha(hechos: List[Dict]) -> str:
+    """Todos los casos en una frase, sin repetir cada uno (usuaria, 18 nov.: «no redundar»)."""
+    if len(hechos) == 1:
+        return " ".join(_varchar_sin_tamano_fecha(hechos[0]))
+    formas = list(dict.fromkeys(f"CONVERT({h['tipoDato']}, ..., {int(h['estilo'])})" for h in hechos))
+    formas_texto = formas[0] if len(formas) == 1 else f"{', '.join(formas[:-1])} y {formas[-1]}"
+    return (f"Se identificaron {len(hechos)} casos de {formas_texto} sin especificar el tamaño del tipo de dato. "
+            f"{_varchar_sin_tamano_fecha(hechos[0])[1]}")
+
+
 def _con_null(h: Dict) -> Partes:
     return (f"Se identificó la comparación {h['comparacion']}, que nunca es verdadera.",
             f"Usar {'IS NOT NULL' if h.get('negada') else 'IS NULL'}, ya que en SQL Server una comparación con NULL "
@@ -501,6 +538,7 @@ MENSAJES: Dict[str, Tuple[Severidad, Callable[[Dict], Optional[Partes]]]] = {
     "ORDER_BY_EN_SUBCONSULTA": (Severidad.CRITICO, _orden_subconsulta),
     "AGREGADO_EN_WHERE": (Severidad.CRITICO, _agregado_where),
     "VARCHAR_SIN_TAMANO": (Severidad.ALTO, _varchar_sin_tamano),
+    "VARCHAR_SIN_TAMANO_FECHA": (Severidad.BAJO, _varchar_sin_tamano_fecha),
     "COMPARACION_CON_NULL": (Severidad.ALTO, _con_null),
     "ISNULL_TRUNCA": (Severidad.ALTO, _isnull_trunca),
     "TEXTO_MAS_LARGO_QUE_VARIABLE": (Severidad.ALTO, _texto_largo),

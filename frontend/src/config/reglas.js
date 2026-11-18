@@ -38,6 +38,7 @@ export const NOMBRES_REGLAS = {
   AGREGADO_EN_WHERE: 'Agregado en el WHERE',
   DOS_IDENTITY: 'Más de una columna IDENTITY',
   VARCHAR_SIN_TAMANO: 'VARCHAR sin tamaño',
+  VARCHAR_SIN_TAMANO_FECHA: 'VARCHAR sin tamaño al convertir fechas',
   COMPARACION_CON_NULL: 'Comparación con NULL',
   ISNULL_TRUNCA: 'ISNULL que corta el texto',
   TEXTO_MAS_LARGO_QUE_VARIABLE: 'Texto más largo que la variable',
