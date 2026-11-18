@@ -173,7 +173,9 @@ class GruposTest(unittest.TestCase):
                 ("CASE_SIN_ELSE", "Se identificaron 2 casos de CASE sin ELSE. Se recomienda agregar un ELSE"),
             "CREATE TABLE #A (c INT)\nCREATE TABLE #B (c INT)\nINSERT INTO #A (c) SELECT c FROM dbo.T ORDER BY c\n"
             "INSERT INTO #B (c) SELECT c FROM dbo.T ORDER BY c":
-                ("ORDER_BY_EN_INSERT", "Se identificaron 2 casos de ORDER BY en un INSERT … SELECT a #A y #B. "),
+                ("ORDER_BY_EN_INSERT", "Se identificaron 2 casos de ORDER BY al insertar datos con SELECT en las tablas #A y "
+                                       "#B. Se recomienda retirar el ORDER BY, ya que la tabla no conserva ese orden al "
+                                       "consultarla."),
             "SET @a = 1\nSET @b = 2":
                 ("VARIABLE_NO_DECLARADA", "Se identificaron 2 variables que se usan sin estar declaradas (o antes de su "
                                           "DECLARE): @a y @b. Declararlas con DECLARE antes de usarlas"),
@@ -190,6 +192,20 @@ class GruposTest(unittest.TestCase):
                 self.assertTrue(hallazgo.mensaje.startswith(inicio), hallazgo.mensaje)
                 self.assertNotIn("se identificó", hallazgo.mensaje)  # no se repite en minúscula en cada caso
                 self.assertNotIn("líneas", hallazgo.mensaje)
+
+    def test_order_by_en_insert_a_tabla_fisica_pide_validar_identity(self):
+        # Comprobado en SQL Server (18 nov.): sin IDENTITY el ORDER BY se ignora; con IDENTITY define la numeración.
+        sql = ("CREATE TABLE #E (c INT)\nINSERT INTO #E (c) SELECT c FROM dbo.T ORDER BY c\n"
+               "INSERT INTO EnvioEstadoCta.ColocCapExtractoAho (c) SELECT c FROM #E ORDER BY c")
+        hallazgo = next(h for h in validar_estructura(sql) if h.regla == "ORDER_BY_EN_INSERT")
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se identificaron 2 casos de ORDER BY al insertar datos con SELECT en las tablas #E y "
+            "EnvioEstadoCta.ColocCapExtractoAho. Se recomienda retirar el ORDER BY, ya que la tabla no conserva ese "
+            "orden al consultarla. En el caso de la tabla física, validar previamente que no tenga una columna "
+            "IDENTITY, ya que en ese caso el ORDER BY define la numeración de los registros.",
+        )
+        self.assertNotIn("trabajo", hallazgo.mensaje)
 
     def test_division_con_divisores_distintos_no_junta_el_que_hacer(self):
         # El «Qué hacer» nombra el divisor: si son distintos, cada caso queda con el suyo a la vista.

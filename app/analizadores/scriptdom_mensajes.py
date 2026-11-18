@@ -366,10 +366,29 @@ def _distinct(h: Dict) -> Partes:
 
 
 def _orden_insert(h: Dict) -> Partes:
-    tabla = f" a {h['tabla']}" if h.get("tabla") else ""
-    return (f"Se identificó un ORDER BY en un INSERT … SELECT{tabla}.",
-            "Se recomienda retirarlo, ya que no deja la tabla ordenada (una tabla no tiene orden) y solo agrega "
-            "trabajo.")
+    return partes_orden_insert([h])
+
+
+def partes_orden_insert(hechos: List[Dict]) -> Partes:
+    """Texto de la usuaria (18 nov.). Comprobado en SQL Server: sin IDENTITY el ORDER BY se ignora (mismo plan, sin
+    ordenamiento); con IDENTITY se ordena y define la numeración. Por eso no se dice que «agrega trabajo» y, si el
+    destino es una tabla física, se pide validar antes si tiene IDENTITY."""
+    tablas = list(dict.fromkeys(h.get("tabla") or "" for h in hechos))
+    nombradas = [t for t in tablas if t]
+    fisicas = [t for t in nombradas if not t.startswith(("#", "@"))]
+    if len(hechos) == 1:
+        donde = f" en la tabla {nombradas[0]}" if nombradas else ""
+        problema = f"Se identificó un ORDER BY al insertar datos con SELECT{donde}."
+    else:
+        donde = (f" en la tabla {nombradas[0]}" if len(nombradas) == 1 else
+                 f" en las tablas {_enumerar(nombradas)}" if nombradas else "")
+        problema = f"Se identificaron {len(hechos)} casos de ORDER BY al insertar datos con SELECT{donde}."
+    que_hacer = "Se recomienda retirar el ORDER BY, ya que la tabla no conserva ese orden al consultarla."
+    if fisicas:
+        cual, tenga = ("la tabla física", "tenga") if len(fisicas) == 1 else ("las tablas físicas", "tengan")
+        que_hacer += (f" En el caso de {cual}, validar previamente que no {tenga} una columna IDENTITY, ya que en ese "
+                      "caso el ORDER BY define la numeración de los registros.")
+    return problema, que_hacer
 
 
 # --- ISNULL sobre columnas: validar si la columna acepta NULL -----------------------------------------
@@ -563,6 +582,8 @@ def mensaje_agrupado(hechos: List[Dict]) -> Optional[str]:
         return None
     if len(con_mensaje) == 1:
         return " ".join(con_mensaje[0][1])
+    if con_mensaje[0][0].get("tipo") == "ORDER_BY_EN_INSERT":
+        return " ".join(partes_orden_insert([h for h, _ in con_mensaje]))
     # Sin redundar (usuaria, 18 nov., modelo «Se identificaron 2 casos de CASE sin ELSE.»): lo común se dice una vez
     # y las líneas van arriba, en la tarjeta (hallazgo.lineas), no en el texto.
     total = len(con_mensaje)
