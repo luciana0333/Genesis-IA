@@ -164,7 +164,7 @@ Antes de pulsar **«Analizar planes»**, elige el área (**Reportes** o **Negoci
 - El resumen muestra el procedimiento, el tiempo total de cada plan (en rojo si supera el límite) y sus hallazgos por severidad. **«Ver detalle»** abre el plan completo (diagrama, observaciones, «Copiar imagen»), y **Anterior / Siguiente** pasa al otro sin volver a subir nada.
 - **«Copiar resumen»** copia la tabla para pegarla en Word o en el correo.
 - Si subes un solo `.sqlplan`, la revisión es la de siempre.
-- Límites: hasta 60 planes por lote, 25 MB por plan y 200 MB en total.
+- Límites: hasta 60 planes por lote, 60 MB por plan y 200 MB en total.
 - Los `.rar` se abren con la herramienta que ya trae Windows 10/11; no hace falta instalar nada.
 
 ---

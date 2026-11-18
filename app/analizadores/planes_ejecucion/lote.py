@@ -27,7 +27,9 @@ from typing import Dict, List, Optional, Tuple
 from app.analizadores.planes_ejecucion.servicio import SEVERIDADES, analizar_plan_completo, texto_del_plan
 
 MAXIMO_PLANES = 60
-MAXIMO_POR_ARCHIVO = 25 * 1024 * 1024  # igual que un plan suelto
+# 60 MB por plan (usuaria, 17 nov.: un plan real pasaba los 25 MB). Lo usa también el plan suelto (server.py).
+MAXIMO_POR_ARCHIVO_MB = 60
+MAXIMO_POR_ARCHIVO = MAXIMO_POR_ARCHIVO_MB * 1024 * 1024
 MAXIMO_DESCOMPRIMIDO = 300 * 1024 * 1024  # protección ante comprimidos enormes
 MAXIMA_PROFUNDIDAD = 3  # comprimidos dentro de comprimidos
 
@@ -150,7 +152,7 @@ def _recorrer(nombre: str, ruta: str, contenido: bytes, extraccion: Extraccion, 
         extraccion.ignorados.append(Ignorado(ruta, "No es un plan de ejecución (ShowPlanXML)."))
         return
     if len(contenido) > MAXIMO_POR_ARCHIVO:
-        extraccion.ignorados.append(Ignorado(ruta, "El plan supera los 25 MB."))
+        extraccion.ignorados.append(Ignorado(ruta, f"El plan supera los {MAXIMO_POR_ARCHIVO_MB} MB."))
         return
     extraccion.planes.append(ArchivoPlan(nombre, ruta, contenido))
 

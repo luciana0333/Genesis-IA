@@ -216,7 +216,7 @@ export function PlanesWorkspace() {
                 archivos={archivos}
                 accept={EXTENSIONES_ACEPTADAS.join(',')}
                 multiple
-                pista="Planes .sqlplan o comprimidos .zip / .rar · máximo 25 MB por plan"
+                pista="Planes .sqlplan o comprimidos .zip / .rar · máximo 60 MB por plan"
                 onSeleccionar={seleccionarArchivos}
                 onQuitar={alQuitarArchivo}
               />
