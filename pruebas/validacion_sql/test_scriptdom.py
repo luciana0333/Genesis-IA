@@ -21,6 +21,58 @@ class MensajeTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAY_SCRIPTDOM, "ScriptDom no está en esta PC (viene con SSMS)")
+class FinDeArchivoTest(unittest.TestCase):
+    """«Fin de archivo inesperado» (18 nov.): si falta el END de un BEGIN, el texto de la usuaria y la última línea
+    que existe; si lo abierto es un paréntesis o un CASE, el mensaje general, también con la última línea."""
+
+    def _error(self, sql):
+        errores = [h for h in validar_estructura(sql) if h.regla == "ERROR_SINTAXIS"]
+        self.assertEqual(len(errores), 1)
+        return errores[0]
+
+    def test_falta_el_end_de_un_begin(self):
+        casos = {
+            "CREATE PROCEDURE dbo.PA_X AS\nBEGIN\n SET NOCOUNT ON;\n SELECT 1;\n\n\n": ("crear el procedimiento", 4),
+            # PA del correo (17 nov.): TRY/CATCH completos, falta el END del BEGIN principal.
+            "ALTER PROCEDURE dbo.PA_X AS\nBEGIN\n BEGIN TRY;\n  BEGIN TRANSACTION;\n  SELECT 1;\n  COMMIT TRANSACTION;\n"
+            " END TRY\n BEGIN CATCH\n  IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;\n  THROW;\n END CATCH": ("crear el procedimiento", 11),
+            "CREATE FUNCTION dbo.FN_X() RETURNS INT AS\nBEGIN\n RETURN 1;\n": ("crear la función", 3),
+            "IF 1 = 1\nBEGIN\n SELECT CASE WHEN 1 = 1 THEN 1 END;\n": ("ejecutar el código", 3),
+        }
+        for sql, (que, linea) in casos.items():
+            with self.subTest(sql=sql):
+                error = self._error(sql)
+                self.assertEqual(error.mensaje,
+                                 "Se identificó que el código termina sin cerrar un bloque BEGIN. Se recomienda revisar "
+                                 f"que cada BEGIN tenga su END, ya que SQL Server no podrá {que}.")
+                self.assertEqual(error.linea, linea)
+
+    def test_parentesis_y_case_dicen_que_falta(self):
+        casos = {
+            "SELECT (1 + 2\n": "Se identificó que el código termina sin cerrar un paréntesis. Se recomienda revisar que "
+                               "cada paréntesis de apertura tenga su cierre, ya que SQL Server no podrá ejecutar el código.",
+            "SELECT CASE WHEN 1 = 1 THEN 1\n": "Se identificó que el código termina sin cerrar un CASE. Se recomienda "
+                                               "revisar que cada CASE tenga su END, ya que SQL Server no podrá ejecutar el código.",
+            "CREATE PROCEDURE dbo.PA_X AS\nBEGIN\n SELECT ((1 + 2\n":
+                "Se identificó que el código termina sin cerrar un bloque BEGIN y 2 paréntesis. Se recomienda revisar que "
+                "cada BEGIN tenga su END y que cada paréntesis de apertura tenga su cierre, ya que SQL Server no podrá "
+                "crear el procedimiento.",
+            # Paréntesis y comillas dentro de textos o comentarios no cuentan.
+            "SELECT ':(' AS c, CASE WHEN 1 = 1 THEN 1 -- (\n": "Se identificó que el código termina sin cerrar un CASE. "
+                "Se recomienda revisar que cada CASE tenga su END, ya que SQL Server no podrá ejecutar el código.",
+        }
+        for sql, mensaje in casos.items():
+            with self.subTest(sql=sql):
+                self.assertEqual(self._error(sql).mensaje, mensaje)
+
+    def test_si_no_se_sabe_que_falta_sigue_el_mensaje_general(self):
+        error = self._error("WITH A AS (SELECT 1 AS n)\n")  # CTE sin la consulta que la usa
+        self.assertTrue(error.mensaje.startswith("Se identificó un error de sintaxis en la línea 1, columna 1: "
+                                                 "Fin de archivo inesperado."), error.mensaje)
+        self.assertEqual(error.linea, 1)
+
+
+@unittest.skipUnless(HAY_SCRIPTDOM, "ScriptDom no está en esta PC (viene con SSMS)")
 class EstructuraTest(unittest.TestCase):
     def _lineas(self, sql):
         return [(h.linea, h.regla, h.severidad.value) for h in validar_estructura(sql)]

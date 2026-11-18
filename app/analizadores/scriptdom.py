@@ -20,6 +20,7 @@ import glob
 import json
 import os
 import queue
+import re
 import subprocess
 import sys
 import threading
@@ -222,7 +223,77 @@ LECTOR_SCRIPTDOM = _LectorScriptDom()
 CON_CONSULTA_DE_NULOS = {"ISNULL_VALIDAR_NULOS", "ISNULL_EN_CONDICION"}
 
 
-def mensaje_error_sintaxis(error: Dict) -> str:
+# «Fin de archivo inesperado»: el código termina con algo sin cerrar (un BEGIN, un paréntesis, un CASE…).
+ERROR_FIN_DE_ARCHIVO = 46029
+_BLOQUE = re.compile(
+    r"(?<![\w@#$])(?:(BEGIN)(?!\s+(?:TRAN|TRANSACTION|DISTRIBUTED|DIALOG|CONVERSATION)\b)|(CASE)|(END))\b",
+    re.IGNORECASE,
+)
+
+
+def _sin_cerrar(sql: str) -> List[str]:
+    """Lo que quedó abierto al final, del más externo al más interno: ['BEGIN', 'CASE', '(']. Sin comentarios ni
+    textos: cada BEGIN (también BEGIN TRY / CATCH) y cada CASE se cierran con su END, en orden."""
+    from app.analizadores.analizador_procedimientos_normales import _quitar_comentarios
+    limpio = _quitar_comentarios(sql)
+    pila: List[str] = []
+    for marca in _BLOQUE.finditer(limpio):
+        if marca.group(3):
+            if pila:
+                pila.pop()
+        else:
+            pila.append("BEGIN" if marca.group(1) else "CASE")
+    pila.extend(["("] * max(0, limpio.count("(") - limpio.count(")")))
+    return pila
+
+
+# Qué quedó sin cerrar y cómo se revisa (usuaria, 18 nov.: «cuando es de paréntesis que muestre que es de
+# paréntesis y cuando es de END que muestre de END»).
+_ABIERTO = {
+    "BEGIN": ("un bloque BEGIN", "bloques BEGIN", "cada BEGIN tenga su END"),
+    "CASE": ("un CASE", "CASE", "cada CASE tenga su END"),
+    "(": ("un paréntesis", "paréntesis", "cada paréntesis de apertura tenga su cierre"),
+}
+
+
+def _mensaje_sin_cerrar(abiertos: List[str], sql: str) -> str:
+    tipos = [tipo for tipo in _ABIERTO if tipo in abiertos]
+    que = []
+    for tipo in tipos:
+        uno, varios, _ = _ABIERTO[tipo]
+        cantidad = abiertos.count(tipo)
+        que.append(uno if cantidad == 1 else f"{cantidad} {varios}")
+    revisar = " y que ".join(_ABIERTO[tipo][2] for tipo in tipos)
+    return (f"Se identificó que el código termina sin cerrar {' y '.join(que)}. Se recomienda revisar que {revisar}, "
+            f"ya que SQL Server no podrá {_que_no_se_podra(sql)}.")
+
+
+def _que_no_se_podra(sql: str) -> str:
+    objeto = re.search(r"\b(?:CREATE|ALTER)\s+(?:OR\s+ALTER\s+)?(PROC(?:EDURE)?|FUNCTION|TRIGGER|VIEW)\b", sql,
+                       re.IGNORECASE)
+    if not objeto:
+        return "ejecutar el código"
+    tipo = objeto.group(1).upper()
+    return {"FUNCTION": "crear la función", "TRIGGER": "crear el trigger", "VIEW": "crear la vista"}.get(
+        tipo, "crear el procedimiento")
+
+
+def ultima_linea(sql: str) -> int:
+    """Última línea con contenido: la de «Fin de archivo inesperado» es una que no existe (una más que el código)."""
+    lineas = sql.splitlines()
+    while lineas and not lineas[-1].strip():
+        lineas.pop()
+    return max(1, len(lineas))
+
+
+def mensaje_error_sintaxis(error: Dict, sql: str = "") -> str:
+    # Falta el END de un BEGIN o de un CASE, o el cierre de un paréntesis (texto de la usuaria, 18 nov.). Si no se
+    # encuentra qué quedó abierto, sigue el mensaje general.
+    abiertos = _sin_cerrar(sql) if error.get("numero") == ERROR_FIN_DE_ARCHIVO and sql else []
+    if abiertos:
+        return _mensaje_sin_cerrar(abiertos, sql)
+    if error.get("numero") == ERROR_FIN_DE_ARCHIVO and sql:
+        error = {**error, "linea": ultima_linea(sql), "columna": 1}
     mensaje = str(error.get("mensaje", "")).strip()
     if mensaje and not mensaje.endswith("."):
         mensaje += "."
@@ -248,7 +319,9 @@ def validar_estructura(sql: str) -> Optional[List[Hallazgo]]:
     if lectura is None:
         return None
     hallazgos = [
-        _hallazgo(error.get("linea"), "ERROR_SINTAXIS", mensaje_error_sintaxis(error)) for error in lectura["errores"]
+        _hallazgo(ultima_linea(sql) if error.get("numero") == ERROR_FIN_DE_ARCHIVO else error.get("linea"),
+                  "ERROR_SINTAXIS", mensaje_error_sintaxis(error, sql))
+        for error in lectura["errores"]
     ]
     por_tipo: Dict[str, List[Dict]] = {}
     for hecho in lectura["hechos"]:
