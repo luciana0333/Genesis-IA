@@ -242,9 +242,29 @@ def _sin_cerrar(sql: str) -> List[str]:
                 pila.pop()
         else:
             pila.append("BEGIN" if marca.group(1) else "CASE")
-    if limpio.count("(") > limpio.count(")"):
-        pila.append("(")
+    pila.extend(["("] * max(0, limpio.count("(") - limpio.count(")")))
     return pila
+
+
+# Qué quedó sin cerrar y cómo se revisa (usuaria, 18 nov.: «cuando es de paréntesis que muestre que es de
+# paréntesis y cuando es de END que muestre de END»).
+_ABIERTO = {
+    "BEGIN": ("un bloque BEGIN", "bloques BEGIN", "cada BEGIN tenga su END"),
+    "CASE": ("un CASE", "CASE", "cada CASE tenga su END"),
+    "(": ("un paréntesis", "paréntesis", "cada paréntesis de apertura tenga su cierre"),
+}
+
+
+def _mensaje_sin_cerrar(abiertos: List[str], sql: str) -> str:
+    tipos = [tipo for tipo in _ABIERTO if tipo in abiertos]
+    que = []
+    for tipo in tipos:
+        uno, varios, _ = _ABIERTO[tipo]
+        cantidad = abiertos.count(tipo)
+        que.append(uno if cantidad == 1 else f"{cantidad} {varios}")
+    revisar = " y que ".join(_ABIERTO[tipo][2] for tipo in tipos)
+    return (f"Se identificó que el código termina sin cerrar {' y '.join(que)}. Se recomienda revisar que {revisar}, "
+            f"ya que SQL Server no podrá {_que_no_se_podra(sql)}.")
 
 
 def _que_no_se_podra(sql: str) -> str:
@@ -266,11 +286,11 @@ def ultima_linea(sql: str) -> int:
 
 
 def mensaje_error_sintaxis(error: Dict, sql: str = "") -> str:
-    # Falta el END de un BEGIN (texto de la usuaria, 18 nov.). Solo cuando es seguro: si lo abierto es un
-    # paréntesis o un CASE, sigue el mensaje general.
-    if error.get("numero") == ERROR_FIN_DE_ARCHIVO and sql and _sin_cerrar(sql) and set(_sin_cerrar(sql)) == {"BEGIN"}:
-        return ("Se identificó que el código termina sin cerrar un bloque BEGIN. Se recomienda revisar que cada BEGIN "
-                f"tenga su END, ya que SQL Server no podrá {_que_no_se_podra(sql)}.")
+    # Falta el END de un BEGIN o de un CASE, o el cierre de un paréntesis (texto de la usuaria, 18 nov.). Si no se
+    # encuentra qué quedó abierto, sigue el mensaje general.
+    abiertos = _sin_cerrar(sql) if error.get("numero") == ERROR_FIN_DE_ARCHIVO and sql else []
+    if abiertos:
+        return _mensaje_sin_cerrar(abiertos, sql)
     if error.get("numero") == ERROR_FIN_DE_ARCHIVO and sql:
         error = {**error, "linea": ultima_linea(sql), "columna": 1}
     mensaje = str(error.get("mensaje", "")).strip()

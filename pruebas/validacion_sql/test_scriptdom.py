@@ -47,14 +47,29 @@ class FinDeArchivoTest(unittest.TestCase):
                                  f"que cada BEGIN tenga su END, ya que SQL Server no podrá {que}.")
                 self.assertEqual(error.linea, linea)
 
-    def test_otro_cierre_pendiente_sigue_con_el_mensaje_general(self):
-        for sql, linea in {"SELECT (1 + 2\n": 1, "SELECT CASE WHEN 1 = 1 THEN 1\n": 1,
-                           "CREATE PROCEDURE dbo.PA_X AS\nBEGIN\n SELECT (1 + 2\n": 3}.items():
+    def test_parentesis_y_case_dicen_que_falta(self):
+        casos = {
+            "SELECT (1 + 2\n": "Se identificó que el código termina sin cerrar un paréntesis. Se recomienda revisar que "
+                               "cada paréntesis de apertura tenga su cierre, ya que SQL Server no podrá ejecutar el código.",
+            "SELECT CASE WHEN 1 = 1 THEN 1\n": "Se identificó que el código termina sin cerrar un CASE. Se recomienda "
+                                               "revisar que cada CASE tenga su END, ya que SQL Server no podrá ejecutar el código.",
+            "CREATE PROCEDURE dbo.PA_X AS\nBEGIN\n SELECT ((1 + 2\n":
+                "Se identificó que el código termina sin cerrar un bloque BEGIN y 2 paréntesis. Se recomienda revisar que "
+                "cada BEGIN tenga su END y que cada paréntesis de apertura tenga su cierre, ya que SQL Server no podrá "
+                "crear el procedimiento.",
+            # Paréntesis y comillas dentro de textos o comentarios no cuentan.
+            "SELECT ':(' AS c, CASE WHEN 1 = 1 THEN 1 -- (\n": "Se identificó que el código termina sin cerrar un CASE. "
+                "Se recomienda revisar que cada CASE tenga su END, ya que SQL Server no podrá ejecutar el código.",
+        }
+        for sql, mensaje in casos.items():
             with self.subTest(sql=sql):
-                error = self._error(sql)
-                self.assertTrue(error.mensaje.startswith(f"Se identificó un error de sintaxis en la línea {linea}, columna 1: "
-                                                         "Fin de archivo inesperado."), error.mensaje)
-                self.assertEqual(error.linea, linea)
+                self.assertEqual(self._error(sql).mensaje, mensaje)
+
+    def test_si_no_se_sabe_que_falta_sigue_el_mensaje_general(self):
+        error = self._error("WITH A AS (SELECT 1 AS n)\n")  # CTE sin la consulta que la usa
+        self.assertTrue(error.mensaje.startswith("Se identificó un error de sintaxis en la línea 1, columna 1: "
+                                                 "Fin de archivo inesperado."), error.mensaje)
+        self.assertEqual(error.linea, 1)
 
 
 @unittest.skipUnless(HAY_SCRIPTDOM, "ScriptDom no está en esta PC (viene con SSMS)")
