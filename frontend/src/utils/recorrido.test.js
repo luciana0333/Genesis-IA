@@ -37,11 +37,12 @@ describe('grupoDelRecorrido', () => {
 
 describe('etiquetaDeGrupos', () => {
   it('cuenta las viñetas, no las líneas', () => {
-    expect(etiquetaDeGrupos(GRUPOS)).toBe('2 tablas');
+    // Cada tabla o columna es un caso (usuaria, 17 nov.).
+    expect(etiquetaDeGrupos(GRUPOS)).toBe('2 casos');
     expect(etiquetaDeGrupos([
       { nombre: 'a', lineas: [1, 2, 3], tipo: 'Columna' },
       { nombre: 'b', lineas: [4], tipo: 'Columna' },
-    ])).toBe('2 columnas');
+    ])).toBe('2 casos');
     expect(etiquetaDeGrupos([GRUPOS[0]])).toBeNull();
     expect(etiquetaDeGrupos(undefined)).toBeNull();
   });

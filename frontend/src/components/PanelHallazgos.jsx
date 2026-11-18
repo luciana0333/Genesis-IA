@@ -150,11 +150,8 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
   const cantidadLineas = porColumna ? hallazgo.lineas.length : (lineas ? lineas.split(',').length : 1);
   // Columnas con su desglose de tipos («Misma columna con distinto tipo»): se muestran como tabla.
   const tablaTipos = Boolean(hallazgo.grupos?.length && hallazgo.grupos.every((grupo) => grupo.detalle));
-  // Viñetas con sus propias líneas (tablas, columnas): se cuentan las viñetas, no las líneas («11 columnas»).
-  // En «Misma columna con distinto tipo» cada columna es un caso: «2 casos» (usuaria, 17 nov.).
-  const porGrupos = porColumna ? null
-    : tablaTipos && hallazgo.grupos.length > 1 ? `${hallazgo.grupos.length} casos`
-      : etiquetaDeGrupos(hallazgo.grupos);
+  // Viñetas con sus propias líneas (tablas, columnas): se cuentan las viñetas, no las líneas («11 casos»).
+  const porGrupos = porColumna ? null : etiquetaDeGrupos(hallazgo.grupos);
   const etiquetaLinea = (seccion ? `${seccion} · ` : '') + (porGrupos || (lineas
     ? (cantidadLineas > 4 ? `${cantidadLineas} casos` : `${lineas.includes(',') ? 'Líneas' : 'Línea'} ${lineas}`)
     : `Línea ${hallazgo.linea || 1}`));
