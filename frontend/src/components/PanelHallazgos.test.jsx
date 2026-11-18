@@ -67,7 +67,7 @@ describe('PanelHallazgos · «Misma columna con distinto tipo» como tabla', () 
   it('muestra una fila por columna con su desglose y abre el detalle con «Ver tablas»', async () => {
     const usuario = userEvent.setup();
     render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[TIPOS]} />);
-    expect(screen.getByText('2 columnas')).toBeInTheDocument();
+    expect(screen.getByText('2 casos')).toBeInTheDocument(); // cada columna es un caso (usuaria, 17 nov.)
     // La introducción va bajo el título; la lista de viñetas se reemplaza por la tabla.
     expect(screen.getByText(/^Se identificaron las siguientes columnas/)).toBeInTheDocument();
     const tabla = screen.getByRole('table');

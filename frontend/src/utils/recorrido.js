@@ -22,9 +22,11 @@ export function grupoDelRecorrido(grupos, indice) {
   return null;
 }
 
-/** Encabezado de la observación con varias viñetas: «11 columnas», «2 tablas»; con una sola, null. */
+/**
+ * Encabezado de la observación con varias viñetas: «11 casos», «2 casos» (cada tabla o columna es un caso; usuaria,
+ * 17 nov.); con una sola, null.
+ */
 export function etiquetaDeGrupos(grupos) {
   if (!grupos || grupos.length < 2) return null;
-  const tipo = (grupos[0].tipo ?? 'Tabla').toLowerCase();
-  return `${grupos.length} ${tipo}s`;
+  return `${grupos.length} casos`;
 }
