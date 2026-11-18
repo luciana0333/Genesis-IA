@@ -234,6 +234,14 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         self.assertNotIn("Constante", hallazgo.mensaje)  # va en «Consulta de lectura sin WITH (NOLOCK)»
         self.assertIn("CONSULTA_SIN_NOLOCK", reglas)
 
+    def test_variable_from_no_esconde_la_tabla_real(self):
+        # Con @From en el mismo PA, la tabla física real sin NOLOCK se sigue marcando, y solo ella.
+        sql = ("DECLARE @From VARCHAR(100);\nSET @From = (SELECT cCorreo FROM dbo.Movimiento WHERE nId = 1);\n"
+               "SELECT @From AS cFrom;")
+        hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "NOLOCK_POR_EVALUAR")
+        self.assertIn("dbo.Movimiento", hallazgo.mensaje)
+        self.assertNotIn("tabla física AS", hallazgo.mensaje)
+
     def test_nolock_por_evaluar_no_aplica_a_lo_que_no_es_tabla_fisica(self):
         casos = (
             "WITH Datos AS (SELECT 1 AS n) SELECT d.n FROM Datos d;",  # CTE
@@ -243,6 +251,9 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             "FETCH NEXT FROM cur INTO @nId;\nFETCH FROM cur2 INTO @nId;",  # cursores
             "SELECT t.n FROM dbo.fn_Tabla(1) t;",  # función de tabla
             "SELECT v.n FROM @Tabla v JOIN #T t ON 1 = 1;",
+            # Variables que se llaman como palabras de SQL (caso real del 17 nov.: @From AS cFrom).
+            "DECLARE @From VARCHAR(100) = 'x';\nSELECT @From AS cFrom, @From AS cOtro;",
+            "DECLARE @Join VARCHAR(10), @from VARCHAR(10);\nSELECT @Join AS cA, @from cB;\nSET @FROM = @Join;",
         )
         for sql in casos:
             with self.subTest(sql=sql):

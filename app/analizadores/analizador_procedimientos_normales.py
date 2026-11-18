@@ -424,7 +424,9 @@ def _validar_nolock_tablas_pesadas(texto: str, limpio: str) -> List[Hallazgo]:
     referencia = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
     modificaciones = _modificaciones(limpio)
     ctes = _nombres_de_cte(limpio)
-    for match in re.finditer(rf"\b(FROM|JOIN)\s+({referencia})", limpio, re.IGNORECASE):
+    # Sin @, # ni $ delante: @From o @Join son variables, no la palabra FROM o JOIN (usuaria, 17 nov.: en
+    # «SELECT @From AS cFrom» se leía la tabla física «AS»).
+    for match in re.finditer(rf"(?<![\w@#$])(FROM|JOIN)\s+({referencia})", limpio, re.IGNORECASE):
         if re.match(r"\s*\(", limpio[match.end():]):  # función de tabla, no una tabla
             continue
         # FETCH NEXT FROM cursor: es un cursor, no una tabla.
