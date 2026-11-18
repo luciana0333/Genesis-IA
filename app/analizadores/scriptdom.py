@@ -28,7 +28,7 @@ from typing import Dict, List, Optional
 
 from app.analizadores.scriptdom_mensajes import (
     MENSAJES, consulta_de_nulos, es_formato_de_fecha_corto, mensaje_agrupado, mensaje_hecho,
-    mensaje_varchar_sin_tamano_fecha, severidad,
+    mensaje_isnull_validar_partes, mensaje_varchar_sin_tamano_fecha, severidad,
 )
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 
@@ -261,6 +261,8 @@ def validar_estructura(sql: str) -> Optional[List[Hallazgo]]:
     for tipo, hechos in por_tipo.items():
         if tipo == "VARCHAR_SIN_TAMANO_FECHA":
             mensaje = mensaje_varchar_sin_tamano_fecha(hechos)
+        elif tipo == "ISNULL_VALIDAR_NULOS":
+            mensaje = " ".join(mensaje_isnull_validar_partes(hechos))
         else:
             mensaje = mensaje_agrupado(hechos)
         if not mensaje:

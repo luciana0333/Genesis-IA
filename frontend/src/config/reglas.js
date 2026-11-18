@@ -72,7 +72,7 @@ export const NOMBRES_REGLAS = {
   PARAMETRO_SIN_USO: 'Parámetro sin uso',
   CASE_SIN_ELSE: 'CASE sin ELSE',
   PROCEDIMIENTO_MUY_LARGO: 'Procedimiento muy largo',
-  ISNULL_VALIDAR_NULOS: 'ISNULL que puede no ser necesario',
+  ISNULL_VALIDAR_NULOS: 'ISNULL posiblemente innecesario',
   ISNULL_EN_CONDICION: 'ISNULL sobre la columna en una condición',
   ISNULL_EN_COLUMNA_NOT_NULL: 'ISNULL sobre una columna NOT NULL',
   OBJETO_SIN_ESQUEMA: 'Objeto sin esquema',

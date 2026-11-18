@@ -416,10 +416,35 @@ def _de_la_columna(h: Dict) -> str:
     return f"sobre la columna {h['columna']} de {h['tabla']}"
 
 
+def _columna_y_origen(h: Dict) -> str:
+    """«NIDDESCTRX de DBO.MOVCAP (a través de #MovimientosBase)»: la columna de la tabla física que se valida."""
+    columna = f"{h['columna']} de {h['tabla']}"
+    if not h.get("temporal"):
+        return columna
+    # Si en la temporal la columna se llama distinto (nSaldoActual ← nSaldo), se nombra también.
+    if str(h.get("columnaTemporal", "")).lower() == str(h["columna"]).lower():
+        return f"{columna} (a través de {h['temporal']})"
+    return f"{columna} (a través de {h['temporal']}.{h['columnaTemporal']})"
+
+
+def _enumerar(elementos: List[str]) -> str:
+    return elementos[0] if len(elementos) == 1 else f"{', '.join(elementos[:-1])} y {elementos[-1]}"
+
+
 def _isnull_validar(h: Dict) -> Partes:
-    return (f"Se identificó {h['expresion']} {_de_la_columna(h)}.",
-            "Se recomienda validar si la columna acepta valores nulos con la consulta adjunta, ya que, si no los "
-            "acepta, el ISNULL no es necesario.")
+    return mensaje_isnull_validar_partes([h])
+
+
+def mensaje_isnull_validar_partes(hechos: List[Dict]) -> Partes:
+    """Texto de la usuaria (18 nov.): cada columna una sola vez, aunque el ISNULL se repita en varias líneas."""
+    columnas = list(dict.fromkeys(_columna_y_origen(h) for h in hechos))
+    if len(columnas) == 1:
+        return (f"Se identificó el uso de ISNULL en la columna {columnas[0]}.",
+                "Se recomienda validar si esta columna permite valores NULL. De no permitirlos, se puede retirar el "
+                "ISNULL, ya que no sería necesario.")
+    return (f"Se identificó el uso de ISNULL en las columnas {_enumerar(columnas)}.",
+            "Se recomienda validar si estas columnas permiten valores NULL. De no permitirlos, se puede retirar el "
+            "ISNULL, ya que no sería necesario.")
 
 
 def _isnull_condicion(h: Dict) -> Partes:

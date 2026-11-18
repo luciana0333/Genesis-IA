@@ -67,8 +67,34 @@ class IsnullTest(unittest.TestCase):
                "INSERT INTO #R (cCtaCod, nSaldo) SELECT c.cCtaCod, c.nSaldo FROM dbo.Credito c\n"
                "SELECT ISNULL(r.nSaldo, 0), ISNULL(c.nMora, 0) FROM #R r JOIN dbo.Credito c ON c.cCtaCod = r.cCtaCod")
         hallazgo = _isnull(sql)[0]
-        self.assertIn("sobre la columna nSaldo de #R, que se llena desde dbo.Credito.nSaldo", hallazgo.mensaje)
+        # Texto de la usuaria (18 nov.): cada columna una vez, con su tabla física y la temporal por la que pasa.
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se identificó el uso de ISNULL en las columnas nSaldo de dbo.Credito (a través de #R) y nMora de "
+            "dbo.Credito. Se recomienda validar si estas columnas permiten valores NULL. De no permitirlos, se puede "
+            "retirar el ISNULL, ya que no sería necesario.",
+        )
         self.assertIn("TABLE_NAME = 'Credito' AND COLUMN_NAME IN ('nSaldo', 'nMora')", hallazgo.consulta)
+
+    def test_misma_columna_varias_veces_se_nombra_una_vez(self):
+        # 18 nov.: ISNULL(G.NORDEN,0) 3 veces y ISNULL(MB.NIDDESCTRX,0) 1 vez decía «4 casos» y mostraba 2.
+        sql = ("CREATE TABLE #M (nMovNro INT, nIdDescTrx INT)\n"
+               "INSERT INTO #M (nMovNro, nIdDescTrx) SELECT d.nMovNro, d.nIdDescTrx FROM dbo.MovCap d\n"
+               "SELECT ISNULL(G.nOrden, 0), ISNULL(M.nIdDescTrx, 0)\nFROM #M M JOIN dbo.OpeTpo G ON G.nMovNro = M.nMovNro\n"
+               "ORDER BY ISNULL(G.nOrden, 0), ISNULL(G.nOrden, 0) DESC")
+        hallazgo = _isnull(sql)[0]
+        self.assertTrue(hallazgo.mensaje.startswith(
+            "Se identificó el uso de ISNULL en las columnas nOrden de dbo.OpeTpo y nIdDescTrx de dbo.MovCap "
+            "(a través de #M). "), hallazgo.mensaje)
+        self.assertNotIn("casos", hallazgo.mensaje)
+        self.assertEqual(hallazgo.lineas, [3, 5])  # las líneas van arriba, en la tarjeta
+
+    def test_una_columna_en_singular(self):
+        self.assertEqual(
+            _isnull("SELECT ISNULL(c.nSaldo, 0) FROM dbo.Credito c")[0].mensaje,
+            "Se identificó el uso de ISNULL en la columna nSaldo de dbo.Credito. Se recomienda validar si esta columna "
+            "permite valores NULL. De no permitirlos, se puede retirar el ISNULL, ya que no sería necesario.",
+        )
 
     def test_condicion_propone_la_reescritura(self):
         hallazgo = _isnull("SELECT a FROM dbo.Examen e WHERE ISNULL(e.bEvaluado, 0) = 0")[0]
