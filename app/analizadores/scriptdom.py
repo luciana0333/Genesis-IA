@@ -27,7 +27,8 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from app.analizadores.scriptdom_mensajes import (
-    MENSAJES, consulta_de_nulos, mensaje_agrupado, mensaje_hecho, severidad,
+    MENSAJES, consulta_de_nulos, es_formato_de_fecha_corto, mensaje_agrupado, mensaje_hecho,
+    grupos_isnull_validar, mensaje_isnull_validar_partes, mensaje_varchar_sin_tamano_fecha, severidad,
 )
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 
@@ -251,10 +252,21 @@ def validar_estructura(sql: str) -> Optional[List[Hallazgo]]:
     ]
     por_tipo: Dict[str, List[Dict]] = {}
     for hecho in lectura["hechos"]:
+        # CONVERT(VARCHAR, x, formato): solo los formatos de fecha que nunca pasan de 30 caracteres van aparte (bajo);
+        # con cualquier otro el texto se puede cortar y sigue siendo «VARCHAR sin tamaño» (alto).
+        if hecho.get("tipo") == "VARCHAR_SIN_TAMANO_FECHA" and not es_formato_de_fecha_corto(hecho.get("estilo")):
+            hecho["tipo"] = "VARCHAR_SIN_TAMANO"
         if hecho.get("tipo") in MENSAJES:
             por_tipo.setdefault(hecho["tipo"], []).append(hecho)
     for tipo, hechos in por_tipo.items():
-        mensaje = mensaje_agrupado(hechos)
+        grupos = None
+        if tipo == "VARCHAR_SIN_TAMANO_FECHA":
+            mensaje = mensaje_varchar_sin_tamano_fecha(hechos)
+        elif tipo == "ISNULL_VALIDAR_NULOS":
+            mensaje = " ".join(mensaje_isnull_validar_partes(hechos))
+            grupos = grupos_isnull_validar(hechos)
+        else:
+            mensaje = mensaje_agrupado(hechos)
         if not mensaje:
             continue
         lineas = sorted({int(h["linea"]) for h in hechos if mensaje_hecho(h)})
@@ -263,5 +275,9 @@ def validar_estructura(sql: str) -> Optional[List[Hallazgo]]:
             hallazgo.lineas = lineas  # para recorrerlas con la barra «1 de N»
         if tipo in CON_CONSULTA_DE_NULOS:
             hallazgo.consulta = consulta_de_nulos(hechos)  # botón «Copiar consulta de validación»
+        if grupos:
+            hallazgo.grupos = grupos  # desde 3 tablas: la pantalla lo muestra como tabla (Tabla | Columnas)
+            # Una parada por cada ISNULL, tabla por tabla (como «COLLATE no especificado»): «6 casos».
+            hallazgo.lineas = [linea for grupo in grupos for linea in grupo["lineas"]]
         hallazgos.append(hallazgo)
     return hallazgos

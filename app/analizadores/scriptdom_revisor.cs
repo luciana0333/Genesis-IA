@@ -662,7 +662,17 @@ public class GenesisVisitante : TSqlFragmentVisitor
     private readonly HashSet<int> tiposDeConversion = new HashSet<int>();
 
     public override void Visit(CastCall llamada) { if (llamada.DataType != null) tiposDeConversion.Add(llamada.DataType.StartOffset); }
-    public override void Visit(ConvertCall llamada) { if (llamada.DataType != null) tiposDeConversion.Add(llamada.DataType.StartOffset); }
+    // Formato (tercer parámetro) de cada CONVERT, por la posición de su tipo: CONVERT(VARCHAR, fecha, 103).
+    private readonly Dictionary<int, int> estilosDeConversion = new Dictionary<int, int>();
+
+    public override void Visit(ConvertCall llamada)
+    {
+        if (llamada.DataType == null) return;
+        tiposDeConversion.Add(llamada.DataType.StartOffset);
+        var estilo = llamada.Style as IntegerLiteral;
+        int numero;
+        if (estilo != null && int.TryParse(estilo.Value, out numero)) estilosDeConversion[llamada.DataType.StartOffset] = numero;
+    }
     public override void Visit(TryCastCall llamada) { if (llamada.DataType != null) tiposDeConversion.Add(llamada.DataType.StartOffset); }
     public override void Visit(TryConvertCall llamada) { if (llamada.DataType != null) tiposDeConversion.Add(llamada.DataType.StartOffset); }
 
@@ -685,7 +695,13 @@ public class GenesisVisitante : TSqlFragmentVisitor
         {
             // VARCHAR sin tamaño: 1 carácter al declarar y 30 en CAST/CONVERT. CHAR sin tamaño en una columna o
             // variable suele ser a propósito (1 carácter); en CAST/CONVERT no.
-            if (largoVariable || enConversion)
+            // Con un formato de fecha (CONVERT(VARCHAR, fecha, 103)) el resultado no pasa de 30 caracteres: se avisa
+            // aparte, en nivel bajo (usuaria, 18 nov.). El formato se valida en Python (solo los que son de fecha).
+            int estilo;
+            if (enConversion && estilosDeConversion.TryGetValue(tipo.StartOffset, out estilo))
+                Agregar("VARCHAR_SIN_TAMANO_FECHA", tipo.StartLine, "tipoDato", nombre, "estilo", estilo,
+                        "largo", 30, "contexto", "conversion");
+            else if (largoVariable || enConversion)
                 Agregar("VARCHAR_SIN_TAMANO", tipo.StartLine, "tipoDato", nombre, "largo", enConversion ? 30 : 1,
                         "contexto", enConversion ? "conversion" : "declaracion");
             return;
@@ -1191,6 +1207,9 @@ public class GenesisVisitante : TSqlFragmentVisitor
         bool opcional;
         string tabla = TablaDe(columna, out opcional);
         if (tabla == null || opcional || tabla == "(subconsulta)") return false;
+        // Columna de una CTE: no es una tabla física y su valor puede venir de una variable que sí llega en NULL
+        // (usuaria, 18 nov.: ISNULL(MP.cCopiaDestinatarios, '') con cCopiaDestinatarios = @cCopiaDestinatarios).
+        if (NombresCte.Contains(tabla)) return false;
         string nombre = NombreColumna(columna);
         string tipo = contexto == "condicion" ? "ISNULL_EN_CONDICION" : "ISNULL_VALIDAR_NULOS";
         if (!EsTemporal(tabla))
