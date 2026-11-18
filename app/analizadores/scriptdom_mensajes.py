@@ -784,10 +784,6 @@ def _comun_al_inicio(restos: List[str]) -> Tuple[str, List[str]]:
     return " ".join(palabras[0][:largo]), finales
 
 
-def _enumerar(elementos: List[str]) -> str:
-    return elementos[0] if len(elementos) == 1 else f"{', '.join(elementos[:-1])} y {elementos[-1]}"
-
-
 def _mayuscula(texto: str) -> str:
     """Mayúscula inicial solo si empieza con una palabra común («un», «la», «que»…), no con un nombre de columna."""
     texto = re.sub(r"^que\s+", "", texto)
