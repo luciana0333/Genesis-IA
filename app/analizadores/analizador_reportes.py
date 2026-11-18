@@ -184,7 +184,7 @@ _ALIAS_Y_NOLOCK = re.compile(
 def _tabla_del_alias(limpio: str, alias: str) -> str:
     """Tabla a la que apunta un alias en un FROM o JOIN (dbo.Cliente c → dbo.Cliente); si no, el alias."""
     match = re.search(
-        rf"\b(?:FROM|JOIN)\s+({_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}})\s+(?:AS\s+)?{re.escape(alias)}\b",
+        rf"(?<![\w@#$])(?:FROM|JOIN)\s+({_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}})\s+(?:AS\s+)?{re.escape(alias)}\b",
         limpio, re.IGNORECASE,
     )
     return match.group(1).strip() if match else alias
@@ -258,7 +258,8 @@ def _nombres_cte(limpio: str) -> Set[str]:
 def _validar_nolock(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     patron = re.compile(
-        rf"\b(FROM|JOIN)\s+({_IDENTIFICADOR}(?:\s*\.(?:\s*\.)?\s*{_IDENTIFICADOR}){{0,2}})(?![\w$#.\]])",
+        # Sin @, # ni $ delante: @From o @Join son variables, no la palabra FROM o JOIN (usuaria, 17 nov.).
+        rf"(?<![\w@#$])(FROM|JOIN)\s+({_IDENTIFICADOR}(?:\s*\.(?:\s*\.)?\s*{_IDENTIFICADOR}){{0,2}})(?![\w$#.\]])",
         re.IGNORECASE,
     )
     ctes = _nombres_cte(limpio)

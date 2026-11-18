@@ -18,6 +18,19 @@ class TestAnalizadorReportes(unittest.TestCase):
         self.assertIn("NOLOCK_EN_TABLA_TEMPORAL", reglas)
         self.assertIn("TEMPORAL_TEXTO_SIN_COLLATE", reglas)
 
+    def test_variable_from_no_es_una_tabla_sin_nolock(self):
+        # Caso real (17 nov.): «SELECT @From AS cFrom» se leía como la tabla física «AS» sin NOLOCK.
+        for sql in ("DECLARE @From VARCHAR(100) = 'x';\nSELECT @From AS cFrom, @From AS cOtro;",
+                    "DECLARE @Join VARCHAR(10), @from VARCHAR(10);\nSELECT @Join AS cA, @from cB;\nSET @FROM = @Join;"):
+            with self.subTest(sql=sql):
+                self.assertNotIn("TABLA_FISICA_SIN_NOLOCK", {h.regla for h in verificar_reporte(sql)})
+        # La tabla física real del mismo reporte se sigue marcando, y solo ella.
+        sql = ("DECLARE @From VARCHAR(100);\nSET @From = (SELECT cCorreo FROM dbo.Movimiento WHERE nId = 1);\n"
+               "SELECT @From AS cFrom;")
+        hallazgo = next(h for h in verificar_reporte(sql) if h.regla == "TABLA_FISICA_SIN_NOLOCK")
+        self.assertIn("dbo.Movimiento", hallazgo.mensaje)
+        self.assertNotIn(" AS ", hallazgo.mensaje.replace("WITH (NOLOCK)", ""))
+
     def test_agrupa_tablas_fisicas_sin_nolock(self):
         sql = """
         SELECT cNombre FROM dbo.Cliente;
