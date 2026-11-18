@@ -9,6 +9,7 @@ Lo que hace fallar el script o da un resultado equivocado se comprobó en SQL Se
 """
 
 import difflib
+import re
 from typing import Callable, Dict, List, Optional, Tuple
 
 from app.modelos.hallazgo import Severidad
@@ -562,8 +563,100 @@ def mensaje_agrupado(hechos: List[Dict]) -> Optional[str]:
         return None
     if len(con_mensaje) == 1:
         return " ".join(con_mensaje[0][1])
-    casos = list(dict.fromkeys(p[0][:1].lower() + p[0][1:].rstrip(".") for _, p in con_mensaje))
-    # Líneas separadas por comas: así la pantalla las muestra como lista y las recorre con «1 de N».
-    lineas = sorted({int(h["linea"]) for h, _ in con_mensaje})
-    donde = f"la línea {lineas[0]}" if len(lineas) == 1 else f"las líneas {', '.join(map(str, lineas))}"
-    return f"Se identificaron {len(con_mensaje)} casos, en {donde}: {'; '.join(casos)}. {con_mensaje[0][1][1]}"
+    # Sin redundar (usuaria, 18 nov., modelo «Se identificaron 2 casos de CASE sin ELSE.»): lo común se dice una vez
+    # y las líneas van arriba, en la tarjeta (hallazgo.lineas), no en el texto.
+    total = len(con_mensaje)
+    que_hacer = con_mensaje[0][1][1]
+    restos = list(dict.fromkeys(_sin_se_identifico(p[0]) for _, p in con_mensaje))
+    if len(restos) == 1 and restos[0] is not None:
+        return f"Se identificaron {total} {_casos_de(restos[0])}. {que_hacer}"
+    # Lo distinto en medio de la frase (la variable, la columna…): la frase en plural y solo lo que cambia.
+    plural = _PLURALES.get(con_mensaje[0][0].get("tipo"))
+    if plural:
+        frase, elemento, mismo = plural
+        elementos = list(dict.fromkeys(elemento(h) for h, _ in con_mensaje))
+        if len(elementos) > 1 and (not mismo or len({str(h.get(mismo)) for h, _ in con_mensaje}) == 1):
+            que_hacer = _QUE_HACER_EN_PLURAL.get(con_mensaje[0][0].get("tipo"), que_hacer)
+            return f"Se identificaron {len(elementos)} {frase}: {_enumerar(elementos)}. {que_hacer}"
+    if all(resto is not None for resto in restos):
+        # Solo cambia el final (ORDER BY … a #A / a #B): «2 casos de ORDER BY … a #A y #B».
+        comun, finales = _comun_al_inicio(restos)
+        if comun:
+            return f"Se identificaron {total} {_casos_de(comun)} {_enumerar(finales)}. {que_hacer}"
+    # Otros casos distintos: una viñeta por caso, sin repetir «Se identificó».
+    casos = list(dict.fromkeys(_mayuscula(_sin_se_identifico(p[0]) or p[0].rstrip(".")) for _, p in con_mensaje))
+    return f"Se identificaron {total} casos: {'; '.join(casos)}. {que_hacer}"
+
+
+# Observaciones que se repiten con algo distinto en medio (una variable, una columna): la frase en plural y la lista
+# de lo que cambia (usuaria, 18 nov.: sin redundar). (frase, qué se lista de cada caso, dato que debe ser igual en
+# todos para que el «Qué hacer» del primero sirva para todos, o None).
+_PLURALES: Dict[str, Tuple[str, Callable[[Dict], str], Optional[str]]] = {
+    "VARIABLE_NO_DECLARADA": ("variables que se usan sin estar declaradas (o antes de su DECLARE)",
+                              lambda h: h["variable"], None),
+    "PARAMETRO_SIN_USO": ("parámetros que no se usan", lambda h: h["variable"], None),
+    "PARAMETRO_OUTPUT_SIN_VALOR": ("parámetros OUTPUT que nunca reciben un valor", lambda h: h["variable"], None),
+    "FUNCION_ESCALAR_POR_FILA": ("funciones escalares dentro de una consulta", lambda h: h["funcion"], None),
+    "NOT_IN_SUBCONSULTA": ("casos de NOT IN (SELECT …)", lambda h: h["expresion"], None),
+    "TOP_SIN_ORDER_BY": ("TOP sin ORDER BY", lambda h: h["top"], None),
+    "LIKE_COMODIN_INICIO": ("LIKE con el comodín al inicio", lambda h: f"{h['columna']} LIKE '{h['patron']}'", None),
+    "OR_ENTRE_COLUMNAS": ("OR entre columnas en el WHERE", lambda h: f"{h['primera']} OR {h['segunda']}", None),
+    "COLUMNA_REPETIDA_EN_TABLA": ("columnas que se definen dos veces", lambda h: f"{h['columna']} en {h['tabla']}", None),
+    "TEMPORAL_CREADA_DOS_VECES": ("tablas temporales que se crean dos veces en el mismo bloque",
+                                  lambda h: h["tabla"], None),
+    # El «Qué hacer» nombra el divisor (NULLIF(@b, 0)): solo si es el mismo en todas.
+    "DIVISION_SIN_NULLIF": ("divisiones sin proteger el divisor", lambda h: h["expresion"], "divisor"),
+}
+
+# El «Qué hacer» en plural cuando el de un solo caso no concuerda («Declararla» → «Declararlas»).
+_QUE_HACER_EN_PLURAL = {
+    "VARIABLE_NO_DECLARADA": "Declararlas con DECLARE antes de usarlas, ya que SQL Server no ejecutará el código "
+                             "(error 137).",
+    "PARAMETRO_SIN_USO": "Se recomienda retirarlos o revisar si falta usarlos, ya que confunden a quien llama al "
+                         "procedimiento.",
+    "PARAMETRO_OUTPUT_SIN_VALOR": "Asignarles el valor que deben devolver, ya que el procedimiento siempre los "
+                                  "devolverá en NULL.",
+    "FUNCION_ESCALAR_POR_FILA": "Se recomienda evaluar reemplazarlas por un JOIN o un APPLY, ya que una función "
+                                "escalar propia se ejecuta una vez por cada fila.",
+    "COLUMNA_REPETIDA_EN_TABLA": "Retirar las columnas repetidas, ya que SQL Server no podrá crear la tabla "
+                                 "(error 2705).",
+    "OR_ENTRE_COLUMNAS": "Se recomienda evaluar separarlos en dos consultas con UNION ALL, ya que un OR entre "
+                         "columnas distintas suele impedir el uso de los índices.",
+}
+
+
+def _sin_se_identifico(texto: str) -> Optional[str]:
+    """«Se identificó un CASE sin ELSE.» → «un CASE sin ELSE»; None si la frase no empieza así."""
+    coincide = re.match(r"Se identificó (.+?)\.?$", texto.strip(), re.DOTALL)
+    return coincide.group(1) if coincide else None
+
+
+def _casos_de(resto: str) -> str:
+    """«un CASE sin ELSE» → «casos de CASE sin ELSE»; «que la tabla #T…» → «casos en que la tabla #T…»."""
+    if resto.startswith("que "):
+        return f"casos en {resto}"
+    return "casos de " + re.sub(r"^(?:un|una|el|la|los|las)\s+", "", resto)
+
+
+def _comun_al_inicio(restos: List[str]) -> Tuple[str, List[str]]:
+    """Palabras iguales al inicio de todos los casos, si lo distinto queda solo al final (una o dos palabras)."""
+    palabras = [resto.split(" ") for resto in restos]
+    largo = 0
+    while all(len(p) > largo + 1 for p in palabras) and len({p[largo] for p in palabras}) == 1:
+        largo += 1
+    finales = [" ".join(p[largo:]) for p in palabras]
+    if largo < 2 or any(len(p) - largo > 2 for p in palabras):
+        return "", []
+    return " ".join(palabras[0][:largo]), finales
+
+
+def _enumerar(elementos: List[str]) -> str:
+    return elementos[0] if len(elementos) == 1 else f"{', '.join(elementos[:-1])} y {elementos[-1]}"
+
+
+def _mayuscula(texto: str) -> str:
+    """Mayúscula inicial solo si empieza con una palabra común («un», «la», «que»…), no con un nombre de columna."""
+    texto = re.sub(r"^que\s+", "", texto)
+    if re.match(r"(?:un|una|el|la|los|las|lo)\s", texto):
+        return texto[:1].upper() + texto[1:]
+    return texto
