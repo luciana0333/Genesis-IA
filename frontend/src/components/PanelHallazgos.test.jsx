@@ -111,6 +111,37 @@ const COLLATE = (tablas) => ({
   lineas: tablas.flatMap(([, columnas], i) => columnas.map(() => i + 1)),
 });
 
+describe('PanelHallazgos · «ISNULL posiblemente innecesario» como tabla', () => {
+  it('desde 3 tablas: Tabla | Columnas, cada columna una vez y cada ISNULL un caso', () => {
+    const hallazgo = {
+      regla: 'ISNULL_VALIDAR_NULOS',
+      severidad: 'bajo',
+      linea: 3,
+      mensaje: 'Se identificó el uso de ISNULL en las siguientes columnas: dbo.Credito: nSaldo, nMora; dbo.OpeTpo: nOrden; '
+        + 'dbo.MovCap: nIdDescTrx, nMonto (a través de #M). Se recomienda validar si estas columnas permiten valores '
+        + 'NULL. De no permitirlos, se puede retirar el ISNULL, ya que no sería necesario.',
+      grupos: [
+        { nombre: 'dbo.Credito', tipo: 'Tabla', lineas: [3, 3], etiquetas: ['nMora', 'nSaldo'], columnas: 'nSaldo, nMora' },
+        { nombre: 'dbo.OpeTpo', tipo: 'Tabla', lineas: [3, 4], etiquetas: ['nOrden', 'nOrden'], columnas: 'nOrden' },
+        { nombre: 'dbo.MovCap', tipo: 'Tabla', lineas: [3, 4], etiquetas: ['nIdDescTrx', 'nMonto'],
+          columnas: 'nIdDescTrx, nMonto (a través de #M)' },
+      ],
+      lineas: [3, 3, 3, 4, 3, 4],
+    };
+    render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[hallazgo]} />);
+    expect(screen.getByText('ISNULL posiblemente innecesario')).toBeInTheDocument();
+    expect(screen.getByText(/^Se identificó el uso de ISNULL en las siguientes columnas:$/)).toBeInTheDocument();
+    expect(screen.getByText('6 casos')).toBeInTheDocument();
+    const filas = within(screen.getByRole('table')).getAllByRole('row').map((fila) => fila.textContent);
+    expect(filas).toEqual([
+      'TablaColumnas',
+      'dbo.CreditonSaldo, nMora',
+      'dbo.OpeTponOrden',
+      'dbo.MovCapnIdDescTrx, nMonto (a través de #M)',
+    ]);
+  });
+});
+
 describe('PanelHallazgos · «COLLATE no especificado en tabla temporal» como tabla', () => {
   it('desde 3 tablas: Tabla | Columnas sin COLLATE, con la introducción arriba', () => {
     render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[COLLATE([

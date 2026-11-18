@@ -70,8 +70,8 @@ class IsnullTest(unittest.TestCase):
         # Texto de la usuaria (18 nov.): cada columna una vez, con su tabla física y la temporal por la que pasa.
         self.assertEqual(
             hallazgo.mensaje,
-            "Se identificó el uso de ISNULL en las columnas nSaldo de dbo.Credito (a través de #R) y nMora de "
-            "dbo.Credito. Se recomienda validar si estas columnas permiten valores NULL. De no permitirlos, se puede "
+            "Se identificó el uso de ISNULL en las columnas nSaldo (a través de #R) y nMora de dbo.Credito. "
+            "Se recomienda validar si estas columnas permiten valores NULL. De no permitirlos, se puede "
             "retirar el ISNULL, ya que no sería necesario.",
         )
         self.assertIn("TABLE_NAME = 'Credito' AND COLUMN_NAME IN ('nSaldo', 'nMora')", hallazgo.consulta)
@@ -88,6 +88,28 @@ class IsnullTest(unittest.TestCase):
             "(a través de #M). "), hallazgo.mensaje)
         self.assertNotIn("casos", hallazgo.mensaje)
         self.assertEqual(hallazgo.lineas, [3, 5])  # las líneas van arriba, en la tarjeta
+
+    def test_desde_tres_tablas_va_como_tabla(self):
+        # 18 nov.: desde 3 tablas, Tabla | Columnas (como «COLLATE no especificado»); cada columna una vez por fila.
+        sql = ("CREATE TABLE #M (nIdDescTrx INT, nMonto MONEY)\n"
+               "INSERT INTO #M (nIdDescTrx, nMonto) SELECT d.nIdDescTrx, d.nMonto FROM dbo.MovCap d\n"
+               "SELECT ISNULL(c.nSaldo, 0), ISNULL(c.nMora, 0), ISNULL(G.nOrden, 0), ISNULL(M.nIdDescTrx, 0),\n"
+               "       ISNULL(M.nMonto, 0), ISNULL(G.nOrden, 1)\n"
+               "FROM #M M JOIN dbo.OpeTpo G ON 1 = 1 JOIN dbo.Credito c ON 1 = 1")
+        hallazgo = _isnull(sql)[0]
+        self.assertTrue(hallazgo.mensaje.startswith(
+            "Se identificó el uso de ISNULL en las siguientes columnas: dbo.Credito: nSaldo, nMora; dbo.OpeTpo: nOrden; "
+            "dbo.MovCap: nIdDescTrx, nMonto (a través de #M). Se recomienda validar si estas columnas"), hallazgo.mensaje)
+        self.assertEqual([(g["nombre"], g["columnas"]) for g in hallazgo.grupos],
+                         [("dbo.Credito", "nSaldo, nMora"), ("dbo.OpeTpo", "nOrden"),
+                          ("dbo.MovCap", "nIdDescTrx, nMonto (a través de #M)")])
+        # Cada ISNULL es una parada de «Ver en el código» (nOrden dos veces).
+        self.assertEqual(sum(len(g["lineas"]) for g in hallazgo.grupos), 6)
+
+    def test_dos_tablas_sigue_en_una_frase(self):
+        hallazgo = _isnull("SELECT ISNULL(c.nSaldo, 0), ISNULL(G.nOrden, 0) FROM dbo.Credito c JOIN dbo.OpeTpo G ON 1 = 1")[0]
+        self.assertIsNone(getattr(hallazgo, "grupos", None))
+        self.assertIn("en las columnas nSaldo de dbo.Credito y nOrden de dbo.OpeTpo.", hallazgo.mensaje)
 
     def test_una_columna_en_singular(self):
         self.assertEqual(

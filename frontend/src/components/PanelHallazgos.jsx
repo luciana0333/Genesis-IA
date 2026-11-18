@@ -4,7 +4,7 @@ import { etiquetaDeGrupos } from '../utils/recorrido';
 import { tokenizarSql } from '../utils/resaltadoSql';
 import { contarPorSeveridad, desglosarGrupo, normalizarSeveridad, ordenarHallazgos, separarMensaje } from '../utils/hallazgos';
 import { TablaTiposColumnas } from './TablaTiposColumnas';
-import { TablaColumnasSinCollate, collateEnTabla } from './TablaColumnasSinCollate';
+import { TablaColumnasSinCollate, collateEnTabla, tituloDeColumnas } from './TablaColumnasSinCollate';
 
 // Observaciones de NOLOCK: desde 3 tablas se muestran en cajitas (igual que TABLAS_EN_CAJITAS en el backend).
 const REGLAS_EN_CAJITAS = new Set(['TABLA_FISICA_SIN_NOLOCK', 'CONSULTA_SIN_NOLOCK', 'NOLOCK_POR_EVALUAR']);
@@ -141,7 +141,9 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
   const { intro, ocurrencias } = desglose;
   // Las líneas salen del texto agrupado o, si la observación las trae aparte, de hallazgo.lineas.
   // «COLLATE no especificado en tabla temporal»: cada columna sin COLLATE es un caso (usuaria, 8 nov.).
-  const porColumna = hallazgo.regla === 'TEMPORAL_TEXTO_SIN_COLLATE' && hallazgo.lineas?.length > 0;
+  // «ISNULL posiblemente innecesario» como tabla: cada ISNULL es un caso (usuaria, 18 nov.).
+  const porColumna = (hallazgo.regla === 'TEMPORAL_TEXTO_SIN_COLLATE'
+    || (hallazgo.regla === 'ISNULL_VALIDAR_NULOS' && hallazgo.grupos?.length > 0)) && hallazgo.lineas?.length > 0;
   const lineas = porColumna
     ? [...new Set(hallazgo.lineas)].join(', ')
     : desglose.lineas || (hallazgo.lineas?.length > 1 ? hallazgo.lineas.join(', ') : null);
@@ -179,7 +181,13 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
         {enTabla ? (
           tablaTipos
             ? <TablaTiposColumnas grupos={hallazgo.grupos} filaActiva={vinetaActiva} />
-            : <TablaColumnasSinCollate grupos={hallazgo.grupos} filaActiva={vinetaActiva} />
+            : (
+              <TablaColumnasSinCollate
+                grupos={hallazgo.grupos}
+                filaActiva={vinetaActiva}
+                tituloColumnas={tituloDeColumnas(hallazgo.regla)}
+              />
+            )
         ) : enCajitas ? (
           <div className="lista-cajitas">
             {ocurrencias.map((texto) => <code key={texto} className="tabla-tipos-columna">{texto}</code>)}

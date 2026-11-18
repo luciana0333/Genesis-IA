@@ -226,6 +226,8 @@ class GenesisHandler(SimpleHTTPRequestHandler):
                 {'linea': h.linea, 'origen': h.origen.value, 'severidad': h.severidad.value, 'regla': h.regla,
                  'mensaje': h.mensaje, 'lineas': getattr(h, 'lineas', None),
                  'inicioQueHacer': getattr(h, 'inicio_que_hacer', None),
+                 # Tabla por tabla, para mostrarlo como tabla y recorrerlo (ISNULL desde 3 tablas).
+                 'grupos': getattr(h, 'grupos', None),
                  # Consulta para validar si las columnas aceptan NULL (ISNULL sobre columnas).
                  'consulta': getattr(h, 'consulta', None)}
                 for h in hallazgos

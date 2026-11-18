@@ -416,19 +416,41 @@ def _de_la_columna(h: Dict) -> str:
     return f"sobre la columna {h['columna']} de {h['tabla']}"
 
 
-def _columna_y_origen(h: Dict) -> str:
-    """«NIDDESCTRX de DBO.MOVCAP (a través de #MovimientosBase)»: la columna de la tabla física que se valida."""
-    columna = f"{h['columna']} de {h['tabla']}"
+# Desde cuántas tablas «ISNULL posiblemente innecesario» se muestra como tabla (Tabla | Columnas), igual que
+# «COLLATE no especificado» (usuaria, 18 nov.). Mismo número en frontend/src/components/TablaColumnasSinCollate.jsx.
+TABLAS_PARA_VER_EN_TABLA = 3
+
+
+def _por_donde(h: Dict) -> str:
+    """La temporal por la que llega la columna: «#M», «#R.nSaldoActual» si allí se llama distinto, o «» si es directa."""
     if not h.get("temporal"):
-        return columna
-    # Si en la temporal la columna se llama distinto (nSaldoActual ← nSaldo), se nombra también.
+        return ""
     if str(h.get("columnaTemporal", "")).lower() == str(h["columna"]).lower():
-        return f"{columna} (a través de {h['temporal']})"
-    return f"{columna} (a través de {h['temporal']}.{h['columnaTemporal']})"
+        return h["temporal"]
+    return f"{h['temporal']}.{h['columnaTemporal']}"
 
 
 def _enumerar(elementos: List[str]) -> str:
     return elementos[0] if len(elementos) == 1 else f"{', '.join(elementos[:-1])} y {elementos[-1]}"
+
+
+def _columnas_por_tabla(hechos: List[Dict]) -> List[Tuple[str, List[Tuple[str, str]], List[Dict]]]:
+    """[(tabla física, [(columna, por dónde llega)] sin repetir, hechos de esa tabla)] en el orden en que aparecen."""
+    tablas: Dict[str, Tuple[str, Dict[Tuple[str, str], None], List[Dict]]] = {}
+    for h in hechos:
+        tabla, columnas, suyos = tablas.setdefault(h["tabla"].lower(), (h["tabla"], {}, []))
+        columnas[(h["columna"], _por_donde(h))] = None
+        suyos.append(h)
+    return [(tabla, list(columnas), suyos) for tabla, columnas, suyos in tablas.values()]
+
+
+def _columnas_de_una_tabla(columnas: List[Tuple[str, str]], separador=_enumerar) -> str:
+    """«nIdDescTrx, nMonto (a través de #M)»: si todas llegan por la misma temporal, se dice una sola vez."""
+    caminos = {por for _, por in columnas}
+    if len(caminos) == 1:
+        por = caminos.pop()
+        return separador([c for c, _ in columnas]) + (f" (a través de {por})" if por else "")
+    return separador([c + (f" (a través de {por})" if por else "") for c, por in columnas])
 
 
 def _isnull_validar(h: Dict) -> Partes:
@@ -436,15 +458,43 @@ def _isnull_validar(h: Dict) -> Partes:
 
 
 def mensaje_isnull_validar_partes(hechos: List[Dict]) -> Partes:
-    """Texto de la usuaria (18 nov.): cada columna una sola vez, aunque el ISNULL se repita en varias líneas."""
-    columnas = list(dict.fromkeys(_columna_y_origen(h) for h in hechos))
-    if len(columnas) == 1:
-        return (f"Se identificó el uso de ISNULL en la columna {columnas[0]}.",
-                "Se recomienda validar si esta columna permite valores NULL. De no permitirlos, se puede retirar el "
-                "ISNULL, ya que no sería necesario.")
-    return (f"Se identificó el uso de ISNULL en las columnas {_enumerar(columnas)}.",
-            "Se recomienda validar si estas columnas permiten valores NULL. De no permitirlos, se puede retirar el "
-            "ISNULL, ya que no sería necesario.")
+    """Texto de la usuaria (18 nov.): cada columna una sola vez, aunque el ISNULL se repita en varias líneas.
+    Desde 3 tablas, «las siguientes columnas: tabla: columnas; …», que la pantalla muestra como tabla."""
+    por_tabla = _columnas_por_tabla(hechos)
+    varias = len(por_tabla) > 1 or len(por_tabla[0][1]) > 1
+    que_hacer = ("Se recomienda validar si estas columnas permiten valores NULL. De no permitirlos, se puede retirar "
+                 "el ISNULL, ya que no sería necesario." if varias else
+                 "Se recomienda validar si esta columna permite valores NULL. De no permitirlos, se puede retirar el "
+                 "ISNULL, ya que no sería necesario.")
+    if len(por_tabla) >= TABLAS_PARA_VER_EN_TABLA:
+        detalle = "; ".join(f"{tabla}: {_columnas_de_una_tabla(columnas, ', '.join)}" for tabla, columnas, _ in por_tabla)
+        return f"Se identificó el uso de ISNULL en las siguientes columnas: {detalle}.", que_hacer
+    partes = []
+    for tabla, columnas, _ in por_tabla:
+        caminos = {por for _, por in columnas}
+        if len(caminos) == 1:
+            # «NIDDESCTRX de DBO.MOVCAP (a través de #MovimientosBase)», «nSaldo y nMora de dbo.Credito».
+            por = caminos.pop()
+            partes.append(f"{_enumerar([c for c, _ in columnas])} de {tabla}" + (f" (a través de {por})" if por else ""))
+        else:
+            # Columnas de la misma tabla que llegan por caminos distintos: cada una con el suyo.
+            partes.append(f"{_columnas_de_una_tabla(columnas)} de {tabla}")
+    sujeto = "la columna" if not varias else "las columnas"
+    return f"Se identificó el uso de ISNULL en {sujeto} {_enumerar(partes)}.", que_hacer
+
+
+def grupos_isnull_validar(hechos: List[Dict]) -> Optional[List[Dict]]:
+    """Desde 3 tablas: una fila por tabla (Tabla | Columnas) y sus líneas, para «Ver en el código»."""
+    por_tabla = _columnas_por_tabla(hechos)
+    if len(por_tabla) < TABLAS_PARA_VER_EN_TABLA:
+        return None
+    grupos = []
+    for tabla, columnas, suyos in por_tabla:
+        paradas = sorted({(int(h["linea"]), h["columna"]) for h in suyos})
+        grupos.append({"nombre": tabla, "tipo": "Tabla", "lineas": [linea for linea, _ in paradas],
+                       "etiquetas": [columna for _, columna in paradas],
+                       "columnas": _columnas_de_una_tabla(columnas, ", ".join)})
+    return grupos
 
 
 def _isnull_condicion(h: Dict) -> Partes:
