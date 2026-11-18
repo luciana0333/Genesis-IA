@@ -11,7 +11,7 @@ _IDENTIFICADOR = r"(?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)"
 _REFERENCIA = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
 _INDEX = re.compile(r"\bINDEX\s*(?:\(\s*([^)]*?)\s*\)|=\s*(\[[^\]]+\]|\w+))", re.IGNORECASE)
 _TABLA_ANTES = re.compile(
-    rf"\b(?:FROM|JOIN|UPDATE|INTO)\s+({_REFERENCIA})(?:\s+(?:AS\s+)?[A-Za-z_][\w$#]*)?\s*$", re.IGNORECASE,
+    rf"(?<![\w@#$])(?:FROM|JOIN|UPDATE|INTO)\s+({_REFERENCIA})(?:\s+(?:AS\s+)?[A-Za-z_][\w$#]*)?\s*$", re.IGNORECASE,
 )
 
 # Texto de la usuaria (7 nov.), igual en Reportes y Negocio.

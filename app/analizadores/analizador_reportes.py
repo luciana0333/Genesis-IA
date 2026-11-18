@@ -165,7 +165,7 @@ def _esta_en_update(limpio: str, posicion: int) -> bool:
         limpio.rfind("BEGIN", 0, posicion),
     ) + 1
     prefijo = limpio[inicio_sentencia:posicion]
-    return bool(re.search(r"\bUPDATE\b", prefijo, re.IGNORECASE))
+    return bool(re.search(r"(?<![\w@#$])UPDATE\b", prefijo, re.IGNORECASE))
 
 
 # Palabras que pueden seguir al nombre de una tabla y que no son un alias.
@@ -192,7 +192,7 @@ def _tabla_del_alias(limpio: str, alias: str) -> str:
 
 # Lo que cierra una sentencia (fuera de paréntesis): «;», GO o el inicio de otra sentencia.
 _FIN_DE_SENTENCIA = re.compile(
-    r"\(|\)|;|\b(?:CASE|GO|INSERT|UPDATE|DELETE|MERGE|TRUNCATE|CREATE|ALTER|DROP|DECLARE|EXEC|EXECUTE|IF|ELSE|"
+    r"\(|\)|;|(?<![\w@#$])(?:CASE|GO|INSERT|UPDATE|DELETE|MERGE|TRUNCATE|CREATE|ALTER|DROP|DECLARE|EXEC|EXECUTE|IF|ELSE|"
     r"WHILE|BEGIN|END|RETURN|PRINT|SELECT|UNION|WITH)\b",
     re.IGNORECASE,
 )
@@ -481,7 +481,7 @@ def _mensaje_select_estrella(objeto: Optional[str], es_funcion: bool, forma: str
 def _validar_modificaciones_fisicas(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     patron = re.compile(
-        rf"\b(UPDATE|INSERT(?:\s+INTO)?|DELETE(?:\s+FROM)?|MERGE(?:\s+INTO)?|TRUNCATE\s+TABLE)\s+"
+        rf"(?<![\w@#$])(UPDATE|INSERT(?:\s+INTO)?|DELETE(?:\s+FROM)?|MERGE(?:\s+INTO)?|TRUNCATE\s+TABLE)\s+"
         rf"(?!(?:INTO|FROM|SET|JOIN|STATISTICS)\b)({_IDENTIFICADOR}(?:\s*\.(?:\s*\.)?\s*{_IDENTIFICADOR}){{0,2}})",
         re.IGNORECASE,
     )

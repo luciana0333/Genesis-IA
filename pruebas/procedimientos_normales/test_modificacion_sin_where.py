@@ -28,6 +28,19 @@ class TestModificacionSinWhere(unittest.TestCase):
             "ya que sin ella el cambio afecta a toda la tabla.",
         )
 
+    def test_variables_con_nombre_de_instruccion(self):
+        # 17 nov.: @Update o @Delete son variables, no un UPDATE o DELETE sobre la tabla «VARCHAR».
+        for cuerpo in ("  DECLARE @Update VARCHAR(50) = 'x';\n  SELECT @Update AS cDato;",
+                       "  DECLARE @delete VARCHAR(50);\n  SET @DELETE = 'x';\n  SELECT @delete AS cDato;"):
+            with self.subTest(cuerpo=cuerpo):
+                self.assertEqual(_sin_where(cuerpo), [])
+        # Y @Where, @Join o @Apply en el SET no son el WHERE: el UPDATE sin WHERE se sigue marcando.
+        for variable in ("@Where", "@Join", "@Apply"):
+            with self.subTest(variable=variable):
+                hallazgos = _sin_where(f"  UPDATE dbo.Cliente SET cNombre = {variable}")
+                self.assertEqual(len(hallazgos), 1)
+                self.assertIn("UPDATE sobre la tabla dbo.Cliente", hallazgos[0].mensaje)
+
     def test_delete_sin_where(self):
         for cuerpo in ("  DELETE FROM dbo.Cliente", "  DELETE dbo.Cliente", "  DELETE TOP (100) FROM dbo.Cliente"):
             with self.subTest(cuerpo=cuerpo):

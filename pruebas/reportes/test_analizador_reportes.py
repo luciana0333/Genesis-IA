@@ -120,6 +120,17 @@ class TestAnalizadorReportes(unittest.TestCase):
         hallazgo = next(h for h in verificar_reporte(sql) if h.regla == "SELECT_INTO_PROHIBIDO")
         self.assertIn("la tabla temporal #Nueva", hallazgo.mensaje)
 
+    def test_variables_update_y_delete_no_modifican_tablas(self):
+        # 17 nov.: @Update o @Delete son variables; el reporte no modifica la tabla «VARCHAR».
+        for sql in ("DECLARE @Update VARCHAR(50) = 'x';\nSELECT @Update AS cDato;",
+                    "DECLARE @delete VARCHAR(50);\nSET @DELETE = 'x';\nSELECT @delete AS cDato;"):
+            with self.subTest(sql=sql):
+                self.assertNotIn("MODIFICACION_TABLA_FISICA", {h.regla for h in verificar_reporte(sql)})
+        # Un UPDATE real se sigue marcando, aunque use esas variables.
+        hallazgo = next(h for h in verificar_reporte("UPDATE dbo.Cliente SET cNombre = @Update WHERE nId = 1;")
+                        if h.regla == "MODIFICACION_TABLA_FISICA")
+        self.assertIn("dbo.Cliente", hallazgo.mensaje)
+
     def test_detecta_select_into_en_la_misma_sentencia(self):
         sql = "SELECT cNombre INTO #Tmp FROM dbo.Cliente WITH(NOLOCK);"
 

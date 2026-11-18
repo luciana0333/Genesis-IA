@@ -31,8 +31,8 @@ _ANTES_NO_LECTURA = re.compile(
 # DROP TABLE [IF EXISTS] #A, #B, … (la lista puede ser larga: se toma completa).
 _DROP = re.compile(rf"\bDROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?{_NOMBRE}(?:\s*,\s*{_NOMBRE})*", re.IGNORECASE)
 # UPDATE A SET … FROM #T A / DELETE A FROM #T A: #T es el destino del alias A.
-_UPDATE_DELETE_ALIAS = re.compile(r"\b(?:UPDATE|DELETE)\s+([A-Za-z_]\w*)\s+(?:SET|FROM)\b", re.IGNORECASE)
-_FIN_DE_SENTENCIA = re.compile(r"\b(?:INSERT|CREATE|DROP|TRUNCATE|UPDATE|DELETE|MERGE)\b|;", re.IGNORECASE)
+_UPDATE_DELETE_ALIAS = re.compile(r"(?<![\w@#$])(?:UPDATE|DELETE)\s+([A-Za-z_]\w*)\s+(?:SET|FROM)\b", re.IGNORECASE)
+_FIN_DE_SENTENCIA = re.compile(r"(?<![\w@#$])(?:INSERT|CREATE|DROP|TRUNCATE|UPDATE|DELETE|MERGE)\b|;", re.IGNORECASE)
 
 # Varias tablas: el «Qué hacer» de la usuaria (8 nov.) en plural.
 QUE_HACER_TEMPORAL_SIN_USO = (
