@@ -308,7 +308,7 @@ def _modificaciones(limpio: str) -> List[tuple]:
     """
     referencia = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
     resultado = []
-    for modificacion in re.finditer(rf"\b(?:UPDATE|DELETE(?:\s+FROM)?)\s+(?:TOP\s*\([^)]*\)\s*)?({referencia})",
+    for modificacion in re.finditer(rf"(?<![\w@#$])(?:UPDATE|DELETE(?:\s+FROM)?)\s+(?:TOP\s*\([^)]*\)\s*)?({referencia})",
                                     limpio, re.IGNORECASE):
         fin = len(limpio)
         for siguiente in _INICIO_O_SELECT.finditer(limpio, modificacion.end()):
@@ -424,7 +424,9 @@ def _validar_nolock_tablas_pesadas(texto: str, limpio: str) -> List[Hallazgo]:
     referencia = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
     modificaciones = _modificaciones(limpio)
     ctes = _nombres_de_cte(limpio)
-    for match in re.finditer(rf"\b(FROM|JOIN)\s+({referencia})", limpio, re.IGNORECASE):
+    # Sin @, # ni $ delante: @From o @Join son variables, no la palabra FROM o JOIN (usuaria, 17 nov.: en
+    # «SELECT @From AS cFrom» se leía la tabla física «AS»).
+    for match in re.finditer(rf"(?<![\w@#$])(FROM|JOIN)\s+({referencia})", limpio, re.IGNORECASE):
         if re.match(r"\s*\(", limpio[match.end():]):  # función de tabla, no una tabla
             continue
         # FETCH NEXT FROM cursor: es un cursor, no una tabla.
@@ -458,7 +460,7 @@ def _validar_update_from_nolock(texto: str, limpio: str) -> List[Hallazgo]:
     """
     hallazgos = []
     referencia = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
-    for update in re.finditer(rf"\bUPDATE\s+(?:TOP\s*\([^)]*\)\s*)?({referencia})", limpio, re.IGNORECASE):
+    for update in re.finditer(rf"(?<![\w@#$])UPDATE\s+(?:TOP\s*\([^)]*\)\s*)?({referencia})", limpio, re.IGNORECASE):
         objetivo = _limpiar_nombre(update.group(1))
         # La sentencia termina en ";" o donde empieza la siguiente (el SET es parte del UPDATE).
         fin = len(limpio)
@@ -685,9 +687,11 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     # Cada SELECT seguido de INTO sin pasar por otra sentencia ni por su FROM: así se
     # detecta también justo después de BEGIN o de una sentencia sin ";". Las subconsultas entre
     # paréntesis no cuentan: SELECT (SELECT MAX(n) FROM B) AS nMax INTO #C sigue siendo un SELECT INTO.
+    # Una palabra con @, # o $ delante es una variable (@Into, @From…), no una instrucción (usuaria, 17 nov.:
+    # «DECLARE @Into VARCHAR(50)… SELECT @Into AS cDato» se leía como SELECT INTO a la tabla «AS»).
     for match in re.finditer(
-        r"(?is)\b(SELECT)\b(?:(?!\b(?:SELECT|INSERT|MERGE|OUTPUT|FROM|UPDATE|DELETE|FETCH|GO)\b|;).)*?"
-        r"\bINTO\b\s*([#@]?[\w\[\].]*)",
+        r"(?is)(?<![\w@#$])(SELECT)\b(?:(?!(?<![\w@#$])(?:SELECT|INSERT|MERGE|OUTPUT|FROM|UPDATE|DELETE|FETCH|GO)\b|;).)*?"
+        r"(?<![\w@#$])INTO\b\s*([#@]?[\w\[\].]*)",
         sin_parentesis_cerrados(limpio),
     ):
         destino = match.group(2).strip()
@@ -823,7 +827,7 @@ def _separar_por_comas(contenido: str) -> List[tuple]:
 # Lo que empieza otra sentencia. No se corta en SELECT (INSERT … SELECT es una sola), ni en SET o END (UPDATE … SET,
 # CASE … END van dentro de la misma).
 _INICIO_DE_SENTENCIA = re.compile(
-    r";|\b(?:INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|TRUNCATE|DECLARE|WHILE|RETURN|EXEC(?:UTE)?)\b",
+    r";|(?<![\w@#$])(?:INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|TRUNCATE|DECLARE|WHILE|RETURN|EXEC(?:UTE)?)\b",
     re.IGNORECASE,
 )
 _TEMPORAL = re.compile(r"(?<![\w@#])([#@][A-Za-z_]\w*)")
@@ -1775,7 +1779,7 @@ def _validar_modificacion_sin_where(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     ctes = {n.lower() for n in re.findall(r"(?:\bWITH|,)\s*([A-Za-z_]\w*)\s*(?:\([^)]*\))?\s+AS\s*\(", limpio, re.IGNORECASE)}
     patron = re.compile(
-        rf"\b(UPDATE|DELETE)\s+(?:TOP\s*\([^)]*\)\s*)?(?:FROM\s+)?({_REFERENCIA})", re.IGNORECASE,
+        rf"(?<![\w@#$])(UPDATE|DELETE)\s+(?:TOP\s*\([^)]*\)\s*)?(?:FROM\s+)?({_REFERENCIA})", re.IGNORECASE,
     )
     for match in patron.finditer(limpio):
         accion = match.group(1).upper()
@@ -1784,7 +1788,7 @@ def _validar_modificacion_sin_where(texto: str, limpio: str) -> List[Hallazgo]:
         if objetivo.upper() in {"STATISTICS", "SET"} or re.search(r"\bTHEN\s*$", limpio[:match.start()], re.IGNORECASE):
             continue
         sentencia = limpio[match.start():_fin_de_sentencia(limpio, match.end())]
-        if _a_nivel_cero(sentencia, r"\bWHERE\b") or _a_nivel_cero(sentencia, r"\bJOIN\b|\bAPPLY\b"):
+        if _a_nivel_cero(sentencia, r"(?<![\w@#$])WHERE\b") or _a_nivel_cero(sentencia, r"(?<![\w@#$])(?:JOIN|APPLY)\b"):
             continue
         tabla = objetivo
         if "." not in objetivo and not _es_temporal(objetivo):
@@ -1935,7 +1939,7 @@ def _validar_sintaxis_prohibida(texto: str, limpio: str) -> List[Hallazgo]:
 _TIPO_BINARIO = r"\b(?:VARBINARY|IMAGE)\b(?:\s*\(\s*(?:MAX|\d+)\s*\))?"
 # Fin de un INSERT/UPDATE: punto y coma o el inicio de otra sentencia.
 _FIN_ESCRITURA = re.compile(
-    r";|\b(?:INSERT|UPDATE|DELETE|MERGE|DECLARE|RETURN|END|IF|BEGIN|COMMIT|ROLLBACK|EXEC(?:UTE)?|GO)\b",
+    r";|(?<![\w@#$])(?:INSERT|UPDATE|DELETE|MERGE|DECLARE|RETURN|END|IF|BEGIN|COMMIT|ROLLBACK|EXEC(?:UTE)?|GO)\b",
     re.IGNORECASE,
 )
 
@@ -1964,7 +1968,7 @@ def _validar_documentos_guardados(texto: str, limpio: str) -> List[Hallazgo]:
         ))
 
     escrituras = re.finditer(
-        rf"\b(INSERT(?:\s+INTO)?|UPDATE)\s+(?!(?:INTO|STATISTICS)\b)({_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}})",
+        rf"(?<![\w@#$])(INSERT(?:\s+INTO)?|UPDATE)\s+(?!(?:INTO|STATISTICS)\b)({_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}})",
         limpio, re.IGNORECASE,
     )
     for escritura in escrituras:
@@ -2004,7 +2008,7 @@ def _validar_documentos_guardados(texto: str, limpio: str) -> List[Hallazgo]:
         tabla = match.group(2).strip()
         if _es_temporal(tabla):
             continue
-        fin = re.search(r";|\bGO\b|\b(?:CREATE|ALTER|INSERT|UPDATE|DELETE|SELECT|DECLARE)\b", limpio[match.end():], re.IGNORECASE)
+        fin = re.search(r";|\bGO\b|(?<![\w@#$])(?:CREATE|ALTER|INSERT|UPDATE|DELETE|SELECT|DECLARE)\b", limpio[match.end():], re.IGNORECASE)
         tramo = limpio[match.end():match.end() + (fin.start() if fin else len(limpio))]
         columna = re.search(rf"({_IDENTIFICADOR})\s+{_TIPO_BINARIO}", tramo, re.IGNORECASE)
         if columna:

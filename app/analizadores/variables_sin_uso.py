@@ -91,7 +91,7 @@ def mensaje_variables_sin_uso(variables: List[str]) -> str:
 # «Variables de tabla declaradas sin uso» (usuaria, 8 nov.): una variable de tabla que después del DECLARE no se
 # lee nunca (no aparece, o solo se llena, actualiza o borra). A diferencia de una temporal #, otro procedimiento no
 # puede leerla: solo existe dentro de este.
-_ESCRITURA_ANTES = re.compile(r"\b(?:INSERT(?:\s+INTO)?|UPDATE|DELETE(?:\s+FROM)?)\s*$", re.IGNORECASE)
+_ESCRITURA_ANTES = re.compile(r"(?<![\w@#$])(?:INSERT(?:\s+INTO)?|UPDATE|DELETE(?:\s+FROM)?)\s*$", re.IGNORECASE)
 
 
 def variables_de_tabla_sin_uso(limpio: str) -> List[Tuple[str, int]]:

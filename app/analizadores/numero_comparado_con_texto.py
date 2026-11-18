@@ -65,7 +65,7 @@ def tipos_de_temporales(limpio: str) -> Dict[str, Dict[str, str]]:
 def _tabla_del_alias(limpio: str, posicion: int, alias: str) -> Optional[str]:
     """La tabla del alias en el FROM/JOIN/UPDATE más cercano (CT en «JOIN DBCMACICA.DBO.Constante CT»)."""
     candidatos = list(re.finditer(
-        rf"\b(?:FROM|JOIN|UPDATE)\s+({_REFERENCIA})\s+(?:AS\s+)?{re.escape(alias)}(?![\w$#])", limpio, re.IGNORECASE))
+        rf"(?<![\w@#$])(?:FROM|JOIN|UPDATE)\s+({_REFERENCIA})\s+(?:AS\s+)?{re.escape(alias)}(?![\w$#])", limpio, re.IGNORECASE))
     if not candidatos:
         # Sin alias: la tabla se usa por su nombre (FROM #T WHERE #T.n = '1').
         return alias if alias.startswith(("#", "@")) else None

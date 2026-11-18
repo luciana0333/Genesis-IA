@@ -165,7 +165,7 @@ def _esta_en_update(limpio: str, posicion: int) -> bool:
         limpio.rfind("BEGIN", 0, posicion),
     ) + 1
     prefijo = limpio[inicio_sentencia:posicion]
-    return bool(re.search(r"\bUPDATE\b", prefijo, re.IGNORECASE))
+    return bool(re.search(r"(?<![\w@#$])UPDATE\b", prefijo, re.IGNORECASE))
 
 
 # Palabras que pueden seguir al nombre de una tabla y que no son un alias.
@@ -184,7 +184,7 @@ _ALIAS_Y_NOLOCK = re.compile(
 def _tabla_del_alias(limpio: str, alias: str) -> str:
     """Tabla a la que apunta un alias en un FROM o JOIN (dbo.Cliente c → dbo.Cliente); si no, el alias."""
     match = re.search(
-        rf"\b(?:FROM|JOIN)\s+({_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}})\s+(?:AS\s+)?{re.escape(alias)}\b",
+        rf"(?<![\w@#$])(?:FROM|JOIN)\s+({_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}})\s+(?:AS\s+)?{re.escape(alias)}\b",
         limpio, re.IGNORECASE,
     )
     return match.group(1).strip() if match else alias
@@ -192,7 +192,7 @@ def _tabla_del_alias(limpio: str, alias: str) -> str:
 
 # Lo que cierra una sentencia (fuera de paréntesis): «;», GO o el inicio de otra sentencia.
 _FIN_DE_SENTENCIA = re.compile(
-    r"\(|\)|;|\b(?:CASE|GO|INSERT|UPDATE|DELETE|MERGE|TRUNCATE|CREATE|ALTER|DROP|DECLARE|EXEC|EXECUTE|IF|ELSE|"
+    r"\(|\)|;|(?<![\w@#$])(?:CASE|GO|INSERT|UPDATE|DELETE|MERGE|TRUNCATE|CREATE|ALTER|DROP|DECLARE|EXEC|EXECUTE|IF|ELSE|"
     r"WHILE|BEGIN|END|RETURN|PRINT|SELECT|UNION|WITH)\b",
     re.IGNORECASE,
 )
@@ -258,7 +258,8 @@ def _nombres_cte(limpio: str) -> Set[str]:
 def _validar_nolock(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     patron = re.compile(
-        rf"\b(FROM|JOIN)\s+({_IDENTIFICADOR}(?:\s*\.(?:\s*\.)?\s*{_IDENTIFICADOR}){{0,2}})(?![\w$#.\]])",
+        # Sin @, # ni $ delante: @From o @Join son variables, no la palabra FROM o JOIN (usuaria, 17 nov.).
+        rf"(?<![\w@#$])(FROM|JOIN)\s+({_IDENTIFICADOR}(?:\s*\.(?:\s*\.)?\s*{_IDENTIFICADOR}){{0,2}})(?![\w$#.\]])",
         re.IGNORECASE,
     )
     ctes = _nombres_cte(limpio)
@@ -379,8 +380,10 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     reglas = [
         (
-            r"(?is)\b(?P<pos>SELECT)\b(?:(?!\b(?:SELECT|INSERT|MERGE|OUTPUT|FROM|UPDATE|DELETE|FETCH)\b|;).)*?"
-            r"\bINTO\s+(?P<tabla>[#\w\[\].]+)",
+            # Una palabra con @, # o $ delante es una variable (@Into, @From…), no una instrucción (usuaria, 17 nov.).
+            r"(?is)(?<![\w@#$])(?P<pos>SELECT)\b"
+            r"(?:(?!(?<![\w@#$])(?:SELECT|INSERT|MERGE|OUTPUT|FROM|UPDATE|DELETE|FETCH)\b|;).)*?"
+            r"(?<![\w@#$])INTO\s+(?P<tabla>[#\w\[\].]+)",
             "SELECT_INTO_PROHIBIDO",
             lambda m: (
                 f"Se identificó el uso de SELECT INTO para crear la tabla "
@@ -478,7 +481,7 @@ def _mensaje_select_estrella(objeto: Optional[str], es_funcion: bool, forma: str
 def _validar_modificaciones_fisicas(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     patron = re.compile(
-        rf"\b(UPDATE|INSERT(?:\s+INTO)?|DELETE(?:\s+FROM)?|MERGE(?:\s+INTO)?|TRUNCATE\s+TABLE)\s+"
+        rf"(?<![\w@#$])(UPDATE|INSERT(?:\s+INTO)?|DELETE(?:\s+FROM)?|MERGE(?:\s+INTO)?|TRUNCATE\s+TABLE)\s+"
         rf"(?!(?:INTO|FROM|SET|JOIN|STATISTICS)\b)({_IDENTIFICADOR}(?:\s*\.(?:\s*\.)?\s*{_IDENTIFICADOR}){{0,2}})",
         re.IGNORECASE,
     )

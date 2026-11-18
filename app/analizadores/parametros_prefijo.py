@@ -98,7 +98,7 @@ def mensaje_parametros_sin_prefijo(casos: List[Tuple[str, str, str, int]]) -> st
 _DECLARE = re.compile(r"\bDECLARE\b", re.IGNORECASE)
 # Lo que cierra la lista del DECLARE fuera de paréntesis (aunque el código no use «;»).
 _FIN_DECLARE = re.compile(
-    r"\(|\)|;|,|\b(?:CASE|END|SELECT|SET|INSERT|UPDATE|DELETE|MERGE|DECLARE|IF|ELSE|WHILE|BEGIN|RETURN|EXEC|"
+    r"\(|\)|;|,|(?<![\w@#$])(?:CASE|END|SELECT|SET|INSERT|UPDATE|DELETE|MERGE|DECLARE|IF|ELSE|WHILE|BEGIN|RETURN|EXEC|"
     r"EXECUTE|PRINT|THROW|RAISERROR|WITH|TRUNCATE|DROP|CREATE|ALTER|OPEN|FETCH|CLOSE|DEALLOCATE|GO)\b",
     re.IGNORECASE,
 )

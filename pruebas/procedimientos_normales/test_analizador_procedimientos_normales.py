@@ -111,6 +111,19 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
                 hallazgo = verificar_procedimiento_normal(f"CREATE PROCEDURE dbo.{nombre} AS SELECT 1;")[0]
                 self.assertIn(f"(ej.: {sugerido}).", hallazgo.mensaje)
 
+    def test_variable_into_no_es_select_into(self):
+        # Caso del 17 nov.: @Into es una variable; «SELECT @Into AS cDato» no crea ninguna tabla.
+        for sql in ("DECLARE @Into VARCHAR(50) = 'x';\nSELECT @Into AS cDato;",
+                    "DECLARE @into VARCHAR(50);\nSET @into = (SELECT TOP 1 cNombre FROM dbo.Persona WITH (NOLOCK));\n"
+                    "SELECT @INTO AS cDato, @into cOtro;",
+                    "DECLARE @Into VARCHAR(50);\nINSERT INTO #T (cDato) SELECT @Into;"):
+            with self.subTest(sql=sql):
+                self.assertNotIn("SELECT_INTO_PROHIBIDO", {h.regla for h in verificar_procedimiento_normal(sql)})
+        # Un SELECT INTO real se sigue marcando, aunque en la lista haya variables @Into o @From.
+        sql = "SELECT @Into AS cA, @From AS cB INTO #Nueva FROM dbo.Persona WITH (NOLOCK);"
+        hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "SELECT_INTO_PROHIBIDO")
+        self.assertIn("la tabla #Nueva se crea con SELECT INTO", hallazgo.mensaje)
+
     def test_select_into_tras_begin_o_sin_punto_y_coma(self):
         tras_begin = "CREATE PROCEDURE dbo.PA_C_Sel\nAS\nBEGIN\n    SELECT c.n INTO #T FROM dbo.Cliente c;\nEND"
         self.assertIn(("SELECT_INTO_PROHIBIDO", 4), [(h.regla, h.linea) for h in verificar_procedimiento_normal(tras_begin)])
@@ -234,6 +247,14 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         self.assertNotIn("Constante", hallazgo.mensaje)  # va en «Consulta de lectura sin WITH (NOLOCK)»
         self.assertIn("CONSULTA_SIN_NOLOCK", reglas)
 
+    def test_variable_from_no_esconde_la_tabla_real(self):
+        # Con @From en el mismo PA, la tabla física real sin NOLOCK se sigue marcando, y solo ella.
+        sql = ("DECLARE @From VARCHAR(100);\nSET @From = (SELECT cCorreo FROM dbo.Movimiento WHERE nId = 1);\n"
+               "SELECT @From AS cFrom;")
+        hallazgo = next(h for h in verificar_procedimiento_normal(sql) if h.regla == "NOLOCK_POR_EVALUAR")
+        self.assertIn("dbo.Movimiento", hallazgo.mensaje)
+        self.assertNotIn("tabla física AS", hallazgo.mensaje)
+
     def test_nolock_por_evaluar_no_aplica_a_lo_que_no_es_tabla_fisica(self):
         casos = (
             "WITH Datos AS (SELECT 1 AS n) SELECT d.n FROM Datos d;",  # CTE
@@ -243,6 +264,9 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
             "FETCH NEXT FROM cur INTO @nId;\nFETCH FROM cur2 INTO @nId;",  # cursores
             "SELECT t.n FROM dbo.fn_Tabla(1) t;",  # función de tabla
             "SELECT v.n FROM @Tabla v JOIN #T t ON 1 = 1;",
+            # Variables que se llaman como palabras de SQL (caso real del 17 nov.: @From AS cFrom).
+            "DECLARE @From VARCHAR(100) = 'x';\nSELECT @From AS cFrom, @From AS cOtro;",
+            "DECLARE @Join VARCHAR(10), @from VARCHAR(10);\nSELECT @Join AS cA, @from cB;\nSET @FROM = @Join;",
         )
         for sql in casos:
             with self.subTest(sql=sql):

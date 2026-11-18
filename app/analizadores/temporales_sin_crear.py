@@ -25,7 +25,7 @@ _INSERT_INTO = re.compile(rf"\bINSERT\s+(?:INTO\s+)?({_TEMPORAL})", re.IGNORECAS
 
 # Dónde se usa: leer, insertar, actualizar, borrar, vaciar o indexar (DROP no cuenta: borrarla no es usarla).
 _USA = re.compile(
-    rf"\b(?:FROM|JOIN|UPDATE|DELETE(?:\s+FROM)?|TRUNCATE\s+TABLE|MERGE(?:\s+INTO)?|APPLY|ON)\s+({_TEMPORAL})",
+    rf"(?<![\w@#$])(?:FROM|JOIN|UPDATE|DELETE(?:\s+FROM)?|TRUNCATE\s+TABLE|MERGE(?:\s+INTO)?|APPLY|ON)\s+({_TEMPORAL})",
     re.IGNORECASE,
 )
 

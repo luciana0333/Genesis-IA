@@ -18,6 +18,19 @@ class TestAnalizadorReportes(unittest.TestCase):
         self.assertIn("NOLOCK_EN_TABLA_TEMPORAL", reglas)
         self.assertIn("TEMPORAL_TEXTO_SIN_COLLATE", reglas)
 
+    def test_variable_from_no_es_una_tabla_sin_nolock(self):
+        # Caso real (17 nov.): «SELECT @From AS cFrom» se leía como la tabla física «AS» sin NOLOCK.
+        for sql in ("DECLARE @From VARCHAR(100) = 'x';\nSELECT @From AS cFrom, @From AS cOtro;",
+                    "DECLARE @Join VARCHAR(10), @from VARCHAR(10);\nSELECT @Join AS cA, @from cB;\nSET @FROM = @Join;"):
+            with self.subTest(sql=sql):
+                self.assertNotIn("TABLA_FISICA_SIN_NOLOCK", {h.regla for h in verificar_reporte(sql)})
+        # La tabla física real del mismo reporte se sigue marcando, y solo ella.
+        sql = ("DECLARE @From VARCHAR(100);\nSET @From = (SELECT cCorreo FROM dbo.Movimiento WHERE nId = 1);\n"
+               "SELECT @From AS cFrom;")
+        hallazgo = next(h for h in verificar_reporte(sql) if h.regla == "TABLA_FISICA_SIN_NOLOCK")
+        self.assertIn("dbo.Movimiento", hallazgo.mensaje)
+        self.assertNotIn(" AS ", hallazgo.mensaje.replace("WITH (NOLOCK)", ""))
+
     def test_agrupa_tablas_fisicas_sin_nolock(self):
         sql = """
         SELECT cNombre FROM dbo.Cliente;
@@ -93,6 +106,30 @@ class TestAnalizadorReportes(unittest.TestCase):
 
         reglas = [hallazgo.regla for hallazgo in verificar_reporte(sql)]
         self.assertNotIn("SELECT_INTO_PROHIBIDO", reglas)
+
+    def test_variable_into_no_es_select_into(self):
+        # Caso del 17 nov.: @Into es una variable; «SELECT @Into AS cDato» no crea ninguna tabla.
+        for sql in ("DECLARE @Into VARCHAR(50) = 'x';\nSELECT @Into AS cDato;",
+                    "DECLARE @into VARCHAR(50);\nSET @into = (SELECT TOP 1 cNombre FROM dbo.Persona WITH (NOLOCK));\n"
+                    "SELECT @INTO AS cDato, @into cOtro;",
+                    "DECLARE @Into VARCHAR(50);\nINSERT INTO #T (cDato) SELECT @Into;"):
+            with self.subTest(sql=sql):
+                self.assertNotIn("SELECT_INTO_PROHIBIDO", {h.regla for h in verificar_reporte(sql)})
+        # Un SELECT INTO real se sigue marcando, aunque en la lista haya variables @Into o @From.
+        sql = "SELECT @Into AS cA, @From AS cB INTO #Nueva FROM dbo.Persona WITH (NOLOCK);"
+        hallazgo = next(h for h in verificar_reporte(sql) if h.regla == "SELECT_INTO_PROHIBIDO")
+        self.assertIn("la tabla temporal #Nueva", hallazgo.mensaje)
+
+    def test_variables_update_y_delete_no_modifican_tablas(self):
+        # 17 nov.: @Update o @Delete son variables; el reporte no modifica la tabla «VARCHAR».
+        for sql in ("DECLARE @Update VARCHAR(50) = 'x';\nSELECT @Update AS cDato;",
+                    "DECLARE @delete VARCHAR(50);\nSET @DELETE = 'x';\nSELECT @delete AS cDato;"):
+            with self.subTest(sql=sql):
+                self.assertNotIn("MODIFICACION_TABLA_FISICA", {h.regla for h in verificar_reporte(sql)})
+        # Un UPDATE real se sigue marcando, aunque use esas variables.
+        hallazgo = next(h for h in verificar_reporte("UPDATE dbo.Cliente SET cNombre = @Update WHERE nId = 1;")
+                        if h.regla == "MODIFICACION_TABLA_FISICA")
+        self.assertIn("dbo.Cliente", hallazgo.mensaje)
 
     def test_detecta_select_into_en_la_misma_sentencia(self):
         sql = "SELECT cNombre INTO #Tmp FROM dbo.Cliente WITH(NOLOCK);"
