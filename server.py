@@ -20,7 +20,7 @@ from app.analizadores.diccionario_varios import unir_faltantes
 from app.analizadores.planes_ejecucion.servicio import analizar_plan_completo
 from app.analizadores import ortografia
 from app.analizadores.siglas import aprobar_sigla, significado as significado_sigla
-from app.analizadores.planes_ejecucion.lote import analizar_lote
+from app.analizadores.planes_ejecucion.lote import MAXIMO_POR_ARCHIVO, MAXIMO_POR_ARCHIVO_MB, analizar_lote
 from app.analizadores.scriptdom import LECTOR_SCRIPTDOM, validar_estructura
 
 
@@ -249,11 +249,11 @@ class GenesisHandler(SimpleHTTPRequestHandler):
         self._send_json({'sigla': sigla, 'significado': significado_sigla(sigla)})
 
     def _analizar_plan(self):
-        limite_bytes = 25 * 1024 * 1024
+        limite_bytes = MAXIMO_POR_ARCHIVO
         try:
             longitud = int(self.headers.get('Content-Length', '0'))
             if longitud <= 0 or longitud > limite_bytes:
-                self._send_json({'error': 'El archivo debe tener entre 1 byte y 25 MB.'}, status=400)
+                self._send_json({'error': f'El archivo debe tener entre 1 byte y {MAXIMO_POR_ARCHIVO_MB} MB.'}, status=400)
                 return
 
             tipo_contenido = self.headers.get_content_type()
