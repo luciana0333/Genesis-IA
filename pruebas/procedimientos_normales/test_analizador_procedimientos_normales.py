@@ -407,6 +407,17 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         hallazgo = next(h for h in verificar_procedimiento_normal(cruzadas) if h.regla == "TIPO_DISTINTO_ENTRE_TEMPORALES")
         self.assertIn("'c1': VARCHAR(2) en #TmpDetalle y VARCHAR(MAX) en #TmpVss.", hallazgo.mensaje)
 
+    def test_ceros_a_la_izquierda_no_cambian_el_tipo(self):
+        # Caso real (17 nov.): cOpeCod VARCHAR(06) en #MovimientoA y VARCHAR(6) en otras tablas: es el mismo tipo.
+        sql = ("CREATE TABLE #MovimientoA (cOpeCod VARCHAR(06), nMonto DECIMAL(018,02));\n"
+               "CREATE TABLE #MovimientoB (cOpeCod VARCHAR(6), nMonto DECIMAL(18, 2));\n"
+               "INSERT INTO #MovimientoB (cOpeCod, nMonto) SELECT cOpeCod, nMonto FROM #MovimientoA")
+        self.assertNotIn("TIPO_DISTINTO_ENTRE_TEMPORALES", {h.regla for h in verificar_procedimiento_normal(sql)})
+        # Si la longitud de verdad cambia, se sigue marcando.
+        distinto = sql.replace("VARCHAR(6)", "VARCHAR(10)")
+        hallazgo = next(h for h in verificar_procedimiento_normal(distinto) if h.regla == "TIPO_DISTINTO_ENTRE_TEMPORALES")
+        self.assertIn("'cOpeCod': VARCHAR(6) en #MovimientoA y VARCHAR(10) en #MovimientoB.", hallazgo.mensaje)
+
     def test_misma_columna_con_el_mismo_tipo_es_valida(self):
         sql = "CREATE TABLE #A (nId INT, nMonto DECIMAL(18, 2));\nCREATE TABLE #B (nId INT, nMonto DECIMAL(18,2));"
         self.assertNotIn("TIPO_DISTINTO_ENTRE_TEMPORALES", {h.regla for h in verificar_procedimiento_normal(sql)})

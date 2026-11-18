@@ -864,6 +864,9 @@ def _validar_tipos_entre_temporales(texto: str, limpio: str) -> List[Hallazgo]:
                 continue
             nombre = columna.group(1).strip("[]")
             tipo = re.sub(r"\s+", "", columna.group(2)).upper()
+            # Los ceros a la izquierda no cambian el tipo (usuaria, 17 nov.: VARCHAR(06) y VARCHAR(6) se marcaban
+            # como distintos): se comparan los números, así VARCHAR(06) = VARCHAR(6) y DECIMAL(018,02) = DECIMAL(18,2).
+            tipo = re.sub(r"\d+", lambda numero: str(int(numero.group())), tipo)
             posicion = apertura + 1 + desplazamiento + columna.start(1)
             datos = columnas.setdefault(nombre.lower(), {"nombre": nombre, "tipos": {}, "posicion": posicion,
                                                          "linea_de_tabla": {}})
