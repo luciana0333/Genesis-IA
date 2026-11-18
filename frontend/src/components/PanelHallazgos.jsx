@@ -148,14 +148,17 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
   const seccion = SECCIONES[hallazgo.seccion];
   // Hasta 4 líneas se muestran; con más, la cantidad de casos («20 casos»): se recorren desde «Ver en el código».
   const cantidadLineas = porColumna ? hallazgo.lineas.length : (lineas ? lineas.split(',').length : 1);
+  // Columnas con su desglose de tipos («Misma columna con distinto tipo»): se muestran como tabla.
+  const tablaTipos = Boolean(hallazgo.grupos?.length && hallazgo.grupos.every((grupo) => grupo.detalle));
   // Viñetas con sus propias líneas (tablas, columnas): se cuentan las viñetas, no las líneas («11 columnas»).
-  const porGrupos = porColumna ? null : etiquetaDeGrupos(hallazgo.grupos);
+  // En «Misma columna con distinto tipo» cada columna es un caso: «2 casos» (usuaria, 17 nov.).
+  const porGrupos = porColumna ? null
+    : tablaTipos && hallazgo.grupos.length > 1 ? `${hallazgo.grupos.length} casos`
+      : etiquetaDeGrupos(hallazgo.grupos);
   const etiquetaLinea = (seccion ? `${seccion} · ` : '') + (porGrupos || (lineas
     ? (cantidadLineas > 4 ? `${cantidadLineas} casos` : `${lineas.includes(',') ? 'Líneas' : 'Línea'} ${lineas}`)
     : `Línea ${hallazgo.linea || 1}`));
 
-  // Columnas con su desglose de tipos («Misma columna con distinto tipo»): se muestran como tabla.
-  const tablaTipos = Boolean(hallazgo.grupos?.length && hallazgo.grupos.every((grupo) => grupo.detalle));
   // «COLLATE no especificado en tabla temporal» desde 3 tablas: Tabla | Columnas sin COLLATE.
   const tablaCollate = !tablaTipos && collateEnTabla(hallazgo);
   const enTabla = tablaTipos || tablaCollate;
