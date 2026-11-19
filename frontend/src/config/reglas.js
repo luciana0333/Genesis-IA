@@ -55,7 +55,7 @@ export const NOMBRES_REGLAS = {
   TRANSACCION_SIN_TRY: 'Transacción sin TRY / CATCH',
   CODIGO_INALCANZABLE: 'Código después de RETURN',
   SUBCONSULTAS_A_APPLY: 'Subconsultas que pueden ser un APPLY',
-  FUNCION_SOBRE_COLUMNA: 'Función sobre la columna en una condición',
+  FUNCION_SOBRE_COLUMNA: 'Filtro que no aprovecha el índice',
   LIKE_COMODIN_INICIO: 'LIKE con comodín al inicio',
   COUNT_EN_LUGAR_DE_EXISTS: 'COUNT en lugar de EXISTS',
   FUNCION_ESCALAR_POR_FILA: 'Función escalar por cada fila',

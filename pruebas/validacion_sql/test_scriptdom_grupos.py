@@ -220,6 +220,29 @@ class GruposTest(unittest.TestCase):
         )
         self.assertNotIn("trabajo", hallazgo.mensaje)
 
+    def test_filtro_que_no_aprovecha_el_indice(self):
+        # 18 nov. (usuaria): título entendible, cada expresión una vez con «(2 veces)», nivel bajo y sin afirmar que
+        # recorre toda la tabla (si otra condición ya busca por un índice, la función no cuesta).
+        sql = ("SELECT 1 FROM dbo.Persona WHERE cPersCod = @c AND DATEDIFF(YEAR, dPersNacCreac, @d) < 18\n"
+               "SELECT 1 FROM dbo.Persona WHERE cPersCod = @c AND DATEDIFF(YEAR, dPersNacCreac, @d) < 18\n"
+               "SELECT 1 FROM dbo.Mov E WHERE CONVERT(DATE, LEFT(E.cMovNro, 8)) >= @d")
+        hallazgo = next(h for h in validar_estructura(sql) if h.regla == "FUNCION_SOBRE_COLUMNA")
+        self.assertEqual(hallazgo.severidad.value, "bajo")
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se identificaron 3 filtros que aplican una función sobre la columna: DATEDIFF(YEAR, dPersNacCreac, @d) "
+            "(2 veces) y CONVERT(DATE, LEFT(E.cMovNro, 8)). Se recomienda dejar las columnas sin función en los filtros "
+            "y aplicar el cálculo al otro lado de la comparación, ya que una función sobre la columna impide que SQL "
+            "Server use su índice para buscar.",
+        )
+        # Una sola función repetida: su ejemplo concreto. UPPER trae su motivo: no se repite «ya que».
+        anio = next(h for h in validar_estructura("SELECT a FROM dbo.Mov m WHERE YEAR(m.dFecha) = 2026")
+                    if h.regla == "FUNCION_SOBRE_COLUMNA")
+        self.assertIn("Se recomienda comparar con un rango de fechas (ej.: ", anio.mensaje)
+        mayus = next(h for h in validar_estructura("SELECT a FROM dbo.Examen e WHERE UPPER(e.cNombre) = 'X'")
+                     if h.regla == "FUNCION_SOBRE_COLUMNA")
+        self.assertEqual(mayus.mensaje.count("ya que"), 1)
+
     def test_division_con_divisores_distintos_no_junta_el_que_hacer(self):
         # El «Qué hacer» nombra el divisor: si son distintos, cada caso queda con el suyo a la vista.
         hallazgo = next(h for h in validar_estructura("DECLARE @a INT = 1, @b INT = 0, @c INT = 0\nSELECT @a / @b\nSELECT @a / @c")
