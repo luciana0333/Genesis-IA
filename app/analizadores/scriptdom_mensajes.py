@@ -351,6 +351,9 @@ _SUGERENCIA_FUNCION = {
 }
 
 
+_FUNCIONES_DE_FECHA = {"YEAR", "MONTH", "DAY", "DATEPART", "EOMONTH"}
+
+
 def _funcion_columna(h: Dict) -> Partes:
     return partes_funcion_columna([h])
 
@@ -377,6 +380,9 @@ def partes_funcion_columna(hechos: List[Dict]) -> Partes:
         sugerencia = f"reescribir la condición sin la función (ej.: {ejemplos.pop()})"
     elif len(funciones) == 1 and next(iter(funciones)) in _SUGERENCIA_FUNCION:
         sugerencia = _SUGERENCIA_FUNCION[next(iter(funciones))]
+    elif funciones <= _FUNCIONES_DE_FECHA:
+        # MONTH y YEAR sobre la misma fecha (18 nov., PA real): las dos se resuelven con un rango de fechas.
+        sugerencia = _SUGERENCIA_FUNCION["YEAR"]
     else:
         sugerencia = general
     if " ya que " in sugerencia:  # UPPER, RTRIM, ISNULL ya traen su motivo: se suma el del índice, sin repetir «ya que»
