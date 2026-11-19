@@ -9,6 +9,7 @@ Lo que hace fallar el script o da un resultado equivocado se comprobó en SQL Se
 """
 
 import difflib
+from collections import Counter
 import re
 from typing import Callable, Dict, List, Optional, Tuple
 
@@ -343,8 +344,6 @@ _SUGERENCIA_FUNCION = {
     "DAY": "comparar con un rango de fechas",
     "DATEPART": "comparar con un rango de fechas",
     "EOMONTH": "comparar con un rango de fechas",
-    "CONVERT": "comparar la columna tal cual con un rango (ej.: dFecha >= @dDia AND dFecha < DATEADD(DAY, 1, @dDia))",
-    "CAST": "comparar la columna tal cual con un rango (ej.: dFecha >= @dDia AND dFecha < DATEADD(DAY, 1, @dDia))",
     "ISNULL": "comparar la columna directamente (ej.: cCodigo = 'X'), ya que un NULL tampoco sería igual al valor",
     "UPPER": "comparar la columna directamente, ya que el COLLATE de la empresa no distingue mayúsculas",
     "LOWER": "comparar la columna directamente, ya que el COLLATE de la empresa no distingue mayúsculas",
@@ -353,12 +352,36 @@ _SUGERENCIA_FUNCION = {
 
 
 def _funcion_columna(h: Dict) -> Partes:
-    if h.get("ejemplo"):  # ISNULL: la condición reescrita sin perder las filas con NULL
-        sugerencia = f"reescribir la condición sin la función (ej.: {h['ejemplo']})"
+    return partes_funcion_columna([h])
+
+
+def partes_funcion_columna(hechos: List[Dict]) -> Partes:
+    """«Filtro que no aprovecha el índice» (usuaria, 18 nov.: entendible, sin redundar y sin exagerar). No se afirma que
+    recorra toda la tabla: si otra condición ya busca por un índice (cPersCod = @c), la función no cuesta; Genesis no
+    conoce los índices. Cada expresión una vez, con «(2 veces)» si se repite."""
+    veces = Counter(h["expresion"] for h in hechos)
+    expresiones = [f"{e} ({n} veces)" if n > 1 else e for e, n in veces.items()]
+    funciones = {h["funcion"] for h in hechos}
+    ejemplos = {h.get("ejemplo") or None for h in hechos}  # ISNULL: la condición reescrita
+    motivo = "ya que una función sobre la columna impide que SQL Server use su índice para buscar."
+    if len(hechos) == 1:
+        h = hechos[0]
+        problema = f"Se identificó un filtro que aplica una función sobre la columna {h['columna']}: {h['expresion']}."
+        general = "dejar la columna sin función en el filtro y aplicar el cálculo al otro lado de la comparación"
     else:
-        sugerencia = _SUGERENCIA_FUNCION.get(h["funcion"], "aplicar la función al otro lado de la comparación")
-    return (f"Se identificó {h['expresion']} en una condición, aplicando {h['funcion']} sobre la columna {h['columna']}.",
-            f"Se recomienda {sugerencia}, ya que una función sobre la columna impide usar su índice.")
+        problema = (f"Se identificaron {len(hechos)} filtros que aplican una función sobre la columna: "
+                    f"{_enumerar(expresiones)}.")
+        general = "dejar las columnas sin función en los filtros y aplicar el cálculo al otro lado de la comparación"
+    # Un ejemplo concreto solo si todos los casos son de la misma función (YEAR → rango de fechas, ISNULL → reescrita).
+    if len(ejemplos) == 1 and None not in ejemplos:
+        sugerencia = f"reescribir la condición sin la función (ej.: {ejemplos.pop()})"
+    elif len(funciones) == 1 and next(iter(funciones)) in _SUGERENCIA_FUNCION:
+        sugerencia = _SUGERENCIA_FUNCION[next(iter(funciones))]
+    else:
+        sugerencia = general
+    if " ya que " in sugerencia:  # UPPER, RTRIM, ISNULL ya traen su motivo: se suma el del índice, sin repetir «ya que»
+        return problema, f"Se recomienda {sugerencia} y la función impide que SQL Server use su índice para buscar."
+    return problema, f"Se recomienda {sugerencia}, {motivo}"
 
 
 def _like(h: Dict) -> Partes:
@@ -654,7 +677,7 @@ MENSAJES: Dict[str, Tuple[Severidad, Callable[[Dict], Optional[Partes]]]] = {
     "DIVISION_SIN_NULLIF": (Severidad.MEDIO, _division),
     "CODIGO_INALCANZABLE": (Severidad.MEDIO, _inalcanzable),
     "SUBCONSULTAS_A_APPLY": (Severidad.MEDIO, _apply),
-    "FUNCION_SOBRE_COLUMNA": (Severidad.MEDIO, _funcion_columna),
+    "FUNCION_SOBRE_COLUMNA": (Severidad.BAJO, _funcion_columna),  # depende de los índices (18 nov.)
     "COUNT_EN_LUGAR_DE_EXISTS": (Severidad.MEDIO, _count),
     "ISNULL_EN_CONDICION": (Severidad.MEDIO, _isnull_condicion),
     "ISNULL_EN_COLUMNA_NOT_NULL": (Severidad.MEDIO, _isnull_not_null),
@@ -696,6 +719,8 @@ def mensaje_agrupado(hechos: List[Dict]) -> Optional[str]:
         return None
     if len(con_mensaje) == 1:
         return " ".join(con_mensaje[0][1])
+    if con_mensaje[0][0].get("tipo") == "FUNCION_SOBRE_COLUMNA":
+        return " ".join(partes_funcion_columna([h for h, _ in con_mensaje]))
     if con_mensaje[0][0].get("tipo") == "ORDER_BY_EN_INSERT":
         return " ".join(partes_orden_insert([h for h, _ in con_mensaje]))
     # Sin redundar (usuaria, 18 nov., modelo «Se identificaron 2 casos de CASE sin ELSE.»): lo común se dice una vez

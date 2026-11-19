@@ -203,6 +203,28 @@ public class GenesisVisitante : TSqlFragmentVisitor
         return expresion;
     }
 
+    // CAST/CONVERT a DATE directamente sobre una columna de fecha (por el estándar de nombres: dFecha, dtRegistro, o
+    // con «Fec»/«Fecha» y sin prefijo de texto o número, como Fec_Rep). Genesis no conoce el tipo real de la columna.
+    private static bool ConvierteColumnaFechaADate(ScalarExpression parametro, DataTypeReference tipo)
+    {
+        var sql = tipo as SqlDataTypeReference;
+        var columna = parametro != null ? SinParentesis(parametro) as ColumnReferenceExpression : null;
+        if (sql == null || sql.SqlDataTypeOption != SqlDataTypeOption.Date || columna == null) return false;
+        string nombre = NombreColumna(columna);
+        if (System.Text.RegularExpressions.Regex.IsMatch(nombre, "^dt?[A-Z]")) return true;
+        return nombre.IndexOf("fec", StringComparison.OrdinalIgnoreCase) >= 0
+               && !System.Text.RegularExpressions.Regex.IsMatch(nombre, "^[cnb][A-Z]");
+    }
+
+    // Un valor que no depende de la fila: 1, '13', -1, NULL o una variable.
+    private static bool EsValorFijo(ScalarExpression expresion)
+    {
+        var e = SinParentesis(expresion);
+        if (e is Literal || e is VariableReference) return true;
+        var unaria = e as UnaryExpression;
+        return unaria != null && SinParentesis(unaria.Expression) is Literal;
+    }
+
     private static BooleanExpression SinParentesis(BooleanExpression expresion)
     {
         while (expresion is BooleanParenthesisExpression) expresion = ((BooleanParenthesisExpression)expresion).Expression;
@@ -786,9 +808,13 @@ public class GenesisVisitante : TSqlFragmentVisitor
                 Agregar("ASIGNACION_VARIAS_FILAS", consulta.StartLine, "variable", asignaciones[0].Variable.Name);
         }
 
-        // TOP sin ORDER BY: puede traer una fila distinta en cada ejecución.
+        // TOP sin ORDER BY: puede traer una fila distinta en cada ejecución. No si solo verifica que exista algún
+        // registro (SELECT TOP 1 @bValid = 1, @cRegla = '13' FROM …): asigna valores fijos, da igual qué fila sea
+        // (usuaria, 18 nov.).
+        bool soloVerificaExistencia = soloAsignaciones && elementos.Cast<SelectSetVariable>().All(
+            a => a.AssignmentKind == AssignmentKind.Equals && EsValorFijo(a.Expression));
         if (consulta.TopRowFilter != null && consulta.OrderByClause == null && consulta.FromClause != null
-            && profundidadExists == 0 && !todoAgregado && !consulta.TopRowFilter.WithTies)
+            && profundidadExists == 0 && !todoAgregado && !consulta.TopRowFilter.WithTies && !soloVerificaExistencia)
             Agregar("TOP_SIN_ORDER_BY", consulta.TopRowFilter.StartLine, "top", Texto(consulta.TopRowFilter));
 
         // DISTINCT con JOIN: puede estar ocultando filas repetidas por una condición incompleta.
@@ -1177,6 +1203,12 @@ public class GenesisVisitante : TSqlFragmentVisitor
         if (cast != null) { funcion = "CAST"; columna = ColumnaDentro(cast.Parameter); }
         if (convert != null) { funcion = "CONVERT"; columna = ColumnaDentro(convert.Parameter); }
         if (funcion == null || columna == null) return;
+        // CAST(dFecha AS DATE) / CONVERT(DATE, dFecha) sobre una columna de fecha y hora: SQL Server sí usa el índice
+        // (comprobado en SQL Server, 18 nov.: Index Seek y las mismas filas leídas que sin la función, también en un
+        // JOIN). No se marca. CONVERT(DATE, LEFT(cMovNro, 8)) sí: ahí la columna está dentro de otra función.
+        if (ConvierteColumnaFechaADate(cast != null ? cast.Parameter : convert != null ? convert.Parameter : null,
+                                       cast != null ? cast.DataType : convert != null ? convert.DataType : null))
+            return;
         // ISNULL(col, r) op v: sin la función queda «(col op v OR col IS NULL)» si r es el mismo valor, o
         // «(col op v OR (col IS NULL AND r op v))» en general; así no se pierden las filas con NULL.
         string ejemplo = "";

@@ -60,6 +60,10 @@ CASOS = [
     ('TOP sin ORDER', 'SELECT TOP 1 a FROM dbo.T', 'TOP_SIN_ORDER_BY'),
     ('TOP ok ORDER', 'SELECT TOP 1 a FROM dbo.T ORDER BY a', None),
     ('TOP ok EXISTS', 'IF EXISTS (SELECT TOP 1 1 FROM dbo.T) SELECT 1', None),
+    # Solo verifica que exista un registro: asigna valores fijos, da igual qué fila sea (18 nov.).
+    ('TOP ok existencia', "SELECT TOP 1 @bValid = 1, @cRegla = '13' FROM dbo.T WHERE a = 1", None),
+    ('TOP ok existencia variable', 'SELECT TOP 1 @bValid = -1, @x = @y FROM dbo.T', None),
+    ('TOP lee columna', 'SELECT TOP 1 @cPersCod = cPersCod FROM dbo.PersID WHERE cPersIDnro = @c', 'TOP_SIN_ORDER_BY'),
     ('BETWEEN', "DECLARE @d DATETIME = GETDATE()\nIF @d BETWEEN '2026-11-01' AND '2026-11-30' SELECT 1", 'BETWEEN_FECHA_SIN_HORA'),
     ('BETWEEN temporal', "CREATE TABLE #F (dFecha DATETIME)\nSELECT 1 FROM #F WHERE dFecha BETWEEN '20261101' AND '20261130'", 'BETWEEN_FECHA_SIN_HORA'),
     ('BETWEEN ok DATE', "DECLARE @d DATE = GETDATE()\nIF @d BETWEEN '2026-11-01' AND '2026-11-30' SELECT 1", None),
@@ -94,7 +98,15 @@ CASOS = [
     ('APPLY ok una', 'SELECT c.cCtaCod, (SELECT TOP 1 q.nMonto FROM dbo.CreditoCuota q WHERE q.cCtaCod = c.cCtaCod ORDER BY q.nCuota DESC) AS nMonto FROM dbo.Credito c', None),
     ('APPLY ok distintas', 'SELECT c.cCtaCod, (SELECT MAX(q.nMonto) FROM dbo.CreditoCuota q WHERE q.cCtaCod = c.cCtaCod) AS a, (SELECT MAX(q.nMonto) FROM dbo.CreditoCuota q WHERE q.cCtaCod = c.cCtaCod AND q.nEstado = 1) AS b FROM dbo.Credito c', None),
     ('función YEAR', 'SELECT a FROM dbo.Mov m WHERE YEAR(m.dFecha) = 2026', 'FUNCION_SOBRE_COLUMNA'),
-    ('función CONVERT', 'SELECT a FROM dbo.Mov m WHERE CONVERT(DATE, m.dFecha) = @d', 'FUNCION_SOBRE_COLUMNA'),
+    # CONVERT/CAST a DATE de una columna de fecha: SQL Server sí usa el índice (comprobado, 18 nov.): no se marca.
+    ('función CONVERT ok fecha', 'SELECT a FROM dbo.Mov m WHERE CONVERT(DATE, m.dFecha) = @d', None),
+    ('función CAST ok fecha', 'SELECT a FROM dbo.Producto P WHERE CAST(P.dPrdEstado AS DATE) >= @d', None),
+    ('función CONVERT ok Fec_Rep', 'SELECT a FROM dbo.RccTotal B WHERE CONVERT(DATE, B.Fec_Rep) >= @d', None),
+    ('función CONVERT ok JOIN', 'SELECT 1 FROM dbo.RccTotal B JOIN dbo.RccTotalDet C ON CONVERT(DATE, B.Fec_Rep) = CONVERT(DATE, C.dFecha)', None),
+    ('función CONVERT a INT', 'SELECT a FROM dbo.Mov m WHERE CONVERT(INT, m.dFecha) = @n', 'FUNCION_SOBRE_COLUMNA'),
+    ('función CONVERT texto', 'SELECT a FROM dbo.Mov m WHERE CONVERT(DATE, m.cFecha) = @d', 'FUNCION_SOBRE_COLUMNA'),
+    ('función CONVERT de LEFT', 'SELECT a FROM dbo.Mov E WHERE CONVERT(DATE, LEFT(E.cMovNro, 8)) >= @d', 'FUNCION_SOBRE_COLUMNA'),
+    ('función DATEDIFF', 'SELECT a FROM dbo.Persona WHERE DATEDIFF(YEAR, dPersNacCreac, @d) < 18', 'FUNCION_SOBRE_COLUMNA'),
     ('función ok temporal', 'SELECT a FROM #Mov m WHERE YEAR(m.dFecha) = 2026', None),
     ('función ok SELECT', 'SELECT YEAR(m.dFecha) FROM dbo.Mov m', None),
     ('LIKE %', "SELECT a FROM dbo.Persona p WHERE p.cNombre LIKE '%ana%'", 'LIKE_COMODIN_INICIO'),
@@ -207,6 +219,29 @@ class GruposTest(unittest.TestCase):
             "IDENTITY, ya que en ese caso el ORDER BY define la numeración de los registros.",
         )
         self.assertNotIn("trabajo", hallazgo.mensaje)
+
+    def test_filtro_que_no_aprovecha_el_indice(self):
+        # 18 nov. (usuaria): título entendible, cada expresión una vez con «(2 veces)», nivel bajo y sin afirmar que
+        # recorre toda la tabla (si otra condición ya busca por un índice, la función no cuesta).
+        sql = ("SELECT 1 FROM dbo.Persona WHERE cPersCod = @c AND DATEDIFF(YEAR, dPersNacCreac, @d) < 18\n"
+               "SELECT 1 FROM dbo.Persona WHERE cPersCod = @c AND DATEDIFF(YEAR, dPersNacCreac, @d) < 18\n"
+               "SELECT 1 FROM dbo.Mov E WHERE CONVERT(DATE, LEFT(E.cMovNro, 8)) >= @d")
+        hallazgo = next(h for h in validar_estructura(sql) if h.regla == "FUNCION_SOBRE_COLUMNA")
+        self.assertEqual(hallazgo.severidad.value, "bajo")
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se identificaron 3 filtros que aplican una función sobre la columna: DATEDIFF(YEAR, dPersNacCreac, @d) "
+            "(2 veces) y CONVERT(DATE, LEFT(E.cMovNro, 8)). Se recomienda dejar las columnas sin función en los filtros "
+            "y aplicar el cálculo al otro lado de la comparación, ya que una función sobre la columna impide que SQL "
+            "Server use su índice para buscar.",
+        )
+        # Una sola función repetida: su ejemplo concreto. UPPER trae su motivo: no se repite «ya que».
+        anio = next(h for h in validar_estructura("SELECT a FROM dbo.Mov m WHERE YEAR(m.dFecha) = 2026")
+                    if h.regla == "FUNCION_SOBRE_COLUMNA")
+        self.assertIn("Se recomienda comparar con un rango de fechas (ej.: ", anio.mensaje)
+        mayus = next(h for h in validar_estructura("SELECT a FROM dbo.Examen e WHERE UPPER(e.cNombre) = 'X'")
+                     if h.regla == "FUNCION_SOBRE_COLUMNA")
+        self.assertEqual(mayus.mensaje.count("ya que"), 1)
 
     def test_division_con_divisores_distintos_no_junta_el_que_hacer(self):
         # El «Qué hacer» nombra el divisor: si son distintos, cada caso queda con el suyo a la vista.

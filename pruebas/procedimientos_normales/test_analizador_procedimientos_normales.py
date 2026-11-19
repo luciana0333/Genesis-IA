@@ -788,6 +788,29 @@ END"""
             with self.subTest(sql=sql):
                 self.assertNotIn("IN_CON_UN_SOLO_VALOR", {h.regla for h in verificar_procedimiento_normal(sql)})
 
+    def test_in_con_un_solo_valor_agrupado_sin_redundar(self):
+        # Caso real (18 nov.): 4 veces C.Cod_Emp NOT IN ('00108') y 1 vez D.cOpeCod IN ('100917'). Antes decía
+        # «5 observaciones», mostraba 2 y el «Qué hacer» solo hablaba de NOT IN por <>.
+        sql = "\n".join(["SELECT 1 FROM #C C WHERE C.Cod_Emp NOT IN ('00108')"] * 4
+                        + ["SELECT 1 FROM #D D WHERE D.cOpeCod IN ('100917')"])
+        hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "IN_CON_UN_SOLO_VALOR"]
+        self.assertEqual(len(hallazgos), 1)
+        self.assertEqual(
+            hallazgos[0].mensaje,
+            "Se identificaron 5 casos del uso de los operadores IN y NOT IN para comparar un único valor en "
+            "C.Cod_Emp NOT IN ('00108') y D.cOpeCod IN ('100917'). Se recomienda reemplazar IN por = y NOT IN por <>, "
+            "ya que se está comparando un solo valor. Estos operadores son más apropiados para comparar múltiples "
+            "valores (ej.: C.Cod_Emp <> '00108' y D.cOpeCod = '100917').",
+        )
+        self.assertEqual(hallazgos[0].lineas, [1, 2, 3, 4, 5])
+        # Un solo operador repetido: una frase, con su reemplazo.
+        solo_not_in = "\n".join(["SELECT 1 FROM #C C WHERE C.Cod_Emp NOT IN ('00108')"] * 3)
+        mensaje = next(h.mensaje for h in verificar_procedimiento_normal(solo_not_in) if h.regla == "IN_CON_UN_SOLO_VALOR")
+        self.assertTrue(mensaje.startswith(
+            "Se identificaron 3 casos del uso del operador NOT IN para comparar un único valor en "
+            "C.Cod_Emp NOT IN ('00108'). Se recomienda reemplazar NOT IN por <>"), mensaje)
+        self.assertNotIn("se identificó", mensaje)
+
     def test_left_en_condicion_sugiere_like(self):
         casos = {
             "SELECT a FROM #T WHERE LEFT(cCodigo, 3) = 'ABC'": "de LEFT() por LIKE (ejemplo: cCodigo LIKE 'ABC%'),",
@@ -1064,6 +1087,20 @@ class TestVarcharMaxConStringSplit(unittest.TestCase):
 
     def _varchar_max(self, sql):
         return [h for h in verificar_procedimiento_normal(sql) if h.regla == "VARCHAR_MAX_PROHIBIDO"]
+
+    def test_varios_casos_sin_redundar(self):
+        # 18 nov.: antes «Se encontraron 2 observaciones de este tipo… se detectó…; se detectó…».
+        hallazgos = self._varchar_max("DECLARE @cMensajeRegla VARCHAR(MAX)\nDECLARE @cMensajeError VARCHAR(MAX)\n"
+                                      "SELECT @cMensajeRegla, @cMensajeError")
+        self.assertEqual(len(hallazgos), 1)
+        self.assertTrue(hallazgos[0].mensaje.startswith(
+            "Se detectó que @cMensajeRegla y @cMensajeError se declaran como VARCHAR(MAX) y no guardan JSON, XML ni "
+            "HTML. Evitar el uso de VARCHAR(MAX)"), hallazgos[0].mensaje)
+        self.assertEqual(hallazgos[0].lineas, [1, 2])
+        # «CAST(a AS VARCHAR(MAX))» es una conversión: no se dice que «a» se declara como VARCHAR(MAX).
+        conversion = self._varchar_max("SELECT CAST(a AS VARCHAR(MAX)) FROM #T\nSELECT CAST(b AS VARCHAR(MAX)) FROM #T")
+        self.assertTrue(conversion[0].mensaje.startswith(
+            "Se detectaron 2 usos de VARCHAR(MAX) que no guardan JSON, XML ni HTML."), conversion[0].mensaje)
 
     def test_caso_de_la_usuaria(self):
         sql = """DECLARE @cChequesParaUso VARCHAR(MAX) = (SELECT nConsSisValor FROM CONSTSISTEMA WITH(NOLOCK) WHERE NCONSSISCOD=310001)

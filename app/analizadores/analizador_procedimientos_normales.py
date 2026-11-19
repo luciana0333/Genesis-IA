@@ -1342,10 +1342,13 @@ def _validar_eliminacion_temporal_con_procedimiento(texto: str) -> List[Hallazgo
 def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
     """VARCHAR(MAX) solo se permite para JSON, XML, listas para STRING_SPLIT o datos de una tabla heredada."""
     hallazgos = []
+    casos = []  # (posición, variable o None, tipo)
     for match in re.finditer(r"\bN?VARCHAR\s*\(\s*MAX\s*\)", limpio, re.IGNORECASE):
-        declarado = re.search(r"(@?[A-Za-z_]\w*)\s+(?:AS\s+)?$", limpio[:match.start()])
+        declarado = re.search(r"(@?[A-Za-z_]\w*)\s+(AS\s+)?$", limpio[:match.start()])
         nombre = declarado.group(1) if declarado and declarado.group(1).upper() not in {"AS", "CAST", "CONVERT"} else None
-        if nombre:
+        # «CAST(a AS VARCHAR(MAX))» es una conversión, no la declaración de «a» (con AS solo se declaran variables).
+        conversion = bool(nombre and declarado.group(2) and not nombre.startswith("@"))
+        if nombre and not conversion:
             usos = re.finditer(rf"(?<![\w@]){re.escape(nombre)}\b", limpio, re.IGNORECASE)
             # Un HTML (cuerpo de un correo, una tabla) también puede ser largo: se justifica igual.
             es_json_xml = re.search(r"json|xml", nombre, re.IGNORECASE) or nombre_de_html(nombre) or prefijo_json(nombre) or any(
@@ -1355,21 +1358,45 @@ def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
             # Una lista que se separa con STRING_SPLIT (ej.: '205,307,312,...') puede ser larga: ahí se justifica.
             es_lista = re.search(rf"\bSTRING_SPLIT\s*\(\s*{re.escape(nombre)}\b", limpio, re.IGNORECASE)
         else:
+            nombre = None
             es_json_xml = (_USO_JSON_XML.search(_sentencia_de(limpio, match.start()))
                            or arma_html(texto, limpio, match.start())
                            or convierte_xml_json_html(limpio, match.start()))
             es_lista = None
         if es_json_xml or es_lista:
             continue
-        tipo = re.sub(r"\s+", "", match.group(0)).upper()
-        sujeto = f"que {nombre} se declara como {tipo}" if nombre else f"el uso de {tipo}"
-        hallazgos.append(_hallazgo(
-            texto, match.start(), "VARCHAR_MAX_PROHIBIDO",
-            # «Qué hacer» con el texto de la usuaria (2 nov.).
-            f"Se detectó {sujeto} y no guarda JSON, XML ni HTML. Evitar el uso de {tipo}, salvo para tipos de "
-            f"datos JSON, XML, HTML o tablas heredadas. En los demás casos, definir una longitud adecuada al "
-            f"contenido que se almacenará (ej.: {tipo.replace('MAX', '500')}).",
-        ))
+        casos.append((match.start(), nombre, re.sub(r"\s+", "", match.group(0)).upper()))
+    if not casos:
+        return hallazgos
+    # Todos los casos en una sola observación, sin redundar (usuaria, 18 nov.): cada variable se nombra una vez.
+    tipos = list(dict.fromkeys(tipo for _, _, tipo in casos))
+    tipo = " o ".join(tipos)
+    nombres = list(dict.fromkeys(nombre for _, nombre, _ in casos if nombre))
+    def enumerar(elementos: List[str]) -> str:
+        return elementos[0] if len(elementos) == 1 else f"{', '.join(elementos[:-1])} y {elementos[-1]}"
+
+    if len(casos) == 1:
+        problema = (f"Se detectó que {nombres[0]} se declara como {tipo} y no guarda JSON, XML ni HTML." if nombres
+                    else f"Se detectó el uso de {tipo} y no guarda JSON, XML ni HTML.")
+    elif len(nombres) == len(casos):
+        problema = f"Se detectó que {enumerar(nombres)} se declaran como {tipo} y no guardan JSON, XML ni HTML."
+    elif nombres:
+        variables = "la variable" if len(nombres) == 1 else "las variables"
+        problema = (f"Se detectaron {len(casos)} usos de {tipo} que no guardan JSON, XML ni HTML, entre ellos "
+                    f"{variables} {enumerar(nombres)}.")
+    else:
+        problema = f"Se detectaron {len(casos)} usos de {tipo} que no guardan JSON, XML ni HTML."
+    hallazgo = _hallazgo(
+        texto, casos[0][0], "VARCHAR_MAX_PROHIBIDO",
+        # «Qué hacer» con el texto de la usuaria (2 nov.).
+        f"{problema} Evitar el uso de {tipos[0]}, salvo para tipos de datos JSON, XML, HTML o tablas heredadas. En "
+        f"los demás casos, definir una longitud adecuada al contenido que se almacenará "
+        f"(ej.: {tipos[0].replace('MAX', '500')}).",
+    )
+    lineas = sorted({_linea(texto, posicion) for posicion, _, _ in casos})
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas  # arriba en la tarjeta; se recorren con «Ver en el código»
+    hallazgos.append(hallazgo)
     return hallazgos
 
 
@@ -1447,6 +1474,7 @@ def _validar_raiserror(texto: str, limpio: str) -> List[Hallazgo]:
 def _validar_in_un_valor(texto: str, limpio: str, con_textos: str) -> List[Hallazgo]:
     """IN se usa con dos o más valores; con uno solo corresponde = (o <> si es NOT IN)."""
     hallazgos = []
+    casos = []  # (posición, operador, columna, valor)
     # LEFT(col, 1) IN ('A') ya se observa como LIKE (que reemplaza también al IN): no se repite.
     con_like = {posicion for posicion, _ in left_reemplazable_por_like(con_textos)}
     patron = re.compile(r"\b(NOT\s+)?IN\s*\(\s*([^,()]+?)\s*\)", re.IGNORECASE)
@@ -1461,15 +1489,41 @@ def _validar_in_un_valor(texto: str, limpio: str, con_textos: str) -> List[Halla
         valor = texto[match.start(2):match.end(2)]
         if re.match(r"SELECT\b", valor, re.IGNORECASE):
             continue  # IN (SELECT ...) es una subconsulta, no una lista de valores
-        operador_in = "NOT IN" if negado else "IN"
-        operador = "<>" if negado else "="
-        hallazgos.append(_hallazgo(
-            texto, expresion[0], "IN_CON_UN_SOLO_VALOR",
-            f"Se identificó el uso del operador {operador_in} para comparar un único valor en "
-            f"{columna} {operador_in} ({valor}). Se recomienda reemplazar {operador_in} por {operador}, ya que se "
-            f"está comparando un solo valor. El operador {operador_in} es más apropiado para comparar múltiples "
-            f"valores (ej.: {columna} {operador} {valor}).",
-        ))
+        casos.append((expresion[0], "NOT IN" if negado else "IN", columna, valor))
+    if not casos:
+        return []
+    # Todos los casos en una sola observación, sin redundar (usuaria, 18 nov.): cada uno se nombra una vez y el
+    # «Qué hacer» dice el reemplazo de cada operador (IN por =, NOT IN por <>), no solo el del primero.
+    reemplazo = {"IN": "=", "NOT IN": "<>"}
+    distintos = list(dict.fromkeys((op, col, val) for _, op, col, val in casos))
+    operadores = list(dict.fromkeys(op for op, _, _ in distintos))
+    ejemplos = list(dict.fromkeys(f"{col} {reemplazo[op]} {val}" for op, col, val in distintos))
+    if len(casos) == 1:
+        _, op, col, val = casos[0]
+        mensaje = (f"Se identificó el uso del operador {op} para comparar un único valor en {col} {op} ({val}). "
+                   f"Se recomienda reemplazar {op} por {reemplazo[op]}, ya que se está comparando un solo valor. "
+                   f"El operador {op} es más apropiado para comparar múltiples valores (ej.: {col} {reemplazo[op]} "
+                   f"{val}).")
+    else:
+        lista = " y ".join(f"{col} {op} ({val})" for op, col, val in distintos) if len(distintos) <= 2 else (
+            ", ".join(f"{col} {op} ({val})" for op, col, val in distintos[:-1])
+            + f" y {distintos[-1][1]} {distintos[-1][0]} ({distintos[-1][2]})")
+        if len(operadores) == 1:
+            op = operadores[0]
+            mensaje = (f"Se identificaron {len(casos)} casos del uso del operador {op} para comparar un único valor "
+                       f"en {lista}. Se recomienda reemplazar {op} por {reemplazo[op]}, ya que se está comparando un "
+                       f"solo valor. El operador {op} es más apropiado para comparar múltiples valores (ej.: "
+                       f"{ejemplos[0]}).")
+        else:
+            mensaje = (f"Se identificaron {len(casos)} casos del uso de los operadores IN y NOT IN para comparar un "
+                       f"único valor en {lista}. Se recomienda reemplazar IN por = y NOT IN por <>, ya que se está "
+                       f"comparando un solo valor. Estos operadores son más apropiados para comparar múltiples "
+                       f"valores (ej.: {' y '.join(ejemplos[:2])}).")
+    hallazgo = _hallazgo(texto, casos[0][0], "IN_CON_UN_SOLO_VALOR", mensaje)
+    lineas = sorted({_linea(texto, posicion) for posicion, _, _, _ in casos})
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas  # arriba en la tarjeta; se recorren con «Ver en el código»
+    hallazgos.append(hallazgo)
     return hallazgos
 
 
