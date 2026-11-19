@@ -203,6 +203,15 @@ public class GenesisVisitante : TSqlFragmentVisitor
         return expresion;
     }
 
+    // Un valor que no depende de la fila: 1, '13', -1, NULL o una variable.
+    private static bool EsValorFijo(ScalarExpression expresion)
+    {
+        var e = SinParentesis(expresion);
+        if (e is Literal || e is VariableReference) return true;
+        var unaria = e as UnaryExpression;
+        return unaria != null && SinParentesis(unaria.Expression) is Literal;
+    }
+
     private static BooleanExpression SinParentesis(BooleanExpression expresion)
     {
         while (expresion is BooleanParenthesisExpression) expresion = ((BooleanParenthesisExpression)expresion).Expression;
@@ -786,9 +795,13 @@ public class GenesisVisitante : TSqlFragmentVisitor
                 Agregar("ASIGNACION_VARIAS_FILAS", consulta.StartLine, "variable", asignaciones[0].Variable.Name);
         }
 
-        // TOP sin ORDER BY: puede traer una fila distinta en cada ejecución.
+        // TOP sin ORDER BY: puede traer una fila distinta en cada ejecución. No si solo verifica que exista algún
+        // registro (SELECT TOP 1 @bValid = 1, @cRegla = '13' FROM …): asigna valores fijos, da igual qué fila sea
+        // (usuaria, 18 nov.).
+        bool soloVerificaExistencia = soloAsignaciones && elementos.Cast<SelectSetVariable>().All(
+            a => a.AssignmentKind == AssignmentKind.Equals && EsValorFijo(a.Expression));
         if (consulta.TopRowFilter != null && consulta.OrderByClause == null && consulta.FromClause != null
-            && profundidadExists == 0 && !todoAgregado && !consulta.TopRowFilter.WithTies)
+            && profundidadExists == 0 && !todoAgregado && !consulta.TopRowFilter.WithTies && !soloVerificaExistencia)
             Agregar("TOP_SIN_ORDER_BY", consulta.TopRowFilter.StartLine, "top", Texto(consulta.TopRowFilter));
 
         // DISTINCT con JOIN: puede estar ocultando filas repetidas por una condición incompleta.

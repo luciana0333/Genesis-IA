@@ -60,6 +60,10 @@ CASOS = [
     ('TOP sin ORDER', 'SELECT TOP 1 a FROM dbo.T', 'TOP_SIN_ORDER_BY'),
     ('TOP ok ORDER', 'SELECT TOP 1 a FROM dbo.T ORDER BY a', None),
     ('TOP ok EXISTS', 'IF EXISTS (SELECT TOP 1 1 FROM dbo.T) SELECT 1', None),
+    # Solo verifica que exista un registro: asigna valores fijos, da igual qué fila sea (18 nov.).
+    ('TOP ok existencia', "SELECT TOP 1 @bValid = 1, @cRegla = '13' FROM dbo.T WHERE a = 1", None),
+    ('TOP ok existencia variable', 'SELECT TOP 1 @bValid = -1, @x = @y FROM dbo.T', None),
+    ('TOP lee columna', 'SELECT TOP 1 @cPersCod = cPersCod FROM dbo.PersID WHERE cPersIDnro = @c', 'TOP_SIN_ORDER_BY'),
     ('BETWEEN', "DECLARE @d DATETIME = GETDATE()\nIF @d BETWEEN '2026-11-01' AND '2026-11-30' SELECT 1", 'BETWEEN_FECHA_SIN_HORA'),
     ('BETWEEN temporal', "CREATE TABLE #F (dFecha DATETIME)\nSELECT 1 FROM #F WHERE dFecha BETWEEN '20261101' AND '20261130'", 'BETWEEN_FECHA_SIN_HORA'),
     ('BETWEEN ok DATE', "DECLARE @d DATE = GETDATE()\nIF @d BETWEEN '2026-11-01' AND '2026-11-30' SELECT 1", None),
