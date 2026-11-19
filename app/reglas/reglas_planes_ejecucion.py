@@ -73,6 +73,17 @@ REGLAS_PLANES_EJECUCION = {
         alcance="plan_ejecucion",
         activo=True,
     ),
+    "CONVERSION_COLUMNA_EN_FILTRO": ReglaDiccionario(
+        codigo="CONVERSION_COLUMNA_EN_FILTRO",
+        nombre="Conversión implícita en un filtro",
+        severidad="bajo",
+        descripcion="Riesgo identificado por Genesis (sin alerta de SQL Server): una columna (BIT, número o fecha) que "
+                    "el plan convierte implícitamente dentro de un filtro o un JOIN, lo que obliga a recorrer la tabla. "
+                    "Solo se marca si el recorrido lee 10 000 filas o más y devuelve como mucho el 10 %; medio desde "
+                    "un millón de filas leídas.",
+        alcance="plan_ejecucion",
+        activo=True,
+    ),
     "CONVERSION_IMPLICITA": ReglaDiccionario(
         codigo="CONVERSION_IMPLICITA",
         nombre="Conversion implicita",

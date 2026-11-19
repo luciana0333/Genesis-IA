@@ -213,6 +213,7 @@ export const NOMBRES_REGLAS = {
   CONVERSION_IMPLICITA_DETECTADA: 'Conversión implícita detectada',
   CONVERSION_TEXTO_A_NUMERO: 'Conversión implícita de texto a número',
   COLUMNA_TEXTO_CONVERTIDA: 'Conversión implícita de columna de texto',
+  CONVERSION_COLUMNA_EN_FILTRO: 'Conversión implícita en un filtro',
   LECTURA_RESIDUAL_ELEVADA: 'Lectura residual elevada',
   TIEMPO_EJECUCION_SUPERADO: 'Tiempo de ejecución superado',
   TABLE_SCAN_DETECTADO: 'Table Scan detectado',
