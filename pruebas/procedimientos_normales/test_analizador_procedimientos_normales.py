@@ -974,6 +974,33 @@ END CATCH"""
             with self.subTest(sql=sql):
                 self.assertNotIn("NOLOCK_EN_TABLA_FISICA", {h.regla for h in verificar_procedimiento_normal(sql)})
 
+    def test_nolock_en_la_subconsulta_que_elige_el_registro(self):
+        # Caso real (18 nov.): el NOLOCK está en la subconsulta, no en la tabla que se actualiza. SQL Server lo aplica:
+        # comprobado que puede tomar un registro no confirmado y el UPDATE termina sin modificar nada.
+        sql = ("UPDATE DBAGENDACOMERCIAL.dbo.SolicitudOportunidad\nSET bOtp = 1\nWHERE nSolicitudOportunidadId = (\n"
+               "    SELECT TOP 1 nSolicitudOportunidadId\n"
+               "    FROM DBAGENDACOMERCIAL.dbo.SolicitudOportunidad WITH(NOLOCK)\n"
+               "    WHERE cPersDoi = @cDocumento\n    ORDER BY nSolicitudOportunidadId DESC\n);")
+        reglas = [h for h in verificar_procedimiento_normal(sql) if h.regla.startswith("NOLOCK_EN_")]
+        self.assertEqual([h.regla for h in reglas], ["NOLOCK_EN_SUBCONSULTA_DE_UPDATE"])
+        self.assertEqual(reglas[0].linea, 5)
+        self.assertEqual(
+            reglas[0].mensaje,
+            "Se identificó el uso de WITH (NOLOCK) en la subconsulta que selecciona el registro a actualizar en la "
+            "tabla DBAGENDACOMERCIAL.dbo.SolicitudOportunidad. Se recomienda retirar WITH (NOLOCK) de la subconsulta, "
+            "ya que permite leer datos no confirmados.",
+        )
+        # Con el alias de la tabla actualizada dentro de la subconsulta, también es la subconsulta.
+        con_alias = ("UPDATE s SET s.bOtp = 1 FROM dbo.Solicitud s\n"
+                     "WHERE s.nId IN (SELECT x.nId FROM dbo.Solicitud x WITH(NOLOCK) WHERE x.cDoi = @c)")
+        self.assertEqual([h.regla for h in verificar_procedimiento_normal(con_alias) if h.regla.startswith("NOLOCK_EN_")],
+                         ["NOLOCK_EN_SUBCONSULTA_DE_UPDATE"])
+        # Sin NOLOCK en la subconsulta, o una subconsulta a otra tabla: nada.
+        for limpio in (sql.replace(" WITH(NOLOCK)", ""),
+                       "UPDATE dbo.Solicitud SET bOtp = 1 WHERE nId IN (SELECT nId FROM dbo.Otra WITH(NOLOCK))"):
+            with self.subTest(sql=limpio):
+                self.assertEqual([h for h in verificar_procedimiento_normal(limpio) if h.regla.startswith("NOLOCK_EN_")], [])
+
     def test_envio_de_correo_es_critico(self):
         sql = "EXEC msdb.dbo.sp_send_dbmail @profile_name = 'Avisos', @recipients = 'a@b.com'"
         hallazgo = [h for h in verificar_procedimiento_normal(sql) if h.regla == "ENVIO_CORREO_DESDE_BD"]

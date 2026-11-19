@@ -382,7 +382,7 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "WHILE_PROHIBIDO": ReglaDiccionario(
         codigo="WHILE_PROHIBIDO",
-        nombre="WHILE prohibido",
+        nombre="Uso de WHILE",
         severidad="alto",
         descripcion="No se permite el uso de bucles WHILE en procedimientos normales; use operaciones basadas en conjuntos.",
         alcance="procedimiento",
@@ -452,6 +452,15 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         nombre="Uso incorrecto de NOLOCK en UPDATE",
         severidad="alto",
         descripcion="La tabla física no debe usar WITH(NOLOCK) cuando forma parte del FROM de un UPDATE o un patrón equivalente.",
+        alcance="procedimiento",
+        activo=True,
+    ),
+    "NOLOCK_EN_SUBCONSULTA_DE_UPDATE": ReglaDiccionario(
+        codigo="NOLOCK_EN_SUBCONSULTA_DE_UPDATE",
+        nombre="WITH (NOLOCK) en subconsulta de UPDATE",
+        severidad="alto",
+        descripcion="La subconsulta que elige qué registro actualizar lee la misma tabla con WITH(NOLOCK): puede tomar "
+                    "un registro aún no confirmado y, si ese cambio se deshace, el UPDATE no modifica ninguno.",
         alcance="procedimiento",
         activo=True,
     ),

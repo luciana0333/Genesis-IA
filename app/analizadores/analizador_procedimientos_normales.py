@@ -470,20 +470,36 @@ def _validar_update_from_nolock(texto: str, limpio: str) -> List[Hallazgo]:
                 break
         sentencia = limpio[update.start():fin]
 
-        tabla, posicion_hint = None, None
+        tabla, posicion_hint, en_subconsulta = None, None, False
         if _tiene_nolock_despues(limpio, update.end()):  # UPDATE dbo.T WITH(NOLOCK) SET ...
             tabla, posicion_hint = objetivo, update.start(1)
         else:
             # UPDATE alias ... FROM dbo.T alias WITH(NOLOCK)  |  UPDATE dbo.T ... FROM dbo.T WITH(NOLOCK)
-            for origen in re.finditer(rf"\b(?:FROM|JOIN)\s+({referencia})", sentencia, re.IGNORECASE):
-                nombre = _limpiar_nombre(origen.group(1))
+            origenes = []
+            for origen in re.finditer(rf"(?<![\w@#$])(?:FROM|JOIN)\s+({referencia})", sentencia, re.IGNORECASE):
+                # Dentro de paréntesis es una subconsulta: otra lectura de la tabla, no la tabla que se actualiza.
+                dentro = sentencia[:origen.start()].count("(") > sentencia[:origen.start()].count(")")
                 alias = re.match(rf"\s+(?:AS\s+)?(?!(?:{_NO_ALIAS})\b)([A-Za-z_][\w$#]*)", sentencia[origen.end():], re.IGNORECASE)
-                es_objetivo = nombre.lower() == objetivo.lower() or (
-                    alias is not None and alias.group(1).lower() == objetivo.lower())
+                origenes.append((origen, _limpiar_nombre(origen.group(1)), dentro, alias.group(1) if alias else ""))
+            # La tabla que se actualiza: su nombre, o la del alias (UPDATE s … FROM dbo.Solicitud s).
+            tabla_objetivo = next((nombre for _, nombre, dentro, alias in origenes
+                                   if not dentro and alias.lower() == objetivo.lower()), objetivo)
+            for origen, nombre, dentro, alias in origenes:
+                es_objetivo = nombre.lower() in (objetivo.lower(), tabla_objetivo.lower()) or (
+                    not dentro and alias.lower() == objetivo.lower())
                 if es_objetivo and _tiene_nolock_despues(limpio, update.start() + origen.end()):
-                    tabla, posicion_hint = nombre, update.start() + origen.start(1)
+                    tabla, posicion_hint, en_subconsulta = nombre, update.start() + origen.start(1), dentro
                     break
-        if tabla and not _es_temporal(tabla):
+        if tabla and not _es_temporal(tabla) and en_subconsulta:
+            # Usuaria, 18 nov.: aquí SQL Server SÍ aplica el NOLOCK (es otra lectura de la tabla). Comprobado en SQL
+            # Server: la subconsulta tomó un registro aún no confirmado; al deshacerse, el UPDATE modificó 0 filas.
+            hallazgos.append(_hallazgo(
+                texto, posicion_hint, "NOLOCK_EN_SUBCONSULTA_DE_UPDATE",
+                f"Se identificó el uso de WITH (NOLOCK) en la subconsulta que selecciona el registro a actualizar en "
+                f"la tabla {tabla}. Se recomienda retirar WITH (NOLOCK) de la subconsulta, ya que permite leer datos "
+                f"no confirmados.",  # texto de la usuaria (18 nov.)
+            ))
+        elif tabla and not _es_temporal(tabla):
             hallazgos.append(_hallazgo(
                 texto, posicion_hint, "NOLOCK_EN_TABLA_FISICA",
                 f"Se identificó el uso de WITH (NOLOCK) en la tabla {tabla}, sobre la cual se realiza una "
