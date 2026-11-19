@@ -496,9 +496,8 @@ def _validar_update_from_nolock(texto: str, limpio: str) -> List[Hallazgo]:
             hallazgos.append(_hallazgo(
                 texto, posicion_hint, "NOLOCK_EN_SUBCONSULTA_DE_UPDATE",
                 f"Se identificó el uso de WITH (NOLOCK) en la subconsulta que selecciona el registro a actualizar en "
-                f"la tabla {tabla}. Se recomienda retirar WITH (NOLOCK) de la subconsulta, ya que puede seleccionar un "
-                f"registro aún no confirmado y, si ese cambio se deshace, la actualización no modificará ningún "
-                f"registro.",
+                f"la tabla {tabla}. Se recomienda retirar WITH (NOLOCK) de la subconsulta, ya que permite leer datos "
+                f"no confirmados.",  # texto de la usuaria (18 nov.)
             ))
         elif tabla and not _es_temporal(tabla):
             hallazgos.append(_hallazgo(

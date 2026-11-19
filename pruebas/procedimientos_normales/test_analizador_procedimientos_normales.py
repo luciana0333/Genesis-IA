@@ -988,8 +988,7 @@ END CATCH"""
             reglas[0].mensaje,
             "Se identificó el uso de WITH (NOLOCK) en la subconsulta que selecciona el registro a actualizar en la "
             "tabla DBAGENDACOMERCIAL.dbo.SolicitudOportunidad. Se recomienda retirar WITH (NOLOCK) de la subconsulta, "
-            "ya que puede seleccionar un registro aún no confirmado y, si ese cambio se deshace, la actualización no "
-            "modificará ningún registro.",
+            "ya que permite leer datos no confirmados.",
         )
         # Con el alias de la tabla actualizada dentro de la subconsulta, también es la subconsulta.
         con_alias = ("UPDATE s SET s.bOtp = 1 FROM dbo.Solicitud s\n"
