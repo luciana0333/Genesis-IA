@@ -203,6 +203,19 @@ public class GenesisVisitante : TSqlFragmentVisitor
         return expresion;
     }
 
+    // CAST/CONVERT a DATE directamente sobre una columna de fecha (por el estándar de nombres: dFecha, dtRegistro, o
+    // con «Fec»/«Fecha» y sin prefijo de texto o número, como Fec_Rep). Genesis no conoce el tipo real de la columna.
+    private static bool ConvierteColumnaFechaADate(ScalarExpression parametro, DataTypeReference tipo)
+    {
+        var sql = tipo as SqlDataTypeReference;
+        var columna = parametro != null ? SinParentesis(parametro) as ColumnReferenceExpression : null;
+        if (sql == null || sql.SqlDataTypeOption != SqlDataTypeOption.Date || columna == null) return false;
+        string nombre = NombreColumna(columna);
+        if (System.Text.RegularExpressions.Regex.IsMatch(nombre, "^dt?[A-Z]")) return true;
+        return nombre.IndexOf("fec", StringComparison.OrdinalIgnoreCase) >= 0
+               && !System.Text.RegularExpressions.Regex.IsMatch(nombre, "^[cnb][A-Z]");
+    }
+
     // Un valor que no depende de la fila: 1, '13', -1, NULL o una variable.
     private static bool EsValorFijo(ScalarExpression expresion)
     {
@@ -1190,6 +1203,12 @@ public class GenesisVisitante : TSqlFragmentVisitor
         if (cast != null) { funcion = "CAST"; columna = ColumnaDentro(cast.Parameter); }
         if (convert != null) { funcion = "CONVERT"; columna = ColumnaDentro(convert.Parameter); }
         if (funcion == null || columna == null) return;
+        // CAST(dFecha AS DATE) / CONVERT(DATE, dFecha) sobre una columna de fecha y hora: SQL Server sí usa el índice
+        // (comprobado en SQL Server, 18 nov.: Index Seek y las mismas filas leídas que sin la función, también en un
+        // JOIN). No se marca. CONVERT(DATE, LEFT(cMovNro, 8)) sí: ahí la columna está dentro de otra función.
+        if (ConvierteColumnaFechaADate(cast != null ? cast.Parameter : convert != null ? convert.Parameter : null,
+                                       cast != null ? cast.DataType : convert != null ? convert.DataType : null))
+            return;
         // ISNULL(col, r) op v: sin la función queda «(col op v OR col IS NULL)» si r es el mismo valor, o
         // «(col op v OR (col IS NULL AND r op v))» en general; así no se pierden las filas con NULL.
         string ejemplo = "";
