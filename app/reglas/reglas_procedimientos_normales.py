@@ -455,6 +455,15 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "NOLOCK_EN_SUBCONSULTA_DE_UPDATE": ReglaDiccionario(
+        codigo="NOLOCK_EN_SUBCONSULTA_DE_UPDATE",
+        nombre="NOLOCK en la subconsulta de un UPDATE",
+        severidad="alto",
+        descripcion="La subconsulta que elige qué registro actualizar lee la misma tabla con WITH(NOLOCK): puede tomar "
+                    "un registro aún no confirmado y, si ese cambio se deshace, el UPDATE no modifica ninguno.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "ORDER_BY_NUMERICO_PROHIBIDO": ReglaDiccionario(
         codigo="ORDER_BY_NUMERICO_PROHIBIDO",
         nombre="ORDER BY numérico prohibido",
