@@ -239,6 +239,11 @@ class GruposTest(unittest.TestCase):
         anio = next(h for h in validar_estructura("SELECT a FROM dbo.Mov m WHERE YEAR(m.dFecha) = 2026")
                     if h.regla == "FUNCION_SOBRE_COLUMNA")
         self.assertIn("Se recomienda comparar con un rango de fechas (ej.: ", anio.mensaje)
+        # MONTH y YEAR sobre la misma fecha (PA real de Colocaciones): también un rango de fechas.
+        mes_anio = next(h for h in validar_estructura(
+            "SELECT a FROM dbo.Prog b WHERE MONTH(b.dFechaProgramada) = @nMes AND YEAR(b.dFechaProgramada) = @nAnio")
+            if h.regla == "FUNCION_SOBRE_COLUMNA")
+        self.assertIn("Se recomienda comparar con un rango de fechas (ej.: ", mes_anio.mensaje)
         mayus = next(h for h in validar_estructura("SELECT a FROM dbo.Examen e WHERE UPPER(e.cNombre) = 'X'")
                      if h.regla == "FUNCION_SOBRE_COLUMNA")
         self.assertEqual(mayus.mensaje.count("ya que"), 1)
