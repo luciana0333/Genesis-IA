@@ -156,6 +156,113 @@ def columna_texto_convertida(sentencias: List[Dict]) -> List[Hallazgo]:
     return [hallazgo]
 
 
+# --- Conversión de una columna (BIT, número, fecha) dentro de un filtro o un JOIN (usuaria, 18 nov.) ----------------
+# Comprobado en SQL Server: convertida en el resultado (SELECT, SET de un UPDATE) no afecta; en un filtro o un JOIN
+# impide usar el índice y obliga a recorrer la tabla, y SQL Server no siempre lo alerta. Para no llenar el informe,
+# solo se marca cuando cuesta: el recorrido de esa tabla lee muchas filas y devuelve pocas.
+FILAS_LEIDAS_MINIMAS = 10_000
+PROPORCION_DEVUELTA_MAXIMA = 0.10  # devuelve como mucho el 10 % de lo que lee
+FILAS_PARA_NIVEL_MEDIO = 1_000_000
+# Dónde la conversión filtra o une (no las columnas de salida ni los Defined Values).
+_PREDICADOS_DE_FILTRO = {"Seek Predicates", "Predicate", "Probe Residual", "Residual", "Hash Keys Probe",
+                         "Hash Keys Build", "Inner Side Join Columns", "Outer Side Join Columns"}
+# [Expr1003] = Scalar Operator(CONVERT_IMPLICIT(int,[Base].[Esquema].[Tabla].[bColumna] as [B].[bColumna],0))
+_EXPR_CONVERTIDA = re.compile(
+    r"\[(?P<expr>Expr\d+)\] = Scalar Operator\((?P<conversion>CONVERT_IMPLICIT\((?:[^()]|\(\d+(?:,\d+)?\))*\))\)")
+_REFERENCIA_EXPR = re.compile(r"\[(Expr\d+)\]")
+
+
+def _conversiones_de_columnas(texto: str) -> List[re.Match]:
+    """Conversiones sobre una columna real que no es de texto (las de texto las ve «columna de texto convertida»)."""
+    return [m for m in _COLUMNA_CONVERTIDA.finditer(texto) if not _PREFIJO_TEXTO.match(m.group("nombre"))]
+
+
+def _recorrido_costoso(sentencia: Dict, tabla: str):
+    """El recorrido (Scan) de esa tabla que más lee, si lee mucho y devuelve poco: (leídas, devueltas, nodo) o None."""
+    peor = None
+    for nodo in sentencia["nodos"]:
+        objeto = nodo.get("objeto", "").split(".")[-1].strip("[]")
+        leidas, devueltas = nodo.get("filasLeidas"), nodo.get("filasReales")
+        if ("scan" not in nodo.get("fisica", "").lower() or objeto.lower() != tabla.lower()
+                or leidas is None or devueltas is None):
+            continue
+        if leidas >= FILAS_LEIDAS_MINIMAS and devueltas <= leidas * PROPORCION_DEVUELTA_MAXIMA:
+            if peor is None or leidas > peor[0]:
+                peor = (leidas, devueltas, nodo)
+    return peor
+
+
+def conversion_columna_en_filtro(sentencias: List[Dict]) -> List[Hallazgo]:
+    casos: Dict[Tuple[str, str, str], Dict] = {}
+    for sentencia in sentencias:
+        # Lo que SQL Server ya alertó (Convert Issue) lo observa «Conversión implícita detectada»: no se repite.
+        alertadas = {
+            (m.group("nombre").lower(), m.group("tipo").lower())
+            for nodo in sentencia["nodos"] for a in nodo.get("advertencias", []) if a["tipo"] == "conversion"
+            for m in _COLUMNA_CONVERTIDA.finditer(a["texto"])
+        }
+        # Expresiones que son solo la conversión de una columna ([Expr1003] = CONVERT_IMPLICIT(int, bColumna)): si un
+        # filtro o un JOIN usa [Expr1003], la conversión está en el filtro aunque se calcule en un Compute Scalar.
+        exprs: Dict[str, re.Match] = {}
+        for nodo in sentencia["nodos"]:
+            for predicado in nodo.get("predicados", []):
+                if predicado.get("nombre") == "Defined Values":
+                    for definida in _EXPR_CONVERTIDA.finditer(predicado.get("texto", "")):
+                        conversiones = _conversiones_de_columnas(definida.group("conversion"))
+                        if conversiones:
+                            exprs[definida.group("expr")] = conversiones[0]
+        for nodo in sentencia["nodos"]:
+            for predicado in nodo.get("predicados", []):
+                if predicado.get("nombre") not in _PREDICADOS_DE_FILTRO:
+                    continue
+                texto = predicado.get("texto", "")
+                encontradas = _conversiones_de_columnas(texto) + [
+                    exprs[e] for e in _REFERENCIA_EXPR.findall(texto) if e in exprs]
+                for conversion in encontradas:
+                    nombre, tipo = conversion.group("nombre"), conversion.group("tipo").lower()
+                    if (nombre.lower(), tipo) in alertadas:
+                        continue
+                    tabla = conversion.group("calificadores").rstrip(".").split(".")[-1].strip("[]")
+                    costo = _recorrido_costoso(sentencia, tabla)
+                    if costo is None:
+                        continue
+                    caso = casos.setdefault((nombre, tabla, tipo), {"leidas": 0, "devueltas": 0, "nodos": []})
+                    if costo[0] > caso["leidas"]:
+                        caso["leidas"], caso["devueltas"] = costo[0], costo[1]
+                    for marca in ({"consulta": sentencia["numero"], "nodo": nodo["id"]},
+                                  {"consulta": sentencia["numero"], "nodo": costo[2]["id"]}):
+                        if marca not in caso["nodos"]:
+                            caso["nodos"].append(marca)
+    if not casos:
+        return []
+
+    # Modelo de redacción de los riesgos de Genesis (usuaria, 13 nov.). Texto propuesto, por aprobar (18 nov.).
+    def detalle(clave, caso) -> str:
+        columna, tabla, tipo = clave
+        return (f"{columna} de {tabla} a {tipo}, que obliga a leer {caso['leidas']:,.0f} filas para devolver "
+                f"{caso['devueltas']:,.0f}")
+
+    if len(casos) == 1:
+        clave, caso = next(iter(casos.items()))
+        mensaje = (f"Se identificó una conversión implícita en un filtro de la columna {detalle(clave, caso)}. Se "
+                   f"recomienda corregir la conversión implícita identificada, comparando la columna con un valor del "
+                   f"mismo tipo de dato y validando que el cambio no altere el resultado esperado.")
+    else:
+        lista = "; ".join(detalle(clave, caso) for clave, caso in casos.items())
+        mensaje = (f"Se identificaron conversiones implícitas en filtros de las columnas: {lista}. Se recomienda "
+                   f"corregir las conversiones implícitas identificadas, comparando cada columna con un valor del "
+                   f"mismo tipo de dato y validando que el cambio no altere el resultado esperado.")
+    severidad = (Severidad.MEDIO if max(c["leidas"] for c in casos.values()) >= FILAS_PARA_NIVEL_MEDIO
+                 else Severidad.BAJO)
+    hallazgo = Hallazgo(linea=1, origen=OrigenAnalisis.PLAN_EJECUCION, severidad=severidad,
+                        regla="CONVERSION_COLUMNA_EN_FILTRO", mensaje=mensaje)
+    hallazgo.nodos = [marca for caso in casos.values() for marca in caso["nodos"]]
+    hallazgo.complementario = True  # va en «Riesgos identificados por Genesis»
+    return [hallazgo]
+
+
 def riesgos_genesis(sentencias: List[Dict]) -> List[Hallazgo]:
-    """Todas las reglas de riesgos propios de Genesis: texto a número en comparaciones y columna de texto convertida."""
-    return conversion_texto_a_numero(sentencias) + columna_texto_convertida(sentencias)
+    """Riesgos propios de Genesis: texto a número en comparaciones, columna de texto convertida y conversión de una
+    columna dentro de un filtro que obliga a recorrer la tabla."""
+    return (conversion_texto_a_numero(sentencias) + columna_texto_convertida(sentencias)
+            + conversion_columna_en_filtro(sentencias))
