@@ -1061,6 +1061,20 @@ class TestVarcharMaxConStringSplit(unittest.TestCase):
     def _varchar_max(self, sql):
         return [h for h in verificar_procedimiento_normal(sql) if h.regla == "VARCHAR_MAX_PROHIBIDO"]
 
+    def test_varios_casos_sin_redundar(self):
+        # 18 nov.: antes «Se encontraron 2 observaciones de este tipo… se detectó…; se detectó…».
+        hallazgos = self._varchar_max("DECLARE @cMensajeRegla VARCHAR(MAX)\nDECLARE @cMensajeError VARCHAR(MAX)\n"
+                                      "SELECT @cMensajeRegla, @cMensajeError")
+        self.assertEqual(len(hallazgos), 1)
+        self.assertTrue(hallazgos[0].mensaje.startswith(
+            "Se detectó que @cMensajeRegla y @cMensajeError se declaran como VARCHAR(MAX) y no guardan JSON, XML ni "
+            "HTML. Evitar el uso de VARCHAR(MAX)"), hallazgos[0].mensaje)
+        self.assertEqual(hallazgos[0].lineas, [1, 2])
+        # «CAST(a AS VARCHAR(MAX))» es una conversión: no se dice que «a» se declara como VARCHAR(MAX).
+        conversion = self._varchar_max("SELECT CAST(a AS VARCHAR(MAX)) FROM #T\nSELECT CAST(b AS VARCHAR(MAX)) FROM #T")
+        self.assertTrue(conversion[0].mensaje.startswith(
+            "Se detectaron 2 usos de VARCHAR(MAX) que no guardan JSON, XML ni HTML."), conversion[0].mensaje)
+
     def test_caso_de_la_usuaria(self):
         sql = """DECLARE @cChequesParaUso VARCHAR(MAX) = (SELECT nConsSisValor FROM CONSTSISTEMA WITH(NOLOCK) WHERE NCONSSISCOD=310001)
 

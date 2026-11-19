@@ -1326,10 +1326,13 @@ def _validar_eliminacion_temporal_con_procedimiento(texto: str) -> List[Hallazgo
 def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
     """VARCHAR(MAX) solo se permite para JSON, XML, listas para STRING_SPLIT o datos de una tabla heredada."""
     hallazgos = []
+    casos = []  # (posición, variable o None, tipo)
     for match in re.finditer(r"\bN?VARCHAR\s*\(\s*MAX\s*\)", limpio, re.IGNORECASE):
-        declarado = re.search(r"(@?[A-Za-z_]\w*)\s+(?:AS\s+)?$", limpio[:match.start()])
+        declarado = re.search(r"(@?[A-Za-z_]\w*)\s+(AS\s+)?$", limpio[:match.start()])
         nombre = declarado.group(1) if declarado and declarado.group(1).upper() not in {"AS", "CAST", "CONVERT"} else None
-        if nombre:
+        # «CAST(a AS VARCHAR(MAX))» es una conversión, no la declaración de «a» (con AS solo se declaran variables).
+        conversion = bool(nombre and declarado.group(2) and not nombre.startswith("@"))
+        if nombre and not conversion:
             usos = re.finditer(rf"(?<![\w@]){re.escape(nombre)}\b", limpio, re.IGNORECASE)
             # Un HTML (cuerpo de un correo, una tabla) también puede ser largo: se justifica igual.
             es_json_xml = re.search(r"json|xml", nombre, re.IGNORECASE) or nombre_de_html(nombre) or prefijo_json(nombre) or any(
@@ -1339,21 +1342,45 @@ def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
             # Una lista que se separa con STRING_SPLIT (ej.: '205,307,312,...') puede ser larga: ahí se justifica.
             es_lista = re.search(rf"\bSTRING_SPLIT\s*\(\s*{re.escape(nombre)}\b", limpio, re.IGNORECASE)
         else:
+            nombre = None
             es_json_xml = (_USO_JSON_XML.search(_sentencia_de(limpio, match.start()))
                            or arma_html(texto, limpio, match.start())
                            or convierte_xml_json_html(limpio, match.start()))
             es_lista = None
         if es_json_xml or es_lista:
             continue
-        tipo = re.sub(r"\s+", "", match.group(0)).upper()
-        sujeto = f"que {nombre} se declara como {tipo}" if nombre else f"el uso de {tipo}"
-        hallazgos.append(_hallazgo(
-            texto, match.start(), "VARCHAR_MAX_PROHIBIDO",
-            # «Qué hacer» con el texto de la usuaria (2 nov.).
-            f"Se detectó {sujeto} y no guarda JSON, XML ni HTML. Evitar el uso de {tipo}, salvo para tipos de "
-            f"datos JSON, XML, HTML o tablas heredadas. En los demás casos, definir una longitud adecuada al "
-            f"contenido que se almacenará (ej.: {tipo.replace('MAX', '500')}).",
-        ))
+        casos.append((match.start(), nombre, re.sub(r"\s+", "", match.group(0)).upper()))
+    if not casos:
+        return hallazgos
+    # Todos los casos en una sola observación, sin redundar (usuaria, 18 nov.): cada variable se nombra una vez.
+    tipos = list(dict.fromkeys(tipo for _, _, tipo in casos))
+    tipo = " o ".join(tipos)
+    nombres = list(dict.fromkeys(nombre for _, nombre, _ in casos if nombre))
+    def enumerar(elementos: List[str]) -> str:
+        return elementos[0] if len(elementos) == 1 else f"{', '.join(elementos[:-1])} y {elementos[-1]}"
+
+    if len(casos) == 1:
+        problema = (f"Se detectó que {nombres[0]} se declara como {tipo} y no guarda JSON, XML ni HTML." if nombres
+                    else f"Se detectó el uso de {tipo} y no guarda JSON, XML ni HTML.")
+    elif len(nombres) == len(casos):
+        problema = f"Se detectó que {enumerar(nombres)} se declaran como {tipo} y no guardan JSON, XML ni HTML."
+    elif nombres:
+        variables = "la variable" if len(nombres) == 1 else "las variables"
+        problema = (f"Se detectaron {len(casos)} usos de {tipo} que no guardan JSON, XML ni HTML, entre ellos "
+                    f"{variables} {enumerar(nombres)}.")
+    else:
+        problema = f"Se detectaron {len(casos)} usos de {tipo} que no guardan JSON, XML ni HTML."
+    hallazgo = _hallazgo(
+        texto, casos[0][0], "VARCHAR_MAX_PROHIBIDO",
+        # «Qué hacer» con el texto de la usuaria (2 nov.).
+        f"{problema} Evitar el uso de {tipos[0]}, salvo para tipos de datos JSON, XML, HTML o tablas heredadas. En "
+        f"los demás casos, definir una longitud adecuada al contenido que se almacenará "
+        f"(ej.: {tipos[0].replace('MAX', '500')}).",
+    )
+    lineas = sorted({_linea(texto, posicion) for posicion, _, _ in casos})
+    if len(lineas) > 1:
+        hallazgo.lineas = lineas  # arriba en la tarjeta; se recorren con «Ver en el código»
+    hallazgos.append(hallazgo)
     return hallazgos
 
 
