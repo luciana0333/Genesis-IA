@@ -13,6 +13,15 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
         alcance="procedimiento",
         activo=True,
     ),
+    "NOMBRE_ENCABEZADO_DISTINTO": ReglaDiccionario(
+        codigo="NOMBRE_ENCABEZADO_DISTINTO",
+        nombre="Nombre del encabezado distinto al del procedimiento",
+        severidad="bajo",
+        descripcion="El nombre que indica el encabezado (PROCEDIMIENTO:, NOMBRE |…) es el del procedimiento que se "
+                    "crea; mayúsculas, corchetes y la base no cuentan, y el esquema solo si los dos lo indican.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "CREATE_OR_ALTER": ReglaDiccionario(
         codigo="CREATE_OR_ALTER",
         nombre="Uso de CREATE OR ALTER",

@@ -152,6 +152,7 @@ export const NOMBRES_REGLAS = {
   CARACTERES_DANADOS: 'Caracteres especiales dañados',
   COLUMNA_NUMERICA_CON_TEXTO: 'Comparación de columna numérica con texto',
   ENCABEZADO_PROCEDIMIENTO: 'Procedimiento sin encabezado completo',
+  NOMBRE_ENCABEZADO_DISTINTO: 'Nombre del encabezado distinto al del procedimiento',
   PROCEDIMIENTO_SIN_PREFIJO_PA: 'Nombre sin prefijo PA_',
   PROCEDIMIENTO_NOMBRE_INCOMPLETO: 'Nombre de procedimiento incompleto',
   PROCEDIMIENTO_SIN_FINALIDAD: 'Error de nomenclatura: procedimiento sin finalidad',

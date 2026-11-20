@@ -125,3 +125,52 @@ def encabezado_observado(texto: str, limpio: str) -> Optional[Tuple[int, str]]:
         f"Se identificó que el encabezado del procedimiento no indica {_enumerar(faltan)}. "
         f"{QUE_HACER_ENCABEZADO_INCOMPLETO}"
     )
+
+
+# --- Nombre del encabezado distinto al del procedimiento (usuaria, 19 nov.; Reportes y Negocio) ----------------------
+_REFERENCIA = r"(?:\[[^\]\n]+\]|[\w$#]+)(?:\s*\.\s*(?:\[[^\]\n]+\]|[\w$#]+)){0,2}"
+# «PROCEDIMIENTO: DBO.PA_X», «NOMBRE | [DUN].[PA_X]», «Nombre del PA | Logistica.PA_X»: la etiqueta al inicio de la
+# línea (así «PROPÓSITO | PROCEDIMIENTO ALMACENADO QUE…» no cuenta) y un nombre de objeto como valor.
+_NOMBRE_EN_ENCABEZADO = re.compile(
+    rf"^[\s*|/-]*(?:Nombre(?:\s+del\s+(?:PA|procedimiento|SP))?|Procedimiento|Procedure|Objeto|Name)\s*[|:]\s*"
+    rf"(?P<nombre>{_REFERENCIA})",
+    re.IGNORECASE | re.MULTILINE,
+)
+_NOMBRE_DEL_OBJETO = re.compile(rf"\s+(?P<nombre>{_REFERENCIA})")
+
+
+def _partes(nombre: str) -> List[str]:
+    """[esquema, nombre] sin corchetes ni espacios, en minúscula (la base, si viene, no se compara)."""
+    partes = [p.strip().strip("[]").strip().lower() for p in nombre.split(".")]
+    return partes[-2:]
+
+
+def nombre_del_encabezado_distinto(texto: str, limpio: str) -> Optional[Tuple[int, str, str]]:
+    """(posición, nombre del encabezado, nombre del procedimiento) si el encabezado nombra otro objeto; None si
+    coinciden o el encabezado no indica nombre. Mayúsculas, corchetes y la base no cuentan; el esquema solo si los
+    dos lo indican (PA_X contra DBO.PA_X es el mismo)."""
+    procedimiento = _PROCEDIMIENTO.search(limpio)
+    objeto = _NOMBRE_DEL_OBJETO.match(limpio, procedimiento.end()) if procedimiento else None
+    if not objeto:
+        return None
+    zona = texto[:_inicio_del_cuerpo(limpio, procedimiento.end())]
+    for comentario in _COMENTARIO.finditer(zona):
+        for indicado in _NOMBRE_EN_ENCABEZADO.finditer(comentario.group(0)):
+            nombre = indicado.group("nombre")
+            if "_" not in nombre and "." not in nombre:
+                continue  # «NOMBRE: Juan»: no es un nombre de objeto
+            del_encabezado, del_objeto = _partes(nombre), _partes(objeto.group("nombre"))
+            iguales = del_encabezado[-1] == del_objeto[-1] and (
+                len(del_encabezado) < 2 or len(del_objeto) < 2 or del_encabezado[0] == del_objeto[0])
+            if iguales:
+                return None
+            return (comentario.start() + indicado.start("nombre"), re.sub(r"\s+", "", nombre),
+                    re.sub(r"\s+", "", texto[objeto.start("nombre"):objeto.end("nombre")]))
+    return None
+
+
+def mensaje_nombre_encabezado_distinto(del_encabezado: str, del_objeto: str) -> str:
+    # Texto de la usuaria (19 nov.).
+    return (f"Se identificó que el encabezado indica el nombre {del_encabezado}, mientras que el procedimiento se crea "
+            f"como {del_objeto}. Se recomienda actualizar el nombre indicado en el encabezado para que coincida con el "
+            f"procedimiento creado y mantener la documentación alineada con el objeto.")
