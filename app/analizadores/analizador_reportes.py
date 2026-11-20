@@ -9,7 +9,9 @@ from app.analizadores.collate_temporales import MENSAJE_COLLATE_DATABASE_DEFAULT
 from app.analizadores.create_or_alter import create_or_alter
 from app.analizadores.dependencia_bi import dependencia_bi
 from app.analizadores.numero_comparado_con_texto import numero_comparado_con_texto
-from app.analizadores.encabezado import encabezado_observado
+from app.analizadores.encabezado import (
+    encabezado_observado, mensaje_nombre_encabezado_distinto, nombre_del_encabezado_distinto,
+)
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
 from app.analizadores.indice_forzado import indice_forzado_agrupado
 from app.analizadores.select_estrella import (
@@ -884,6 +886,16 @@ def _validar_encabezado(texto: str, limpio: str) -> List[Hallazgo]:
     return [_hallazgo(texto, posicion, "ENCABEZADO_PROCEDIMIENTO", mensaje)]
 
 
+def _validar_nombre_del_encabezado(texto: str, limpio: str) -> List[Hallazgo]:
+    """El nombre que indica el encabezado es el del procedimiento que se crea (usuaria, 19 nov.)."""
+    distinto = nombre_del_encabezado_distinto(texto, limpio)
+    if not distinto:
+        return []
+    posicion, del_encabezado, del_objeto = distinto
+    return [_hallazgo(texto, posicion, "NOMBRE_ENCABEZADO_DISTINTO",
+                      mensaje_nombre_encabezado_distinto(del_encabezado, del_objeto))]
+
+
 def _validar_esquema_entre_bases(texto: str, limpio: str) -> List[Hallazgo]:
     """Base..Tabla omite el esquema: mismo texto en Reportes y Negocio (usuaria, 7 nov.)."""
     return [
@@ -1212,6 +1224,7 @@ def verificar_reporte(texto_sql: str) -> List[Hallazgo]:
     hallazgos.extend(_validar_hints(texto_sql, sin_comentarios))
     hallazgos.extend(_validar_indice_forzado(texto_sql, limpio))
     hallazgos.extend(_validar_encabezado(texto_sql, limpio))
+    hallazgos.extend(_validar_nombre_del_encabezado(texto_sql, limpio))
     hallazgos.extend(_validar_create_or_alter(texto_sql, limpio))
     hallazgos.extend(_validar_dependencia_bi(texto_sql, limpio))
     hallazgos.extend(_validar_numero_con_texto(texto_sql, limpio))
