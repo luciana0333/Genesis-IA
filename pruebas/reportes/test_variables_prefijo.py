@@ -17,6 +17,22 @@ def _observaciones(sql: str, analizar):
 
 
 class TestVariablesSinPrefijo(unittest.TestCase):
+    def test_prefijo_en_mayuscula_de_un_nombre_antiguo_ya_cuenta(self):
+        # Usuaria, 20 nov.: @DFECHAPROC (DATETIME), @NFILA (INT), @CCTACOD (VARCHAR) ya tienen su prefijo, así sea en
+        # mayúscula; no se repite (@dDFECHAPROC). Solo se marca a quien de verdad le falta (@SMOVNRO: S no es c).
+        sql = _procedimiento("    DECLARE @DFECHAPROC DATETIME, @NDECREDONDEOTASA INT, @CCTACOD VARCHAR(18), "
+                             "@SMOVNRO VARCHAR(25)\n    SELECT @DFECHAPROC, @NDECREDONDEOTASA, @CCTACOD, @SMOVNRO")
+        for analizar in _MODULOS:
+            with self.subTest(modulo=analizar.__name__):
+                hallazgos = _observaciones(sql, analizar)
+                self.assertEqual(len(hallazgos), 1)
+                self.assertIn("@SMOVNRO (VARCHAR(25)) → @cSMOVNRO", hallazgos[0].mensaje)
+                for nombre in ("@DFECHAPROC", "@NDECREDONDEOTASA", "@CCTACOD"):
+                    self.assertNotIn(nombre, hallazgos[0].mensaje)
+        # En un nombre con minúsculas, la mayúscula es parte de la palabra: @Nivel (INT) no tiene el prefijo n.
+        nivel = _observaciones(_procedimiento("    DECLARE @Nivel INT = 0\n    SELECT @Nivel"), verificar_reporte)
+        self.assertIn("@Nivel (INT) → @nNivel", nivel[0].mensaje)
+
     def test_varias_variables_en_una_observacion(self):
         sql = _procedimiento("    DECLARE @Total INT = 0, @Nombre VARCHAR(20) = ''\n    SELECT @Total, @Nombre")
         for analizar in _MODULOS:

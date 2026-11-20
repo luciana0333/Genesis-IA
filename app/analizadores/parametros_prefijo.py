@@ -66,12 +66,21 @@ def _prefijo_esperado(nombre: str, tipo: str) -> Optional[str]:
     return None  # tipos sin prefijo en el manual (UNIQUEIDENTIFIER, tipos de tabla, CURSOR…)
 
 
+def ya_tiene_prefijo(nombre: str, prefijo: str) -> bool:
+    """@nMonto, o en un nombre todo en mayúsculas (estilo antiguo) la letra del tipo en mayúscula: @NMONTO, @DFECHA,
+    @CNRODOC (usuaria, 20 nov.: «si ya tiene el prefijo, así sea en mayúscula, ya lo tiene»). En un nombre con
+    minúsculas la mayúscula es parte de la palabra (@Nivel no tiene el prefijo n)."""
+    if re.match(rf"@{prefijo}[A-Z0-9_]", nombre):
+        return True
+    return bool(re.fullmatch(r"@[A-Z][A-Z0-9_]+", nombre)) and nombre[1] == prefijo.upper()
+
+
 def parametros_sin_prefijo(limpio: str) -> List[Tuple[str, str, str, int]]:
     """[(parámetro, tipo, nombre sugerido, posición)] de los parámetros que no empiezan con su prefijo."""
     resultado = []
     for nombre, tipo, posicion in _parametros(limpio):
         prefijo = _prefijo_esperado(nombre, tipo)
-        if prefijo is None or re.match(rf"@{prefijo}[A-Z0-9_]", nombre):
+        if prefijo is None or ya_tiene_prefijo(nombre, prefijo):
             continue
         # Si ya trae un prefijo en minúscula (@cMonto en un INT, @pnTipo), se reemplaza.
         resto = re.sub(r"^[a-z]{1,2}(?=[A-Z])", "", nombre[1:])
@@ -152,7 +161,7 @@ def variables_sin_prefijo(limpio: str) -> List[Tuple[str, str, str, int]]:
     resultado = []
     for nombre, tipo, posicion in _variables(limpio):
         prefijo = _prefijo_esperado(nombre, tipo)
-        if prefijo is None or re.match(rf"@{prefijo}[A-Z0-9_]", nombre):
+        if prefijo is None or ya_tiene_prefijo(nombre, prefijo):
             continue
         resultado.append((nombre, re.sub(r"\s+", "", tipo).upper(), _sugerido(nombre, prefijo), posicion))
     return resultado
