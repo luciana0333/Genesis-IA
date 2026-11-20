@@ -15,6 +15,20 @@ def _prefijo(verificar, sql):
 
 
 class ParametrosPrefijoTest(unittest.TestCase):
+    def test_nombres_antiguos_en_mayusculas(self):
+        # Usuaria, 20 nov.: la letra del tipo en mayúscula ya es el prefijo (@DFECHA, @CNRODOC, @NMONTO); la S antigua
+        # de texto se cambia por la c actual (@SUSUARIO → @cUSUARIO), salvo que sea parte de la palabra (@SALDO).
+        sql = ("CREATE PROCEDURE dbo.CAPVALORIZACHEQUE\n @DFECHA DATETIME, @SUSUARIO VARCHAR(4), @SAGENCIA VARCHAR(2),\n"
+               " @CNRODOC VARCHAR(100), @NMONTO MONEY, @SALDO VARCHAR(10)\nAS\nBEGIN\n"
+               " SELECT @DFECHA, @SUSUARIO, @SAGENCIA, @CNRODOC, @NMONTO, @SALDO\nEND")
+        for verificar in MODULOS:
+            with self.subTest(modulo=verificar.__name__):
+                mensaje = _prefijo(verificar, sql)[0].mensaje
+                self.assertIn("@SUSUARIO (VARCHAR(4)) → @cUSUARIO; @SAGENCIA (VARCHAR(2)) → @cAGENCIA; "
+                              "@SALDO (VARCHAR(10)) → @cSALDO.", mensaje)
+                for nombre in ("@DFECHA", "@CNRODOC", "@NMONTO"):
+                    self.assertNotIn(nombre, mensaje)
+
     def test_su_caso_en_los_dos_modulos(self):
         for verificar in MODULOS:
             with self.subTest(modulo=verificar.__name__):

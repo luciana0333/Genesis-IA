@@ -19,14 +19,14 @@ def _observaciones(sql: str, analizar):
 class TestVariablesSinPrefijo(unittest.TestCase):
     def test_prefijo_en_mayuscula_de_un_nombre_antiguo_ya_cuenta(self):
         # Usuaria, 20 nov.: @DFECHAPROC (DATETIME), @NFILA (INT), @CCTACOD (VARCHAR) ya tienen su prefijo, así sea en
-        # mayúscula; no se repite (@dDFECHAPROC). Solo se marca a quien de verdad le falta (@SMOVNRO: S no es c).
+        # mayúscula; no se repite (@dDFECHAPROC). Solo se marca a quien de verdad le falta (@SMOVNRO: la S antigua se cambia por la c → @cMOVNRO).
         sql = _procedimiento("    DECLARE @DFECHAPROC DATETIME, @NDECREDONDEOTASA INT, @CCTACOD VARCHAR(18), "
                              "@SMOVNRO VARCHAR(25)\n    SELECT @DFECHAPROC, @NDECREDONDEOTASA, @CCTACOD, @SMOVNRO")
         for analizar in _MODULOS:
             with self.subTest(modulo=analizar.__name__):
                 hallazgos = _observaciones(sql, analizar)
                 self.assertEqual(len(hallazgos), 1)
-                self.assertIn("@SMOVNRO (VARCHAR(25)) → @cSMOVNRO", hallazgos[0].mensaje)
+                self.assertIn("@SMOVNRO (VARCHAR(25)) → @cMOVNRO", hallazgos[0].mensaje)
                 for nombre in ("@DFECHAPROC", "@NDECREDONDEOTASA", "@CCTACOD"):
                     self.assertNotIn(nombre, hallazgos[0].mensaje)
         # En un nombre con minúsculas, la mayúscula es parte de la palabra: @Nivel (INT) no tiene el prefijo n.
