@@ -66,17 +66,23 @@ def _prefijo_esperado(nombre: str, tipo: str) -> Optional[str]:
     return None  # tipos sin prefijo en el manual (UNIQUEIDENTIFIER, tipos de tabla, CURSOR…)
 
 
+def ya_tiene_prefijo(nombre: str, prefijo: str) -> bool:
+    """@nMonto, o en un nombre todo en mayúsculas (estilo antiguo) la letra del tipo en mayúscula: @NMONTO, @DFECHA,
+    @CNRODOC (usuaria, 20 nov.: «si ya tiene el prefijo, así sea en mayúscula, ya lo tiene»). En un nombre con
+    minúsculas la mayúscula es parte de la palabra (@Nivel no tiene el prefijo n)."""
+    if re.match(rf"@{prefijo}[A-Z0-9_]", nombre):
+        return True
+    return bool(re.fullmatch(r"@[A-Z][A-Z0-9_]+", nombre)) and nombre[1] == prefijo.upper()
+
+
 def parametros_sin_prefijo(limpio: str) -> List[Tuple[str, str, str, int]]:
     """[(parámetro, tipo, nombre sugerido, posición)] de los parámetros que no empiezan con su prefijo."""
     resultado = []
     for nombre, tipo, posicion in _parametros(limpio):
         prefijo = _prefijo_esperado(nombre, tipo)
-        if prefijo is None or re.match(rf"@{prefijo}[A-Z0-9_]", nombre):
+        if prefijo is None or ya_tiene_prefijo(nombre, prefijo):
             continue
-        # Si ya trae un prefijo en minúscula (@cMonto en un INT, @pnTipo), se reemplaza.
-        resto = re.sub(r"^[a-z]{1,2}(?=[A-Z])", "", nombre[1:])
-        sugerido = f"@{prefijo}{resto[:1].upper()}{resto[1:]}"
-        resultado.append((nombre, re.sub(r"\s+", "", tipo).upper(), sugerido, posicion))
+        resultado.append((nombre, re.sub(r"\s+", "", tipo).upper(), _sugerido(nombre, prefijo), posicion))
     return resultado
 
 
@@ -139,7 +145,17 @@ def _variables(limpio: str) -> List[Tuple[str, str, int]]:
     return resultado
 
 
+# Palabras que empiezan con S: ahí la S es parte del nombre, no el prefijo antiguo (@SALDO → @cSALDO, no @cALDO).
+_PALABRAS_CON_S = ("SALD", "SUCURSAL", "SUBTOTAL", "SUBDESTINO", "SECTOR", "SEXO", "SITUACION", "SERIE", "SIGLA",
+                   "SISTEMA", "SOLICITUD", "SUELDO", "SEGURO", "SERVICIO", "SUMA", "SEDE", "SEMANA", "SIGNO", "SOLES",
+                   "SEGUIMIENTO", "SESION", "SALIDA", "SUPERVISOR", "SBS", "SUNAT", "SQL", "SP_")
+
+
 def _sugerido(nombre: str, prefijo: str) -> str:
+    # El prefijo antiguo de texto «S» (string) en un nombre en mayúsculas se cambia por la c actual: @SUSUARIO →
+    # @cUSUARIO, no @cSUSUARIO (usuaria, 20 nov.: «que lo cambien a como ahora»).
+    if prefijo == "c" and re.fullmatch(r"@S[A-Z][A-Z0-9_]*", nombre) and not nombre[1:].startswith(_PALABRAS_CON_S):
+        return f"@c{nombre[2:]}"
     # Si ya trae un prefijo en minúscula (@cMonto en un INT, @pnTipo), se reemplaza.
     resto = re.sub(r"^[a-z]{1,2}(?=[A-Z])", "", nombre[1:])
     return f"@{prefijo}{resto[:1].upper()}{resto[1:]}"
@@ -152,7 +168,7 @@ def variables_sin_prefijo(limpio: str) -> List[Tuple[str, str, str, int]]:
     resultado = []
     for nombre, tipo, posicion in _variables(limpio):
         prefijo = _prefijo_esperado(nombre, tipo)
-        if prefijo is None or re.match(rf"@{prefijo}[A-Z0-9_]", nombre):
+        if prefijo is None or ya_tiene_prefijo(nombre, prefijo):
             continue
         resultado.append((nombre, re.sub(r"\s+", "", tipo).upper(), _sugerido(nombre, prefijo), posicion))
     return resultado
