@@ -128,6 +128,20 @@ class TestVarbinaryProhibido(unittest.TestCase):
         self.assertEqual(hallazgos[0].severidad, Severidad.ALTO)
         self.assertIn("xPersonaFoto", hallazgos[0].mensaje)
 
+    def test_texto_de_la_usuaria(self):
+        # Caso real (19 nov.): dbo.DocumentoGestionCTS con cDocumento VARBINARY(MAX).
+        sql = ("CREATE TABLE dbo.DocumentoGestionCTS\n(\n	nDocumentoGestionCTSId INT IDENTITY(1,1) PRIMARY KEY,\n"
+               "	cDocumento VARBINARY(MAX) NOT NULL,\n	cExtension VARCHAR(10) NOT NULL\n)\nGO")
+        hallazgo = next(h for h in verificar_tabla(sql) if h.regla == "COLUMNA_VARBINARY_PROHIBIDA")
+        self.assertEqual(hallazgo.severidad, Severidad.ALTO)
+        self.assertEqual(
+            hallazgo.mensaje,
+            "Se identificó que la columna cDocumento utiliza el tipo de dato VARBINARY, que permite guardar documentos "
+            "directamente en la base de datos. Se recomienda evaluar alternativas externas para el almacenamiento de "
+            "documentos, considerando que la base de datos está destinada principalmente al manejo de datos "
+            "transaccionales.",
+        )
+
     def test_varbinary_prohibido_al_agregar_columna_con_alter(self):
         for tipo in ("VARBINARY(MAX)", "varbinary(500)", "VARBINARY"):
             with self.subTest(tipo=tipo):
