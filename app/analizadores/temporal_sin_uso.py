@@ -76,8 +76,27 @@ def _es_destino_de_alias(limpio: str, posicion: int, fin: int) -> bool:
         # La sentencia UPDATE/DELETE debe seguir abierta: sin otra sentencia entre ella y #T.
         if _FIN_DE_SENTENCIA.search(limpio, sentencia.end(), posicion):
             return False
+        # Fuera de paréntesis (las subconsultas del SET no cuentan): si ya pasó el FROM del UPDATE, o empieza un
+        # SELECT, #T es de otra sentencia. Caso real (20 nov.): «UPDATE A … FROM #DATOS_FORMATO A» y luego
+        # «SELECT … FROM #DATOS_FORMATO A»: el SELECT final la lee, no es el destino del UPDATE.
+        afuera = _fuera_de_parentesis(limpio[sentencia.end():posicion])
+        if (re.search(r"(?<![\w@#$])SELECT\b", afuera, re.IGNORECASE)
+                or len(re.findall(r"(?<![\w@#$])FROM\b", afuera, re.IGNORECASE)) > 1):
+            return False
         return sentencia.group(1).lower() == alias.group(1).lower()
     return False
+
+
+def _fuera_de_parentesis(tramo: str) -> str:
+    """El tramo con lo que está entre paréntesis en blanco (mismo largo)."""
+    salida, profundidad = [], 0
+    for letra in tramo:
+        if letra == "(":
+            profundidad += 1
+        salida.append(letra if profundidad == 0 else " ")
+        if letra == ")" and profundidad:
+            profundidad -= 1
+    return "".join(salida)
 
 
 def temporales_sin_uso(texto: str, limpio: str) -> List[Tuple[str, int]]:
