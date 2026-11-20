@@ -31,8 +31,10 @@ PARAMETROS = (
     "level2type", "level2name",
 )
 
+# EXEC sp_addextendedproperty, sys.sp_…, y también con la base delante: DBAGENDACOMERCIAL.sys.sp_… o Base..sp_…
+# (caso real, 20 nov.: con la base delante no se leía el diccionario y decía que las columnas no estaban documentadas).
 _INICIO_LLAMADA = re.compile(
-    r"\bEXEC(?:UTE)?\s+(?:\[?sys\]?\s*\.\s*)?\[?sp_(add|update)extendedproperty\]?(?![\w$#@])",
+    r"\bEXEC(?:UTE)?\s+(?:\[?[A-Za-z_][\w$#]*\]?\s*\.\s*(?:\.\s*)?){0,2}\[?sp_(add|update)extendedproperty\]?(?![\w$#@])",
     re.IGNORECASE,
 )
 _PALABRA = re.compile(r"[A-Za-z_#][\w$#]*")
