@@ -109,7 +109,7 @@ REGLAS_TABLAS = {
         "El nombre de una columna nueva no puede contener números (ej.: cNombre89).",
     ),
     "COLUMNA_VARBINARY_PROHIBIDA": _regla(
-        "COLUMNA_VARBINARY_PROHIBIDA", "Columna para documentos prohibida", "alto",
+        "COLUMNA_VARBINARY_PROHIBIDA", "Almacenamiento de documentos en la base de datos", "alto",
         "No se permiten columnas VARBINARY ni IMAGE: la base de datos es solo para datos "
         "transaccionales; los documentos van en una solución externa y se registra su ruta.",
     ),

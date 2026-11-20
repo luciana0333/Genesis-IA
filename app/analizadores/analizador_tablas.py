@@ -699,10 +699,11 @@ def _validar_columna(
         elementos["COLUMNA_VARBINARY_PROHIBIDA"] = f"{columna.nombre} ({binario.group(1).upper()})"
         hallazgos.append(_hallazgo(
             texto, columna.posicion, "COLUMNA_VARBINARY_PROHIBIDA",
-            f"La columna {columna.nombre} es de tipo {binario.group(1).upper()}, que no está permitido: "
-            f"almacenaría documentos en la base de datos. Guardar el documento en una solución externa "
-            f"(servidor de archivos o repositorio documental) y registrar solo su ruta (ej.: cRutaArchivo "
-            f"VARCHAR), ya que la base de datos es solo para datos transaccionales.",
+            # Texto de la usuaria (19 nov.).
+            f"Se identificó que la columna {columna.nombre} utiliza el tipo de dato {binario.group(1).upper()}, que "
+            f"permite guardar documentos directamente en la base de datos. Se recomienda evaluar alternativas "
+            f"externas para el almacenamiento de documentos, considerando que la base de datos está destinada "
+            f"principalmente al manejo de datos transaccionales.",
         ))
 
     legacy = re.match(r"\s*(NTEXT|TEXT|REAL)\b", definicion, re.IGNORECASE)
@@ -841,10 +842,9 @@ _PLANTILLAS_AGRUPADAS = {
         "identificar claramente su finalidad.",
     ),
     "COLUMNA_VARBINARY_PROHIBIDA": (
-        "columnas que almacenarían documentos (VARBINARY o IMAGE)",
-        "Guardar los documentos en una solución externa (servidor de archivos o repositorio documental) "
-        "y registrar solo su ruta (ej.: cRutaArchivo VARCHAR), ya que la base de datos es solo para "
-        "datos transaccionales.",
+        "columnas que permiten guardar documentos directamente en la base de datos (VARBINARY o IMAGE)",
+        "Se recomienda evaluar alternativas externas para el almacenamiento de documentos, considerando que la base "
+        "de datos está destinada principalmente al manejo de datos transaccionales.",
     ),
     "COLUMNA_TIPO_LEGACY": (
         "columnas con tipos de dato legacy",

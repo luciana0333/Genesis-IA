@@ -108,7 +108,7 @@ export const NOMBRES_REGLAS = {
   COLUMNA_NULL_EN_ALTER: 'Evaluar valor por defecto',
   COLUMNA_NOT_NULL_SIN_DEFAULT_EN_ALTER: 'Columna NOT NULL sin DEFAULT',
   COLUMNA_NOMBRE_CON_NUMERO: 'Nombre de columna con números',
-  COLUMNA_VARBINARY_PROHIBIDA: 'Columna para documentos prohibida',
+  COLUMNA_VARBINARY_PROHIBIDA: 'Almacenamiento de documentos en la base de datos',
   COLUMNA_TIPO_LEGACY: 'Tipo de dato legacy',
   COLUMNA_TIPO_APROXIMADO: 'Tipo de dato aproximado',
   TABLA_DUPLICADA: 'Tabla duplicada en el script',
