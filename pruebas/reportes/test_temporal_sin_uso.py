@@ -14,6 +14,22 @@ def _sin_uso(sql, verificar):
 
 
 class TemporalSinUsoTest(unittest.TestCase):
+    def test_se_lee_en_un_select_despues_del_update(self):
+        # Caso real (20 nov., formato de traslado CTS): «UPDATE A … FROM #DATOS_FORMATO A» y luego el SELECT final
+        # «FROM #DATOS_FORMATO A»: con el mismo alias, el SELECT se tomaba como parte del UPDATE (falso positivo).
+        usada = ("CREATE TABLE #DATOS_FORMATO (cCtaCod VARCHAR(18), nMonto MONEY)\n"
+                 "CREATE TABLE #BLOQUEOS (cCtaCod VARCHAR(18), nMonto MONEY)\n"
+                 "INSERT INTO #DATOS_FORMATO (cCtaCod) SELECT '1'\nINSERT INTO #BLOQUEOS SELECT '1', 2\n"
+                 "UPDATE A SET A.nMonto = ISNULL((SELECT SUM(nMonto) FROM #BLOQUEOS), 0) FROM #DATOS_FORMATO A\n"
+                 "SELECT A.cCtaCod, B.nMonto FROM #DATOS_FORMATO A LEFT JOIN #BLOQUEOS B ON B.cCtaCod = A.cCtaCod")
+        # Se llena y solo se actualiza (por su alias o como tabla de un JOIN): sigue sin uso.
+        sin_uso = ("CREATE TABLE #T (a INT)\nCREATE TABLE #U (b INT)\nINSERT INTO #T VALUES (1)\nINSERT INTO #U VALUES (1)\n"
+                   "UPDATE A SET A.a = U.b FROM #U U JOIN #T A ON 1 = 1\nUPDATE A SET A.a = 2 FROM #T A")
+        for verificar in MODULOS:
+            with self.subTest(modulo=verificar.__name__):
+                self.assertEqual(_sin_uso(usada, verificar), [])
+                self.assertIn("#T se crea y se llena", _sin_uso(sin_uso, verificar)[0].mensaje)
+
     def test_solo_la_que_no_se_usa_con_el_texto_de_la_usuaria(self):
         # Caso del libro caja: #MOVS3 solo sirve para llenar #MOVX (se usa); #MOVX no se lee nunca.
         sql = ("CREATE TABLE #MOVS3 (nMovNro INT)\n"
