@@ -1583,14 +1583,15 @@
 .tabla-detalle-texto { color: var(--text-primary); font-size: 0.84rem; line-height: 1.55; }
 
 /* ───────── Casos poco comunes (usuaria, 21 nov.; opción 1 «franja delgada», como el SlimBanner de Pinterest) ───────── */
-/* Tarjeta blanca compacta con sombra suave y una franja roja fina a la izquierda; cabecera en una sola línea
+/* Tarjeta blanca compacta con sombra suave (también leve arriba), sin franja roja; cabecera en una sola línea
    (ícono de la persona con engranaje, etiqueta, título y cantidad); el caso va directo en la tarjeta. */
 .poco-comun {
   margin-top: 32px;
   background: var(--bg-card);
-  border-left: 3px solid var(--red-main);
   border-radius: 0;
+  /* Sin franja roja (usuaria, 21 nov.); una sombra leve también arriba. */
   box-shadow:
+    0 -3px 10px -4px rgba(17, 17, 26, 0.08),
     0 1px 2px rgba(17, 17, 26, 0.03),
     0 8px 18px -10px rgba(17, 17, 26, 0.08),
     0 30px 60px -28px rgba(17, 17, 26, 0.22);
