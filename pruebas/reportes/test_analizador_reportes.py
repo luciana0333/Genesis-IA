@@ -223,9 +223,14 @@ class TestAnalizadorReportes(unittest.TestCase):
         for sql in casos_permitidos:
             with self.subTest(sql=sql):
                 self.assertNotIn("VARCHAR_MAX_PROHIBIDO", {h.regla for h in verificar_reporte(sql)})
-        observado = [h for h in verificar_reporte("DECLARE @cNombre VARCHAR(MAX);") if h.regla == "VARCHAR_MAX_PROHIBIDO"]
+        observado = [h for h in verificar_reporte("DECLARE @cNombre VARCHAR(MAX);\nSELECT @cNombre;")
+                     if h.regla == "VARCHAR_MAX_PROHIBIDO"]
         self.assertEqual(len(observado), 1)
         self.assertIn("@cNombre", observado[0].mensaje)
+        # Sin uso: solo «Variable sin uso» (se elimina; usuaria, 21 nov.).
+        reglas = [h.regla for h in verificar_reporte("DECLARE @cNombre VARCHAR(MAX);\nSELECT 1;")]
+        self.assertIn("VARIABLE_DECLARADA_SIN_USO", reglas)
+        self.assertNotIn("VARCHAR_MAX_PROHIBIDO", reglas)
 
     def test_recomienda_throw_y_prohibe_waitfor(self):
         sql = "RAISERROR('Error', 16, 1); WAITFOR DELAY '00:00:01';"

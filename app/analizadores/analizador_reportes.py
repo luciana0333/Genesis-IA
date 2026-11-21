@@ -590,9 +590,14 @@ def _validar_eliminacion_temporal_con_procedimiento(texto: str) -> List[Hallazgo
 def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
     """VARCHAR(MAX) solo se permite para guardar JSON o XML, o una lista que se separa con STRING_SPLIT."""
     hallazgos = []
+    # Una variable que no se usa ya sale en «Variable sin uso»: se elimina y no hace falta cambiarle el tamaño
+    # (usuaria, 21 nov.).
+    sin_uso = {variable.lower() for variable, _ in variables_sin_uso(limpio)}
     for match in re.finditer(r"\bN?VARCHAR\s*\(\s*MAX\s*\)", limpio, re.IGNORECASE):
         declarado = re.search(r"(@?[A-Za-z_]\w*)\s+(?:AS\s+)?$", limpio[:match.start()])
         nombre = declarado.group(1) if declarado and declarado.group(1).upper() not in {"AS", "CAST", "CONVERT"} else None
+        if nombre and nombre.lower() in sin_uso:
+            continue
         if nombre:
             usos = re.finditer(rf"(?<![\w@]){re.escape(nombre)}\b", limpio, re.IGNORECASE)
             # Un HTML (cuerpo de un correo, una tabla) también puede ser largo: se justifica igual.
