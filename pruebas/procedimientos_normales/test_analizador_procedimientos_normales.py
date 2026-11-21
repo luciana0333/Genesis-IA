@@ -460,8 +460,11 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         sql = "SELECT c.cNombre FROM dbo.Cliente c WITH (UPDLOCK, HOLDLOCK) WHERE c.nId = 1;"
         hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "HINT_BLOQUEO_PROHIBIDO"]
         self.assertEqual(len(hallazgos), 1)  # agrupados en un solo mensaje
-        self.assertIn("'UPDLOCK', que bloquea las filas leídas", hallazgos[0].mensaje)
-        self.assertIn("'HOLDLOCK', que mantiene bloqueadas", hallazgos[0].mensaje)
+        # 2 casos: en el párrafo, cada uno con lo que hace (usuaria, 21 nov.).
+        self.assertTrue(hallazgos[0].mensaje.startswith(
+            "Se detectó el uso de UPDLOCK (bloquea las filas leídas como si se fueran a actualizar y las mantiene "
+            "bloqueadas hasta que termina la transacción) y HOLDLOCK (mantiene bloqueadas"))
+        self.assertEqual(hallazgos[0].mensaje.count("Se detectó"), 1)
         self.assertEqual(hallazgos[0].severidad.value, "alto")
         self.assertNotIn("HINT_PLAN_PROHIBIDO", {h.regla for h in verificar_procedimiento_normal(sql)})
         self.assertNotIn("HINT_BLOQUEO_PROHIBIDO",
@@ -662,7 +665,7 @@ END"""
         hallazgo = [h for h in verificar_procedimiento_normal(sin_collate) if h.regla == "TEMPORAL_TEXTO_SIN_COLLATE"][0]
         for columna in ("cA", "cB", "cD"):
             self.assertIn(columna, hallazgo.mensaje)
-        self.assertIn("variable de tabla @V", hallazgo.mensaje)
+        self.assertIn("tablas temporales y variables de tabla #T (cA, cB) y @V (cD)", hallazgo.mensaje)
 
     def test_collate_en_temporales_agrupado_por_tabla(self):
         # Caso de la usuaria (7 nov.): el mismo mensaje, una viñeta por temporal con todas sus columnas.
@@ -673,9 +676,9 @@ END"""
         self.assertEqual(len(hallazgos), 1)
         self.assertEqual(
             hallazgos[0].mensaje,
-            "Se encontraron 2 observaciones de este tipo, en las líneas 1, 3: las columnas de texto Num_correlativo, "
-            "dFechaContable y TipoReporte de la tabla temporal #FILT no definen COLLATE; las columnas de texto "
-            "Num_correlativo y TipoReporte de la tabla temporal #FILT2 no definen COLLATE. Se recomienda añadir el "
+            # 2 tablas: en el párrafo, sin repetir la frase (usuaria, 21 nov.).
+            "Se identificaron columnas de texto sin COLLATE en las tablas temporales #FILT (Num_correlativo, "
+            "dFechaContable, TipoReporte) y #FILT2 (Num_correlativo, TipoReporte). Se recomienda añadir el "
             "COLLATE correspondiente en las columnas de tipo texto de las tablas temporales. Por favor, revisar y "
             "aplicarlo donde corresponda.",
         )

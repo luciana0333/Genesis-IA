@@ -2,7 +2,7 @@
 """Reglas para procedimientos almacenados normales, fuera de reportes."""
 
 import re
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from app.analizadores.varchar_max_html import arma_html, convierte_xml_json_html, nombre_de_html, prefijo_json
 from app.analizadores.collate_temporales import MENSAJE_COLLATE_DATABASE_DEFAULT, collate_agrupado
@@ -22,6 +22,8 @@ from app.analizadores.encabezado import (
     encabezado_observado, mensaje_nombre_encabezado_distinto, nombre_del_encabezado_distinto,
 )
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
+from app.analizadores.agrupar_casos import Plantilla, accion_del_primero, agrupar_casos
+from app.analizadores.plantillas_agrupadas import PLANTILLA_COLLATE_DATABASE_DEFAULT, PLANTILLA_ESQUEMA_ENTRE_BASES
 from app.analizadores.indice_forzado import indice_forzado_agrupado
 from app.analizadores.openxml import openxml_agrupado
 from app.analizadores.select_estrella import (
@@ -184,12 +186,12 @@ def _nombre_declarado_antes(limpio: str, posicion: int) -> str:
 def _validar_control_flujo(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     for match in re.finditer(r"\bWHILE\b", limpio, re.IGNORECASE):
-        hallazgos.append(_hallazgo(
+        hallazgos.append(_con_elemento(_hallazgo(
             texto, match.start(), "WHILE_PROHIBIDO",
             "Se identificó el uso de un bucle WHILE en el procedimiento. Se recomienda evaluar otras alternativas "
             "que permitan procesar los registros en conjunto y evitar el uso de WHILE, ya que puede generar "
             "bucles infinitos y afectar el rendimiento del procedimiento.",
-        ))
+        ), "WHILE"))
     for match in re.finditer(r"\bGOTO\b\s*(\w*)", limpio, re.IGNORECASE):
         etiqueta = f" hacia la etiqueta {match.group(1)}" if match.group(1) else ""
         hallazgos.append(_hallazgo(
@@ -212,14 +214,14 @@ def _validar_control_flujo(texto: str, limpio: str) -> List[Hallazgo]:
 
 def _validar_hints(texto: str, limpio: str) -> List[Hallazgo]:
     return [
-        _hallazgo(
+        _con_elemento(_hallazgo(
             texto,
             match.start(),
             "HINT_PLAN_PROHIBIDO",
             f"Se verificó el uso de '{match.group(0)}', que le indica al motor de base de datos cómo "
             f"ejecutar la consulta. Retirarlo, ya que no está permitido forzar al motor y es el "
             f"optimizador quien decide el mejor plan de ejecución.",
-        )
+        ), " ".join(match.group(0).split()))
         for match in re.finditer(_HINTS_PROHIBIDOS, limpio, re.IGNORECASE)
     ]
 
@@ -262,15 +264,15 @@ def _validar_hints_bloqueo(texto: str, limpio: str) -> List[Hallazgo]:
         if hint_en_temporal(limpio, abre):
             continue  # en una temporal o variable de tabla no bloquea a otros procesos
         hint = match.group(1).upper()
-        hallazgos.append(_hallazgo(
+        hallazgos.append(_con_elemento(_hallazgo(
             texto, match.start(1), "HINT_BLOQUEO_PROHIBIDO",
             f"Se detectó el uso de '{hint}', que {_HINTS_BLOQUEO[hint]}. {_ACCION_HINT_BLOQUEO}",
-        ))
+        ), hint, _HINTS_BLOQUEO[hint]))
     for posicion, instruccion in niveles_de_aislamiento(limpio):
-        hallazgos.append(_hallazgo(
+        hallazgos.append(_con_elemento(_hallazgo(
             texto, posicion, "HINT_BLOQUEO_PROHIBIDO",
             f"Se detectó el uso de '{instruccion}', que {QUE_HACE_EL_AISLAMIENTO}. {_ACCION_HINT_BLOQUEO}",
-        ))
+        ), instruccion, QUE_HACE_EL_AISLAMIENTO))
     return hallazgos
 
 
@@ -521,14 +523,14 @@ def _validar_temporales(texto: str, limpio: str) -> List[Hallazgo]:
         nombre = match.group(2)
         if _es_temporal(nombre) and _tiene_nolock_despues(limpio, match.end()):
             tipo_temporal = "la variable de tabla" if nombre.startswith("@") else "la tabla temporal"
-            hallazgos.append(_hallazgo(
+            hallazgos.append(_con_elemento(_hallazgo(
                 texto,
                 match.start(2),
                 "NOLOCK_EN_TABLA_TEMPORAL",
                 f"Se identificó el uso de WITH (NOLOCK) en {tipo_temporal} {nombre}. Se recomienda retirar "
                 f"WITH (NOLOCK), ya que las tablas temporales son de uso exclusivo de la sesión que las crea, por "
                 f"lo que no requieren esta instrucción para evitar bloqueos entre sesiones.",
-            ))
+            ), nombre))
     return hallazgos
 
 
@@ -536,12 +538,12 @@ def _validar_order_by_numerico(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     for inicio, numeros in order_by_por_posicion(limpio):
         posiciones = ", ".join(numeros)
-        hallazgos.append(_hallazgo(
+        hallazgos.append(_con_elemento(_hallazgo(
             texto, inicio, "ORDER_BY_NUMERICO_PROHIBIDO",
             f"Se encontró un ORDER BY por posición de columna (ORDER BY {posiciones}). Escribir "
             f"el nombre de la columna, ya que si cambia el SELECT el orden cambiaría sin notarlo "
             f"(ej.: ORDER BY cNombre).",
-        ))
+        ), "ORDER BY"))
     return hallazgos
 
 
@@ -583,14 +585,14 @@ def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
             # o CTE no se observa.
             if not _convierte_columna_fisica(argumento, conversion.group(1), tablas, ctes):
                 continue
-            hallazgos.append(_hallazgo(
+            hallazgos.append(_con_elemento(_hallazgo(
                 texto, match.end() + conversion.start(), "CAST_EN_JOIN_PROHIBIDO",
                 # «Qué hacer»: texto de la usuaria (8 nov.).
                 f"Se identificó un {conversion.group(1).upper()} en la condición del JOIN con la tabla {tabla}. Evitar "
                 f"el uso de CAST o CONVERT en las condiciones del JOIN, ya que puede dificultar el aprovechamiento de "
                 f"los índices. Se recomienda evaluar la conversión previa mediante una variable o tabla temporal, "
                 f"antes de realizar la unión.",
-            ))
+            ), tabla, conversion.group(1).upper()))
             break  # una observación por JOIN
     return hallazgos
 
@@ -990,9 +992,9 @@ def _validar_collate_usado(texto: str, limpio: str) -> List[Hallazgo]:
         if dentro_de_openjson(limpio, match.start()):
             continue  # lo observa «COLLATE innecesario en OPENJSON»
         if collate.upper() == "DATABASE_DEFAULT":
-            hallazgos.append(_hallazgo(
+            hallazgos.append(_con_elemento(_hallazgo(
                 texto, match.start(1), "COLLATE_DATABASE_DEFAULT", MENSAJE_COLLATE_DATABASE_DEFAULT,
-            ))
+            ), "COLLATE DATABASE_DEFAULT"))
         else:
             hallazgos.append(_hallazgo(
                 texto, match.start(1), "COLLATE_DISTINTO_AL_ESTANDAR",
@@ -1267,6 +1269,86 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
     return hallazgos
 
 
+def _con_elemento(hallazgo: Hallazgo, elemento: str, detalle: Optional[str] = None) -> Hallazgo:
+    """Lo que se nombra en la observación (y su detalle) para agruparla sin repetir la frase."""
+    hallazgo.elemento, hallazgo.detalle = elemento, detalle
+    return hallazgo
+
+
+def _sin_where_que_hacer(grupo: List[Hallazgo]) -> str:
+    acciones = {getattr(h, "detalle", "") for h in grupo}
+    verbo = "actualizar" if acciones == {"UPDATE"} else "eliminar" if acciones == {"DELETE"} else "modificar"
+    return (f"Se recomienda agregar la condición WHERE que limite los registros a {verbo}, ya que sin ella el cambio "
+            f"afecta a toda la tabla.")
+
+
+# Varias observaciones de una regla en una sola, sin repetir la frase (usuaria, 21 nov.): 2 casos en el párrafo,
+# 3 en viñetas, más de 3 en tabla; lo mismo repetido, una sola frase.
+_AGRUPADAS = {
+    "NOLOCK_EN_TABLA_TEMPORAL": Plantilla(
+        parrafo="Se identificó el uso de WITH (NOLOCK) en las tablas temporales {casos}.",
+        lista="Se identificó el uso de WITH (NOLOCK) en las siguientes tablas temporales",
+        que_hacer=accion_del_primero,
+        fila="Tabla temporal",
+    ),
+    "HINT_BLOQUEO_PROHIBIDO": Plantilla(
+        parrafo="Se detectó el uso de {casos}.",
+        lista="Se detectó el uso de las siguientes sugerencias de bloqueo",
+        que_hacer="Se recomienda retirarlas y dejar que el motor gestione los bloqueos, ya que forzarlo no está "
+                  "permitido por las buenas prácticas y detiene a los demás procesos que usan la tabla.",
+        fila="Sugerencia",
+        columna="Qué hace",
+        columna_en_texto=True,
+    ),
+    "HINT_PLAN_PROHIBIDO": Plantilla(
+        parrafo="Se verificó el uso de {casos}, que le indican al motor de base de datos cómo ejecutar la consulta.",
+        lista="Se verificó el uso de las siguientes sugerencias que le indican al motor de base de datos cómo "
+              "ejecutar la consulta",
+        que_hacer="Retirarlas, ya que no está permitido forzar al motor y es el optimizador quien decide el mejor "
+                  "plan de ejecución.",
+        fila="Sugerencia",
+    ),
+    "CATALOGO_SISTEMA_PROHIBIDO": Plantilla(
+        parrafo="Se detectaron consultas a {casos}, tablas internas de SQL Server.",
+        lista="Se detectaron consultas a las siguientes tablas internas de SQL Server",
+        que_hacer=accion_del_primero,
+        fila="Tabla interna",
+    ),
+    "CAST_EN_JOIN_PROHIBIDO": Plantilla(
+        parrafo="Se identificaron conversiones en la condición del JOIN con las tablas {casos}.",
+        lista="Se identificaron conversiones en la condición del JOIN con las siguientes tablas",
+        que_hacer=accion_del_primero,
+        fila="Tabla",
+        columna="Conversión",
+    ),
+    "MODIFICACION_SIN_WHERE": Plantilla(
+        parrafo="Se identificaron modificaciones sin condición WHERE sobre las tablas {casos}, que afectarán todos "
+                "sus registros.",
+        lista="Se identificaron las siguientes modificaciones sin condición WHERE, que afectarán todos los registros "
+              "de la tabla",
+        uno="Se identificaron modificaciones sin condición WHERE sobre la tabla {casos}, que afectarán todos sus "
+            "registros.",
+        que_hacer=_sin_where_que_hacer,
+        fila="Tabla",
+        columna="Operación",
+    ),
+    "ESQUEMA_OMITIDO_ENTRE_BASES": PLANTILLA_ESQUEMA_ENTRE_BASES,
+    "WHILE_PROHIBIDO": Plantilla(
+        repetido="Se identificó el uso de bucles WHILE en el procedimiento.",
+        que_hacer=accion_del_primero,
+    ),
+    "ORDER_BY_NUMERICO_PROHIBIDO": Plantilla(
+        repetido="Se encontraron ORDER BY por posición de columna (ORDER BY con números).",
+        que_hacer=accion_del_primero,
+    ),
+    "REPLACE_ANIDADO_TRANSLATE": Plantilla(
+        repetido="Se identificaron REPLACE anidados que pueden reemplazarse por TRANSLATE.",
+        que_hacer=accion_del_primero,
+    ),
+    "COLLATE_DATABASE_DEFAULT": PLANTILLA_COLLATE_DATABASE_DEFAULT,
+}
+
+
 def _agrupar_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
     """Une los hallazgos de una misma regla en uno solo, con todas sus líneas.
 
@@ -1281,6 +1363,9 @@ def _agrupar_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
     for regla, grupo in grupos.items():
         if len(grupo) == 1:
             resumidos.append(grupo[0])
+            continue
+        if regla in _AGRUPADAS:
+            resumidos.append(agrupar_casos(grupo, _AGRUPADAS[regla]))
             continue
         numeros = sorted({hallazgo.linea for hallazgo in grupo})
         lineas = ("la línea " if len(numeros) == 1 else "las líneas ") + ", ".join(map(str, numeros))
@@ -1630,11 +1715,11 @@ def _validar_replace_anidado(texto: str, con_textos: str, limpio: str) -> List[H
         translate = _translate_equivalente(base, pares)
         if not translate:
             continue  # TRANSLATE no daría el mismo resultado: los REPLACE se quedan
-        hallazgos.append(_hallazgo(
+        hallazgos.append(_con_elemento(_hallazgo(
             texto, match.start(), "REPLACE_ANIDADO_TRANSLATE",
             f"Se identificaron {len(pares)} REPLACE anidados. Usar TRANSLATE, ya que cambia "
             f"varios caracteres en una sola función y le da más legibilidad al código (ej.: {translate}).",
-        ))
+        ), "REPLACE"))
     return hallazgos
 
 
@@ -1750,8 +1835,8 @@ def _validar_nombre_del_encabezado(texto: str, limpio: str) -> List[Hallazgo]:
 def _validar_esquema_entre_bases(texto: str, limpio: str) -> List[Hallazgo]:
     """Base..Tabla omite el esquema: mismo texto en Reportes y Negocio (usuaria, 7 nov.)."""
     return [
-        _hallazgo(texto, posicion, "ESQUEMA_OMITIDO_ENTRE_BASES", mensaje)
-        for posicion, mensaje in esquemas_omitidos(limpio)
+        _con_elemento(_hallazgo(texto, posicion, "ESQUEMA_OMITIDO_ENTRE_BASES", mensaje), referencia)
+        for posicion, mensaje, referencia in esquemas_omitidos(limpio)
     ]
 
 
@@ -1882,12 +1967,12 @@ def _validar_modificacion_sin_where(texto: str, limpio: str) -> List[Hallazgo]:
         if _es_temporal(tabla) or tabla.lower() in ctes:
             continue
         verbo, efecto = ("actualizar", "se modificarán") if accion == "UPDATE" else ("eliminar", "se eliminarán")
-        hallazgos.append(_hallazgo(
+        hallazgos.append(_con_elemento(_hallazgo(
             texto, match.start(), "MODIFICACION_SIN_WHERE",
             f"Se identificó un {accion} sobre la tabla {tabla} sin condición WHERE, por lo que {efecto} todos "
             f"sus registros. Se recomienda agregar la condición WHERE que limite los registros a {verbo}, ya que "
             f"sin ella el cambio afecta a toda la tabla.",
-        ))
+        ), tabla, accion))
     return hallazgos
 
 
@@ -2000,12 +2085,12 @@ def _validar_sintaxis_prohibida(texto: str, limpio: str) -> List[Hallazgo]:
     hallazgos = []
     for match in re.finditer(_CATALOGO_SISTEMA, limpio, re.IGNORECASE):
         objeto = _limpiar_nombre(match.group(0))
-        hallazgos.append(_hallazgo(
+        hallazgos.append(_con_elemento(_hallazgo(
             texto, match.start(), "CATALOGO_SISTEMA_PROHIBIDO",
             f"Se detectó una consulta a {objeto}, una tabla interna de SQL Server. Consultar "
             f"solo las tablas del negocio, ya que un procedimiento no debe depender de las tablas internas del "
             f"motor.",
-        ))
+        ), objeto))
     for match in re.finditer(_SQL_DINAMICO, limpio, re.IGNORECASE):
         variable = re.search(r"@\w+", limpio[match.start():match.start() + 80])
         guardada = f" guardada en {variable.group(0)}" if variable else ""

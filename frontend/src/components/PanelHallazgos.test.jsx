@@ -170,6 +170,28 @@ describe('PanelHallazgos · «COLLATE no especificado en tabla temporal» como t
   });
 });
 
+describe('PanelHallazgos · más de 3 casos en tabla (usuaria, 21 nov.)', () => {
+  it('el backend manda la tabla con sus títulos; la frase de «Qué hace» va en letra normal', () => {
+    const fila = (nombre, columnas) => ({
+      nombre, tipo: 'Sugerencia', tituloDetalle: 'Qué hace', detalleEnTexto: true, lineas: [1], columnas,
+    });
+    render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[{
+      regla: 'HINT_BLOQUEO_PROHIBIDO',
+      severidad: 'alto',
+      linea: 1,
+      mensaje: 'Se identificó el uso de las siguientes sugerencias de bloqueo: UPDLOCK (bloquea); HOLDLOCK (mantiene); '
+        + 'ROWLOCK (obliga); TABLOCK (bloquea toda la tabla). Se recomienda retirarlas.',
+      lineas: [1, 1, 1, 1],
+      grupos: [fila('UPDLOCK', 'bloquea'), fila('HOLDLOCK', 'mantiene'), fila('ROWLOCK', 'obliga'), fila('TABLOCK', 'bloquea toda la tabla')],
+    }]} />);
+    const tabla = within(screen.getByRole('table'));
+    expect(tabla.getAllByRole('columnheader').map((th) => th.textContent)).toEqual(['Sugerencia', 'Qué hace']);
+    expect(tabla.getByText('obliga')).toHaveClass('tabla-detalle-texto');
+    expect(screen.getByText('Se identificó el uso de las siguientes sugerencias de bloqueo:')).toBeInTheDocument();
+    expect(screen.getByText('4 casos')).toBeInTheDocument();
+  });
+});
+
 describe('PanelHallazgos · «Validar documentación existente» con varios procedimientos', () => {
   it('desde 2 procedimientos: Procedimiento | Parámetros sin descripción (usuaria, 20 nov.)', () => {
     const mensaje = 'Se identificó que el diccionario no incluye la descripción de los siguientes procedimientos o de '

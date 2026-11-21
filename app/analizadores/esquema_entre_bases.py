@@ -12,8 +12,8 @@ QUE_HACER_ESQUEMA_ENTRE_BASES = (
 )
 
 
-def esquemas_omitidos(limpio: str) -> List[Tuple[int, str]]:
-    """[(posición, mensaje)] de cada Base..Tabla: entre bases se escribe Base.Esquema.Tabla."""
+def esquemas_omitidos(limpio: str) -> List[Tuple[int, str, str]]:
+    """[(posición, mensaje, «Base..Tabla»)] de cada Base..Tabla: entre bases se escribe Base.Esquema.Tabla."""
     resultado = []
     for match in _BASE_SIN_ESQUEMA.finditer(limpio):
         base, tabla = match.group(1).strip("[]"), match.group(2).strip("[]")
@@ -21,5 +21,6 @@ def esquemas_omitidos(limpio: str) -> List[Tuple[int, str]]:
             match.start(),
             f"Se verificó el uso de la tabla {tabla} de la base de datos {base} sin indicar el esquema "
             f"correspondiente ({base}..{tabla}). {QUE_HACER_ESQUEMA_ENTRE_BASES}",
+            f"{base}..{tabla}",
         ))
     return resultado

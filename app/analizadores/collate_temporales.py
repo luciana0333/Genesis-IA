@@ -113,22 +113,23 @@ def collate_agrupado(limpio: str, linea_de: Callable[[int], int]) -> Optional[Tu
     if not por_tabla:
         return None
     hechos = [hecho_por_tabla(tipo, tabla, [c for _, c in columnas]) for tipo, tabla, columnas in por_tabla]
+    tipos = {tipo for tipo, _, _ in por_tabla}
+    donde = ("tablas temporales" if tipos == {"la tabla temporal"} else
+             "variables de tabla" if tipos == {"la variable de tabla"} else "tablas temporales y variables de tabla")
     if len(por_tabla) >= TABLAS_PARA_VER_EN_TABLA:
         # Desde 3 tablas, la pantalla lo muestra como tabla (Tabla | Columnas sin COLLATE; usuaria, 8 nov.).
         # El texto lleva el detalle igual, para copiarlo.
-        tipos = {tipo for tipo, _, _ in por_tabla}
-        donde = ("tablas temporales" if tipos == {"la tabla temporal"} else
-                 "variables de tabla" if tipos == {"la variable de tabla"} else "tablas temporales y variables de tabla")
         detalle = "; ".join(f"{tabla}: {', '.join(c for _, c in columnas)}" for _, tabla, columnas in por_tabla)
         mensaje = (f"Se identificaron columnas de texto sin COLLATE en las siguientes {donde}: {detalle}. "
                    f"{ACCION_COLLATE_TEMPORAL}")
     elif len(hechos) == 1:
         mensaje = f"{hechos[0]}. {ACCION_COLLATE_TEMPORAL}"
     else:
-        primeras = sorted({linea_de(columnas[0][0]) for _, _, columnas in por_tabla})
-        donde = ("la línea " if len(primeras) == 1 else "las líneas ") + ", ".join(map(str, primeras))
-        detalle = "; ".join(h[:1].lower() + h[1:] for h in hechos)
-        mensaje = f"Se encontraron {len(hechos)} observaciones de este tipo, en {donde}: {detalle}. {ACCION_COLLATE_TEMPORAL}"
+        # 2 tablas: en el párrafo, sin repetir la frase (usuaria, 21 nov.).
+        (_, tabla_a, columnas_a), (_, tabla_b, columnas_b) = por_tabla
+        mensaje = (f"Se identificaron columnas de texto sin COLLATE en las {donde} "
+                   f"{tabla_a} ({', '.join(c for _, c in columnas_a)}) y "
+                   f"{tabla_b} ({', '.join(c for _, c in columnas_b)}). {ACCION_COLLATE_TEMPORAL}")
     grupos = [
         {"nombre": tabla, "tipo": "Tabla",
          "lineas": [linea_de(posicion) for posicion, _ in columnas],
