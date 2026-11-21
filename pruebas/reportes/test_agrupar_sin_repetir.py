@@ -87,6 +87,10 @@ BATERIA = {
     "REPLACE_ANIDADO_TRANSLATE": "SELECT REPLACE(REPLACE(REPLACE(x, '.', ' '), '-', ' '), '/', ' ') FROM dbo.A\n"
                                  "SELECT REPLACE(REPLACE(REPLACE(y, '.', ' '), '-', ' '), '/', ' ') FROM dbo.A",
     "TEMPORAL_TEXTO_SIN_COLLATE": "CREATE TABLE #A (cA VARCHAR(5))\nCREATE TABLE #B (cB VARCHAR(5))",
+    # Caso de la usuaria (21 nov.): «#BaseHechos (líneas 33, 68, 79)» dentro de la viñeta.
+    "TEMPORAL_SIN_CREAR": "SELECT a FROM #BaseHechos\nSELECT b FROM #PersonaRelacionCred\nSELECT c FROM #BaseHechos",
+    "TABLA_REPETIDA_EN_CONSULTA": "SELECT 1 FROM dbo.A a\nJOIN dbo.C c1 ON c1.n = a.n\nJOIN dbo.C c2 ON c2.n = a.n\n"
+                                  "JOIN dbo.C c3 ON c3.n = a.n\nJOIN dbo.C c4 ON c4.n = a.n;",
 }
 
 
@@ -101,7 +105,7 @@ class NingunaRepiteLaFraseTest(unittest.TestCase):
                     with self.subTest(regla=h.regla, modulo=verificar.__name__):
                         self.assertNotIn("observaciones de este tipo", h.mensaje)
                         # Las líneas van arriba de la tarjeta, no en el texto (usuaria, 21 nov.).
-                        self.assertNotRegex(h.mensaje, r"l[ií]neas? \d")
+                        self.assertNotRegex(h.mensaje, r"\bl[ií]neas? \d")
                     if h.regla == regla:
                         vistas.add(regla)
                         # La frase de lo encontrado no se repite.
