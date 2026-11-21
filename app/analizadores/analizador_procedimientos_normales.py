@@ -1432,9 +1432,14 @@ def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
     """VARCHAR(MAX) solo se permite para JSON, XML, listas para STRING_SPLIT o datos de una tabla heredada."""
     hallazgos = []
     casos = []  # (posición, variable o None, tipo)
+    # Una variable que no se usa ya sale en «Variable sin uso»: se elimina y no hace falta cambiarle el tamaño
+    # (usuaria, 21 nov.: @cMensajeError salía dos veces).
+    sin_uso = {variable.lower() for variable, _ in variables_sin_uso(limpio)}
     for match in re.finditer(r"\bN?VARCHAR\s*\(\s*MAX\s*\)", limpio, re.IGNORECASE):
         declarado = re.search(r"(@?[A-Za-z_]\w*)\s+(AS\s+)?$", limpio[:match.start()])
         nombre = declarado.group(1) if declarado and declarado.group(1).upper() not in {"AS", "CAST", "CONVERT"} else None
+        if nombre and nombre.lower() in sin_uso:
+            continue
         # «CAST(a AS VARCHAR(MAX))» es una conversión, no la declaración de «a» (con AS solo se declaran variables).
         conversion = bool(nombre and declarado.group(2) and not nombre.startswith("@"))
         if nombre and not conversion:

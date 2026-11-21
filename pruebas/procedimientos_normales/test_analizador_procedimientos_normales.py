@@ -566,7 +566,7 @@ END"""
 
 
     def test_varchar_max_es_medio_y_se_permite_para_json_o_xml(self):
-        observado = [h for h in verificar_procedimiento_normal("DECLARE @cNombre VARCHAR(MAX);")
+        observado = [h for h in verificar_procedimiento_normal("DECLARE @cNombre VARCHAR(MAX);\nSELECT @cNombre;")
                      if h.regla == "VARCHAR_MAX_PROHIBIDO"]
         self.assertEqual(len(observado), 1)
         self.assertEqual(observado[0].severidad.value, "medio")
@@ -1136,8 +1136,15 @@ FROM STRING_SPLIT(@cChequesParaUso,',')
 
     def test_string_split_de_otra_variable_no_la_excusa(self):
         sql = ("DECLARE @cTexto VARCHAR(MAX) = 'hola';\nDECLARE @cLista VARCHAR(500) = '1,2';\n"
-               "SELECT value FROM STRING_SPLIT(@cLista, ',');")
+               "SELECT value FROM STRING_SPLIT(@cLista, ',');\nSELECT @cTexto;")
         self.assertEqual(len(self._varchar_max(sql)), 1)
+
+    def test_variable_sin_uso_solo_sale_como_sin_uso(self):
+        # Caso real (21 nov., PA del motor): @cMensajeError VARCHAR(MAX) no se usa. Sale una sola vez, en «Variable sin
+        # uso»; pedirle un tamaño fijo a algo que se va a eliminar confunde.
+        reglas = [h.regla for h in verificar_procedimiento_normal("DECLARE @cMensajeError VARCHAR(MAX) = ''\nSELECT 1")]
+        self.assertIn("VARIABLE_DECLARADA_SIN_USO", reglas)
+        self.assertNotIn("VARCHAR_MAX_PROHIBIDO", reglas)
 
 
 class TestVarcharMaxParaHtml(unittest.TestCase):
