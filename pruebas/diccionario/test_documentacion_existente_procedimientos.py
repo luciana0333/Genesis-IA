@@ -29,6 +29,13 @@ def _existente(sql, dic):
     return [h for h in verificar_diccionario(sql, dic) if h.regla == "DOCUMENTACION_EXISTENTE_EN_ALTER"]
 
 
+def _actualiza(proc, *parametros):
+    """Lo demás del procedimiento ya documentado (UPDATE): así solo queda «se agregan» y no la observación unida
+    con «no se incluyen» (ver test_validar_documentacion_unida.py)."""
+    return _exec(proc, operacion="UPDATE", valor="Procedimiento que obtiene la solicitud") + "".join(
+        _exec(proc, p, operacion="UPDATE") for p in parametros)
+
+
 class SeObservaTest(unittest.TestCase):
     def test_procedimiento_y_parametros(self):
         dic = (_exec("PA_Solicitud_Sel_Avance", valor="Procedimiento que obtiene la solicitud")
@@ -44,7 +51,7 @@ class SeObservaTest(unittest.TestCase):
         )
 
     def test_un_solo_parametro_en_singular(self):
-        dic = _exec("PA_Solicitud_Sel_Avance", "@cDoi")
+        dic = _actualiza("PA_Solicitud_Sel_Avance", "@nOrigenId") + _exec("PA_Solicitud_Sel_Avance", "@cDoi")
         hallazgos = _existente(_proc("ALTER", "PA_Solicitud_Sel_Avance"), dic)
         self.assertEqual(
             hallazgos[0].mensaje,
@@ -55,7 +62,8 @@ class SeObservaTest(unittest.TestCase):
         )
 
     def test_solo_la_descripcion_del_procedimiento(self):
-        dic = _exec("PA_Solicitud_Sel_Avance", valor="Procedimiento que obtiene la solicitud")
+        dic = _exec("PA_Solicitud_Sel_Avance", valor="Procedimiento que obtiene la solicitud") + "".join(
+            _exec("PA_Solicitud_Sel_Avance", p, operacion="UPDATE") for p in ("@nOrigenId", "@cDoi"))
         mensaje = _existente(_proc("ALTER", "PA_Solicitud_Sel_Avance"), dic)[0].mensaje
         self.assertTrue(mensaje.startswith(
             "Se identificó que el diccionario agrega la descripción del procedimiento DUN.PA_Solicitud_Sel_Avance, "
@@ -65,7 +73,8 @@ class SeObservaTest(unittest.TestCase):
         sql = _proc("ALTER", "PA_Solicitud_Sel_Avance") + "\n" + _proc("ALTER", "PA_Solicitud_Sel_Detalle", ("@cPersCod",))
         dic = (_exec("PA_Solicitud_Sel_Avance", valor="Procedimiento que obtiene la solicitud")
                + _exec("PA_Solicitud_Sel_Avance", "@nOrigenId") + _exec("PA_Solicitud_Sel_Avance", "@cDoi")
-               + _exec("PA_Solicitud_Sel_Detalle", "@cPersCod"))
+               + _exec("PA_Solicitud_Sel_Detalle", "@cPersCod")
+               + _exec("PA_Solicitud_Sel_Detalle", operacion="UPDATE", valor="Procedimiento que obtiene el detalle"))
         hallazgos = _existente(sql, dic)
         self.assertEqual(len(hallazgos), 1)
         self.assertEqual(
@@ -102,7 +111,7 @@ class NoSeObservaTest(unittest.TestCase):
         self.assertEqual(_existente(_proc("ALTER", "PA_Solicitud_Sel_Avance"), dic), [])
 
     def test_solo_las_que_agregan(self):
-        dic = (_exec("PA_Solicitud_Sel_Avance", "@nOrigenId", operacion="UPDATE")
+        dic = (_actualiza("PA_Solicitud_Sel_Avance", "@nOrigenId")
                + _exec("PA_Solicitud_Sel_Avance", "@cDoi"))
         hallazgos = _existente(_proc("ALTER", "PA_Solicitud_Sel_Avance"), dic)
         self.assertIn("el parámetro @cDoi", hallazgos[0].mensaje)
@@ -111,7 +120,7 @@ class NoSeObservaTest(unittest.TestCase):
     def test_varios_procedimientos_solo_el_alter(self):
         sql = _proc("CREATE", "PA_Solicitud_Sel_Nuevo") + "\n" + _proc("ALTER", "PA_Solicitud_Sel_Avance", ("@cDoi",))
         dic = (_exec("PA_Solicitud_Sel_Nuevo", valor="Procedimiento nuevo") + _exec("PA_Solicitud_Sel_Nuevo", "@cDoi")
-               + _exec("PA_Solicitud_Sel_Avance", "@cDoi"))
+               + _exec("PA_Solicitud_Sel_Avance", "@cDoi") + _actualiza("PA_Solicitud_Sel_Avance"))
         hallazgos = _existente(sql, dic)
         self.assertEqual(len(hallazgos), 1)
         self.assertIn("al procedimiento DUN.PA_Solicitud_Sel_Avance, que ya existe (ALTER): el parámetro @cDoi",

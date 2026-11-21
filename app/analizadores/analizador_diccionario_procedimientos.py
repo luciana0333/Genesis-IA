@@ -890,14 +890,17 @@ def _reemplazar_validar_alter(hallazgos: List[Hallazgo], junto: Hallazgo) -> Lis
     return resto[:primero] + [junto] + resto[primero:]
 
 
-def _juntar_validar_alter(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
+def _juntar_validar_alter(hallazgos: List[Hallazgo], completo: str) -> List[Hallazgo]:
     """«Validar documentación existente» de un procedimiento en una sola observación, sin repetir (usuaria, 20 nov.:
-    «hay texto repetido muy grande»): el procedimiento y sus parámetros juntos."""
+    «hay texto repetido muy grande»): el procedimiento y sus parámetros juntos. `completo`: esquema.nombre."""
     casos = [h for h in hallazgos if h.regla == "VALIDAR_DOCUMENTACION_ALTER"]
     if not casos:
         return hallazgos
     nombre, parametros = _casos_validar_alter(casos)
     junto = _validar_alter_junto(casos, _mensaje_validar_alter(nombre, [p for _, p in parametros]))
+    linea_objeto = next((h.linea for h in casos if getattr(h, "nombre_validar", None)), 1)
+    junto.faltan = {completo: sorted(([(linea_objeto, f"(descripción {actual().del_})")] if nombre else [])
+                                     + parametros)}
     return _reemplazar_validar_alter(hallazgos, junto)
 
 
@@ -927,7 +930,7 @@ def _validar_alter_en_tabla(hallazgos: List[Hallazgo], textos: Dict[str, str]) -
         if not casos:
             return hallazgos
         objeto = casos[0].objeto
-        junto = _juntar_validar_alter(casos)[0]
+        junto = _juntar_validar_alter(casos, alter[objeto][0])[0]
         junto.objeto = objeto
         return _reemplazar_validar_alter(hallazgos, junto)
 
@@ -953,6 +956,7 @@ def _validar_alter_en_tabla(hallazgos: List[Hallazgo], textos: Dict[str, str]) -
     junto.grupos = grupos
     junto.seccion = "objeto"
     junto.objeto = casos[0].objeto
+    junto.faltan = {grupo["nombre"]: list(zip(grupo["lineas"], grupo["etiquetas"])) for grupo in grupos}
     return _reemplazar_validar_alter(hallazgos, junto)
 
 
@@ -981,9 +985,11 @@ def _verificar_diccionario(
         # revisa solo lo de este y los otros se avisan una vez como «procedimiento fuera del script».
         nombres = nombres_del_script(texto_procedimiento, _encabezado(), _nombre_del_encabezado)
         propio = sin_otros_objetos(texto_diccionario, nombres[0]) if len(nombres) == 1 else None
+        esquema, nombre_proc = extraer_esquema_y_nombre(texto_procedimiento)
         hallazgos = agrupar(
             juntar_ortografia(_juntar_validar_alter(_revisar_procedimiento(texto_procedimiento,
-                                                                            propio or texto_diccionario)),
+                                                                            propio or texto_diccionario),
+                                                    _nombre_completo(esquema, nombre_proc or "")),
                               ACCION_ORTOGRAFIA),
             _plantillas_agrupadas(),
         )
@@ -1002,6 +1008,7 @@ def _verificar_diccionario(
             texto_diccionario, nombres_del_script(texto_procedimiento, _encabezado(), _nombre_del_encabezado)
         )
     hallazgos += _documentacion_existente_en_alter(texto_procedimiento, texto_diccionario)
+    hallazgos = _unir_validacion_alter(hallazgos)
     return ([duplicado] if duplicado else []) + hallazgos
 
 
@@ -1031,12 +1038,14 @@ def _documentacion_existente_en_alter(texto_procedimiento: str, texto_diccionari
         nombre = alterados.get(ll.texto("level1name").upper())
         if not nombre or o.tipo_sql not in ll.texto("level1type").upper():
             continue
-        partes = por_procedimiento.setdefault(nombre, {"procedimiento": [], "parametros": []})
+        partes = por_procedimiento.setdefault(nombre, {"procedimiento": [], "parametros": [], "paradas": []})
         if "PARAMETER" in ll.texto("level2type").upper():
             if ll.texto("level2name") not in partes["parametros"]:
                 partes["parametros"].append(ll.texto("level2name"))
+                partes["paradas"].append((ll.linea, ll.texto("level2name")))
         elif not ll.texto("level2type"):
             partes["procedimiento"].append(ll.linea)
+            partes["paradas"].append((ll.linea, f"(descripción {o.del_})"))
         else:
             continue
         lineas.add(ll.linea)
@@ -1084,7 +1093,75 @@ def _documentacion_existente_en_alter(texto_procedimiento: str, texto_diccionari
     if len(orden) > 1:
         hallazgo.lineas = orden
     hallazgo.seccion = "diccionario"
+    # Para unirla con «no se incluyen» en una sola observación (_unir_validacion_alter).
+    hallazgo.agregados = {nombre: sorted(partes["paradas"]) for nombre, partes in por_procedimiento.items()}
     return [hallazgo]
+
+
+SITUACION_NO_INCLUIDA = "No se incluyen en el diccionario"
+SITUACION_AGREGADA = "Se agregan en el diccionario"
+
+
+def _unir_validacion_alter(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
+    """
+    En un ALTER, lo que el diccionario no incluye y lo que agrega piden lo mismo: verificar qué descripciones ya
+    están registradas. Si salen las dos, van en una sola observación con tabla (opción A de la usuaria, 20 nov.):
+    con un procedimiento, Situación | Elementos; con varios, Procedimiento | Situación | Elementos.
+    «Ver en el código» lleva a cada fila en su cajita: lo que falta, al ALTER; lo que se agrega, al diccionario.
+    """
+    validar = next((h for h in hallazgos if h.regla == "VALIDAR_DOCUMENTACION_ALTER"
+                    and getattr(h, "faltan", None)), None)
+    existente = next((h for h in hallazgos if h.regla == "DOCUMENTACION_EXISTENTE_EN_ALTER"
+                      and getattr(h, "agregados", None)), None)
+    if not validar or not existente:
+        return hallazgos
+    o = actual()
+    nombres = list(dict.fromkeys(list(validar.faltan) + list(existente.agregados)))
+    filas = []  # (procedimiento, situación, cajita, [(línea, elemento)])
+    for nombre in nombres:
+        if validar.faltan.get(nombre):
+            filas.append((nombre, SITUACION_NO_INCLUIDA, "objeto", validar.faltan[nombre]))
+        if existente.agregados.get(nombre):
+            filas.append((nombre, SITUACION_AGREGADA, "diccionario", existente.agregados[nombre]))
+
+    def elementos(paradas):
+        return ", ".join(elemento for _, elemento in paradas)
+
+    if len(nombres) == 1:
+        intro = (f"Se identificó que {o.el} {nombres[0]} se modifica ({o.alter}), por lo que las siguientes "
+                 f"descripciones podrían estar registradas previamente: ")
+        detalle = "; ".join(f"{situacion}: {elementos(paradas)}" for _, situacion, _, paradas in filas)
+        grupos = [{"nombre": situacion, "tipo": "Situación", "seccion": cajita,
+                   "lineas": [linea for linea, _ in paradas], "etiquetas": [e for _, e in paradas]}
+                  for _, situacion, cajita, paradas in filas]
+    else:
+        los = "los" if o.el.startswith("el ") else "las"
+        intro = (f"Se identificó que {los} siguientes {o.plural} se modifican ({o.alter}), por lo que algunas "
+                 f"descripciones podrían estar registradas previamente: ")
+        detalle = "; ".join(f"{nombre} ({situacion[0].lower()}{situacion[1:]}): {elementos(paradas)}"
+                            for nombre, situacion, _, paradas in filas)
+        grupos = [{"nombre": nombre, "tipo": o.nombre.capitalize(), "situacion": situacion, "seccion": cajita,
+                   "lineas": [linea for linea, _ in paradas], "etiquetas": [e for _, e in paradas]}
+                  for nombre, situacion, cajita, paradas in filas]
+    que_hacer = ("Se recomienda verificar cuáles ya se encuentran registradas. Las que no estén registradas deben "
+                 "incluirse en el diccionario, y las que ya existan deben actualizarse con sp_updateextendedproperty "
+                 "en lugar de agregarse, ya que de lo contrario la ejecución del script fallará.")
+    mensaje = f"{intro}{detalle}. {que_hacer}"
+    unido = Hallazgo(
+        linea=grupos[0]["lineas"][0],
+        origen=OrigenAnalisis.DICCIONARIO,
+        severidad=Severidad.BAJO,
+        regla="VALIDAR_DOCUMENTACION_ALTER",
+        mensaje=mensaje,
+    )
+    unido.inicio_que_hacer = mensaje.index(que_hacer)
+    unido.grupos = grupos
+    # Las paradas de «Ver en el código», fila por fila (cada fila en su cajita).
+    unido.lineas = [linea for grupo in grupos for linea in grupo["lineas"]]
+    unido.seccion = grupos[0]["seccion"]
+    posicion = hallazgos.index(validar)
+    resto = [h for h in hallazgos if h is not validar and h is not existente]
+    return resto[:posicion] + [unido] + resto[posicion:]
 
 
 def _procedimientos_fuera_del_script(texto_diccionario: str, nombres: List[str]) -> List[Hallazgo]:

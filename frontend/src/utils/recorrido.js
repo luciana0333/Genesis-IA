@@ -28,5 +28,7 @@ export function grupoDelRecorrido(grupos, indice) {
  */
 export function etiquetaDeGrupos(grupos) {
   if (!grupos || grupos.length < 2) return null;
+  // Filas por situación (ALTER: «no se incluyen» / «se agregan»): cada elemento es un caso.
+  if (grupos.some((grupo) => grupo.seccion)) return `${grupos.reduce((total, grupo) => total + grupo.lineas.length, 0)} casos`;
   return `${grupos.length} casos`;
 }

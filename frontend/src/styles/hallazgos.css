@@ -1572,3 +1572,10 @@
 .finding-body .finding-fix {
   overflow-wrap: anywhere;
 }
+
+/* «Validar documentación existente» unida (ALTER): la situación en texto sobrio, sin cajita. */
+.tabla-situacion { color: var(--text-primary); font-size: 0.82rem; font-weight: 500; white-space: nowrap; }
+.tabla-situaciones > thead > tr > th:first-child { width: 230px; }
+.tabla-situaciones > thead > tr > th:nth-child(2) { width: 220px; }
+.tabla-situaciones .tabla-nombre { vertical-align: top; background: #ffffff; }
+:root[data-theme="dark"] .tabla-situaciones .tabla-nombre { background: transparent; }

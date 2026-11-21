@@ -142,8 +142,12 @@ END"""
         self.assertIn("está documentado, pero su descripción se encuentra vacía",
                       reglas["DESCRIPCION_PROCEDIMIENTO_VACIA"].mensaje)
 
+    # En ALTER, lo documentado se actualiza (sp_updateextendedproperty): si se agregara, saldría junto con
+    # «se agregan» en la observación unida (ver test_validar_documentacion_unida.py).
+    ACTUALIZA = DICCIONARIO.replace("sp_addextendedproperty", "sp_updateextendedproperty")
+
     def test_alter_procedure_solo_pide_validar_lo_no_documentado(self):
-        hallazgos = verificar_diccionario("ALTER" + self.CUERPO, self.DICCIONARIO)
+        hallazgos = verificar_diccionario("ALTER" + self.CUERPO, self.ACTUALIZA)
         reglas = [h.regla for h in hallazgos]
         self.assertNotIn("PROCEDIMIENTO_SIN_DESCRIPCION", reglas)
         self.assertNotIn("PARAMETRO_FALTANTE", reglas)
@@ -162,8 +166,8 @@ END"""
 
     def test_alter_desde_3_parametros_en_vinetas(self):
         cuerpo = self.CUERPO.replace("@cCodigo VARCHAR(10)", "@cA VARCHAR(1), @cB VARCHAR(1), @cC VARCHAR(1)")
-        diccionario = self.DICCIONARIO + (
-            "\nEXEC sys.sp_addextendedproperty @name = N'MS_Description', @value = N'Procedimiento que consulta', "
+        diccionario = self.ACTUALIZA + (
+            "\nEXEC sys.sp_updateextendedproperty @name = N'MS_Description', @value = N'Procedimiento que consulta', "
             "@level0type = N'SCHEMA', @level0name = N'dbo', "
             "@level1type = N'PROCEDURE', @level1name = N'PA_Cliente_Consultar';")
         validar = [h for h in verificar_diccionario("ALTER" + cuerpo, diccionario) if h.regla == "VALIDAR_DOCUMENTACION_ALTER"]
@@ -175,7 +179,7 @@ END"""
         )
 
     def test_alter_solo_el_procedimiento_en_singular(self):
-        diccionario = self.DICCIONARIO.replace("N'@nClienteId'", "N'@cCodigo'") + self.DICCIONARIO.replace(
+        diccionario = self.ACTUALIZA.replace("N'@nClienteId'", "N'@cCodigo'") + self.ACTUALIZA.replace(
             "N''", "N'Identificador'")
         validar = [h for h in verificar_diccionario("ALTER" + self.CUERPO, diccionario) if h.regla == "VALIDAR_DOCUMENTACION_ALTER"]
         self.assertEqual(
@@ -187,7 +191,7 @@ END"""
 
     def test_alter_con_varios_procedimientos_va_en_tabla(self):
         def prop(pa, parametro=None, valor="Procedimiento que consulta"):
-            texto = (f"EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'{valor}', "
+            texto = (f"EXEC sys.sp_updateextendedproperty @name=N'MS_Description', @value=N'{valor}', "
                      f"@level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'PROCEDURE', @level1name=N'{pa}'")
             return texto + (f", @level2type=N'PARAMETER', @level2name=N'{parametro}';\n" if parametro else ";\n")
         script = ("-- encabezado\nALTER PROCEDURE dbo.PA_Cliente_Sel_Uno\n  @nA INT,\n  @nB INT\nAS\nSELECT 1\nGO\n"
