@@ -832,6 +832,48 @@ def verificar_diccionario(
     return hallazgos
 
 
+def _juntar_validar_alter(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
+    """«Validar documentación existente» en una sola frase, sin repetir (usuaria, 20 nov.: «hay texto repetido muy
+    grande»): el procedimiento y sus parámetros juntos, y el «aunque podría estar documentado…» una sola vez."""
+    casos = [h for h in hallazgos if h.regla == "VALIDAR_DOCUMENTACION_ALTER"]
+    if len(casos) < 2:
+        return hallazgos
+    o = actual()
+    del_objeto = next((h for h in casos if not getattr(h, "elemento", None)), None)
+    parametros = [h.elemento for h in casos if getattr(h, "elemento", None)]
+    nombre = re.search(rf"{re.escape(o.del_)} (\S+?), aunque", del_objeto.mensaje).group(1) if del_objeto else None
+
+    def enumerar(elementos: List[str]) -> str:
+        return elementos[0] if len(elementos) == 1 else f"{', '.join(elementos[:-1])} y {elementos[-1]}"
+
+    de_parametros = f"del parámetro {parametros[0]}" if len(parametros) == 1 else f"de los parámetros {enumerar(parametros)}"
+    if nombre and parametros:
+        que = f"la descripción {o.del_} {nombre} ni {de_parametros}"
+    elif nombre:
+        que = f"la descripción {o.del_} {nombre}"
+    else:
+        que = f"la descripción {de_parametros}"
+    varios = len(parametros) + (1 if nombre else 0) > 1
+    podria = "podrían estar documentados" if varios else f"podría estar {o.documentado}"
+    cuenta = "cuentan" if varios else "cuenta"
+    junto = Hallazgo(
+        linea=min(h.linea for h in casos),
+        origen=OrigenAnalisis.DICCIONARIO,
+        severidad=Severidad.BAJO,
+        regla="VALIDAR_DOCUMENTACION_ALTER",
+        mensaje=(f"Se identificó que el diccionario no incluye {que}, aunque {podria} previamente al tratarse de una "
+                 f"modificación ({o.alter}). Verificar si ya {cuenta} con descripción en el diccionario y, de no "
+                 f"tenerla, incluir la descripción respectiva."),
+    )
+    junto.lineas = sorted({h.linea for h in casos})
+    # Las líneas de los parámetros son del ALTER: la observación se muestra con el código del objeto.
+    secciones = [getattr(h, "seccion", None) for h in casos]
+    junto.seccion = "objeto" if "objeto" in secciones else next((s for s in secciones if s), None)
+    primero = hallazgos.index(casos[0])
+    resto = [h for h in hallazgos if h.regla != "VALIDAR_DOCUMENTACION_ALTER"]
+    return resto[:primero] + [junto] + resto[primero:]
+
+
 def _verificar_diccionario(
     texto_procedimiento: str,
     texto_diccionario: str
@@ -858,7 +900,8 @@ def _verificar_diccionario(
         nombres = nombres_del_script(texto_procedimiento, _encabezado(), _nombre_del_encabezado)
         propio = sin_otros_objetos(texto_diccionario, nombres[0]) if len(nombres) == 1 else None
         hallazgos = agrupar(
-            juntar_ortografia(_revisar_procedimiento(texto_procedimiento, propio or texto_diccionario),
+            juntar_ortografia(_juntar_validar_alter(_revisar_procedimiento(texto_procedimiento,
+                                                                            propio or texto_diccionario)),
                               ACCION_ORTOGRAFIA),
             _plantillas_agrupadas(),
         )

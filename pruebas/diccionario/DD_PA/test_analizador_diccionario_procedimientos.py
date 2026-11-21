@@ -151,9 +151,15 @@ END"""
         # El procedimiento y @cCodigo se piden validar en un solo hallazgo.
         self.assertEqual(len(validar), 1)
         self.assertEqual(validar[0].severidad, Severidad.BAJO)
-        self.assertIn("Se encontraron 2 observaciones", validar[0].mensaje)
-        self.assertIn("@cCodigo", validar[0].mensaje)
-        self.assertIn("Verificar si ya cuenta con descripción en el diccionario", validar[0].mensaje)
+        # Sin redundar (usuaria, 20 nov.): una sola frase con el procedimiento y el parámetro.
+        self.assertEqual(
+            validar[0].mensaje,
+            "Se identificó que el diccionario no incluye la descripción del procedimiento dbo.PA_Cliente_Consultar ni "
+            "del parámetro @cCodigo, aunque podrían estar documentados previamente al tratarse de una modificación "
+            "(ALTER PROCEDURE). Verificar si ya cuentan con descripción en el diccionario y, de no tenerla, incluir la "
+            "descripción respectiva.",
+        )
+        self.assertEqual(validar[0].mensaje.count("aunque podría"), 1)
         self.assertNotIn("Es un ALTER PROCEDURE", validar[0].mensaje)
 
     def test_alter_procedure_revisa_lo_demas_igual_que_create(self):
