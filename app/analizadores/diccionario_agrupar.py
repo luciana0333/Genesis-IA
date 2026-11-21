@@ -95,7 +95,8 @@ def agrupar(hallazgos: List[Hallazgo], plantillas: Dict[str, Tuple[str, str]]) -
             continue
         # En el orden en que aparecen en el código.
         grupo = sorted(grupo, key=lambda h: (h.linea, getattr(h, "posicion", 0)))
-        numeros = sorted({h.linea for h in grupo})
+        # También las líneas que cada caso trae aparte (la primera declaración de un duplicado).
+        numeros = sorted({n for h in grupo for n in (getattr(h, "lineas", None) or [h.linea])})
         elementos = [getattr(h, "elemento", None) for h in grupo]
         if regla in plantillas and all(elementos):
             sustantivo, accion = plantillas[regla]

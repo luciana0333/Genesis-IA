@@ -466,9 +466,11 @@ class TestDiccionarioTablasSinDependerDeGO(unittest.TestCase):
         repetida = caso6._sentencia("cNombreArchivo", "Otra descripción") + ";"
         hallazgos = verificar_diccionario_tablas(caso6.TABLA, base + "\n" + repetida)
         self.assertEqual([h.regla for h in hallazgos], ["DOCUMENTACION_DUPLICADA"])
-        self.assertRegex(hallazgos[0].mensaje, r"^Se identificó que la columna cNombreArchivo se encuentra "
-                         r"documentada dos veces, siendo la primera declaración en la línea \d+\. "
-                         r"Se recomienda retirar una de las declaraciones duplicadas")
+        # Las líneas no van en el texto: van arriba de la tarjeta (usuaria, 21 nov.).
+        self.assertTrue(hallazgos[0].mensaje.startswith(
+            "Se identificó que la columna cNombreArchivo se encuentra documentada dos veces. Se recomienda retirar "
+            "una de las declaraciones duplicadas"))
+        self.assertEqual(len(hallazgos[0].lineas), 2)  # la primera declaración y la repetida
 
     def test_sentencia_sin_parametros_obligatorios(self):
         diccionario = caso6.diccionario_correcto(";").replace(

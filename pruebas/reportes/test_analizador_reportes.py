@@ -252,11 +252,11 @@ class TestAnalizadorReportes(unittest.TestCase):
         hallazgos = verificar_reporte(sql)
         omitidos = [h for h in hallazgos if h.regla == "ESQUEMA_OMITIDO_ENTRE_BASES"]
         self.assertEqual(len(omitidos), 1)
-        self.assertIn("2 observaciones", omitidos[0].mensaje)
         self.assertEqual(omitidos[0].severidad.value, "medio")
-        self.assertIn("el uso de la tabla Agencias de la base de datos DBCMACICA sin indicar el esquema "
-                      "correspondiente (DBCMACICA..Agencias)", omitidos[0].mensaje)
-        self.assertIn("(DBCMACICA..Zonas)", omitidos[0].mensaje)
+        # 2 casos en el párrafo, sin repetir la frase (usuaria, 21 nov.).
+        self.assertTrue(omitidos[0].mensaje.startswith(
+            "Se verificó el uso de las tablas DBCMACICA..Agencias y DBCMACICA..Zonas de otra base de datos sin "
+            "indicar el esquema correspondiente. Indicar el esquema"))
         self.assertTrue(omitidos[0].mensaje.endswith(QUE_HACER_ESQUEMA_ENTRE_BASES))
 
     def test_esquema_omitido_mismo_texto_en_reportes_y_negocio(self):

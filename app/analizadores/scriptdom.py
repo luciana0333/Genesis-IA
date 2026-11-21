@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from app.analizadores.scriptdom_mensajes import (
-    MENSAJES, consulta_de_nulos, es_formato_de_fecha_corto, mensaje_agrupado, mensaje_hecho,
+    MENSAJES, consulta_de_nulos, es_formato_de_fecha_corto, lineas_del_hecho, mensaje_agrupado, mensaje_hecho,
     grupos_isnull_validar, mensaje_isnull_validar_partes, mensaje_varchar_sin_tamano_fecha, severidad,
 )
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
@@ -298,8 +298,8 @@ def mensaje_error_sintaxis(error: Dict, sql: str = "") -> str:
     if mensaje and not mensaje.endswith("."):
         mensaje += "."
     return (
-        f"Se identificó un error de sintaxis en la línea {error.get('linea')}, columna {error.get('columna')}: "
-        f"{mensaje} Corregir la estructura en esa línea o justo antes (comas, paréntesis, comillas, BEGIN/END), "
+        f"Se identificó un error de sintaxis en la columna {error.get('columna')}: "
+        f"{mensaje} Corregir la estructura en la línea indicada o justo antes (comas, paréntesis, comillas, BEGIN/END), "
         f"ya que SQL Server no podrá crear ni ejecutar el código con este error."
     )
 
@@ -342,8 +342,10 @@ def validar_estructura(sql: str) -> Optional[List[Hallazgo]]:
             mensaje = mensaje_agrupado(hechos)
         if not mensaje:
             continue
-        lineas = sorted({int(h["linea"]) for h in hechos if mensaje_hecho(h)})
-        hallazgo = _hallazgo(lineas[0], tipo, mensaje, severidad(tipo))
+        # La línea del hallazgo es la suya; arriba de la tarjeta van también las que el texto ya no dice.
+        propias = sorted({int(h["linea"]) for h in hechos if mensaje_hecho(h)})
+        lineas = sorted({int(n) for h in hechos if mensaje_hecho(h) for n in lineas_del_hecho(h)})
+        hallazgo = _hallazgo(propias[0], tipo, mensaje, severidad(tipo))
         if len(lineas) > 1:
             hallazgo.lineas = lineas  # para recorrerlas con la barra «1 de N»
         if tipo in CON_CONSULTA_DE_NULOS:

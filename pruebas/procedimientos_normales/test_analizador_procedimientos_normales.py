@@ -460,8 +460,11 @@ class TestAnalizadorProcedimientosNormales(unittest.TestCase):
         sql = "SELECT c.cNombre FROM dbo.Cliente c WITH (UPDLOCK, HOLDLOCK) WHERE c.nId = 1;"
         hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "HINT_BLOQUEO_PROHIBIDO"]
         self.assertEqual(len(hallazgos), 1)  # agrupados en un solo mensaje
-        self.assertIn("'UPDLOCK', que bloquea las filas leídas", hallazgos[0].mensaje)
-        self.assertIn("'HOLDLOCK', que mantiene bloqueadas", hallazgos[0].mensaje)
+        # 2 casos: en el párrafo, cada uno con lo que hace (usuaria, 21 nov.).
+        self.assertTrue(hallazgos[0].mensaje.startswith(
+            "Se detectó el uso de UPDLOCK (bloquea las filas leídas como si se fueran a actualizar y las mantiene "
+            "bloqueadas hasta que termina la transacción) y HOLDLOCK (mantiene bloqueadas"))
+        self.assertEqual(hallazgos[0].mensaje.count("Se detectó"), 1)
         self.assertEqual(hallazgos[0].severidad.value, "alto")
         self.assertNotIn("HINT_PLAN_PROHIBIDO", {h.regla for h in verificar_procedimiento_normal(sql)})
         self.assertNotIn("HINT_BLOQUEO_PROHIBIDO",
@@ -662,7 +665,7 @@ END"""
         hallazgo = [h for h in verificar_procedimiento_normal(sin_collate) if h.regla == "TEMPORAL_TEXTO_SIN_COLLATE"][0]
         for columna in ("cA", "cB", "cD"):
             self.assertIn(columna, hallazgo.mensaje)
-        self.assertIn("variable de tabla @V", hallazgo.mensaje)
+        self.assertIn("tablas temporales y variables de tabla #T (cA, cB) y @V (cD)", hallazgo.mensaje)
 
     def test_collate_en_temporales_agrupado_por_tabla(self):
         # Caso de la usuaria (7 nov.): el mismo mensaje, una viñeta por temporal con todas sus columnas.
@@ -673,9 +676,9 @@ END"""
         self.assertEqual(len(hallazgos), 1)
         self.assertEqual(
             hallazgos[0].mensaje,
-            "Se encontraron 2 observaciones de este tipo, en las líneas 1, 3: las columnas de texto Num_correlativo, "
-            "dFechaContable y TipoReporte de la tabla temporal #FILT no definen COLLATE; las columnas de texto "
-            "Num_correlativo y TipoReporte de la tabla temporal #FILT2 no definen COLLATE. Se recomienda añadir el "
+            # 2 tablas: en el párrafo, sin repetir la frase (usuaria, 21 nov.).
+            "Se identificaron columnas de texto sin COLLATE en las tablas temporales #FILT (Num_correlativo, "
+            "dFechaContable, TipoReporte) y #FILT2 (Num_correlativo, TipoReporte). Se recomienda añadir el "
             "COLLATE correspondiente en las columnas de tipo texto de las tablas temporales. Por favor, revisar y "
             "aplicarlo donde corresponda.",
         )
@@ -727,9 +730,9 @@ JOIN dbo.Cliente c5 ON c5.n = c1.n;"""
         self.assertEqual(hallazgos[0].severidad.value, "medio")
         self.assertEqual(
             hallazgos[0].mensaje,
-            "Se identificó el uso repetido de la siguiente tabla en los JOIN: 'dbo.Cliente' se utiliza en 4 JOIN "
-            "(líneas 2, 3, 4, 5). Se recomienda evitar los JOIN repetidos sobre una misma tabla y evaluar la "
-            "reutilización de sus resultados, para reducir accesos innecesarios y mejorar el rendimiento de la consulta.",
+            "Se identificó el uso repetido de la siguiente tabla en los JOIN: 'dbo.Cliente' se utiliza en 4 JOIN. "
+            "Se recomienda evitar los JOIN repetidos sobre una misma tabla y evaluar la reutilización de sus "
+            "resultados, para reducir accesos innecesarios y mejorar el rendimiento de la consulta.",
         )
 
     def test_el_from_no_se_cuenta_como_join(self):
@@ -749,8 +752,8 @@ JOIN dbo.Cliente c4 ON c4.n = c1.n;"""
         hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "TABLA_REPETIDA_EN_CONSULTA"]
         self.assertEqual(len(hallazgos), 1)
         self.assertTrue(hallazgos[0].mensaje.startswith(
-            "Se identificó el uso repetido de las siguientes tablas en los JOIN: 'T1' se utiliza en 4 JOIN "
-            "(líneas 2, 5, 8, 11); 'T2' se utiliza en 4 JOIN (líneas 3, 6, 9, 12). Se recomienda evitar"))
+            "Se identificó el uso repetido de las siguientes tablas en los JOIN: 'T1' se utiliza en 4 JOIN; "
+            "'T2' se utiliza en 4 JOIN. Se recomienda evitar"))
         self.assertEqual(hallazgos[0].grupos, [{"nombre": "T1", "lineas": [2, 5, 8, 11]},
                                                {"nombre": "T2", "lineas": [3, 6, 9, 12]}])
         self.assertEqual(hallazgos[0].lineas, [2, 5, 8, 11, 3, 6, 9, 12])

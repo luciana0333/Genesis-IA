@@ -11,9 +11,11 @@ const TITULO_DE_COLUMNAS = {
 /** Reglas que pasan a tabla con menos grupos (por defecto, desde 3). */
 const GRUPOS_PARA_TABLA = { VALIDAR_DOCUMENTACION_ALTER: 2 };
 
-/** ¿Esta observación se muestra como tabla (Tabla | Columnas)? Desde 3 tablas, en las reglas de arriba. */
-export const collateEnTabla = (hallazgo) => Boolean(TITULO_DE_COLUMNAS[hallazgo.regla])
-  && (hallazgo.grupos?.length ?? 0) >= (GRUPOS_PARA_TABLA[hallazgo.regla] ?? TABLAS_PARA_VER_EN_TABLA);
+/** ¿Esta observación se muestra como tabla (Tabla | Columnas)? Desde 3 tablas, en las reglas de arriba; o cuando el
+ * backend ya decidió la tabla (más de 3 casos, con el título de su segunda columna; usuaria, 21 nov.). */
+export const collateEnTabla = (hallazgo) => Boolean(hallazgo.grupos?.[0]?.tituloDetalle)
+  || (Boolean(TITULO_DE_COLUMNAS[hallazgo.regla])
+    && (hallazgo.grupos?.length ?? 0) >= (GRUPOS_PARA_TABLA[hallazgo.regla] ?? TABLAS_PARA_VER_EN_TABLA));
 
 export const tituloDeColumnas = (regla) => TITULO_DE_COLUMNAS[regla] ?? 'Columnas';
 
@@ -28,7 +30,8 @@ export function TablaColumnasSinCollate({ grupos, filaActiva = null, tituloColum
   const tituloFilas = grupos[0]?.tipo ?? 'Tabla';
   const porSituacion = tituloFilas === 'Situación';
   const conSituacion = grupos.some((grupo) => grupo.situacion);
-  const tituloElementos = porSituacion || conSituacion ? 'Elementos' : tituloColumnas;
+  const tituloElementos = grupos[0]?.tituloDetalle
+    ?? (porSituacion || conSituacion ? 'Elementos' : tituloColumnas);
   // Filas seguidas del mismo procedimiento: su nombre ocupa una sola celda.
   const filasDe = (indice) => {
     let filas = 1;
@@ -63,7 +66,9 @@ export function TablaColumnasSinCollate({ grupos, filaActiva = null, tituloColum
               )}
               {conSituacion && <td className="tabla-situacion">{grupo.situacion}</td>}
               {/* «columnas» viene cuando una columna se repite en varias líneas (ISNULL): se muestra una sola vez. */}
-              <td className="tabla-collate-columnas">{grupo.columnas ?? (grupo.etiquetas ?? []).join(', ')}</td>
+              <td className={grupo.detalleEnTexto ? 'tabla-detalle-texto' : 'tabla-collate-columnas'}>
+                {grupo.columnas ?? (grupo.etiquetas ?? []).join(', ')}
+              </td>
             </tr>
           );
         })}

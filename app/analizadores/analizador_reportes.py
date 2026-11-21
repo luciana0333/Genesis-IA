@@ -13,6 +13,8 @@ from app.analizadores.encabezado import (
     encabezado_observado, mensaje_nombre_encabezado_distinto, nombre_del_encabezado_distinto,
 )
 from app.analizadores.esquema_entre_bases import esquemas_omitidos
+from app.analizadores.agrupar_casos import Plantilla, accion_del_primero, agrupar_casos
+from app.analizadores.plantillas_agrupadas import PLANTILLA_COLLATE_DATABASE_DEFAULT, PLANTILLA_ESQUEMA_ENTRE_BASES
 from app.analizadores.indice_forzado import indice_forzado_agrupado
 from app.analizadores.select_estrella import (
     estrellas_tras_coma, marcar as marcar_select_estrella, unir_select_estrella,
@@ -273,13 +275,15 @@ def _validar_nolock(texto: str, limpio: str) -> List[Hallazgo]:
         tiene_nolock = bool(_ALIAS_Y_NOLOCK.match(limpio, match.end()))
         if _es_temporal(tabla):
             if tiene_nolock:
-                hallazgos.append(_hallazgo(
+                hallazgo = _hallazgo(
                     texto,
                     match.start(2),
                     "NOLOCK_EN_TABLA_TEMPORAL",
                     f"Se identificó que la tabla temporal {tabla} tiene WITH(NOLOCK). Se recomienda retirarlo, "
                     f"ya que la tabla temporal solo existe en la sesión del reporte y no genera bloqueos con otros procesos.",
-                ))
+                )
+                hallazgo.elemento = tabla
+                hallazgos.append(hallazgo)
             continue
         if (tabla.strip("[]").lower() in ctes or re.match(_CATALOGOS_PROHIBIDOS, tabla, re.IGNORECASE)
                 or _esta_en_update(limpio, match.start())):
@@ -296,14 +300,16 @@ def _validar_hints(texto: str, limpio: str) -> List[Hallazgo]:
     for match in re.finditer(_HINTS_PROHIBIDOS, limpio, re.IGNORECASE):
         # MAXRECURSION tampoco se permite, pero va con su propio título.
         es_maxrecursion = "MAXRECURSION" in match.group(0).upper()
-        hallazgos.append(_hallazgo(
+        hallazgo = _hallazgo(
             texto,
             match.start(),
             "MAXRECURSION_PROHIBIDO" if es_maxrecursion else "HINT_PLAN_PROHIBIDO",
             f"Se identificó el uso de '{match.group(0)}', que le indica al motor de base de datos cómo ejecutar "
             f"la consulta. Se recomienda retirarlo, ya que no está permitido forzar al motor y es el optimizador "
             f"quien decide el mejor plan de ejecución.",
-        ))
+        )
+        hallazgo.elemento = " ".join(match.group(0).split())
+        hallazgos.append(hallazgo)
     return hallazgos
 
 
@@ -340,17 +346,21 @@ def _validar_hints_bloqueo(texto: str, sin_comentarios: str) -> List[Hallazgo]:
         else:
             accion = ("Se recomienda retirarlo y usar WITH(NOLOCK), ya que un reporte solo consulta datos y "
                       "bloquear filas detiene a los procesos que están registrando operaciones.")
-        hallazgos.append(_hallazgo(
+        hallazgo = _hallazgo(
             texto, match.start(grupo), "HINT_BLOQUEO_PROHIBIDO",
             f"Se identificó el uso de '{hint}', que {_HINTS_BLOQUEO[hint]}. {accion}",
-        ))
+        )
+        hallazgo.elemento, hallazgo.detalle = hint, _HINTS_BLOQUEO[hint]
+        hallazgos.append(hallazgo)
     for posicion, instruccion in niveles_de_aislamiento(sin_comentarios):
-        hallazgos.append(_hallazgo(
+        hallazgo = _hallazgo(
             texto, posicion, "HINT_BLOQUEO_PROHIBIDO",
             f"Se identificó el uso de '{instruccion}', que {QUE_HACE_EL_AISLAMIENTO}. Se recomienda retirarlo y "
             f"usar WITH(NOLOCK), ya que un reporte solo consulta datos y bloquear filas detiene a los procesos que "
             f"están registrando operaciones.",
-        ))
+        )
+        hallazgo.elemento, hallazgo.detalle = instruccion, QUE_HACE_EL_AISLAMIENTO
+        hallazgos.append(hallazgo)
     return hallazgos
 
 
@@ -441,6 +451,10 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             # Para agrupar: la tabla (o función) a la que se refiere.
             if regla == "SELECT_INTO_PROHIBIDO":
                 hallazgo.elemento = match.group("tabla")
+            elif regla == "CATALOGO_SISTEMA_PROHIBIDO":
+                hallazgo.elemento = " ".join(match.group(0).split())
+            elif regla == "IN_CON_UN_SOLO_VALOR":
+                hallazgo.operador = "NOT IN" if match.group("no") else "IN"
             elif regla == "SELECT_ESTRELLA_PROHIBIDO":
                 hallazgo.elemento = _objeto_select_estrella(match, limpio)
                 if "alias" in match.re.groupindex:
@@ -500,7 +514,7 @@ def _validar_modificaciones_fisicas(texto: str, limpio: str) -> List[Hallazgo]:
                 continue
             tabla = f"{base} (mediante la CTE {tabla})"
         if not _es_temporal(tabla):
-            hallazgos.append(_hallazgo(
+            hallazgos.append(_con_elemento(_hallazgo(
                 texto,
                 match.start(2),
                 "MODIFICACION_TABLA_FISICA",
@@ -509,7 +523,7 @@ def _validar_modificaciones_fisicas(texto: str, limpio: str) -> List[Hallazgo]:
                 f"Se recomienda gestionar este cambio con el equipo de Proyectos, ya que el área de Gestión de "
                 f"Datos debe limitarse a realizar consultas de información y no crear ni modificar tablas dentro de "
                 f"las bases de datos.",
-            ))
+            ), tabla, " ".join(match.group(1).upper().split())))
     return hallazgos
 
 
@@ -595,11 +609,11 @@ def _validar_varchar_max(texto: str, limpio: str) -> List[Hallazgo]:
             continue
         tipo = " ".join(match.group(0).upper().split()).replace("( ", "(").replace(" )", ")")
         sujeto = f"que {nombre} se declara como {tipo}" if nombre else f"el uso de {tipo}"
-        hallazgos.append(_hallazgo(
+        hallazgos.append(_con_elemento(_hallazgo(
             texto, match.start(), "VARCHAR_MAX_PROHIBIDO",
             f"Se identificó {sujeto} y no guarda JSON, XML ni HTML. Se recomienda definir un tamaño fijo, ya que "
             f"{tipo} solo se permite para JSON, XML o HTML y consume más memoria (ej.: {tipo.replace('MAX', '500')}).",
-        ))
+        ), nombre or tipo, tipo if nombre else None))
     return hallazgos
 
 
@@ -899,8 +913,8 @@ def _validar_nombre_del_encabezado(texto: str, limpio: str) -> List[Hallazgo]:
 def _validar_esquema_entre_bases(texto: str, limpio: str) -> List[Hallazgo]:
     """Base..Tabla omite el esquema: mismo texto en Reportes y Negocio (usuaria, 7 nov.)."""
     return [
-        _hallazgo(texto, posicion, "ESQUEMA_OMITIDO_ENTRE_BASES", mensaje)
-        for posicion, mensaje in esquemas_omitidos(limpio)
+        _con_elemento(_hallazgo(texto, posicion, "ESQUEMA_OMITIDO_ENTRE_BASES", mensaje), referencia)
+        for posicion, mensaje, referencia in esquemas_omitidos(limpio)
     ]
 
 
@@ -932,7 +946,9 @@ def _validar_collate_database_default(texto: str, limpio: str) -> List[Hallazgo]
         if dentro_de_openjson(limpio, match.start()):
             continue  # lo observa «COLLATE innecesario en OPENJSON»
         # Texto de la usuaria (8 nov.), el mismo que en Negocio.
-        hallazgos.append(_hallazgo(texto, match.start(), "COLLATE_DATABASE_DEFAULT", MENSAJE_COLLATE_DATABASE_DEFAULT))
+        hallazgos.append(_con_elemento(
+            _hallazgo(texto, match.start(), "COLLATE_DATABASE_DEFAULT", MENSAJE_COLLATE_DATABASE_DEFAULT),
+            "COLLATE DATABASE_DEFAULT"))
     return hallazgos
 
 
@@ -1122,6 +1138,99 @@ def _agrupar_por_elemento(regla: str, grupo: List[Hallazgo]) -> Hallazgo:
     return resumen
 
 
+def _con_elemento(hallazgo: Hallazgo, elemento: str, detalle: Optional[str] = None) -> Hallazgo:
+    """Lo que se nombra en la observación (y su detalle) para agruparla sin repetir la frase."""
+    hallazgo.elemento, hallazgo.detalle = elemento, detalle
+    return hallazgo
+
+
+def _in_repetido(grupo: List[Hallazgo]) -> str:
+    operadores = list(dict.fromkeys(getattr(h, "operador", "IN") for h in grupo))
+    return f"Se identificó el uso de {' y '.join(operadores)} para comparar un único valor."
+
+
+def _in_que_hacer(grupo: List[Hallazgo]) -> str:
+    operadores = list(dict.fromkeys(getattr(h, "operador", "IN") for h in grupo))
+    if len(operadores) == 1:
+        return accion_del_primero(grupo)
+    return ("Se recomienda utilizar el operador = en lugar de IN y <> en lugar de NOT IN cuando se compara un solo "
+            "valor.")
+
+
+def _bloqueo_que_hacer(grupo: List[Hallazgo]) -> str:
+    accion = ("Se recomienda retirarlas y usar WITH(NOLOCK), ya que un reporte solo consulta datos y bloquear filas "
+              "detiene a los procesos que están registrando operaciones.")
+    if any(h.elemento == "READPAST" for h in grupo):
+        accion += " En el caso de READPAST, además, el reporte podría dejar fuera registros sin avisar."
+    return accion
+
+
+# Varias observaciones de una regla en una sola, sin repetir la frase (usuaria, 21 nov.): 2 casos en el párrafo,
+# 3 en viñetas, más de 3 en tabla; lo mismo repetido, una sola frase.
+_AGRUPADAS = {
+    "NOLOCK_EN_TABLA_TEMPORAL": Plantilla(
+        parrafo="Se identificó que las tablas temporales {casos} tienen WITH(NOLOCK).",
+        lista="Se identificaron las siguientes tablas temporales con WITH(NOLOCK)",
+        que_hacer="Se recomienda retirarlo, ya que las tablas temporales solo existen en la sesión del reporte y no "
+                  "generan bloqueos con otros procesos.",
+        fila="Tabla temporal",
+    ),
+    "MODIFICACION_TABLA_FISICA": Plantilla(
+        parrafo="Se identificó que el reporte modifica las tablas {casos}.",
+        uno="Se identificó que el reporte modifica la tabla {casos}.",
+        lista="Se identificó que el reporte modifica las siguientes tablas",
+        que_hacer=accion_del_primero,
+        fila="Tabla",
+        columna="Operación",
+    ),
+    "HINT_BLOQUEO_PROHIBIDO": Plantilla(
+        parrafo="Se identificó el uso de {casos}.",
+        lista="Se identificó el uso de las siguientes sugerencias de bloqueo",
+        que_hacer=_bloqueo_que_hacer,
+        fila="Sugerencia",
+        columna="Qué hace",
+        columna_en_texto=True,
+    ),
+    "HINT_PLAN_PROHIBIDO": Plantilla(
+        parrafo="Se identificó el uso de {casos}, que le indican al motor de base de datos cómo ejecutar la consulta.",
+        lista="Se identificó el uso de las siguientes sugerencias que le indican al motor de base de datos cómo "
+              "ejecutar la consulta",
+        que_hacer="Se recomienda retirarlas, ya que no está permitido forzar al motor y es el optimizador quien "
+                  "decide el mejor plan de ejecución.",
+        fila="Sugerencia",
+    ),
+    "CATALOGO_SISTEMA_PROHIBIDO": Plantilla(
+        parrafo="Se identificaron consultas a tablas internas de SQL Server ({casos}).",
+        lista="Se identificaron consultas a las siguientes tablas internas de SQL Server",
+        que_hacer=accion_del_primero,
+        fila="Tabla interna",
+    ),
+    "ESQUEMA_OMITIDO_ENTRE_BASES": PLANTILLA_ESQUEMA_ENTRE_BASES,
+    "VARCHAR_MAX_PROHIBIDO": Plantilla(
+        parrafo="Se identificaron declaraciones con tamaño MAX que no guardan JSON, XML ni HTML: {casos}.",
+        lista="Se identificaron las siguientes declaraciones con tamaño MAX que no guardan JSON, XML ni HTML",
+        detalle_comun=True,
+        parrafo_comun="Se identificó que {casos} se declaran como {detalle} y no guardan JSON, XML ni HTML.",
+        lista_comun="Se identificaron las siguientes variables declaradas como {detalle} que no guardan JSON, XML "
+                    "ni HTML",
+        que_hacer="Se recomienda definir un tamaño fijo, ya que el tamaño MAX solo se permite para JSON, XML o HTML "
+                  "y consume más memoria (ej.: VARCHAR(500)).",
+        fila="Declaración",
+        columna="Tipo",
+    ),
+    "IN_CON_UN_SOLO_VALOR": Plantilla(repetido=_in_repetido, que_hacer=_in_que_hacer),
+    "ORDER_BY_NUMERICO_PROHIBIDO": Plantilla(
+        repetido="Se identificaron ordenamientos por posición de columna (ORDER BY con números).",
+        que_hacer=accion_del_primero,
+    ),
+    "WHILE_PROHIBIDO": Plantilla(
+        repetido="Se identificó el uso de WHILE en un procedimiento nuevo.",
+        que_hacer=accion_del_primero,
+    ),
+    "COLLATE_DATABASE_DEFAULT": PLANTILLA_COLLATE_DATABASE_DEFAULT,
+}
+
+
 def _agrupar_hallazgos_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
     """Resume observaciones repetidas de cualquier regla."""
     grupos: Dict[str, List[Hallazgo]] = {}
@@ -1143,6 +1252,9 @@ def _agrupar_hallazgos_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
             continue
         if regla in _PLANTILLAS_AGRUPADAS and all(getattr(h, "elemento", None) for h in grupo):
             resumidos.append(_agrupar_por_elemento(regla, grupo))
+            continue
+        if regla in _AGRUPADAS:
+            resumidos.append(agrupar_casos(grupo, _AGRUPADAS[regla]))
             continue
 
         numeros = sorted({hallazgo.linea for hallazgo in grupo})

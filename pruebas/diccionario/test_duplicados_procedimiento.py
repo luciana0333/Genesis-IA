@@ -34,9 +34,11 @@ class TestDocumentacionDuplicadaProcedimiento(unittest.TestCase):
         ])
         hallazgos = duplicados(diccionario)
         self.assertEqual(len(hallazgos), 1)
-        self.assertIn("Se identificó que el parámetro @nClienteId se encuentra documentado dos veces, siendo la primera declaración en la línea 3",
-                      hallazgos[0].mensaje)
+        # Las líneas no van en el texto: van arriba de la tarjeta (usuaria, 21 nov.).
+        self.assertTrue(hallazgos[0].mensaje.startswith(
+            "Se identificó que el parámetro @nClienteId se encuentra documentado dos veces. Se recomienda"))
         self.assertEqual(hallazgos[0].linea, 7)
+        self.assertEqual(hallazgos[0].lineas, [3, 7])
 
     def test_procedimiento_y_parametro_repetidos_se_agrupan(self):
         diccionario = "\n".join([
@@ -49,8 +51,10 @@ class TestDocumentacionDuplicadaProcedimiento(unittest.TestCase):
         hallazgos = duplicados(diccionario)
         self.assertEqual(len(hallazgos), 1)
         self.assertIn("Se identificaron 2 declaraciones duplicadas", hallazgos[0].mensaje)
-        self.assertIn("PA_Cliente_Sel_PorId (primera declaración en la línea 1)", hallazgos[0].mensaje)
-        self.assertIn("@nClienteId (primera declaración en la línea 3)", hallazgos[0].mensaje)
+        # Las líneas no van en el texto: van arriba de la tarjeta (usuaria, 21 nov.).
+        self.assertIn("procedimiento PA_Cliente_Sel_PorId; parámetro @nClienteId.", hallazgos[0].mensaje)
+        self.assertNotIn("primera declaración", hallazgos[0].mensaje)
+        self.assertEqual(hallazgos[0].lineas, [1, 3, 7, 9])
 
     def test_sin_repetidos_no_reporta(self):
         diccionario = "\n".join([

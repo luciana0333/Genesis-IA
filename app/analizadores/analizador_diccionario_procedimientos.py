@@ -380,19 +380,21 @@ def _validar_duplicados(texto_diccionario: str) -> List[Hallazgo]:
         if clave not in vistos:
             vistos[clave] = ll.linea
             continue
-        hallazgos.append(con_elemento(Hallazgo(
+        duplicada = con_elemento(Hallazgo(
             linea=ll.linea,
             origen=OrigenAnalisis.DICCIONARIO,
             severidad=Severidad(REGLAS_DICCIONARIO_PROCEDIMIENTOS["DOCUMENTACION_DUPLICADA"].severidad),
             regla="DOCUMENTACION_DUPLICADA",
+            # Sin «siendo la primera declaración en la línea N»: las dos líneas van arriba de la tarjeta (usuaria,
+            # 21 nov.).
             mensaje=f"Se identificó que {'el' if objeto.startswith('parámetro') else actual().el.split()[0]} "
                     f"{objeto} se encuentra "
-                    f"{'documentado' if objeto.startswith('parámetro') else actual().documentado} dos veces, "
-                    f"siendo la primera "
-                    f"declaración en la línea {vistos[clave]}. Se recomienda retirar una de las declaraciones "
-                    f"duplicadas, ya que SQL Server genera un error al intentar registrar nuevamente la misma "
-                    f"propiedad.",
-        ), f"{objeto} (primera declaración en la línea {vistos[clave]})"))
+                    f"{'documentado' if objeto.startswith('parámetro') else actual().documentado} dos veces. Se "
+                    f"recomienda retirar una de las declaraciones duplicadas, ya que SQL Server genera un error al "
+                    f"intentar registrar nuevamente la misma propiedad.",
+        ), objeto)
+        duplicada.lineas = sorted({vistos[clave], ll.linea})
+        hallazgos.append(duplicada)
     return hallazgos
 
 

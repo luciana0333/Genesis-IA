@@ -1579,3 +1579,5 @@
 .tabla-situaciones > thead > tr > th:nth-child(2) { width: 220px; }
 .tabla-situaciones .tabla-nombre { vertical-align: top; background: #ffffff; }
 :root[data-theme="dark"] .tabla-situaciones .tabla-nombre { background: transparent; }
+/* Segunda columna que es una frase («Qué hace» de una sugerencia de bloqueo): letra normal, no de código. */
+.tabla-detalle-texto { color: var(--text-primary); font-size: 0.84rem; line-height: 1.55; }

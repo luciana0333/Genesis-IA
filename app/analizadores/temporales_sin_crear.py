@@ -116,9 +116,6 @@ def temporales_sin_crear(
     orden = sorted(usos, key=lambda clave: min(usos[clave]))
     lineas = {clave: sorted({linea_de(posicion) for posicion in usos[clave]}) for clave in orden}
 
-    def donde(numeros: List[int]) -> str:
-        return ("líneas " if len(numeros) > 1 else "línea ") + ", ".join(map(str, numeros))
-
     if len(orden) == 1:
         clave = orden[0]
         nombre = nombres[clave]
@@ -131,7 +128,8 @@ def temporales_sin_crear(
             f"procedimiento con el error «El nombre de objeto '{nombre}' no es válido»."
         )
     else:
-        detalle = "; ".join(f"{nombres[clave]} ({donde(lineas[clave])})" for clave in orden)
+        # Sin las líneas en el texto: van arriba de la tarjeta y «Ver en el código» las recorre (usuaria, 21 nov.).
+        detalle = "; ".join(nombres[clave] for clave in orden)
         mensaje = (
             f"Se identificaron {len(orden)} tablas temporales que se utilizan, pero no se crean dentro del "
             f"procedimiento: {detalle}. Crear cada tabla temporal antes de usarla o corregir su nombre, salvo que "

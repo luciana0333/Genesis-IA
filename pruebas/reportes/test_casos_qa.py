@@ -100,9 +100,13 @@ class TestReportesQA(unittest.TestCase):
             "    JOIN dbo.Zona z (TABLOCK) ON z.nId = a.nId;"
         )
         hallazgo = next(h for h in verificar_reporte(sql) if h.regla == "HINT_BLOQUEO_PROHIBIDO")
-        for texto in ("'UPDLOCK', que bloquea las filas leídas", "'HOLDLOCK', que mantiene bloqueadas",
-                      "'ROWLOCK', que obliga", "'TABLOCK', que bloquea toda la tabla", "usar WITH(NOLOCK)"):
+        for texto in ("UPDLOCK (bloquea las filas leídas", "HOLDLOCK (mantiene bloqueadas",
+                      "ROWLOCK (obliga", "TABLOCK (bloquea toda la tabla", "usar WITH(NOLOCK)"):
             self.assertIn(texto, hallazgo.mensaje)
+        # Más de 3 casos: tabla Sugerencia | Qué hace (usuaria, 21 nov.).
+        self.assertEqual([(g["nombre"], g["tipo"], g["tituloDetalle"]) for g in hallazgo.grupos][:2],
+                         [("UPDLOCK", "Sugerencia", "Qué hace"), ("HOLDLOCK", "Sugerencia", "Qué hace")])
+        self.assertEqual(len(hallazgo.grupos), 4)
         self.assertNotIn("HINT_PLAN_PROHIBIDO", {h.regla for h in verificar_reporte(sql)})
 
     def test_nolock_no_es_hint_de_bloqueo(self):
