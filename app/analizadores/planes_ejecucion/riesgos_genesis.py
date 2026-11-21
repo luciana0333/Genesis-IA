@@ -28,6 +28,12 @@ _COMPARACION_DESPUES = re.compile(r"\s*(=|<>|!=|>=|<=|>|<)\s*\((-?\d+)\)")
 _COMPARACION_ANTES = re.compile(r"\((-?\d+)\)\s*(=|<>|!=|>=|<=|>|<)\s*$")
 
 
+def _es_agregado(nodo: Dict) -> bool:
+    """Stream Aggregate / Hash Match (Aggregate): las conversiones que calcula ahí no se observan (usuaria, 21 nov.:
+    Plan Explorer no las muestra como riesgo)."""
+    return "aggregate" in f"{nodo.get('fisica', '')} {nodo.get('logica', '')}".lower()
+
+
 def _expresion(conversion: re.Match) -> str:
     """SUBSTRING(cCtaCod, 9, 1) / LEFT(cCodigo, 2), como lo escribiría el desarrollador."""
     argumentos = ", ".join(re.findall(r"-?\d+", conversion.group("argumentos")))
@@ -39,6 +45,8 @@ def _casos(sentencias: List[Dict]) -> Dict[Tuple[str, str], Dict]:
     casos: Dict[Tuple[str, str], Dict] = {}
     for sentencia in sentencias:
         for nodo in sentencia["nodos"]:
+            if _es_agregado(nodo):
+                continue
             for predicado in nodo.get("predicados", []):
                 texto = predicado.get("texto", "")
                 for conversion in _CONVERSION.finditer(texto):
@@ -116,6 +124,8 @@ def _casos_columna_texto(sentencias: List[Dict]) -> Dict[Tuple[str, str, str], D
             for m in _COLUMNA_CONVERTIDA.finditer(a["texto"])
         }
         for nodo in sentencia["nodos"]:
+            if _es_agregado(nodo):
+                continue
             for predicado in nodo.get("predicados", []):
                 for conversion in _COLUMNA_CONVERTIDA.finditer(predicado.get("texto", "")):
                     nombre = conversion.group("nombre")
@@ -205,6 +215,8 @@ def conversion_columna_en_filtro(sentencias: List[Dict]) -> List[Hallazgo]:
         # filtro o un JOIN usa [Expr1003], la conversión está en el filtro aunque se calcule en un Compute Scalar.
         exprs: Dict[str, re.Match] = {}
         for nodo in sentencia["nodos"]:
+            if _es_agregado(nodo):
+                continue
             for predicado in nodo.get("predicados", []):
                 if predicado.get("nombre") == "Defined Values":
                     for definida in _EXPR_CONVERTIDA.finditer(predicado.get("texto", "")):
@@ -212,6 +224,8 @@ def conversion_columna_en_filtro(sentencias: List[Dict]) -> List[Hallazgo]:
                         if conversiones:
                             exprs[definida.group("expr")] = conversiones[0]
         for nodo in sentencia["nodos"]:
+            if _es_agregado(nodo):
+                continue
             for predicado in nodo.get("predicados", []):
                 if predicado.get("nombre") not in _PREDICADOS_DE_FILTRO:
                     continue
@@ -307,6 +321,8 @@ def conversion_columna_a_destino(sentencias: List[Dict]) -> List[Hallazgo]:
             for e in _REFERENCIA_EXPR.findall(predicado.get("texto", ""))
         }
         for nodo in sentencia["nodos"]:
+            if _es_agregado(nodo):
+                continue
             for predicado in nodo.get("predicados", []):
                 if predicado.get("nombre") != "Defined Values":
                     continue

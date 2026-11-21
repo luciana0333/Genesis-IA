@@ -35,6 +35,18 @@ def _riesgos(xml, analizar=analizar_plan_negocio):
 
 
 class RiesgoTextoANumeroTest(unittest.TestCase):
+    def test_en_un_operador_de_agregacion_no_se_marca(self):
+        # Usuaria, 21 nov.: la comparación dentro de un Stream Aggregate o un Hash Match (Aggregate), p. ej.
+        # SUM(CASE WHEN SUBSTRING(cCtaCod, 9, 1) = 2 THEN … END), no se marca (Plan Explorer no la muestra).
+        suma = "SUM(" + _CASE.replace("=(1) ", "=(2) ").replace("'SOLES' ELSE 'DOLARES'", "(1) ELSE (0)") + ")"
+        for fisica, logica in (("Stream Aggregate", "Aggregate"), ("Hash Match", "Aggregate")):
+            with self.subTest(operador=fisica):
+                xml = _plan([suma]).replace('PhysicalOp="Compute Scalar" LogicalOp="Compute Scalar"',
+                                            f'PhysicalOp="{fisica}" LogicalOp="{logica}"')
+                self.assertEqual(_riesgos(xml), [])
+        # En un Compute Scalar sí.
+        self.assertEqual(len(_riesgos(_plan([suma]))), 1)
+
     def test_comparacion_en_un_case_en_los_dos_modulos(self):
         for analizar in (analizar_plan_reporte, analizar_plan_negocio):
             with self.subTest(modulo=analizar.__name__):
