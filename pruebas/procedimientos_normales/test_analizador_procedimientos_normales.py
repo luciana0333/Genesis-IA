@@ -730,9 +730,9 @@ JOIN dbo.Cliente c5 ON c5.n = c1.n;"""
         self.assertEqual(hallazgos[0].severidad.value, "medio")
         self.assertEqual(
             hallazgos[0].mensaje,
-            "Se identificó el uso repetido de la siguiente tabla en los JOIN: 'dbo.Cliente' se utiliza en 4 JOIN "
-            "(líneas 2, 3, 4, 5). Se recomienda evitar los JOIN repetidos sobre una misma tabla y evaluar la "
-            "reutilización de sus resultados, para reducir accesos innecesarios y mejorar el rendimiento de la consulta.",
+            "Se identificó el uso repetido de la siguiente tabla en los JOIN: 'dbo.Cliente' se utiliza en 4 JOIN. "
+            "Se recomienda evitar los JOIN repetidos sobre una misma tabla y evaluar la reutilización de sus "
+            "resultados, para reducir accesos innecesarios y mejorar el rendimiento de la consulta.",
         )
 
     def test_el_from_no_se_cuenta_como_join(self):
@@ -752,8 +752,8 @@ JOIN dbo.Cliente c4 ON c4.n = c1.n;"""
         hallazgos = [h for h in verificar_procedimiento_normal(sql) if h.regla == "TABLA_REPETIDA_EN_CONSULTA"]
         self.assertEqual(len(hallazgos), 1)
         self.assertTrue(hallazgos[0].mensaje.startswith(
-            "Se identificó el uso repetido de las siguientes tablas en los JOIN: 'T1' se utiliza en 4 JOIN "
-            "(líneas 2, 5, 8, 11); 'T2' se utiliza en 4 JOIN (líneas 3, 6, 9, 12). Se recomienda evitar"))
+            "Se identificó el uso repetido de las siguientes tablas en los JOIN: 'T1' se utiliza en 4 JOIN; "
+            "'T2' se utiliza en 4 JOIN. Se recomienda evitar"))
         self.assertEqual(hallazgos[0].grupos, [{"nombre": "T1", "lineas": [2, 5, 8, 11]},
                                                {"nombre": "T2", "lineas": [3, 6, 9, 12]}])
         self.assertEqual(hallazgos[0].lineas, [2, 5, 8, 11, 3, 6, 9, 12])

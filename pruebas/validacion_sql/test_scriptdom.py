@@ -14,8 +14,8 @@ class MensajeTest(unittest.TestCase):
     def test_mensaje_con_linea_columna_y_texto_de_sql_server(self):
         self.assertEqual(
             mensaje_error_sintaxis({"linea": 10, "columna": 1, "mensaje": "Sintaxis incorrecta cerca de 'END'."}),
-            "Se identificó un error de sintaxis en la línea 10, columna 1: Sintaxis incorrecta cerca de 'END'. "
-            "Corregir la estructura en esa línea o justo antes (comas, paréntesis, comillas, BEGIN/END), ya que "
+            "Se identificó un error de sintaxis en la columna 1: Sintaxis incorrecta cerca de 'END'. "
+            "Corregir la estructura en la línea indicada o justo antes (comas, paréntesis, comillas, BEGIN/END), ya que "
             "SQL Server no podrá crear ni ejecutar el código con este error.",
         )
 
@@ -67,7 +67,7 @@ class FinDeArchivoTest(unittest.TestCase):
 
     def test_si_no_se_sabe_que_falta_sigue_el_mensaje_general(self):
         error = self._error("WITH A AS (SELECT 1 AS n)\n")  # CTE sin la consulta que la usa
-        self.assertTrue(error.mensaje.startswith("Se identificó un error de sintaxis en la línea 1, columna 1: "
+        self.assertTrue(error.mensaje.startswith("Se identificó un error de sintaxis en la columna 1: "
                                                  "Fin de archivo inesperado."), error.mensaje)
         self.assertEqual(error.linea, 1)
 
@@ -152,11 +152,12 @@ class EstructuraTest(unittest.TestCase):
             "columnas y de valores, ya que SQL Server no ejecutará el INSERT (error 109).",
         )
         temporal = validar_estructura("SELECT 1 AS a INTO #T\nDROP TABLE #T\nSELECT 2 AS a INTO #T")[0].mensaje
-        self.assertIn("se crea dos veces en el mismo bloque (líneas 1 y 3)", temporal)
+        self.assertIn("se crea dos veces en el mismo bloque. Usar", temporal)
 
     def test_mensaje_de_sql_server(self):
         hallazgo = validar_estructura("SELECT 1\nELSE\n SELECT 2")[0]
-        self.assertIn("en la línea 2, columna 1:", hallazgo.mensaje)
+        self.assertIn("en la columna 1:", hallazgo.mensaje)
+        self.assertEqual(hallazgo.linea, 2)
         self.assertIn("'ELSE'", hallazgo.mensaje)
 
 
@@ -180,8 +181,8 @@ class PuntoYComaThrowTest(unittest.TestCase):
 
     def test_otra_instruccion_antes_del_throw_dice_su_linea(self):
         mensaje = self._hallazgos("BEGIN TRY\n SELECT 1/0;\nEND TRY\nBEGIN CATCH\n PRINT 1\n THROW\nEND CATCH")[0][2]
-        self.assertEqual(mensaje, "Se identificó la ausencia de «;» al finalizar la instrucción de la línea 5, antes de "
-                                  "la instrucción THROW. Se recomienda agregar el punto y coma (;) al finalizar esa "
+        self.assertEqual(mensaje, "Se identificó la ausencia de «;» al finalizar la instrucción anterior a THROW. Se "
+                                  "recomienda agregar el punto y coma (;) al finalizar esa "
                                   "instrucción, para evitar el error de sintaxis 102 durante la ejecución del "
                                   "procedimiento.")
 
@@ -202,7 +203,7 @@ class PuntoYComaThrowTest(unittest.TestCase):
         hallazgos = self._hallazgos(_CATCH + "  ROLLBACK TRANSACTION\n THROW\nEND CATCH")
         self.assertEqual(hallazgos, [(
             7, "THROW_TOMADO_COMO_TRANSACCION",
-            "Se identificó un THROW después de un ROLLBACK TRANSACTION sin «;» (línea 6), por lo que SQL Server lo "
+            "Se identificó un THROW después de un ROLLBACK TRANSACTION sin «;», por lo que SQL Server lo "
             "toma como el nombre de la transacción y el error nunca se relanza. Agregar «;» al final del ROLLBACK "
             "TRANSACTION, ya que sin él falla al ejecutarse (error 6401) y el error original se pierde.")])
         self.assertEqual(validar_estructura(_CATCH + "  ROLLBACK TRANSACTION\n THROW\nEND CATCH")[0].severidad.value,
@@ -217,8 +218,8 @@ class PuntoYComaThrowTest(unittest.TestCase):
     def test_with_tiene_su_propia_regla_y_error_319(self):
         regla, mensaje = self._hallazgos("DECLARE @n INT = 1\nWITH C AS (SELECT 1 AS n) SELECT n FROM C")[0][1:]
         self.assertEqual(regla, "PUNTO_Y_COMA_ANTES_DE_WITH")
-        self.assertEqual(mensaje, "Se identificó la ausencia de «;» al finalizar la instrucción de la línea 1, antes de "
-                                  "la instrucción WITH. Se recomienda agregar el punto y coma (;) al finalizar esa "
+        self.assertEqual(mensaje, "Se identificó la ausencia de «;» al finalizar la instrucción anterior a WITH. Se "
+                                  "recomienda agregar el punto y coma (;) al finalizar esa "
                                   "instrucción, para evitar el error de sintaxis 319 durante la ejecución del "
                                   "procedimiento.")
 

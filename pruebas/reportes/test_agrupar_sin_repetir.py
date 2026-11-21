@@ -100,6 +100,8 @@ class NingunaRepiteLaFraseTest(unittest.TestCase):
                 for h in verificar(sql):
                     with self.subTest(regla=h.regla, modulo=verificar.__name__):
                         self.assertNotIn("observaciones de este tipo", h.mensaje)
+                        # Las líneas van arriba de la tarjeta, no en el texto (usuaria, 21 nov.).
+                        self.assertNotRegex(h.mensaje, r"l[ií]neas? \d")
                     if h.regla == regla:
                         vistas.add(regla)
                         # La frase de lo encontrado no se repite.

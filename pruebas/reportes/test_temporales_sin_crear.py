@@ -41,7 +41,8 @@ class TemporalesSinCrearTest(unittest.TestCase):
                 self.assertEqual(len(hallazgos), 1)
                 self.assertTrue(hallazgos[0].mensaje.startswith(
                     "Se identificaron 3 tablas temporales que se utilizan, pero no se crean dentro del procedimiento: "
-                    "#A (líneas 1, 3); #B (línea 2); #C (línea 4). Crear cada tabla temporal"))
+                    "#A; #B; #C. Crear cada tabla temporal"))
+                self.assertEqual(hallazgos[0].lineas, [1, 3, 2, 4])  # arriba de la tarjeta, tabla por tabla
 
     def test_creada_con_create_table_o_select_into_no_se_observa(self):
         casos = (

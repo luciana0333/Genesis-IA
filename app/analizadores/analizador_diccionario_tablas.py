@@ -610,13 +610,16 @@ def _validar_duplicados(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
         else:
             continue
         if clave in vistos:
-            hallazgos.append(con_elemento(_hallazgo(
+            # Sin «siendo la primera declaración en la línea N»: las dos líneas van arriba de la tarjeta (usuaria,
+            # 21 nov.).
+            duplicada = con_elemento(_hallazgo(
                 ll.linea, "DOCUMENTACION_DUPLICADA",
-                f"Se identificó que {objeto} se encuentra documentada dos veces, siendo la primera "
-                f"declaración en la línea {vistos[clave]}. Se recomienda retirar una de las declaraciones "
-                f"duplicadas, ya que SQL Server genera un error al intentar registrar nuevamente la misma "
-                f"propiedad.",
-            ), f"{objeto.split(' ', 1)[1]} (primera declaración en la línea {vistos[clave]})"))
+                f"Se identificó que {objeto} se encuentra documentada dos veces. Se recomienda retirar una de las "
+                f"declaraciones duplicadas, ya que SQL Server genera un error al intentar registrar nuevamente la "
+                f"misma propiedad.",
+            ), objeto.split(' ', 1)[1])
+            duplicada.lineas = sorted({vistos[clave], ll.linea})
+            hallazgos.append(duplicada)
         else:
             vistos[clave] = ll.linea
     return hallazgos

@@ -1881,8 +1881,8 @@ def _validar_tabla_repetida(texto: str, limpio: str) -> List[Hallazgo]:
     casos.sort()
     vinetas = []
     for _, tabla, numeros, cantidad in casos:
-        donde = ("líneas " if len(numeros) > 1 else "línea ") + ", ".join(map(str, numeros))
-        vinetas.append(f"'{tabla}' se utiliza en {cantidad} JOIN ({donde})")
+        # Sin las líneas en el texto: van arriba de la tarjeta (usuaria, 21 nov.).
+        vinetas.append(f"'{tabla}' se utiliza en {cantidad} JOIN")
     sujeto = "las siguientes tablas" if len(casos) > 1 else "la siguiente tabla"
     hallazgo = _hallazgo(
         texto, casos[0][0], "TABLA_REPETIDA_EN_CONSULTA",

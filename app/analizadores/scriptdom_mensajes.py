@@ -30,13 +30,6 @@ def _cantidad(numero: int, singular: str, plural: str) -> str:
     return f"{numero} {singular if numero == 1 else plural}"
 
 
-def _lineas(lineas: List[int]) -> str:
-    lineas = sorted(set(int(linea) for linea in lineas))
-    if len(lineas) == 1:
-        return f"línea {lineas[0]}"
-    return f"líneas {', '.join(map(str, lineas[:-1]))} y {lineas[-1]}"
-
-
 # --- 1 · Haría fallar el script (crítico) --------------------------------------------------------------
 def _insert(h: Dict) -> Partes:
     columnas, valores = int(h["columnas"]), int(h["valores"])
@@ -54,14 +47,12 @@ def _insert(h: Dict) -> Partes:
 
 
 def _columna_repetida(h: Dict) -> Partes:
-    return (f"Se identificó que la columna {h['columna']} se define dos veces en la tabla {h['tabla']} "
-            f"({_lineas([h['primera'], h['linea']])}).",
+    return (f"Se identificó que la columna {h['columna']} se define dos veces en la tabla {h['tabla']}.",
             "Retirar la columna repetida, ya que SQL Server no podrá crear la tabla (error 2705).")
 
 
 def _temporal_dos_veces(h: Dict) -> Partes:
-    return (f"Se identificó que la tabla temporal {h['tabla']} se crea dos veces en el mismo bloque "
-            f"({_lineas([h['primera'], h['linea']])}).",
+    return (f"Se identificó que la tabla temporal {h['tabla']} se crea dos veces en el mismo bloque.",
             "Usar un nombre distinto para cada una, ya que SQL Server no permite crear dos veces la misma temporal "
             "en un procedimiento, aunque se elimine antes o esté en un IF / ELSE (error 2714).")
 
@@ -100,15 +91,14 @@ def _punto_y_coma(h: Dict) -> Partes:
                 f"sintaxis {error} durante la ejecución del procedimiento.")
     # Otra instrucción (PRINT, SELECT, SET…): el mismo texto, con la línea donde termina (sin «(OFF;)» ni «(1;)»,
     # que no aclaran).
-    return (f"Se identificó la ausencia de «;» al finalizar la instrucción de la línea {fin}, antes de la instrucción "
-            f"{instruccion}.",
+    return (f"Se identificó la ausencia de «;» al finalizar la instrucción anterior a {instruccion}.",
             f"Se recomienda agregar el punto y coma (;) al finalizar esa instrucción, para evitar el error de sintaxis "
             f"{error} durante la ejecución del procedimiento.")
 
 
 def _throw_transaccion(h: Dict) -> Partes:
-    return (f"Se identificó un THROW después de un {h['instruccion']} sin «;» (línea {h['inicio']}), por lo que SQL "
-            f"Server lo toma como el nombre de la transacción y el error nunca se relanza.",
+    return (f"Se identificó un THROW después de un {h['instruccion']} sin «;», por lo que SQL Server lo toma como el "
+            f"nombre de la transacción y el error nunca se relanza.",
             # Probado en SQL Server (9 nov.): ROLLBACK busca una transacción llamada THROW (error 6401); COMMIT ignora
             # el nombre, confirma y sigue sin error.
             f"Agregar «;» al final del {h['instruccion']}, ya que sin él "
@@ -129,7 +119,7 @@ def _no_declarada(h: Dict) -> Partes:
 
 
 def _dos_veces(h: Dict) -> Partes:
-    return (f"Se identificó que {h['variable']} se declara dos veces ({_lineas([h['primera'], h['linea']])}).",
+    return (f"Se identificó que {h['variable']} se declara dos veces.",
             "Dejar una sola declaración o usar otro nombre, ya que SQL Server no ejecutará el código (error 134).")
 
 
@@ -279,8 +269,8 @@ def _between(h: Dict) -> Partes:
 
 
 def _rowcount(h: Dict) -> Partes:
-    return (f"Se identificó que {h['variable']} se lee justo después de otra instrucción (línea {h['anterior']}) y "
-            f"no después del INSERT, UPDATE o DELETE.",
+    return (f"Se identificó que {h['variable']} se lee justo después de otra instrucción y no después del INSERT, "
+            f"UPDATE o DELETE.",
             f"Guardar {h['variable']} en una variable inmediatamente después de la instrucción que interesa, ya que "
             f"cada instrucción, incluso un SET, lo reemplaza.")
 
@@ -327,7 +317,7 @@ def _transaccion_sin_try(h: Dict) -> Partes:
 
 
 def _inalcanzable(h: Dict) -> Partes:
-    return (f"Se identificó código después del RETURN de la línea {h['retorno']}.",
+    return ("Se identificó código después de un RETURN.",
             "Se recomienda retirarlo o revisar la lógica, ya que ese código nunca se ejecuta.")
 
 
@@ -556,8 +546,8 @@ def _isnull_condicion(h: Dict) -> Partes:
 
 def _isnull_not_null(h: Dict) -> Partes:
     indice = " y en una condición impide usar el índice" if h.get("contexto") == "condicion" else ""
-    return (f"Se identificó {h['expresion']} sobre la columna {h['columna']} de {h['tabla']}, que se define NOT NULL "
-            f"(línea {h['definicion']}).",
+    return (f"Se identificó {h['expresion']} sobre la columna {h['columna']} de {h['tabla']}, que se define NOT "
+            f"NULL.",
             f"Se recomienda retirar el ISNULL, ya que la columna no acepta valores nulos{indice}.")
 
 
@@ -618,7 +608,7 @@ def _anidamiento(h: Dict) -> Partes:
 
 
 def _bloque(h: Dict) -> Partes:
-    return (f"Se identificó la misma instrucción {h['instruccion']} repetida en las {_lineas(h['lineas'])}.",
+    return (f"Se identificó la misma instrucción {h['instruccion']} repetida en varias partes del código.",
             "Se recomienda escribirla una sola vez (en una tabla temporal, una CTE o un procedimiento), ya que "
             "repetida hay que corregirla en cada lugar.")
 
@@ -821,3 +811,30 @@ def _mayuscula(texto: str) -> str:
     if re.match(r"(?:un|una|el|la|los|las|lo)\s", texto):
         return texto[:1].upper() + texto[1:]
     return texto
+
+
+# Líneas que el texto ya no dice y van arriba de la tarjeta junto a la del hallazgo (usuaria, 21 nov.: las líneas no
+# se mencionan dentro del texto): la primera declaración, el RETURN, la definición de la columna…
+_LINEAS_EXTRA = {
+    "COLUMNA_REPETIDA_EN_TABLA": ("primera",),
+    "TEMPORAL_CREADA_DOS_VECES": ("primera",),
+    "VARIABLE_DECLARADA_DOS_VECES": ("primera",),
+    "PUNTO_Y_COMA_FALTANTE": ("fin", "anterior"),
+    "PUNTO_Y_COMA_ANTES_DE_WITH": ("fin", "anterior"),
+    "THROW_TOMADO_COMO_TRANSACCION": ("inicio",),
+    "ROWCOUNT_DESPUES_DE_OTRA": ("anterior",),
+    "CODIGO_INALCANZABLE": ("retorno",),
+    "ISNULL_EN_COLUMNA_NOT_NULL": ("definicion",),
+}
+
+
+def lineas_del_hecho(h: Dict) -> List[int]:
+    """La línea del hallazgo y las que antes iban dentro del texto."""
+    lineas = [h["linea"]]
+    claves = _LINEAS_EXTRA.get(h.get("tipo"), ())
+    if h.get("tipo", "").startswith("PUNTO_Y_COMA"):
+        claves = ("fin",) if h.get("fin") else ("anterior",)
+    lineas += [h[clave] for clave in claves if h.get(clave)]
+    if h.get("tipo") == "BLOQUE_REPETIDO":
+        lineas += list(h.get("lineas") or [])
+    return [int(n) for n in lineas]
