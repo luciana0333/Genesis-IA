@@ -132,6 +132,7 @@ export const NOMBRES_REGLAS = {
   TEMPORAL_TEXTO_SIN_COLLATE: 'COLLATE no especificado en tabla temporal',
   TEMPORAL_EXTERNA: 'Tabla temporal externa',
   TEMPORAL_SIN_CREAR: 'Tabla temporal usada sin crear',
+  TEMPORAL_SIN_CREAR_VALIDAR: 'Validar tabla temporal sin crear',
   SELECT_INTO_PROHIBIDO: 'SELECT INTO prohibido',
   SELECT_ESTRELLA_PROHIBIDO: 'Uso de SELECT *',
   IN_CON_UN_SOLO_VALOR: 'IN con un solo valor',

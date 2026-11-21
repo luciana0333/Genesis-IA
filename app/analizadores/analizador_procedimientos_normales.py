@@ -12,7 +12,9 @@ from app.analizadores.variables_sin_uso import (
     variables_de_tabla_sin_uso,
 )
 from app.analizadores.temporal_sin_uso import temporal_sin_uso_agrupado
-from app.analizadores.temporales_sin_crear import temporales_externas, temporales_sin_crear
+from app.analizadores.temporales_sin_crear import (
+    temporales_externas, temporales_por_validar, temporales_sin_crear,
+)
 from app.analizadores.comentarios_codigo import codigo_comentado_agrupado
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
 from app.analizadores.create_or_alter import create_or_alter
@@ -2007,6 +2009,8 @@ def _validar_temporales_sin_crear(texto: str, limpio: str) -> List[Hallazgo]:
     for regla, resultado in (
         ("TEMPORAL_SIN_CREAR", temporales_sin_crear(limpio, lambda posicion: _linea(texto, posicion), texto)),
         ("TEMPORAL_EXTERNA", temporales_externas(texto, limpio, lambda posicion: _linea(texto, posicion))),
+        ("TEMPORAL_SIN_CREAR_VALIDAR",
+         temporales_por_validar(limpio, lambda posicion: _linea(texto, posicion), texto)),
     ):
         if not resultado:
             continue

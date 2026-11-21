@@ -103,6 +103,16 @@ REGLAS_REPORTES = {
         alcance="reporte",
         activo=True,
     ),
+    "TEMPORAL_SIN_CREAR_VALIDAR": ReglaDiccionario(
+        codigo="TEMPORAL_SIN_CREAR_VALIDAR",
+        nombre="Validar tabla temporal sin crear",
+        severidad="medio",
+        descripcion="Temporal que se usa, no se crea y no está documentada en el encabezado: lo más probable es que "
+                    "la cree el procedimiento que lo llama; se pide confirmarlo (usuaria, 21 nov.). Si se parece a "
+                    "una que sí se crea, es «Tabla temporal usada sin crear» (crítico).",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "TEMPORAL_SIN_CREAR": ReglaDiccionario(
         codigo="TEMPORAL_SIN_CREAR",
         nombre="Tabla temporal usada sin crear",

@@ -39,7 +39,8 @@ END"""
 
 
 def _reglas(sql, verificar):
-    return {h.regla: h for h in verificar(sql) if h.regla in ("TEMPORAL_EXTERNA", "TEMPORAL_SIN_CREAR")}
+    return {h.regla: h for h in verificar(sql)
+            if h.regla in ("TEMPORAL_EXTERNA", "TEMPORAL_SIN_CREAR", "TEMPORAL_SIN_CREAR_VALIDAR")}
 
 
 class TemporalExternaTest(unittest.TestCase):
@@ -61,12 +62,13 @@ class TemporalExternaTest(unittest.TestCase):
                     "procedimiento, para evitar errores al intentar utilizarla.",
                 )
 
+    # Sin documentar y sin una temporal parecida: «validar» (medio; usuaria, 21 nov.), ya no crítico.
     def test_sin_documentar_sigue_siendo_critico(self):
         for verificar in MODULOS:
             with self.subTest(modulo=verificar.__name__):
                 reglas = _reglas(_CUERPO, verificar)
-                self.assertEqual(list(reglas), ["TEMPORAL_SIN_CREAR"])
-                self.assertEqual(reglas["TEMPORAL_SIN_CREAR"].severidad.value, "critico")
+                self.assertEqual(list(reglas), ["TEMPORAL_SIN_CREAR_VALIDAR"])
+                self.assertEqual(reglas["TEMPORAL_SIN_CREAR_VALIDAR"].severidad.value, "medio")
 
     def test_otras_formas_de_documentarla(self):
         casos = {
@@ -103,7 +105,7 @@ class TemporalExternaTest(unittest.TestCase):
         for nombre, sql in casos.items():
             for verificar in MODULOS:
                 with self.subTest(caso=nombre, modulo=verificar.__name__):
-                    self.assertEqual(list(_reglas(sql, verificar)), ["TEMPORAL_SIN_CREAR"])
+                    self.assertEqual(list(_reglas(sql, verificar)), ["TEMPORAL_SIN_CREAR_VALIDAR"])
 
     def test_una_documentada_y_otra_no(self):
         cuerpo = _CUERPO.replace(" SELECT 1 WHERE", " SELECT * FROM #Agencias;\n SELECT 1 WHERE")
@@ -112,8 +114,8 @@ class TemporalExternaTest(unittest.TestCase):
                 reglas = _reglas(_ENCABEZADO + cuerpo, verificar)
                 self.assertIn("#Personas", reglas["TEMPORAL_EXTERNA"].mensaje)
                 self.assertNotIn("#Agencias", reglas["TEMPORAL_EXTERNA"].mensaje)
-                self.assertIn("#Agencias", reglas["TEMPORAL_SIN_CREAR"].mensaje)
-                self.assertNotIn("#Personas", reglas["TEMPORAL_SIN_CREAR"].mensaje)
+                self.assertIn("#Agencias", reglas["TEMPORAL_SIN_CREAR_VALIDAR"].mensaje)
+                self.assertNotIn("#Personas", reglas["TEMPORAL_SIN_CREAR_VALIDAR"].mensaje)
 
     def test_dos_externas_en_plural(self):
         encabezado = _ENCABEZADO.replace("DROP TABLE #Personas", "CREATE TABLE #Agencias (cAgeCod VARCHAR(2))")

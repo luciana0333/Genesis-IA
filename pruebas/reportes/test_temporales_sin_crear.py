@@ -8,8 +8,11 @@ from app.analizadores.analizador_reportes import verificar_reporte
 MODULOS = (verificar_reporte, verificar_procedimiento_normal)
 
 
-def _sin_crear(verificar, sql):
-    return [h for h in verificar(sql) if h.regla == "TEMPORAL_SIN_CREAR"]
+def _sin_crear(verificar, sql, regla="TEMPORAL_SIN_CREAR"):
+    return [h for h in verificar(sql) if h.regla == regla]
+
+
+VALIDAR = "TEMPORAL_SIN_CREAR_VALIDAR"
 
 
 class TemporalesSinCrearTest(unittest.TestCase):
@@ -37,11 +40,13 @@ class TemporalesSinCrearTest(unittest.TestCase):
         sql = "SELECT 1 FROM #A\nINSERT INTO #B (n) SELECT 1\nDELETE FROM #A\nTRUNCATE TABLE #C\n"
         for verificar in MODULOS:
             with self.subTest(modulo=verificar.__name__):
-                hallazgos = _sin_crear(verificar, sql)
+                # Ninguna se parece a una creada: «validar» (medio; usuaria, 21 nov.); 3 casos en viñetas.
+                hallazgos = _sin_crear(verificar, sql, VALIDAR)
                 self.assertEqual(len(hallazgos), 1)
+                self.assertEqual(hallazgos[0].severidad.value, "medio")
                 self.assertTrue(hallazgos[0].mensaje.startswith(
-                    "Se identificaron 3 tablas temporales que se utilizan, pero no se crean dentro del procedimiento: "
-                    "#A; #B; #C. Crear cada tabla temporal"))
+                    "Se identificó que las siguientes tablas temporales se utilizan, pero no se crean en este "
+                    "procedimiento: #A; #B; #C. Se recomienda confirmar que el procedimiento que lo llama las cree"))
                 self.assertEqual(hallazgos[0].lineas, [1, 3, 2, 4])  # arriba de la tarjeta, tabla por tabla
 
     def test_creada_con_create_table_o_select_into_no_se_observa(self):
@@ -58,13 +63,38 @@ class TemporalesSinCrearTest(unittest.TestCase):
             for sql in casos:
                 with self.subTest(modulo=verificar.__name__, sql=sql):
                     self.assertEqual(_sin_crear(verificar, sql), [])
+                    self.assertEqual(_sin_crear(verificar, sql, VALIDAR), [])
 
     def test_insert_into_no_crea_la_tabla(self):
-        # INSERT INTO #A ... no la crea: si no hay CREATE TABLE ni SELECT INTO, se observa.
+        # INSERT INTO #A ... no la crea: si no hay CREATE TABLE ni SELECT INTO, se observa (para validar).
         for verificar in MODULOS:
             with self.subTest(modulo=verificar.__name__):
-                hallazgos = _sin_crear(verificar, "INSERT INTO #A (n)\nSELECT 1")
+                hallazgos = _sin_crear(verificar, "INSERT INTO #A (n)\nSELECT 1", VALIDAR)
                 self.assertEqual([h.grupos[0]["nombre"] for h in hallazgos], ["#A"])
+
+    def test_mas_de_tres_en_tabla_con_su_uso(self):
+        # Caso del PA del motor (21 nov.): tabla «Tabla temporal | Uso en el procedimiento» (opción C).
+        sql = ("UPDATE A SET A.n = 1 FROM #BaseHechos A\nSELECT 1 FROM #BaseHechos B JOIN #Garantias G ON 1 = 1\n"
+               "SELECT 1 FROM #CreditosTitular\nINSERT INTO #Aux (n) SELECT 1\nDELETE FROM #Aux\n")
+        for verificar in MODULOS:
+            with self.subTest(modulo=verificar.__name__):
+                h = _sin_crear(verificar, sql, VALIDAR)[0]
+                self.assertEqual([(g["nombre"], g["tituloDetalle"], g["columnas"]) for g in h.grupos], [
+                    ("#BaseHechos", "Uso en el procedimiento", "Se lee y se actualiza"),
+                    ("#Garantias", "Uso en el procedimiento", "Solo se lee"),
+                    ("#CreditosTitular", "Uso en el procedimiento", "Solo se lee"),
+                    ("#Aux", "Uso en el procedimiento", "Se inserta y se eliminan filas"),
+                ])
+
+    def test_dos_en_el_parrafo_y_una_sola(self):
+        for verificar in MODULOS:
+            with self.subTest(modulo=verificar.__name__):
+                dos = _sin_crear(verificar, "SELECT 1 FROM #A\nSELECT 1 FROM #B", VALIDAR)[0]
+                self.assertTrue(dos.mensaje.startswith(
+                    "Se identificó que las tablas temporales #A y #B se utilizan, pero no se crean en este "
+                    "procedimiento."))
+                una = _sin_crear(verificar, "SELECT 1 FROM #A", VALIDAR)[0]
+                self.assertIn("«El nombre de objeto '#A' no es válido»", una.mensaje)
 
 
 if __name__ == "__main__":
