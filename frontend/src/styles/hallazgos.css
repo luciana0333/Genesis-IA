@@ -1581,3 +1581,57 @@
 :root[data-theme="dark"] .tabla-situaciones .tabla-nombre { background: transparent; }
 /* Segunda columna que es una frase («Qué hace» de una sugerencia de bloqueo): letra normal, no de código. */
 .tabla-detalle-texto { color: var(--text-primary); font-size: 0.84rem; line-height: 1.55; }
+
+/* ───────── Casos poco comunes (usuaria, 21 nov.; opción 1 «franja delgada», como el SlimBanner de Pinterest) ───────── */
+/* Tarjeta blanca compacta con sombra suave (también leve arriba), sin franja roja; cabecera en una sola línea
+   (ícono de la persona con engranaje, etiqueta, título y cantidad); el caso va directo en la tarjeta. */
+.poco-comun {
+  margin-top: 32px;
+  background: var(--bg-card);
+  border-radius: 0;
+  /* Sin franja roja (usuaria, 21 nov.); una sombra leve también arriba. */
+  box-shadow:
+    0 -3px 10px -4px rgba(17, 17, 26, 0.08),
+    0 1px 2px rgba(17, 17, 26, 0.03),
+    0 8px 18px -10px rgba(17, 17, 26, 0.08),
+    0 30px 60px -28px rgba(17, 17, 26, 0.22);
+}
+.poco-comun-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+}
+.poco-comun-icono { color: var(--red-main); display: inline-flex; }
+.poco-comun-icono svg { width: 20px; height: 20px; }
+.poco-comun-textos { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.poco-comun-textos .section-eyebrow { margin: 0; font-size: 0.78rem; }
+.poco-comun-titulo {
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.97rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.poco-comun-cantidad {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  background: #f5f7fb;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.poco-comun-lista { display: flex; flex-direction: column; }
+.poco-comun-lista > .finding {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+}
+.poco-comun-lista > .finding .finding-head { padding-top: 4px; }
+.poco-comun-lista > .finding:hover { transform: none; box-shadow: none; }
+:root[data-theme="dark"] .poco-comun { background: #17171d; box-shadow: 0 30px 60px -28px rgba(0, 0, 0, 0.8); }
+:root[data-theme="dark"] .poco-comun-cantidad { background: rgba(255, 255, 255, 0.05); }

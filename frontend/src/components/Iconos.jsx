@@ -15,6 +15,7 @@ import {
   Image as ImagenLucide,
   FolderArchive,
   Timer,
+  UserRoundCog,
   ChartColumn,
   Check,
   CircleCheck,
@@ -89,6 +90,8 @@ export const IconoImagen = crearIcono(ImagenLucide);
 // Estados
 export const IconoEscudoCheck = crearIcono(ShieldCheck);
 export const IconoEscudoAlerta = crearIcono(ShieldAlert);
+// Casos poco comunes: persona con engranaje (el DBA valida; elegido por la usuaria, 21 nov.).
+export const IconoDba = crearIcono(UserRoundCog);
 export const IconoSolucion = crearIcono(CornerDownRight);
 export const IconoBandeja = crearIcono(Inbox);
 export const IconoErrorCirculo = crearIcono(CircleX);

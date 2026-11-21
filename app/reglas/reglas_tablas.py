@@ -88,6 +88,11 @@ REGLAS_TABLAS = {
         "PK_NO_NUMERICA", "Clave primaria no numérica", "medio",
         "De preferencia, la clave primaria debe ser numérica (INT o BIGINT).",
     ),
+    "PK_HEREDADA": _regla(
+        "PK_HEREDADA", "Clave primaria heredada", "bajo",
+        "Caso poco común: la clave primaria es también la relación (FK) con otra tabla (uno a uno) y conserva su "
+        "tipo de dato; se valida con el DBA en vez de pedir identidad numérica.",
+    ),
 
     # --- Columnas (CREATE y columnas nuevas de un ALTER) ----------------
     "COLUMNA_PREFIJO_TIPO_INVALIDO": _regla(
