@@ -1209,6 +1209,10 @@ _AGRUPADAS = {
     "VARCHAR_MAX_PROHIBIDO": Plantilla(
         parrafo="Se identificaron declaraciones con tamaño MAX que no guardan JSON, XML ni HTML: {casos}.",
         lista="Se identificaron las siguientes declaraciones con tamaño MAX que no guardan JSON, XML ni HTML",
+        detalle_comun=True,
+        parrafo_comun="Se identificó que {casos} se declaran como {detalle} y no guardan JSON, XML ni HTML.",
+        lista_comun="Se identificaron las siguientes variables declaradas como {detalle} que no guardan JSON, XML "
+                    "ni HTML",
         que_hacer="Se recomienda definir un tamaño fijo, ya que el tamaño MAX solo se permite para JSON, XML o HTML "
                   "y consume más memoria (ej.: VARCHAR(500)).",
         fila="Declaración",

@@ -36,10 +36,15 @@ class Plantilla:
     columna: str = "Líneas"
     # La segunda columna es una frase («Qué hace») y no código: va en letra normal.
     columna_en_texto: bool = False
+    # Si todos tienen el mismo detalle (todas VARCHAR(MAX)), se dice una vez con «{detalle}» y no en cada caso.
+    detalle_comun: bool = False
     # Lo mismo repetido (ORDER BY 1, WHILE): una sola frase para todos (o una función del grupo).
     repetido: Optional[Texto] = None
     # Un solo caso con varios detalles (la misma tabla con INSERT y UPDATE): «…la tabla {casos}.».
     uno: str = ""
+    # Con detalle_comun: los textos cuando todos comparten el detalle («…se declaran como {detalle}…»).
+    parrafo_comun: str = ""
+    lista_comun: str = ""
 
 
 def _texto(valor: Texto, grupo: List[Hallazgo]) -> str:
@@ -66,9 +71,15 @@ def agrupar_casos(grupo: List[Hallazgo], plantilla: Plantilla) -> Hallazgo:
         detalle = getattr(h, "detalle", None)
         caso["detalles"].append(detalle)
 
+    todos = {d for h in grupo for d in [getattr(h, "detalle", None)]}
+    comun = next(iter(todos)) if plantilla.detalle_comun and len(todos) == 1 and None not in todos else None
+
     def con_detalle(elemento: str) -> str:
         detalles = [d for d in dict.fromkeys(casos[elemento]["detalles"]) if d]
-        return f"{elemento} ({', '.join(detalles)})" if detalles else elemento
+        return f"{elemento} ({', '.join(detalles)})" if detalles and not comun else elemento
+
+    def plantilla_de(texto: str, con_comun: str) -> str:
+        return con_comun if comun and con_comun else texto
 
     grupos = None
     if plantilla.repetido is not None:
@@ -80,9 +91,11 @@ def agrupar_casos(grupo: List[Hallazgo], plantilla: Plantilla) -> Hallazgo:
         # detalle (INSERT y UPDATE sobre la misma tabla), se dicen todos.
         problema = plantilla.uno.format(casos=con_detalle(elemento)) if varios_detalles and plantilla.uno else None
     elif len(casos) <= CASOS_EN_PARRAFO:
-        problema = plantilla.parrafo.format(casos=_enumerar([con_detalle(e) for e in casos]))
+        problema = plantilla_de(plantilla.parrafo, plantilla.parrafo_comun).format(
+            casos=_enumerar([con_detalle(e) for e in casos]), detalle=comun)
     else:
-        problema = f"{plantilla.lista}: {'; '.join(con_detalle(e) for e in casos)}."
+        lista = plantilla_de(plantilla.lista, plantilla.lista_comun).format(detalle=comun)
+        problema = f"{lista}: {'; '.join(con_detalle(e) for e in casos)}."
         if len(casos) > CASOS_EN_VINETAS:
             grupos = [{
                 "nombre": elemento,
