@@ -1601,6 +1601,9 @@
   gap: 16px;
   margin-bottom: 20px;
 }
+/* Ícono elegido por la usuaria (persona con engranaje), en rojo de marca y sin cajita. */
+.poco-comun-icono { color: var(--red-main); display: inline-flex; padding-top: 1px; }
+.poco-comun-icono svg { width: 24px; height: 24px; }
 .poco-comun-textos { display: flex; flex-direction: column; min-width: 0; }
 .poco-comun-textos .section-eyebrow { margin-bottom: 4px; }
 .poco-comun-titulo {
