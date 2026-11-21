@@ -1,5 +1,3 @@
-import { IconoEscudoAlerta } from './Iconos';
-
 /**
  * «Casos poco comunes» (usuaria, 21 nov.; diseño B): diseños fuera del estándar que pueden estar justificados
  * (p. ej. una clave primaria heredada de su tabla padre). Van en su propio recuadro, debajo de las demás
@@ -9,7 +7,6 @@ export function CasosPocoComunes({ cantidad, children }) {
   return (
     <section className="poco-comun" aria-labelledby="poco-comun-titulo">
       <header className="poco-comun-cabecera">
-        <span className="poco-comun-icono" aria-hidden="true"><IconoEscudoAlerta /></span>
         <div className="poco-comun-textos">
           <span className="section-eyebrow">Casos poco comunes</span>
           <h3 id="poco-comun-titulo" className="poco-comun-titulo">Validar con el DBA</h3>
