@@ -243,10 +243,14 @@ class TestAgrupacion(unittest.TestCase):
         )
         hallazgos = {h.regla: h for h in verificar_tabla(sql)}
         nulos = hallazgos["COLUMNA_SIN_NOT_NULL_NI_DEFAULT"]
-        self.assertIn("Se identificaron 2 columnas que aceptan valores nulos, en las líneas 3, 4: cNombre; cCorreo", nulos.mensaje)
+        # Las líneas van arriba de la observación, no en el texto (usuaria, 21 nov.).
+        self.assertIn("Se identificaron 2 columnas que aceptan valores nulos: cNombre; cCorreo", nulos.mensaje)
+        self.assertEqual(nulos.lineas, [3, 4])
         self.assertEqual(nulos.linea, 3)
         prefijos = hallazgos["COLUMNA_PREFIJO_TIPO_INVALIDO"]
-        self.assertIn("en las líneas 5, 6: Edad → nEdad; Monto → nMonto", prefijos.mensaje)
+        self.assertIn(": Edad → nEdad; Monto → nMonto", prefijos.mensaje)
+        self.assertNotIn("línea", prefijos.mensaje)
+        self.assertEqual(prefijos.lineas, [5, 6])
 
     def test_una_sola_observacion_conserva_su_mensaje(self):
         sql = ("CREATE TABLE dbo.Cliente (\n nClienteId INT IDENTITY(1,1) NOT NULL PRIMARY KEY,\n"

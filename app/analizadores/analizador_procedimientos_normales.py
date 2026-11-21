@@ -1354,8 +1354,8 @@ _AGRUPADAS = {
 def _agrupar_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
     """Une los hallazgos de una misma regla en uno solo, con todas sus líneas.
 
-    Formato: "Se encontraron N observaciones de este tipo, en las líneas 3, 8:
-    hecho uno; hecho dos. Acción." La interfaz lo muestra como lista.
+    Formato: "Se encontraron N observaciones de este tipo: hecho uno; hecho dos.
+    Acción." Las líneas van solo arriba de la observación, no en el texto (usuaria, 21 nov.).
     """
     grupos: Dict[str, List[Hallazgo]] = {}
     for hallazgo in hallazgos:
@@ -1370,7 +1370,6 @@ def _agrupar_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
             resumidos.append(agrupar_casos(grupo, _AGRUPADAS[regla]))
             continue
         numeros = sorted({hallazgo.linea for hallazgo in grupo})
-        lineas = ("la línea " if len(numeros) == 1 else "las líneas ") + ", ".join(map(str, numeros))
         partes = [re.split(r"(?<=[.?])\s+(?=[A-ZÁÉÍÓÚÑ¿(])", h.mensaje, maxsplit=1) for h in grupo]
         if all(len(parte) == 2 for parte in partes):
             hechos = list(dict.fromkeys(parte[0][:1].lower() + parte[0][1:].rstrip(".") for parte in partes))
@@ -1382,7 +1381,7 @@ def _agrupar_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
             origen=grupo[0].origen,
             severidad=grupo[0].severidad,
             regla=regla,
-            mensaje=f"Se encontraron {len(grupo)} observaciones de este tipo, en {lineas}: {detalle}",
+            mensaje=f"Se encontraron {len(grupo)} observaciones de este tipo: {detalle}",
         )
         resumen.lineas = numeros  # para recorrer los casos uno a uno desde «Ver en el código»
         resumidos.append(resumen)

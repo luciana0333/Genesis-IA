@@ -78,10 +78,6 @@ def juntar_ortografia(hallazgos: List[Hallazgo], accion: str) -> List[Hallazgo]:
     return resto[:primera] + [junta] + resto[primera:]
 
 
-def _lineas(numeros: List[int]) -> str:
-    return ("la línea " if len(numeros) == 1 else "las líneas ") + ", ".join(map(str, numeros))
-
-
 def agrupar(hallazgos: List[Hallazgo], plantillas: Dict[str, Tuple[str, str]]) -> List[Hallazgo]:
     """plantillas: regla -> (sustantivo en plural, acción para todos)."""
     grupos: Dict[str, List[Hallazgo]] = {}
@@ -101,7 +97,7 @@ def agrupar(hallazgos: List[Hallazgo], plantillas: Dict[str, Tuple[str, str]]) -
         if regla in plantillas and all(elementos):
             sustantivo, accion = plantillas[regla]
             mensaje = (
-                f"Se identificaron {len(grupo)} {sustantivo}, en {_lineas(numeros)}: "
+                f"Se identificaron {len(grupo)} {sustantivo}: "
                 f"{'; '.join(dict.fromkeys(elementos))}. {accion}"
             )
         else:
@@ -113,7 +109,7 @@ def agrupar(hallazgos: List[Hallazgo], plantillas: Dict[str, Tuple[str, str]]) -
                 detalle = "; ".join(hechos) + ". " + partes[0][1]
             else:
                 detalle = " ".join(dict.fromkeys(h.mensaje for h in grupo))
-            mensaje = f"Se encontraron {len(grupo)} observaciones de este tipo, en {_lineas(numeros)}: {detalle}"
+            mensaje = f"Se encontraron {len(grupo)} observaciones de este tipo: {detalle}"
         resumido = Hallazgo(
             linea=numeros[0],
             origen=grupo[0].origen,

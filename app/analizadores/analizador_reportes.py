@@ -1265,7 +1265,7 @@ def _agrupar_hallazgos_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
             continue
 
         numeros = sorted({hallazgo.linea for hallazgo in grupo})
-        lineas = ("la línea " if len(numeros) == 1 else "las líneas ") + ", ".join(map(str, numeros))
+        # Las líneas van solo arriba de la observación, no en el texto (usuaria, 21 nov.).
         # Cada mensaje es "qué pasa. Qué hacer.": se listan los hechos y la acción
         # se dice una sola vez (la del primero; solo cambia el ejemplo).
         partes = [re.split(r"(?<=\.)\s+|, por lo que (?=se recomienda)", h.mensaje, maxsplit=1) for h in grupo]
@@ -1281,7 +1281,7 @@ def _agrupar_hallazgos_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
             severidad=grupo[0].severidad,
             regla=regla,
             mensaje=(
-                f"Se encontraron {len(grupo)} observaciones de este tipo, en {lineas}: "
+                f"Se encontraron {len(grupo)} observaciones de este tipo: "
                 f"{' '.join(detalles)}"
             ),
         )

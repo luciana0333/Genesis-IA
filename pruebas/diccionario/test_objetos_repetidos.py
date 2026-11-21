@@ -43,7 +43,10 @@ class TestTablaDuplicada(unittest.TestCase):
         hallazgos = verificar_diccionario_tablas(DOS_VECES, "")
         self.assertEqual(reglas(hallazgos).count("TABLA_DUPLICADA"), 1)
         self.assertEqual(reglas(hallazgos).count("COLUMNA_FALTANTE"), 1)
-        self.assertIn("en las líneas 2, 3, 4, 5:", next(h for h in hallazgos if h.regla == "COLUMNA_FALTANTE").mensaje)
+        faltante = next(h for h in hallazgos if h.regla == "COLUMNA_FALTANTE")
+        # Las líneas van arriba de la observación, no en el texto (usuaria, 21 nov.).
+        self.assertNotIn("línea", faltante.mensaje)
+        self.assertEqual(faltante.lineas, [2, 3, 4, 5])
 
     def test_tres_veces(self):
         hallazgo = verificar_tabla(TABLA + TABLA + TABLA)[0]
