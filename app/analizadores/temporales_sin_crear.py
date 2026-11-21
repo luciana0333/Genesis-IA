@@ -119,14 +119,12 @@ def _sin_crear_y_sin_documentar(limpio: str, texto: Optional[str]):
 
 # Texto de la usuaria (21 nov.): confirmar que la crea el que lo llama; 2 en el párrafo, 3 en viñetas, más en cajitas.
 _QUE_HACER_VALIDAR_UNA = (
-    "Se recomienda confirmar que el procedimiento que lo llama la cree antes de ejecutarlo y documentarlo en el "
-    "encabezado, ya que, si no existe, SQL Server detiene el procedimiento con el error «El nombre de objeto "
-    "'{nombre}' no es válido»."
+    "Se recomienda verificar que la tabla temporal se cree previamente en el mismo flujo de ejecución y que esté "
+    "disponible al momento de ejecutar este procedimiento."
 )
 _QUE_HACER_VALIDAR_VARIAS = (
-    "Se recomienda confirmar que el procedimiento que lo llama las cree antes de ejecutarlo y documentarlo en el "
-    "encabezado, ya que, si no existen, SQL Server detiene el procedimiento con el error «El nombre de objeto no es "
-    "válido»."
+    "Se recomienda verificar que las tablas temporales se creen previamente en el mismo flujo de ejecución y que "
+    "estén disponibles al momento de ejecutar este procedimiento."
 )
 
 
@@ -142,7 +140,7 @@ def temporales_por_validar(
     tablas = [nombres[clave] for clave in orden]
     if len(tablas) == 1:
         problema = f"Se identificó que la tabla temporal {tablas[0]} se utiliza, pero no se crea en este procedimiento."
-        que_hacer = _QUE_HACER_VALIDAR_UNA.format(nombre=tablas[0])
+        que_hacer = _QUE_HACER_VALIDAR_UNA
     elif len(tablas) == 2:
         problema = (f"Se identificó que las tablas temporales {tablas[0]} y {tablas[1]} se utilizan, pero no se crean "
                     f"en este procedimiento.")

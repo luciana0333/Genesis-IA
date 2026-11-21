@@ -46,7 +46,8 @@ class TemporalesSinCrearTest(unittest.TestCase):
                 self.assertEqual(hallazgos[0].severidad.value, "medio")
                 self.assertTrue(hallazgos[0].mensaje.startswith(
                     "Se identificó que las siguientes tablas temporales se utilizan, pero no se crean en este "
-                    "procedimiento: #A; #B; #C. Se recomienda confirmar que el procedimiento que lo llama las cree"))
+                    "procedimiento: #A; #B; #C. Se recomienda verificar que las tablas temporales se creen previamente "
+                    "en el mismo flujo de ejecución y que estén disponibles al momento de ejecutar este procedimiento."))
                 self.assertEqual(hallazgos[0].lineas, [1, 3, 2, 4])  # arriba de la tarjeta, tabla por tabla
 
     def test_creada_con_create_table_o_select_into_no_se_observa(self):
@@ -93,7 +94,12 @@ class TemporalesSinCrearTest(unittest.TestCase):
                     "Se identificó que las tablas temporales #A y #B se utilizan, pero no se crean en este "
                     "procedimiento."))
                 una = _sin_crear(verificar, "SELECT 1 FROM #A", VALIDAR)[0]
-                self.assertIn("«El nombre de objeto '#A' no es válido»", una.mensaje)
+                # Texto de la usuaria (21 nov.), en singular.
+                self.assertEqual(
+                    una.mensaje,
+                    "Se identificó que la tabla temporal #A se utiliza, pero no se crea en este procedimiento. Se "
+                    "recomienda verificar que la tabla temporal se cree previamente en el mismo flujo de ejecución y "
+                    "que esté disponible al momento de ejecutar este procedimiento.")
 
 
 if __name__ == "__main__":
