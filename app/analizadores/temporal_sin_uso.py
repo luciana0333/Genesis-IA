@@ -79,12 +79,25 @@ def _es_destino_de_alias(limpio: str, posicion: int, fin: int) -> bool:
         # Fuera de paréntesis (las subconsultas del SET no cuentan): si ya pasó el FROM del UPDATE, o empieza un
         # SELECT, #T es de otra sentencia. Caso real (20 nov.): «UPDATE A … FROM #DATOS_FORMATO A» y luego
         # «SELECT … FROM #DATOS_FORMATO A»: el SELECT final la lee, no es el destino del UPDATE.
-        afuera = _fuera_de_parentesis(limpio[sentencia.end():posicion])
+        tramo = limpio[sentencia.end():posicion]
+        # Dentro de una subconsulta (paréntesis sin cerrar) no es el destino del UPDATE, aunque repita su alias
+        # (caso real, 21 nov.: «UPDATE A … FROM #AUX A LEFT JOIN (SELECT … FROM #CFJGobierno A …) C»).
+        if tramo.count("(") > tramo.count(")"):
+            return False
+        afuera = _fuera_de_parentesis(tramo)
         if (re.search(r"(?<![\w@#$])SELECT\b", afuera, re.IGNORECASE)
                 or len(re.findall(r"(?<![\w@#$])FROM\b", afuera, re.IGNORECASE)) > 1):
             return False
         return sentencia.group(1).lower() == alias.group(1).lower()
     return False
+
+
+_BLOQUE_CATCH = re.compile(r"\bBEGIN\s+CATCH\b.*?\bEND\s+CATCH\b", re.IGNORECASE | re.DOTALL)
+
+
+def _en_catch(limpio: str, posicion: int) -> bool:
+    """¿La posición está dentro de un BEGIN CATCH … END CATCH?"""
+    return any(m.start() <= posicion < m.end() for m in _BLOQUE_CATCH.finditer(limpio))
 
 
 def _fuera_de_parentesis(tramo: str) -> str:
@@ -114,6 +127,7 @@ def temporales_sin_uso(texto: str, limpio: str) -> List[Tuple[str, int]]:
     resultado = []
     for clave, (nombre, creada_en) in creadas.items():
         llenada = leida = False
+        primer_llenado = None
         for uso in re.finditer(rf"(?<![\w$#@]){re.escape(nombre)}(?![\w$#])", limpio, re.IGNORECASE):
             if any(inicio <= uso.start() < fin for inicio, fin in drops):
                 continue  # DROP TABLE: no es una lectura
@@ -122,6 +136,8 @@ def temporales_sin_uso(texto: str, limpio: str) -> List[Tuple[str, int]]:
             if destino:
                 if re.search(r"\b(?:INSERT|INTO)\b", destino.group(0), re.IGNORECASE):
                     llenada = True
+                    if primer_llenado is None:
+                        primer_llenado = uso.start()
                 continue
             if _es_destino_de_alias(limpio, uso.start(), uso.end()):
                 continue
@@ -130,8 +146,13 @@ def temporales_sin_uso(texto: str, limpio: str) -> List[Tuple[str, int]]:
         # También la que solo se crea y nunca se llena ni se lee (#tmpTardanza; usuaria, 8 nov.).
         if leida:
             continue
-        # Un procedimiento llamado después, o SQL dinámico, pueden leerla.
-        if _EXEC_PROCEDIMIENTO.search(limpio, creada_en):
+        # Un procedimiento llamado después, o SQL dinámico, pueden leerla. Si se llena, el EXEC tiene que ir después
+        # de llenarla: antes no hay nada que leer (caso real, 21 nov.: #MontosConfigJornalito se llena después del
+        # EXEC Motor_InsCreditosxEstado_SP y nunca se usa). Si solo se crea, el otro procedimiento puede llenarla.
+        # El EXEC de un CATCH (registro del error) no cuenta: solo corre si algo falla y no lee las temporales
+        # (caso real: EXEC COLOCACIONES.InsErrorMotorLog_SP @@ProcID).
+        desde = primer_llenado if primer_llenado is not None else creada_en
+        if any(not _en_catch(limpio, m.start()) for m in _EXEC_PROCEDIMIENTO.finditer(limpio, desde)):
             continue
         if any(re.search(rf"(?<![\w$#@]){re.escape(nombre)}(?![\w$#])", cadena, re.IGNORECASE)
                for cadena in _textos(texto)):

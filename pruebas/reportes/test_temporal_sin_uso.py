@@ -30,6 +30,24 @@ class TemporalSinUsoTest(unittest.TestCase):
                 self.assertEqual(_sin_uso(usada, verificar), [])
                 self.assertIn("#T se crea y se llena", _sin_uso(sin_uso, verificar)[0].mensaje)
 
+    def test_exec_antes_de_llenarla_o_en_el_catch_no_la_usa(self):
+        # Caso real (21 nov., PA del motor): #MontosConfigJornalito se llena después del EXEC a otro procedimiento y
+        # el único EXEC posterior es el registro del error en el CATCH: no se usa.
+        sin_uso = ("CREATE TABLE #M (n NVARCHAR(10))\nBEGIN TRY\n EXEC COLOCACIONES.Motor_InsCreditosxEstado_SP '2000'\n"
+                   " INSERT INTO #M (n) SELECT value FROM STRING_SPLIT('1,2', ',')\nEND TRY\nBEGIN CATCH\n"
+                   " EXEC COLOCACIONES.InsErrorMotorLog_SP @@ProcID;\n THROW;\nEND CATCH")
+        # Un EXEC después de llenarla (fuera del CATCH) sí puede leerla.
+        puede_leerla = sin_uso.replace("STRING_SPLIT('1,2', ',')\n", "STRING_SPLIT('1,2', ',')\n EXEC dbo.PA_LeeM\n")
+        # Leída en una subconsulta que repite el alias del UPDATE: se usa.
+        en_subconsulta = ("CREATE TABLE #G (n INT)\nCREATE TABLE #AUX (n INT)\nINSERT INTO #G SELECT 1\n"
+                          "INSERT INTO #AUX SELECT 1\nUPDATE A SET A.n = C.n FROM #AUX A\n"
+                          "LEFT JOIN (SELECT A.n FROM #G A) C ON A.n = C.n\nSELECT n FROM #AUX")
+        for verificar in MODULOS:
+            with self.subTest(modulo=verificar.__name__):
+                self.assertIn("#M se crea y se llena", _sin_uso(sin_uso, verificar)[0].mensaje)
+                self.assertEqual(_sin_uso(puede_leerla, verificar), [])
+                self.assertEqual(_sin_uso(en_subconsulta, verificar), [])
+
     def test_solo_la_que_no_se_usa_con_el_texto_de_la_usuaria(self):
         # Caso del libro caja: #MOVS3 solo sirve para llenar #MOVX (se usa); #MOVX no se lee nunca.
         sql = ("CREATE TABLE #MOVS3 (nMovNro INT)\n"
