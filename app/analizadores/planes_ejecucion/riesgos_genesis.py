@@ -265,4 +265,72 @@ def riesgos_genesis(sentencias: List[Dict]) -> List[Hallazgo]:
     """Riesgos propios de Genesis: texto a número en comparaciones, columna de texto convertida y conversión de una
     columna dentro de un filtro que obliga a recorrer la tabla."""
     return (conversion_texto_a_numero(sentencias) + columna_texto_convertida(sentencias)
-            + conversion_columna_en_filtro(sentencias))
+            + conversion_columna_en_filtro(sentencias) + conversion_columna_a_destino(sentencias))
+
+
+# --- Columna convertida al guardarse o unirse (usuaria, 20 nov.) ------------------------------------------------------
+# Comprobado en SQL Server Express: INSERT/UPDATE a un destino de otro tipo, o UNION con columnas de otro tipo, deja en
+# un Compute Scalar «[Expr1005] = CONVERT_IMPLICIT(varchar(10), [Tabla].[cuser], 0)»; un SELECT simple no. No frena
+# la consulta, pero los tipos no son iguales: si el destino es más chico o con menos decimales, el dato se corta o
+# se redondea. Lo que filtra o une (WHERE/ON) lo ve «conversión en un filtro»; texto a número o fecha, «columna de
+# texto convertida»; lo que SQL Server ya alertó no se repite.
+_TIPO_CUALQUIERA = r"[a-z]+(?:\((?:\d+(?:,\d+)?|max)\))?"
+_COLUMNA_A_DESTINO = re.compile(
+    rf"\[(?P<expr>Expr\d+)\] = Scalar Operator\(CONVERT_IMPLICIT\((?P<tipo>{_TIPO_CUALQUIERA}),"
+    r"(?P<calificadores>(?:(?:\[[^\]]+\]|#?[\w#$]+)\.)+)\[(?P<nombre>[^\]]+)\]"
+    r"(?: as (?:\[[^\]]+\]\.)*\[[^\]]+\])?,\d+\)\)",
+    re.IGNORECASE,
+)
+
+
+# La misma conversión dentro del texto de una alerta de SQL Server (cualquier tipo: también nvarchar(50)).
+_COLUMNA_CONVERTIDA_EN_ALERTA = re.compile(
+    rf"CONVERT_IMPLICIT\((?P<tipo>{_TIPO_CUALQUIERA}),(?:(?:\[[^\]]+\]|#?[\w#$]+)\.)+\[(?P<nombre>[^\]]+)\]",
+    re.IGNORECASE,
+)
+
+
+def conversion_columna_a_destino(sentencias: List[Dict]) -> List[Hallazgo]:
+    lugares: Dict[str, None] = {}
+    nodos: List[Dict] = []
+    for sentencia in sentencias:
+        # Lo que SQL Server ya alertó (Convert Issue) lo observa «Conversión implícita detectada»: no se repite.
+        alertadas = {
+            (m.group("nombre").lower(), m.group("tipo").lower())
+            for nodo in sentencia["nodos"] for a in nodo.get("advertencias", []) if a["tipo"] == "conversion"
+            for m in _COLUMNA_CONVERTIDA_EN_ALERTA.finditer(a["texto"])
+        }
+        # Expresiones que usa un filtro o un JOIN: esas son de «conversión en un filtro».
+        en_filtro = {
+            e for nodo in sentencia["nodos"] for predicado in nodo.get("predicados", [])
+            if predicado.get("nombre") in _PREDICADOS_DE_FILTRO
+            for e in _REFERENCIA_EXPR.findall(predicado.get("texto", ""))
+        }
+        for nodo in sentencia["nodos"]:
+            for predicado in nodo.get("predicados", []):
+                if predicado.get("nombre") != "Defined Values":
+                    continue
+                for definida in _COLUMNA_A_DESTINO.finditer(predicado.get("texto", "")):
+                    nombre, tipo = definida.group("nombre"), definida.group("tipo").lower()
+                    texto_a_numero_o_fecha = (_PREFIJO_TEXTO.match(nombre)
+                                              and re.fullmatch(f"{_TIPO_FECHA}|{_TIPO_NUMERICO}", tipo))
+                    if definida.group("expr") in en_filtro or (nombre.lower(), tipo) in alertadas \
+                            or texto_a_numero_o_fecha:
+                        continue
+                    lugares.setdefault(f"{nodo['fisica']} del {sentencia['tipo']}")
+                    marca = {"consulta": sentencia["numero"], "nodo": nodo["id"]}
+                    if marca not in nodos:
+                        nodos.append(marca)
+    if not nodos:
+        return []
+    # Texto de la usuaria (20 nov.): corto y directo; el operador marcado en la imagen muestra las columnas.
+    lista = list(lugares)
+    donde = f"en el {lista[0]}" if len(lista) == 1 else (
+        f"en el {lista[0]} y en el {lista[1]}" if len(lista) == 2 else "en los operadores marcados")
+    mensaje = (f"Se detectó una conversión implícita, ya que los tipos de datos no son iguales. Se recomienda corregir "
+               f"la conversión implícita identificada {donde}.")
+    hallazgo = Hallazgo(linea=1, origen=OrigenAnalisis.PLAN_EJECUCION, severidad=Severidad.BAJO,
+                        regla="CONVERSION_COLUMNA_A_DESTINO", mensaje=mensaje)
+    hallazgo.nodos = nodos
+    hallazgo.complementario = True  # va en «Riesgos identificados por Genesis»
+    return [hallazgo]

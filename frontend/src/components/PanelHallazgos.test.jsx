@@ -27,10 +27,10 @@ describe('PanelHallazgos · riesgos identificados por Genesis', () => {
     const encabezado = screen.getByRole('heading', { name: 'Riesgos identificados por Genesis' });
     expect(screen.getByText('Análisis complementario')).toBeInTheDocument();
     const titulos = screen.getAllByRole('heading', { level: 4 }).map((h) => h.textContent);
-    expect(titulos).toEqual(['Conversión implícita detectada', 'Conversión implícita de texto a número']);
+    // Todas las conversiones con el mismo título (usuaria, 20 nov.): la normal primero, el riesgo después.
+    expect(titulos).toEqual(['Conversión implícita', 'Conversión implícita']);
     // La ficha del riesgo está después del encabezado; la normal, antes.
-    const fichaRiesgo = screen.getByRole('heading', { name: 'Conversión implícita de texto a número' });
-    const fichaNormal = screen.getByRole('heading', { name: 'Conversión implícita detectada' });
+    const [fichaNormal, fichaRiesgo] = screen.getAllByRole('heading', { name: 'Conversión implícita' });
     expect(encabezado.compareDocumentPosition(fichaRiesgo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(encabezado.compareDocumentPosition(fichaNormal) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
   });

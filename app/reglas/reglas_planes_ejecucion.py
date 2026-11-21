@@ -48,7 +48,7 @@ REGLAS_PLANES_EJECUCION = {
     ),
     "CONVERSION_IMPLICITA_DETECTADA": ReglaDiccionario(
         codigo="CONVERSION_IMPLICITA_DETECTADA",
-        nombre="Conversión implícita detectada",
+        nombre="Conversión implícita",
         severidad="alto",
         descripcion="Un operador tiene la alerta Convert Issue con CONVERT_IMPLICIT: SQL Server convierte el dato fila por fila.",
         alcance="plan_ejecucion",
@@ -56,7 +56,7 @@ REGLAS_PLANES_EJECUCION = {
     ),
     "CONVERSION_TEXTO_A_NUMERO": ReglaDiccionario(
         codigo="CONVERSION_TEXTO_A_NUMERO",
-        nombre="Conversión implícita de texto a número",
+        nombre="Conversión implícita",
         severidad="medio",
         descripcion="Riesgo identificado por Genesis (sin alerta de SQL Server): SUBSTRING, LEFT o RIGHT convertido "
                     "implícitamente a número; si el dato no es numérico, la consulta genera un error de conversión.",
@@ -65,7 +65,7 @@ REGLAS_PLANES_EJECUCION = {
     ),
     "COLUMNA_TEXTO_CONVERTIDA": ReglaDiccionario(
         codigo="COLUMNA_TEXTO_CONVERTIDA",
-        nombre="Conversión implícita de columna de texto",
+        nombre="Conversión implícita",
         severidad="medio",
         descripcion="Riesgo identificado por Genesis (sin alerta de SQL Server): una columna de texto (cFecha) que el "
                     "plan convierte implícitamente a fecha o número; si algún valor no tiene el formato esperado, la "
@@ -75,12 +75,22 @@ REGLAS_PLANES_EJECUCION = {
     ),
     "CONVERSION_COLUMNA_EN_FILTRO": ReglaDiccionario(
         codigo="CONVERSION_COLUMNA_EN_FILTRO",
-        nombre="Conversión implícita en un filtro",
+        nombre="Conversión implícita",
         severidad="bajo",
         descripcion="Riesgo identificado por Genesis (sin alerta de SQL Server): una columna (BIT, número o fecha) que "
                     "el plan convierte implícitamente dentro de un filtro o un JOIN, lo que obliga a recorrer la tabla. "
                     "Solo se marca si el recorrido lee 10 000 filas o más y devuelve como mucho el 10 %; medio desde "
                     "un millón de filas leídas.",
+        alcance="plan_ejecucion",
+        activo=True,
+    ),
+    "CONVERSION_COLUMNA_A_DESTINO": ReglaDiccionario(
+        codigo="CONVERSION_COLUMNA_A_DESTINO",
+        nombre="Conversión implícita",
+        severidad="bajo",
+        descripcion="Riesgo identificado por Genesis (sin alerta de SQL Server): una columna que el plan convierte "
+                    "implícitamente al guardarse (INSERT, UPDATE) o unirse (UNION) con un destino de otro tipo de dato "
+                    "(Compute Scalar). No frena la consulta, pero los tipos no son iguales.",
         alcance="plan_ejecucion",
         activo=True,
     ),
