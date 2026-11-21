@@ -152,13 +152,17 @@ export function AuditoriaWorkspace({ vista }) {
     const recorrido = lineas.length > 1 ? tituloHallazgo(hallazgo) : null;
     return <VerEnCodigo onVer={() => verEnCodigo(seccion, lineas, recorrido, hallazgo)} />;
   };
+  // Una fila puede estar en otra cajita que la observación (ALTER: lo que falta en el objeto, lo que se agrega en
+  // el diccionario): manda la cajita de la fila que se está recorriendo.
+  const seccionDeFila = grupoActual ? CAJITAS[marca.hallazgo.grupos[grupoActual.vineta].seccion] : null;
+  const seccionActual = seccionDeFila ?? marca?.seccion;
   // Con viñetas por tabla, solo se marcan en rojo las líneas de la tabla que se está recorriendo.
   const marcadasEn = (seccion) => {
-    if (marca?.seccion !== seccion) return [];
+    if (seccionActual !== seccion) return [];
     return grupoActual ? marca.hallazgo.grupos[grupoActual.vineta].lineas : marca.lineas;
   };
   const enfocarEn = (seccion) => (
-    marca?.seccion === seccion ? { linea: marca.lineas[marca.indice], clave: marca.clave } : null
+    seccionActual === seccion ? { linea: marca.lineas[marca.indice], clave: marca.clave } : null
   );
   // Dónde aparece cada sigla en toda la revisión: { TPPP: { tabla: 2, columna: 12 } }.
   const usosDeSiglas = {};

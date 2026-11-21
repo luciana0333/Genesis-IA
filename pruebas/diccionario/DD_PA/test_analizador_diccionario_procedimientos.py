@@ -142,8 +142,12 @@ END"""
         self.assertIn("está documentado, pero su descripción se encuentra vacía",
                       reglas["DESCRIPCION_PROCEDIMIENTO_VACIA"].mensaje)
 
+    # En ALTER, lo documentado se actualiza (sp_updateextendedproperty): si se agregara, saldría junto con
+    # «se agregan» en la observación unida (ver test_validar_documentacion_unida.py).
+    ACTUALIZA = DICCIONARIO.replace("sp_addextendedproperty", "sp_updateextendedproperty")
+
     def test_alter_procedure_solo_pide_validar_lo_no_documentado(self):
-        hallazgos = verificar_diccionario("ALTER" + self.CUERPO, self.DICCIONARIO)
+        hallazgos = verificar_diccionario("ALTER" + self.CUERPO, self.ACTUALIZA)
         reglas = [h.regla for h in hallazgos]
         self.assertNotIn("PROCEDIMIENTO_SIN_DESCRIPCION", reglas)
         self.assertNotIn("PARAMETRO_FALTANTE", reglas)
@@ -151,10 +155,68 @@ END"""
         # El procedimiento y @cCodigo se piden validar en un solo hallazgo.
         self.assertEqual(len(validar), 1)
         self.assertEqual(validar[0].severidad, Severidad.BAJO)
-        self.assertIn("Se encontraron 2 observaciones", validar[0].mensaje)
-        self.assertIn("@cCodigo", validar[0].mensaje)
-        self.assertIn("Verificar si ya cuenta con descripción en el diccionario", validar[0].mensaje)
-        self.assertNotIn("Es un ALTER PROCEDURE", validar[0].mensaje)
+        # Texto de la usuaria (20 nov.): una sola frase con el procedimiento y el parámetro, sin repetir.
+        self.assertEqual(
+            validar[0].mensaje,
+            "Se identificó que el diccionario no incluye la descripción del procedimiento dbo.PA_Cliente_Consultar ni "
+            "del parámetro @cCodigo. Se recomienda verificar si estas descripciones ya se encuentran registradas, "
+            "considerando que se trata de una modificación del procedimiento (ALTER PROCEDURE).",
+        )
+        self.assertEqual(validar[0].mensaje[validar[0].inicio_que_hacer:][:13], "Se recomienda")
+
+    def test_alter_desde_3_parametros_en_vinetas(self):
+        cuerpo = self.CUERPO.replace("@cCodigo VARCHAR(10)", "@cA VARCHAR(1), @cB VARCHAR(1), @cC VARCHAR(1)")
+        diccionario = self.ACTUALIZA + (
+            "\nEXEC sys.sp_updateextendedproperty @name = N'MS_Description', @value = N'Procedimiento que consulta', "
+            "@level0type = N'SCHEMA', @level0name = N'dbo', "
+            "@level1type = N'PROCEDURE', @level1name = N'PA_Cliente_Consultar';")
+        validar = [h for h in verificar_diccionario("ALTER" + cuerpo, diccionario) if h.regla == "VALIDAR_DOCUMENTACION_ALTER"]
+        self.assertEqual(
+            validar[0].mensaje,
+            "Se identificó que el diccionario no incluye la descripción de los siguientes parámetros: @cA; @cB; @cC. "
+            "Se recomienda verificar si estas descripciones ya se encuentran registradas, considerando que se "
+            "trata de una modificación del procedimiento (ALTER PROCEDURE).",
+        )
+
+    def test_alter_solo_el_procedimiento_en_singular(self):
+        diccionario = self.ACTUALIZA.replace("N'@nClienteId'", "N'@cCodigo'") + self.ACTUALIZA.replace(
+            "N''", "N'Identificador'")
+        validar = [h for h in verificar_diccionario("ALTER" + self.CUERPO, diccionario) if h.regla == "VALIDAR_DOCUMENTACION_ALTER"]
+        self.assertEqual(
+            validar[0].mensaje,
+            "Se identificó que el diccionario no incluye la descripción del procedimiento dbo.PA_Cliente_Consultar. "
+            "Se recomienda verificar si esta descripción ya se encuentra registrada, considerando que se trata de una "
+            "modificación del procedimiento (ALTER PROCEDURE).",
+        )
+
+    def test_alter_con_varios_procedimientos_va_en_tabla(self):
+        def prop(pa, parametro=None, valor="Procedimiento que consulta"):
+            texto = (f"EXEC sys.sp_updateextendedproperty @name=N'MS_Description', @value=N'{valor}', "
+                     f"@level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'PROCEDURE', @level1name=N'{pa}'")
+            return texto + (f", @level2type=N'PARAMETER', @level2name=N'{parametro}';\n" if parametro else ";\n")
+        script = ("-- encabezado\nALTER PROCEDURE dbo.PA_Cliente_Sel_Uno\n  @nA INT,\n  @nB INT\nAS\nSELECT 1\nGO\n"
+                  "ALTER PROCEDURE dbo.PA_Cliente_Sel_Dos\n  @cX VARCHAR(2),\n  @cY VARCHAR(2)\nAS\nSELECT 2\n")
+        diccionario = (prop("PA_Cliente_Sel_Uno", "@nA", "Identificador") + prop("PA_Cliente_Sel_Dos")
+                       + prop("PA_Cliente_Sel_Dos", "@cY", "Código"))
+        validar = [h for h in verificar_diccionario(script, diccionario) if h.regla == "VALIDAR_DOCUMENTACION_ALTER"]
+        self.assertEqual(len(validar), 1)
+        self.assertEqual(validar[0].grupos, [
+            {"nombre": "dbo.PA_Cliente_Sel_Uno", "tipo": "Procedimiento", "lineas": [2, 4],
+             "etiquetas": ["(descripción del procedimiento)", "@nB"]},
+            {"nombre": "dbo.PA_Cliente_Sel_Dos", "tipo": "Procedimiento", "lineas": [9], "etiquetas": ["@cX"]},
+        ])
+        self.assertEqual(validar[0].lineas, [2, 4, 9])
+        self.assertEqual(validar[0].seccion, "objeto")
+        self.assertTrue(validar[0].mensaje.endswith(
+            "Se recomienda verificar si estas descripciones ya se encuentran registradas, considerando que se trata "
+            "de una modificación de los procedimientos (ALTER PROCEDURE)."))
+        # Con un solo procedimiento por validar, su frase (el «Qué hacer» sigue en su sitio).
+        solo_uno = [h for h in verificar_diccionario(script, diccionario + prop("PA_Cliente_Sel_Uno") + prop(
+            "PA_Cliente_Sel_Uno", "@nB", "Otro")) if h.regla == "VALIDAR_DOCUMENTACION_ALTER"][0]
+        self.assertIsNone(getattr(solo_uno, "grupos", None))
+        self.assertEqual(solo_uno.lineas, [9])
+        self.assertIn("En el procedimiento", solo_uno.mensaje)
+        self.assertEqual(solo_uno.mensaje[solo_uno.inicio_que_hacer:][:13], "Se recomienda")
 
     def test_alter_procedure_revisa_lo_demas_igual_que_create(self):
         hallazgos = {h.regla: h for h in verificar_diccionario("ALTER" + self.CUERPO, self.DICCIONARIO)}

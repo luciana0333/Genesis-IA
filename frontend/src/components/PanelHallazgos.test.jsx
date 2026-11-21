@@ -170,6 +170,89 @@ describe('PanelHallazgos · «COLLATE no especificado en tabla temporal» como t
   });
 });
 
+describe('PanelHallazgos · «Validar documentación existente» con varios procedimientos', () => {
+  it('desde 2 procedimientos: Procedimiento | Parámetros sin descripción (usuaria, 20 nov.)', () => {
+    const mensaje = 'Se identificó que el diccionario no incluye la descripción de los siguientes procedimientos o de '
+      + 'sus parámetros: dbo.PA_Uno: (descripción del procedimiento), @nB; dbo.PA_Dos: @cX. ';
+    const queHacer = 'Se recomienda verificar si estas descripciones ya se encuentran registradas, considerando que '
+      + 'se trata de una modificación de los procedimientos (ALTER PROCEDURE).';
+    render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[{
+      regla: 'VALIDAR_DOCUMENTACION_ALTER',
+      severidad: 'bajo',
+      linea: 2,
+      mensaje: mensaje + queHacer,
+      inicioQueHacer: mensaje.length,
+      lineas: [2, 4, 9],
+      grupos: [
+        { nombre: 'dbo.PA_Uno', tipo: 'Procedimiento', lineas: [2, 4], etiquetas: ['(descripción del procedimiento)', '@nB'] },
+        { nombre: 'dbo.PA_Dos', tipo: 'Procedimiento', lineas: [9], etiquetas: ['@cX'] },
+      ],
+    }]} />);
+    const filas = within(screen.getByRole('table')).getAllByRole('row').map((fila) => fila.textContent);
+    expect(filas).toEqual([
+      'ProcedimientoParámetros sin descripción',
+      'dbo.PA_Uno(descripción del procedimiento), @nB',
+      'dbo.PA_Dos@cX',
+    ]);
+    expect(screen.getByText(/^Se identificó que el diccionario no incluye la descripción de los siguientes procedimientos o de sus parámetros:$/))
+      .toBeInTheDocument();
+    expect(screen.getByText(/considerando que se trata de una modificación de los procedimientos/)).toBeInTheDocument();
+  });
+
+  it('unida (no se incluyen / se agregan): Situación | Elementos y un caso por elemento (opción A, 20 nov.)', () => {
+    const frase = 'Se identificó que el procedimiento está siendo modificado, por lo que se debe verificar si las '
+      + 'descripciones ya están registradas en el diccionario.';
+    const mensaje = `${frase} No se incluyen en el diccionario: @a, @b; Se agregan en el diccionario: @c. `;
+    render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[{
+      regla: 'VALIDAR_DOCUMENTACION_ALTER',
+      severidad: 'bajo',
+      linea: 3,
+      mensaje: `${mensaje}Incluir en el diccionario las descripciones que no estén registradas.`,
+      inicioQueHacer: mensaje.length,
+      lineas: [3, 4, 2],
+      seccion: 'objeto',
+      grupos: [
+        { nombre: 'No se incluyen en el diccionario', tipo: 'Situación', seccion: 'objeto', lineas: [3, 4], etiquetas: ['@a', '@b'] },
+        { nombre: 'Se agregan en el diccionario', tipo: 'Situación', seccion: 'diccionario', lineas: [2], etiquetas: ['@c'] },
+      ],
+    }]} />);
+    const filas = within(screen.getByRole('table')).getAllByRole('row').map((fila) => fila.textContent);
+    expect(filas).toEqual(['SituaciónElementos', 'No se incluyen en el diccionario@a, @b', 'Se agregan en el diccionario@c']);
+    expect(screen.getByText('3 casos')).toBeInTheDocument();
+    // Sobre la tabla, solo la frase de la usuaria (el detalle está en la tabla).
+    expect(screen.getByText(frase)).toBeInTheDocument();
+  });
+
+  it('unida con varios procedimientos: el nombre ocupa una celda para sus dos filas', () => {
+    const fila = (nombre, situacion, seccion, etiquetas) => ({
+      nombre, tipo: 'Procedimiento', situacion, seccion, lineas: etiquetas.map(() => 1), etiquetas,
+    });
+    render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[{
+      regla: 'VALIDAR_DOCUMENTACION_ALTER',
+      severidad: 'bajo',
+      linea: 1,
+      mensaje: 'Se identificó que los procedimientos están siendo modificados, por lo que se debe verificar si las '
+        + 'descripciones ya están registradas en el diccionario. dbo.PA_A (no se incluyen en el diccionario): @a. '
+        + 'Incluir en el diccionario las descripciones que no estén registradas.',
+      lineas: [1, 1, 1],
+      grupos: [
+        fila('dbo.PA_A', 'No se incluyen en el diccionario', 'objeto', ['@a']),
+        fila('dbo.PA_A', 'Se agregan en el diccionario', 'diccionario', ['@b']),
+        fila('dbo.PA_B', 'No se incluyen en el diccionario', 'objeto', ['@c']),
+      ],
+    }]} />);
+    const tabla = within(screen.getByRole('table'));
+    expect(tabla.getAllByRole('columnheader').map((th) => th.textContent)).toEqual(['Procedimiento', 'Situación', 'Elementos']);
+    expect(tabla.getAllByText('dbo.PA_A')).toHaveLength(1);
+    expect(tabla.getAllByRole('row').map((tr) => tr.textContent)).toEqual([
+      'ProcedimientoSituaciónElementos',
+      'dbo.PA_ANo se incluyen en el diccionario@a',
+      'Se agregan en el diccionario@b',
+      'dbo.PA_BNo se incluyen en el diccionario@c',
+    ]);
+  });
+});
+
 describe('PanelHallazgos · tablas sin NOLOCK en cajitas', () => {
   const NOLOCK = (tablas) => ({
     regla: 'NOLOCK_POR_EVALUAR',

@@ -175,7 +175,11 @@ def agrupar_varios(hallazgos, plantillas: Dict[str, Tuple[str, str]], articulo: 
         if len(grupo) == 1:
             hallazgo = grupo[0]
             if hallazgo.objeto.upper() not in hallazgo.mensaje.upper():
+                antes = len(hallazgo.mensaje)
                 hallazgo.mensaje = f"En {articulo} {hallazgo.objeto}, {hallazgo.mensaje[0].lower()}{hallazgo.mensaje[1:]}"
+                # El «Qué hacer» se corre lo que se agregó delante.
+                if getattr(hallazgo, "inicio_que_hacer", None):
+                    hallazgo.inicio_que_hacer += len(hallazgo.mensaje) - antes
             resultado.append(hallazgo)
             continue
         resumido = agrupar(grupo, plantillas)[0]
