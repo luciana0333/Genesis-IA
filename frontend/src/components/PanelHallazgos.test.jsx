@@ -207,7 +207,7 @@ describe('PanelHallazgos · «Validar documentación existente» con varios proc
       regla: 'VALIDAR_DOCUMENTACION_ALTER',
       severidad: 'bajo',
       linea: 3,
-      mensaje: `${mensaje}Se recomienda verificar cuáles ya se encuentran registradas.`,
+      mensaje: `${mensaje}Incluir en el diccionario las descripciones que no estén registradas.`,
       inicioQueHacer: mensaje.length,
       lineas: [3, 4, 2],
       seccion: 'objeto',
@@ -233,7 +233,7 @@ describe('PanelHallazgos · «Validar documentación existente» con varios proc
       linea: 1,
       mensaje: 'Se identificó que los procedimientos están siendo modificados, por lo que se debe verificar si las '
         + 'descripciones ya están registradas en el diccionario. dbo.PA_A (no se incluyen en el diccionario): @a. '
-        + 'Se recomienda verificar cuáles ya se encuentran registradas.',
+        + 'Incluir en el diccionario las descripciones que no estén registradas.',
       lineas: [1, 1, 1],
       grupos: [
         fila('dbo.PA_A', 'No se incluyen en el diccionario', 'objeto', ['@a']),

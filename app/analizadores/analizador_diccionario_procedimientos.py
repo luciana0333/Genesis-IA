@@ -1146,9 +1146,10 @@ def _unir_validacion_alter(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
         grupos = [{"nombre": nombre, "tipo": o.nombre.capitalize(), "situacion": situacion, "seccion": cajita,
                    "lineas": [linea for linea, _ in paradas], "etiquetas": [e for _, e in paradas]}
                   for nombre, situacion, cajita, paradas in filas]
-    que_hacer = ("Se recomienda verificar cuáles ya se encuentran registradas. Las que no estén registradas deben "
-                 "incluirse en el diccionario, y las que ya existan deben actualizarse con sp_updateextendedproperty "
-                 "en lugar de agregarse, ya que de lo contrario la ejecución del script fallará.")
+    # Sin repetir la frase de arriba («se debe verificar…»): solo lo que hay que hacer (usuaria, 20 nov.).
+    que_hacer = ("Incluir en el diccionario las descripciones que no estén registradas y, las que ya existan, "
+                 "actualizarlas con sp_updateextendedproperty en lugar de agregarlas, ya que de lo contrario la "
+                 "ejecución del script fallará.")
     mensaje = f"{intro}{detalle}. {que_hacer}"
     unido = Hallazgo(
         linea=grupos[0]["lineas"][0],

@@ -9,9 +9,9 @@ import unittest
 
 from app.analizadores.analizador_diccionario_procedimientos import verificar_diccionario
 
-QUE_HACER = ("Se recomienda verificar cuáles ya se encuentran registradas. Las que no estén registradas deben "
-             "incluirse en el diccionario, y las que ya existan deben actualizarse con sp_updateextendedproperty en "
-             "lugar de agregarse, ya que de lo contrario la ejecución del script fallará.")
+QUE_HACER = ("Incluir en el diccionario las descripciones que no estén registradas y, las que ya existan, "
+             "actualizarlas con sp_updateextendedproperty en lugar de agregarlas, ya que de lo contrario la ejecución "
+             "del script fallará.")
 
 PA = """ALTER PROCEDURE CANALES.PA_ProductoPersona_Sel_ObtenerCuentas
 (
