@@ -1582,14 +1582,14 @@
 /* Segunda columna que es una frase («Qué hace» de una sugerencia de bloqueo): letra normal, no de código. */
 .tabla-detalle-texto { color: var(--text-primary); font-size: 0.84rem; line-height: 1.55; }
 
-/* ───────── Casos poco comunes (usuaria, 21 nov.; diseño B con su referencia): recuadro propio, para validar con el DBA ─ */
-/* Tarjeta blanca sin bordes, con sombra muy suave y amplia; mucho aire; ícono de línea oscuro; cada caso en un bloque
-   gris muy claro (como los distintivos de su referencia), sin sombra propia. */
+/* ───────── Casos poco comunes (usuaria, 21 nov.; opción 1 «franja delgada», como el SlimBanner de Pinterest) ───────── */
+/* Tarjeta blanca compacta con sombra suave y una franja roja fina a la izquierda; cabecera en una sola línea
+   (ícono de la persona con engranaje, etiqueta, título y cantidad); el caso va directo en la tarjeta. */
 .poco-comun {
-  margin-top: 36px;
-  padding: 28px 28px 24px;
+  margin-top: 32px;
   background: var(--bg-card);
-  border-radius: var(--radius-lg);
+  border-left: 3px solid var(--red-main);
+  border-radius: 0;
   box-shadow:
     0 1px 2px rgba(17, 17, 26, 0.03),
     0 8px 18px -10px rgba(17, 17, 26, 0.08),
@@ -1597,37 +1597,20 @@
 }
 .poco-comun-cabecera {
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 20px;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
 }
-/* Ícono elegido por la usuaria (persona con engranaje), en rojo de marca y sin cajita. */
-.poco-comun-icono { color: var(--red-main); display: inline-flex; padding-top: 1px; }
-.poco-comun-icono svg { width: 24px; height: 24px; }
-.poco-comun-textos { display: flex; flex-direction: column; min-width: 0; }
-.poco-comun-textos .section-eyebrow { margin-bottom: 4px; }
+.poco-comun-icono { color: var(--red-main); display: inline-flex; }
+.poco-comun-icono svg { width: 20px; height: 20px; }
+.poco-comun-textos { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.poco-comun-textos .section-eyebrow { margin: 0; font-size: 0.78rem; }
 .poco-comun-titulo {
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 1.15rem;
+  font-size: 0.97rem;
   font-weight: 700;
-  letter-spacing: -0.015em;
-}
-/* Sin ícono (usuaria, 21 nov.: «le quita profesionalismo»): etiqueta roja, título y línea roja corta, como los
-   demás encabezados de sección. */
-.poco-comun-titulo::after {
-  content: '';
-  display: block;
-  width: 28px;
-  height: 2px;
-  margin-top: 8px;
-  background: var(--red-main);
-}
-.poco-comun-descripcion {
-  margin-top: 10px;
-  color: var(--text-muted);
-  font-family: var(--font-texto);
-  font-size: 0.85rem;
+  letter-spacing: -0.01em;
 }
 .poco-comun-cantidad {
   margin-left: auto;
@@ -1640,20 +1623,14 @@
   font-weight: 600;
   white-space: nowrap;
 }
-.poco-comun-lista { display: flex; flex-direction: column; gap: 12px; }
+.poco-comun-lista { display: flex; flex-direction: column; }
 .poco-comun-lista > .finding {
-  border-radius: var(--radius-lg);
-  background: #f5f7fb;
+  border-radius: 0;
+  background: transparent;
   box-shadow: none;
   animation: none;
 }
+.poco-comun-lista > .finding .finding-head { padding-top: 4px; }
 .poco-comun-lista > .finding:hover { transform: none; box-shadow: none; }
-:root[data-theme="dark"] .poco-comun {
-  background: #17171d;
-  box-shadow: 0 30px 60px -28px rgba(0, 0, 0, 0.8);
-}
-:root[data-theme="dark"] .poco-comun-cantidad,
-:root[data-theme="dark"] .poco-comun-lista > .finding { background: rgba(255, 255, 255, 0.04); }
-/* Dentro del bloque gris del caso, el «Qué hacer» va en blanco para que se distinga. */
-.poco-comun-lista > .finding .finding-fix { background: var(--bg-card); }
-:root[data-theme="dark"] .poco-comun-lista > .finding .finding-fix { background: rgba(255, 255, 255, 0.05); }
+:root[data-theme="dark"] .poco-comun { background: #17171d; box-shadow: 0 30px 60px -28px rgba(0, 0, 0, 0.8); }
+:root[data-theme="dark"] .poco-comun-cantidad { background: rgba(255, 255, 255, 0.05); }
