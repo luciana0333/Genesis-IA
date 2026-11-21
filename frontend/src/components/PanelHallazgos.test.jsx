@@ -170,6 +170,36 @@ describe('PanelHallazgos · «COLLATE no especificado en tabla temporal» como t
   });
 });
 
+describe('PanelHallazgos · «Validar documentación existente» con varios procedimientos', () => {
+  it('desde 2 procedimientos: Procedimiento | Parámetros sin descripción (usuaria, 20 nov.)', () => {
+    const mensaje = 'Se identificó que el diccionario no incluye la descripción de los siguientes procedimientos o de '
+      + 'sus parámetros: dbo.PA_Uno: (descripción del procedimiento), @nB; dbo.PA_Dos: @cX. ';
+    const queHacer = 'Se recomienda verificar si estas descripciones ya se encuentran registradas, considerando que '
+      + 'se trata de una modificación de los procedimientos (ALTER PROCEDURE).';
+    render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[{
+      regla: 'VALIDAR_DOCUMENTACION_ALTER',
+      severidad: 'bajo',
+      linea: 2,
+      mensaje: mensaje + queHacer,
+      inicioQueHacer: mensaje.length,
+      lineas: [2, 4, 9],
+      grupos: [
+        { nombre: 'dbo.PA_Uno', tipo: 'Procedimiento', lineas: [2, 4], etiquetas: ['(descripción del procedimiento)', '@nB'] },
+        { nombre: 'dbo.PA_Dos', tipo: 'Procedimiento', lineas: [9], etiquetas: ['@cX'] },
+      ],
+    }]} />);
+    const filas = within(screen.getByRole('table')).getAllByRole('row').map((fila) => fila.textContent);
+    expect(filas).toEqual([
+      'ProcedimientoParámetros sin descripción',
+      'dbo.PA_Uno(descripción del procedimiento), @nB',
+      'dbo.PA_Dos@cX',
+    ]);
+    expect(screen.getByText(/^Se identificó que el diccionario no incluye la descripción de los siguientes procedimientos o de sus parámetros:$/))
+      .toBeInTheDocument();
+    expect(screen.getByText(/considerando que se trata de una modificación de los procedimientos/)).toBeInTheDocument();
+  });
+});
+
 describe('PanelHallazgos · tablas sin NOLOCK en cajitas', () => {
   const NOLOCK = (tablas) => ({
     regla: 'NOLOCK_POR_EVALUAR',
