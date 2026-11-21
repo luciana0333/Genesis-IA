@@ -1581,3 +1581,68 @@
 :root[data-theme="dark"] .tabla-situaciones .tabla-nombre { background: transparent; }
 /* Segunda columna que es una frase («Qué hace» de una sugerencia de bloqueo): letra normal, no de código. */
 .tabla-detalle-texto { color: var(--text-primary); font-size: 0.84rem; line-height: 1.55; }
+
+/* ───────── Casos poco comunes (usuaria, 21 nov.; diseño B con su referencia): recuadro propio, para validar con el DBA ─ */
+/* Tarjeta blanca sin bordes, con sombra muy suave y amplia; mucho aire; ícono de línea oscuro; cada caso en un bloque
+   gris muy claro (como los distintivos de su referencia), sin sombra propia. */
+.poco-comun {
+  margin-top: 36px;
+  padding: 28px 28px 24px;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 1px 2px rgba(17, 17, 26, 0.03),
+    0 8px 18px -10px rgba(17, 17, 26, 0.08),
+    0 30px 60px -28px rgba(17, 17, 26, 0.22);
+}
+.poco-comun-cabecera {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.poco-comun-icono { color: var(--text-primary); display: inline-flex; padding-top: 2px; }
+.poco-comun-icono svg { width: 26px; height: 26px; stroke-width: 1.6; }
+.poco-comun-textos { display: flex; flex-direction: column; min-width: 0; }
+.poco-comun-textos .section-eyebrow { margin-bottom: 4px; }
+.poco-comun-titulo {
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.poco-comun-descripcion {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-family: var(--font-texto);
+  font-size: 0.85rem;
+}
+.poco-comun-cantidad {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  background: #f5f7fb;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.poco-comun-lista { display: flex; flex-direction: column; gap: 12px; }
+.poco-comun-lista > .finding {
+  border-radius: var(--radius-lg);
+  background: #f5f7fb;
+  box-shadow: none;
+  animation: none;
+}
+.poco-comun-lista > .finding:hover { transform: none; box-shadow: none; }
+:root[data-theme="dark"] .poco-comun {
+  background: #17171d;
+  box-shadow: 0 30px 60px -28px rgba(0, 0, 0, 0.8);
+}
+:root[data-theme="dark"] .poco-comun-cantidad,
+:root[data-theme="dark"] .poco-comun-lista > .finding { background: rgba(255, 255, 255, 0.04); }
+/* Dentro del bloque gris del caso, el «Qué hacer» va en blanco para que se distinga. */
+.poco-comun-lista > .finding .finding-fix { background: var(--bg-card); }
+:root[data-theme="dark"] .poco-comun-lista > .finding .finding-fix { background: rgba(255, 255, 255, 0.05); }

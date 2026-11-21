@@ -10,6 +10,7 @@ import { TablaColumnasSinCollate, collateEnTabla, tituloDeColumnas } from './Tab
 const REGLAS_EN_CAJITAS = new Set(['TABLA_FISICA_SIN_NOLOCK', 'CONSULTA_SIN_NOLOCK', 'NOLOCK_POR_EVALUAR']);
 const TABLAS_EN_CAJITAS = 3;
 import { EncabezadoSeccion } from './EncabezadoSeccion';
+import { CasosPocoComunes } from './CasosPocoComunes';
 import { EstadoInicial } from './EstadoInicial';
 import { EstadoVacio } from './EstadoVacio';
 import { IconoCopiar, IconoCopiado, IconoErrorCirculo } from './Iconos';
@@ -280,8 +281,10 @@ export function PanelHallazgos({
     : ordenados.filter((hallazgo) => normalizarSeveridad(hallazgo.severidad) === filtro);
   const hayHallazgos = estado === 'listo' && hallazgos.length > 0;
   // Los riesgos identificados por Genesis (sin alerta de SQL Server) van aparte, debajo de los demás.
-  const normales = visibles.filter((hallazgo) => !hallazgo.complementario);
-  const complementarios = visibles.filter((hallazgo) => hallazgo.complementario);
+  // Los casos poco comunes (para validar con el DBA) van en su propio recuadro, al final (usuaria, 21 nov.).
+  const pocoComunes = visibles.filter((hallazgo) => hallazgo.pocoComun);
+  const normales = visibles.filter((hallazgo) => !hallazgo.complementario && !hallazgo.pocoComun);
+  const complementarios = visibles.filter((hallazgo) => hallazgo.complementario && !hallazgo.pocoComun);
 
   let contenido;
   if (estado === 'cargando') {
@@ -335,6 +338,11 @@ export function PanelHallazgos({
             {fichas(complementarios, `${seccion}-riesgo`)}
           </div>
         )}
+        {pocoComunes.length > 0 && (
+          <CasosPocoComunes cantidad={pocoComunes.length}>
+            {fichas(pocoComunes, `${seccion}-poco-comun`)}
+          </CasosPocoComunes>
+        )}
       </div>
     );
     contenido = !conSecciones ? lista : (
@@ -374,7 +382,7 @@ export function PanelHallazgos({
     );
   }
 
-  const textoTodos = [...normales, ...complementarios]
+  const textoTodos = [...normales, ...complementarios, ...pocoComunes]
     .map((h, i) => `${i + 1}. ${textoParaCopiar(h, mostrarLinea)}`).join('\n');
 
   return (

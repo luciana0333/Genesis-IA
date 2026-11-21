@@ -170,6 +170,23 @@ describe('PanelHallazgos · «COLLATE no especificado en tabla temporal» como t
   });
 });
 
+describe('PanelHallazgos · casos poco comunes (usuaria, 21 nov.)', () => {
+  it('van en su propio recuadro, al final, con su cantidad', () => {
+    render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[
+      { regla: 'COLUMNA_SIN_NOT_NULL_NI_DEFAULT', severidad: 'alto', linea: 5, mensaje: 'La columna x acepta nulos. Definirla.' },
+      { regla: 'PK_HEREDADA', severidad: 'bajo', linea: 3, pocoComun: true,
+        mensaje: 'Se identificó que la clave primaria cCtaCod también es la relación con dbo.CaptacCTS (uno a uno), por '
+          + 'eso es VARCHAR(18) y no autoincremental. Validar con el DBA, ya que es una excepción al estándar de clave primaria.' },
+    ]} />);
+    const recuadro = screen.getByRole('region', { name: 'Validar con el DBA' });
+    expect(within(recuadro).getByText('Casos poco comunes')).toBeInTheDocument();
+    expect(within(recuadro).getByText('1 caso')).toBeInTheDocument();
+    expect(within(recuadro).getByRole('heading', { name: 'Clave primaria heredada' })).toBeInTheDocument();
+    // La observación común no entra al recuadro.
+    expect(within(recuadro).queryByText(/acepta nulos/)).not.toBeInTheDocument();
+  });
+});
+
 describe('PanelHallazgos · más de 3 casos en tabla (usuaria, 21 nov.)', () => {
   it('el backend manda la tabla con sus títulos; la frase de «Qué hace» va en letra normal', () => {
     const fila = (nombre, columnas) => ({

@@ -119,6 +119,7 @@ export const NOMBRES_REGLAS = {
   PK_NOMBRE_INVALIDO: 'Nombre de clave primaria inválido',
   PK_SIN_IDENTITY: 'Clave primaria sin IDENTITY',
   PK_NO_NUMERICA: 'Clave primaria no numérica',
+  PK_HEREDADA: 'Clave primaria heredada',
   COLLATE_EN_TIPO_NO_TEXTO: 'COLLATE en tipo no textual',
   TABLA_FISICA_SIN_NOLOCK: 'Tabla física sin WITH (NOLOCK)',
   NOLOCK_EN_TABLA_TEMPORAL: 'WITH (NOLOCK) en tabla temporal',

@@ -566,6 +566,19 @@ def _validar_tabla(texto: str, esquema: Optional[str], tabla: str, referencia: s
     return hallazgos
 
 
+def _tabla_padre_de_la_pk(texto: str, nombre_pk: str, columna_pk) -> Optional[str]:
+    """La tabla a la que apunta la PK si también es FK: «cCtaCod … PRIMARY KEY REFERENCES dbo.CaptacCTS (cCtaCod)» o
+    «FOREIGN KEY (cCtaCod) REFERENCES dbo.CaptacCTS (cCtaCod)». None si la PK no es una relación."""
+    tabla = r"((?:\[[^\]]+\]|[\w#$]+)(?:\s*\.\s*(?:\[[^\]]+\]|[\w#$]+)){0,2})"
+    if columna_pk:
+        en_la_columna = re.search(rf"\bREFERENCES\s+{tabla}", columna_pk.definicion, re.IGNORECASE)
+        if en_la_columna:
+            return re.sub(r"\s+", "", en_la_columna.group(1)).replace("[", "").replace("]", "")
+    nombre = re.escape(nombre_pk)
+    aparte = re.search(rf"\bFOREIGN\s+KEY\s*\(\s*\[?{nombre}\]?\s*\)\s*REFERENCES\s+{tabla}", texto, re.IGNORECASE)
+    return re.sub(r"\s+", "", aparte.group(1)).replace("[", "").replace("]", "") if aparte else None
+
+
 def _validar_clave_primaria(
     texto: str, tabla: str, referencia: str, columnas: List[ColumnaNueva]
 ) -> List[Hallazgo]:
@@ -600,6 +613,21 @@ def _validar_clave_primaria(
         return hallazgos
 
     nombre_pk = pk[0]
+    columna_pk = next((c for c in columnas if c.nombre.upper() == nombre_pk.upper()), None)
+    padre = _tabla_padre_de_la_pk(texto, nombre_pk, columna_pk)
+    if padre:
+        # Caso poco común (usuaria, 21 nov.): la PK es también la relación con otra tabla (uno a uno) y hereda su
+        # tipo; pedir INT IDENTITY o renombrarla rompería la relación. Va aparte, para validar con el DBA.
+        tipo = _tipo_completo(columna_pk.definicion) if columna_pk else ""
+        de_tipo = f"es {tipo} y " if tipo else ""
+        heredada = con_elemento(_hallazgo(
+            texto, columna_pk.posicion if columna_pk else posicion, "PK_HEREDADA",
+            f"Se identificó que la clave primaria {nombre_pk} también es la relación con {padre} (uno a uno), por "
+            f"eso {de_tipo}no autoincremental. Validar con el DBA, ya que es una excepción al estándar de clave "
+            f"primaria.",
+        ), nombre_pk)
+        heredada.poco_comun = True
+        return hallazgos + [heredada]
     # Si el nombre de la tabla no sigue el estándar, ese error ya se reporta y
     # el nombre esperado de la PK no tendría sentido (nTB_EstadoId).
     if _PASCAL_CASE.match(tabla) and nombre_pk != nombre_esperado:
@@ -608,7 +636,6 @@ def _validar_clave_primaria(
             f"La clave primaria se llama {nombre_pk}, pero debe llamarse n + nombre de la tabla + Id. "
             f"Renómbrela como {nombre_esperado}.",
         ), f"{nombre_pk} → {nombre_esperado}"))
-    columna_pk = next((c for c in columnas if c.nombre.upper() == nombre_pk.upper()), None)
     if columna_pk:
         if not re.search(r"\bIDENTITY\b", columna_pk.definicion, re.IGNORECASE):
             hallazgos.append(con_elemento(_hallazgo(
