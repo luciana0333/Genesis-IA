@@ -6,9 +6,11 @@ import { contarPorSeveridad, desglosarGrupo, normalizarSeveridad, ordenarHallazg
 import { TablaTiposColumnas } from './TablaTiposColumnas';
 import { TablaColumnasSinCollate, collateEnTabla, tituloDeColumnas } from './TablaColumnasSinCollate';
 
-// Observaciones de NOLOCK: desde 3 tablas se muestran en cajitas (igual que TABLAS_EN_CAJITAS en el backend).
-const REGLAS_EN_CAJITAS = new Set(['TABLA_FISICA_SIN_NOLOCK', 'CONSULTA_SIN_NOLOCK', 'NOLOCK_POR_EVALUAR']);
-const TABLAS_EN_CAJITAS = 3;
+// Observaciones que se muestran en cajitas (solo los nombres), desde cuántos casos: NOLOCK desde 3 (opción A, 8 nov.);
+// «Validar tabla temporal sin crear» con más de 3 (opción A, 21 nov.).
+const CAJITAS_DESDE = {
+  TABLA_FISICA_SIN_NOLOCK: 3, CONSULTA_SIN_NOLOCK: 3, NOLOCK_POR_EVALUAR: 3, TEMPORAL_SIN_CREAR_VALIDAR: 4,
+};
 import { EncabezadoSeccion } from './EncabezadoSeccion';
 import { CasosPocoComunes } from './CasosPocoComunes';
 import { EstadoInicial } from './EstadoInicial';
@@ -166,8 +168,8 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
   // en la tabla (ALTER, «Validar documentación existente»; texto de la usuaria, 20 nov.).
   const introTabla = enTabla && !intro ? (problema.match(/^[\s\S]*?[.?](?=\s+[A-ZÁÉÍÓÚÑ¿(]|$)/)?.[0] ?? problema) : null;
   // Tablas sin NOLOCK desde 3: cada tabla en su cajita, una al lado de otra (opción A de la usuaria, 8 nov.).
-  const enCajitas = !enTabla && Boolean(intro) && REGLAS_EN_CAJITAS.has(hallazgo.regla)
-    && ocurrencias.length >= TABLAS_EN_CAJITAS;
+  const enCajitas = !enTabla && Boolean(intro) && Boolean(CAJITAS_DESDE[hallazgo.regla])
+    && ocurrencias.length >= CAJITAS_DESDE[hallazgo.regla];
 
   return (
     <article className={`finding sev-${severidad}${enTabla ? ' finding-tabla' : ''}`}>

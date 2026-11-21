@@ -72,19 +72,18 @@ class TemporalesSinCrearTest(unittest.TestCase):
                 hallazgos = _sin_crear(verificar, "INSERT INTO #A (n)\nSELECT 1", VALIDAR)
                 self.assertEqual([h.grupos[0]["nombre"] for h in hallazgos], ["#A"])
 
-    def test_mas_de_tres_en_tabla_con_su_uso(self):
-        # Caso del PA del motor (21 nov.): tabla «Tabla temporal | Uso en el procedimiento» (opción C).
+    def test_mas_de_tres_solo_los_nombres(self):
+        # Caso del PA del motor (21 nov.): con más de 3, la pantalla las muestra en cajitas (opción A): el texto las
+        # lista y no se manda tabla.
         sql = ("UPDATE A SET A.n = 1 FROM #BaseHechos A\nSELECT 1 FROM #BaseHechos B JOIN #Garantias G ON 1 = 1\n"
                "SELECT 1 FROM #CreditosTitular\nINSERT INTO #Aux (n) SELECT 1\nDELETE FROM #Aux\n")
         for verificar in MODULOS:
             with self.subTest(modulo=verificar.__name__):
                 h = _sin_crear(verificar, sql, VALIDAR)[0]
-                self.assertEqual([(g["nombre"], g["tituloDetalle"], g["columnas"]) for g in h.grupos], [
-                    ("#BaseHechos", "Uso en el procedimiento", "Se lee y se actualiza"),
-                    ("#Garantias", "Uso en el procedimiento", "Solo se lee"),
-                    ("#CreditosTitular", "Uso en el procedimiento", "Solo se lee"),
-                    ("#Aux", "Uso en el procedimiento", "Se inserta y se eliminan filas"),
-                ])
+                self.assertIn("procedimiento: #BaseHechos; #Garantias; #CreditosTitular; #Aux.", h.mensaje)
+                self.assertEqual([g["nombre"] for g in h.grupos],
+                                 ["#BaseHechos", "#Garantias", "#CreditosTitular", "#Aux"])
+                self.assertFalse(any("tituloDetalle" in g for g in h.grupos))
 
     def test_dos_en_el_parrafo_y_una_sola(self):
         for verificar in MODULOS:

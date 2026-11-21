@@ -13,7 +13,7 @@ Un CREATE comentado dentro del cuerpo no cuenta: suele ser código viejo.
 Validar tabla temporal sin crear (usuaria, 21 nov.): sin documentación en el encabezado, lo más probable es que la
 cree el procedimiento que lo llama (p. ej. los PA del motor y su #BaseHechos). Solo sigue en crítico cuando el
 procedimiento crea una temporal de nombre muy parecido (casi siempre un error de escritura, como #TempPre2); el resto
-es «validar» (medio), con lo que el procedimiento hace con cada una (se lee, se actualiza…).
+es «validar» (medio); con más de 3, la pantalla las muestra en cajitas (solo los nombres).
 """
 
 import difflib
@@ -117,39 +117,7 @@ def _sin_crear_y_sin_documentar(limpio: str, texto: Optional[str]):
     return usos, nombres, creadas
 
 
-# Qué hace el procedimiento con la temporal, en el orden en que se dice («Se lee y se actualiza»).
-_ACCIONES = ("se lee", "se inserta", "se actualiza", "se eliminan filas")
-
-
-def _uso(limpio: str, posiciones: List[int]) -> str:
-    """«Solo se lee», «Se lee y se actualiza»…: lo que el procedimiento hace con la temporal (opción C)."""
-    from app.analizadores.temporal_sin_uso import _es_destino_de_alias
-
-    hechas = set()
-    for posicion in posiciones:
-        antes = limpio[max(0, posicion - 40):posicion]
-        nombre = re.match(_TEMPORAL, limpio[posicion:])
-        fin = posicion + (len(nombre.group(0)) if nombre else 0)
-        if re.search(r"\bINSERT\s+(?:INTO\s+)?$", antes, re.IGNORECASE):
-            hechas.add("se inserta")
-        elif re.search(r"\bUPDATE\s+$", antes, re.IGNORECASE) or re.search(r"\bMERGE(?:\s+INTO)?\s+$", antes, re.IGNORECASE):
-            hechas.add("se actualiza")
-        elif re.search(r"\b(?:DELETE(?:\s+FROM)?|TRUNCATE\s+TABLE)\s+$", antes, re.IGNORECASE):
-            hechas.add("se eliminan filas")
-        elif re.search(r"\bFROM\s+$", antes, re.IGNORECASE) and _es_destino_de_alias(limpio, posicion, fin):
-            # «UPDATE A SET … FROM #T A» / «DELETE A FROM #T A»: la temporal es la que se modifica.
-            delete = re.search(r"\bDELETE\s+\w+\s+FROM\s+$", limpio[max(0, posicion - 60):posicion], re.IGNORECASE)
-            hechas.add("se eliminan filas" if delete else "se actualiza")
-        else:
-            hechas.add("se lee")
-    orden = [accion for accion in _ACCIONES if accion in hechas]
-    if orden == ["se lee"]:
-        return "Solo se lee"
-    texto = orden[0] if len(orden) == 1 else f"{', '.join(orden[:-1])} y {orden[-1]}"
-    return texto[0].upper() + texto[1:]
-
-
-# Texto de la usuaria (21 nov.): confirmar que la crea el que lo llama; 2 en el párrafo, 3 en viñetas, más en tabla.
+# Texto de la usuaria (21 nov.): confirmar que la crea el que lo llama; 2 en el párrafo, 3 en viñetas, más en cajitas.
 _QUE_HACER_VALIDAR_UNA = (
     "Se recomienda confirmar que el procedimiento que lo llama la cree antes de ejecutarlo y documentarlo en el "
     "encabezado, ya que, si no existe, SQL Server detiene el procedimiento con el error «El nombre de objeto "
@@ -185,11 +153,7 @@ def temporales_por_validar(
         que_hacer = _QUE_HACER_VALIDAR_VARIAS
     grupos = [{"nombre": nombres[clave], "tipo": "Tabla temporal",
                "lineas": sorted({linea_de(posicion) for posicion in usos[clave]})} for clave in orden]
-    if len(tablas) > 3:
-        # Más de 3: tabla «Tabla temporal | Uso en el procedimiento» (opción C de la usuaria).
-        for grupo, clave in zip(grupos, orden):
-            grupo.update({"tituloDetalle": "Uso en el procedimiento", "detalleEnTexto": True,
-                          "columnas": _uso(limpio, usos[clave])})
+    # Más de 3: la pantalla las muestra en cajitas, solo los nombres (opción A de la usuaria, 21 nov.).
     return min(usos[orden[0]]), f"{problema} {que_hacer}", grupos, [n for g in grupos for n in g["lineas"]]
 
 
