@@ -200,9 +200,9 @@ describe('PanelHallazgos · «Validar documentación existente» con varios proc
   });
 
   it('unida (no se incluyen / se agregan): Situación | Elementos y un caso por elemento (opción A, 20 nov.)', () => {
-    const mensaje = 'Se identificó que el procedimiento CANALES.PA_X se modifica (ALTER PROCEDURE), por lo que las '
-      + 'siguientes descripciones podrían estar registradas previamente: No se incluyen en el diccionario: @a, @b; '
-      + 'Se agregan en el diccionario: @c. ';
+    const frase = 'Se identificó que el procedimiento está siendo modificado, por lo que se debe verificar si las '
+      + 'descripciones ya están registradas en el diccionario.';
+    const mensaje = `${frase} No se incluyen en el diccionario: @a, @b; Se agregan en el diccionario: @c. `;
     render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[{
       regla: 'VALIDAR_DOCUMENTACION_ALTER',
       severidad: 'bajo',
@@ -219,6 +219,8 @@ describe('PanelHallazgos · «Validar documentación existente» con varios proc
     const filas = within(screen.getByRole('table')).getAllByRole('row').map((fila) => fila.textContent);
     expect(filas).toEqual(['SituaciónElementos', 'No se incluyen en el diccionario@a, @b', 'Se agregan en el diccionario@c']);
     expect(screen.getByText('3 casos')).toBeInTheDocument();
+    // Sobre la tabla, solo la frase de la usuaria (el detalle está en la tabla).
+    expect(screen.getByText(frase)).toBeInTheDocument();
   });
 
   it('unida con varios procedimientos: el nombre ocupa una celda para sus dos filas', () => {
@@ -229,8 +231,8 @@ describe('PanelHallazgos · «Validar documentación existente» con varios proc
       regla: 'VALIDAR_DOCUMENTACION_ALTER',
       severidad: 'bajo',
       linea: 1,
-      mensaje: 'Se identificó que los siguientes procedimientos se modifican (ALTER PROCEDURE), por lo que algunas '
-        + 'descripciones podrían estar registradas previamente: A (no se incluyen en el diccionario): @a. '
+      mensaje: 'Se identificó que los procedimientos están siendo modificados, por lo que se debe verificar si las '
+        + 'descripciones ya están registradas en el diccionario. dbo.PA_A (no se incluyen en el diccionario): @a. '
         + 'Se recomienda verificar cuáles ya se encuentran registradas.',
       lineas: [1, 1, 1],
       grupos: [

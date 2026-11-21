@@ -48,10 +48,11 @@ class UnProcedimientoTest(unittest.TestCase):
         self.assertEqual(h.severidad.value, "bajo")
         self.assertEqual(
             h.mensaje,
-            "Se identificó que el procedimiento CANALES.PA_ProductoPersona_Sel_ObtenerCuentas se modifica (ALTER "
-            "PROCEDURE), por lo que las siguientes descripciones podrían estar registradas previamente: No se "
-            "incluyen en el diccionario: (descripción del procedimiento), @cNroTarjeta, @nMoneda; Se agregan en el "
-            "diccionario: @nTipoConsulta, @cCtaCodOperacion. " + QUE_HACER,
+            # Primera oración: texto de la usuaria (20 nov.); el detalle, para el texto copiado (en pantalla, la tabla).
+            "Se identificó que el procedimiento está siendo modificado, por lo que se debe verificar si las "
+            "descripciones ya están registradas en el diccionario. No se incluyen en el diccionario: (descripción "
+            "del procedimiento), @cNroTarjeta, @nMoneda; Se agregan en el diccionario: @nTipoConsulta, "
+            "@cCtaCodOperacion. " + QUE_HACER,
         )
         self.assertEqual(h.mensaje[h.inicio_que_hacer:], QUE_HACER)
 
@@ -102,8 +103,8 @@ class VariosProcedimientosTest(unittest.TestCase):
             ("CANALES.PA_Tarjeta_Sel_Datos", "Se agregan en el diccionario", "diccionario", ["@nTipo"]),
         ])
         self.assertTrue(h.mensaje.startswith(
-            "Se identificó que los siguientes procedimientos se modifican (ALTER PROCEDURE), por lo que algunas "
-            "descripciones podrían estar registradas previamente: CANALES.PA_ProductoPersona_Sel_ObtenerCuentas "
+            "Se identificó que los procedimientos están siendo modificados, por lo que se debe verificar si las "
+            "descripciones ya están registradas en el diccionario. CANALES.PA_ProductoPersona_Sel_ObtenerCuentas "
             "(no se incluyen en el diccionario): (descripción del procedimiento), @cNroTarjeta, @nMoneda, "
             "@cCtaCodOperacion; "))
         self.assertTrue(h.mensaje.endswith(QUE_HACER))

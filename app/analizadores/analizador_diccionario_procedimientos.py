@@ -1128,16 +1128,19 @@ def _unir_validacion_alter(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
         return ", ".join(elemento for _, elemento in paradas)
 
     if len(nombres) == 1:
-        intro = (f"Se identificó que {o.el} {nombres[0]} se modifica ({o.alter}), por lo que las siguientes "
-                 f"descripciones podrían estar registradas previamente: ")
+        # Texto de la usuaria (20 nov.): «más entendible». El detalle va en la tabla; en el texto copiado, después.
+        modificado = "modificado" if o.el.startswith("el ") else "modificada"
+        intro = (f"Se identificó que {o.el} está siendo {modificado}, por lo que se debe verificar si las "
+                 f"descripciones ya están registradas en el diccionario. ")
         detalle = "; ".join(f"{situacion}: {elementos(paradas)}" for _, situacion, _, paradas in filas)
         grupos = [{"nombre": situacion, "tipo": "Situación", "seccion": cajita,
                    "lineas": [linea for linea, _ in paradas], "etiquetas": [e for _, e in paradas]}
                   for _, situacion, cajita, paradas in filas]
     else:
         los = "los" if o.el.startswith("el ") else "las"
-        intro = (f"Se identificó que {los} siguientes {o.plural} se modifican ({o.alter}), por lo que algunas "
-                 f"descripciones podrían estar registradas previamente: ")
+        modificados = "modificados" if los == "los" else "modificadas"
+        intro = (f"Se identificó que {los} {o.plural} están siendo {modificados}, por lo que se debe verificar si "
+                 f"las descripciones ya están registradas en el diccionario. ")
         detalle = "; ".join(f"{nombre} ({situacion[0].lower()}{situacion[1:]}): {elementos(paradas)}"
                             for nombre, situacion, _, paradas in filas)
         grupos = [{"nombre": nombre, "tipo": o.nombre.capitalize(), "situacion": situacion, "seccion": cajita,

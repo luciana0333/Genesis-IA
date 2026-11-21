@@ -161,6 +161,9 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
   // «COLLATE no especificado en tabla temporal» desde 3 tablas: Tabla | Columnas sin COLLATE.
   const tablaCollate = !tablaTipos && collateEnTabla(hallazgo);
   const enTabla = tablaTipos || tablaCollate;
+  // Si el texto no presenta la lista («…las siguientes…:»), sobre la tabla va su primera oración: el detalle ya está
+  // en la tabla (ALTER, «Validar documentación existente»; texto de la usuaria, 20 nov.).
+  const introTabla = enTabla && !intro ? (problema.match(/^[\s\S]*?[.?](?=\s+[A-ZÁÉÍÓÚÑ¿(]|$)/)?.[0] ?? problema) : null;
   // Tablas sin NOLOCK desde 3: cada tabla en su cajita, una al lado de otra (opción A de la usuaria, 8 nov.).
   const enCajitas = !enTabla && Boolean(intro) && REGLAS_EN_CAJITAS.has(hallazgo.regla)
     && ocurrencias.length >= TABLAS_EN_CAJITAS;
@@ -177,7 +180,7 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
       </header>
 
       <div className="finding-body">
-        {intro && <p className="finding-message">{intro}</p>}
+        {(intro || introTabla) && <p className="finding-message">{intro || introTabla}</p>}
         {enTabla ? (
           tablaTipos
             ? <TablaTiposColumnas grupos={hallazgo.grupos} filaActiva={vinetaActiva} />
