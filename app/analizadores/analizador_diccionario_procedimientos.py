@@ -827,7 +827,7 @@ def verificar_diccionario(
 
 
 # Desde cuántos parámetros van en viñetas, y desde cuántos procedimientos en tabla (usuaria, 20 nov.).
-PARAMETROS_EN_VINETAS = 4
+PARAMETROS_EN_VINETAS = 3
 PROCEDIMIENTOS_EN_TABLA = 2
 
 
@@ -840,8 +840,8 @@ def _recomendacion_validar_alter(varios: bool, de_objetos: str) -> str:
 def _mensaje_validar_alter(nombre: Optional[str], parametros: List[str]) -> str:
     """
     Texto de la usuaria (20 nov.): «Se identificó que el diccionario no incluye la descripción del procedimiento X
-    ni de los parámetros @a y @b. Se recomienda verificar…». Desde 4 parámetros, en viñetas («de los siguientes
-    parámetros: @a; @b; @c; @d»).
+    ni de los parámetros @a y @b. Se recomienda verificar…». Desde 3
+    parámetros, en viñetas («de los siguientes parámetros: @a; @b; @c»; usuaria, 20 nov.).
     """
     o = actual()
     if len(parametros) >= PARAMETROS_EN_VINETAS:

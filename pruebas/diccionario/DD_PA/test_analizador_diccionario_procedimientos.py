@@ -160,8 +160,8 @@ END"""
         )
         self.assertEqual(validar[0].mensaje[validar[0].inicio_que_hacer:][:13], "Se recomienda")
 
-    def test_alter_desde_4_parametros_en_vinetas(self):
-        cuerpo = self.CUERPO.replace("@cCodigo VARCHAR(10)", "@cA VARCHAR(1), @cB VARCHAR(1), @cC VARCHAR(1), @cD VARCHAR(1)")
+    def test_alter_desde_3_parametros_en_vinetas(self):
+        cuerpo = self.CUERPO.replace("@cCodigo VARCHAR(10)", "@cA VARCHAR(1), @cB VARCHAR(1), @cC VARCHAR(1)")
         diccionario = self.DICCIONARIO + (
             "\nEXEC sys.sp_addextendedproperty @name = N'MS_Description', @value = N'Procedimiento que consulta', "
             "@level0type = N'SCHEMA', @level0name = N'dbo', "
@@ -169,8 +169,8 @@ END"""
         validar = [h for h in verificar_diccionario("ALTER" + cuerpo, diccionario) if h.regla == "VALIDAR_DOCUMENTACION_ALTER"]
         self.assertEqual(
             validar[0].mensaje,
-            "Se identificó que el diccionario no incluye la descripción de los siguientes parámetros: @cA; @cB; @cC; "
-            "@cD. Se recomienda verificar si estas descripciones ya se encuentran registradas, considerando que se "
+            "Se identificó que el diccionario no incluye la descripción de los siguientes parámetros: @cA; @cB; @cC. "
+            "Se recomienda verificar si estas descripciones ya se encuentran registradas, considerando que se "
             "trata de una modificación del procedimiento (ALTER PROCEDURE).",
         )
 
