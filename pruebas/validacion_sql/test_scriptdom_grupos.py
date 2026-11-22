@@ -248,12 +248,14 @@ class GruposTest(unittest.TestCase):
                      if h.regla == "FUNCION_SOBRE_COLUMNA")
         self.assertEqual(mayus.mensaje.count("ya que"), 1)
 
-    def test_division_con_divisores_distintos_no_junta_el_que_hacer(self):
-        # El «Qué hacer» nombra el divisor: si son distintos, cada caso queda con el suyo a la vista.
+    def test_division_con_divisores_distintos_sin_repetir_la_frase(self):
+        # Sin repetir «La división … sin proteger el divisor» en cada caso (usuaria, 22 nov.); el «Qué hacer» en plural.
         hallazgo = next(h for h in validar_estructura("DECLARE @a INT = 1, @b INT = 0, @c INT = 0\nSELECT @a / @b\nSELECT @a / @c")
                         if h.regla == "DIVISION_SIN_NULLIF")
-        self.assertTrue(hallazgo.mensaje.startswith("Se identificaron 2 casos: La división @a / @b sin proteger el divisor; "
-                                                    "La división @a / @c sin proteger el divisor."), hallazgo.mensaje)
+        self.assertEqual(hallazgo.mensaje,
+                         "Se identificaron 2 divisiones sin proteger el divisor: @a / @b y @a / @c. Se recomienda "
+                         "proteger cada divisor con NULLIF(divisor, 0), ya que si el divisor es 0 el procedimiento "
+                         "falla con error de división entre cero.")
 
     def test_isnull_se_reescribe_sin_perder_los_null(self):
         hallazgo = next(h for h in validar_estructura("SELECT a FROM dbo.T WHERE ISNULL(bEvaluado, 0) = 0")

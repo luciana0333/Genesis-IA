@@ -55,6 +55,29 @@ class SinMensajeAgrupadoAntiguoTest(unittest.TestCase):
             with self.subTest(modulo=verificar.__name__):
                 self.assertEqual(antiguos, {})
 
+    def test_validador_sql_no_repite_la_frase(self):
+        # Validación SQL Server (ScriptDom): su último recurso era «Se identificaron N casos: La división …; La
+        # división …» (la frase en cada caso). Ningún tipo debe caer ahí (usuaria, 22 nov.).
+        from app.analizadores.scriptdom import validar_estructura
+        if validar_estructura("SELECT 1") is None:
+            self.skipTest("ScriptDom no está en esta PC (viene con SSMS)")
+        por_tipo = defaultdict(list)
+        for fragmento in _fragmentos():
+            try:
+                for hallazgo in validar_estructura(fragmento) or []:
+                    if hallazgo.regla != "ERROR_SINTAXIS":
+                        por_tipo[hallazgo.regla].append(fragmento)
+            except Exception:
+                continue
+        repetidos = {}
+        for tipo, lista in por_tipo.items():
+            for a, b in itertools.combinations(list(dict.fromkeys(lista))[:_CASOS_POR_REGLA], 2):
+                for hallazgo in validar_estructura(a + "\n" + b) or []:
+                    if hallazgo.regla == tipo and (_ANTIGUO.search(hallazgo.mensaje)
+                                                   or re.search(r"Se identificaron \d+ casos: ", hallazgo.mensaje)):
+                        repetidos.setdefault(tipo, hallazgo.mensaje[:200])
+        self.assertEqual(repetidos, {})
+
 
 if __name__ == "__main__":
     unittest.main()

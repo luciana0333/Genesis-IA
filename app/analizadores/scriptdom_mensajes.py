@@ -759,9 +759,47 @@ _PLURALES: Dict[str, Tuple[str, Callable[[Dict], str], Optional[str]]] = {
     "COLUMNA_REPETIDA_EN_TABLA": ("columnas que se definen dos veces", lambda h: f"{h['columna']} en {h['tabla']}", None),
     "TEMPORAL_CREADA_DOS_VECES": ("tablas temporales que se crean dos veces en el mismo bloque",
                                   lambda h: h["tabla"], None),
-    # El «Qué hacer» nombra el divisor (NULLIF(@b, 0)): solo si es el mismo en todas.
-    "DIVISION_SIN_NULLIF": ("divisiones sin proteger el divisor", lambda h: h["expresion"], "divisor"),
+    # Con divisores distintos, el «Qué hacer» en plural (sin nombrar uno solo).
+    "DIVISION_SIN_NULLIF": ("divisiones sin proteger el divisor", lambda h: h["expresion"], None),
+    # Sin repetir la frase en cada caso (usuaria, 22 nov.: «que ni una regla muestre el mensaje antiguo»).
+    "VARIABLE_SIN_VALOR": ("variables que se leen antes de recibir un valor, por lo que valen NULL",
+                           lambda h: h["variable"], None),
+    "ASIGNACION_VARIAS_FILAS": ("asignaciones SELECT @variable = … FROM sin WHERE, TOP ni agregado",
+                                lambda h: h["variable"], None),
+    "BETWEEN_FECHA_SIN_HORA": ("BETWEEN sobre datos que guardan fecha y hora",
+                               lambda h: f"{h['expresion']} BETWEEN … AND {h['hasta']}", None),
+    "COMPARACION_CON_NULL": ("comparaciones con NULL que nunca son verdaderas", lambda h: h["comparacion"], None),
+    "CONVERSION_PREVISIBLE": ("comparaciones de columnas de texto con valores de otro tipo",
+                              lambda h: f"{h['columna']} con {h['otro']} ({h['tipoDato']})", None),
+    "COUNT_EN_LUGAR_DE_EXISTS": ("COUNT(*) para saber si hay registros", lambda h: h["comparacion"], None),
+    "INSERT_COLUMNAS_NO_COINCIDEN": (
+        "INSERT con distinta cantidad de columnas y valores",
+        lambda h: (f"{h.get('tabla') or 'INSERT'} ({_cantidad(int(h['columnas']), 'columna', 'columnas')} y "
+                   + (f"su SELECT devuelve {_cantidad(int(h['valores']), 'columna', 'columnas')})"
+                      if h.get("origen") == "SELECT" else f"{_cantidad(int(h['valores']), 'valor', 'valores')})")),
+        None),
+    "ISNULL_EN_CONDICION": ("ISNULL en condiciones", lambda h: h["expresion"], None),
+    "ISNULL_TRUNCA": ("ISNULL que cortan el texto",
+                      lambda h: f"ISNULL({h['variable']}, '{h['texto']}') devuelve '{h['queda']}'", None),
+    "PUNTO_Y_COMA_ANTES_DE_WITH": ("lugares sin «;» antes de la instrucción WITH", lambda h: _donde_falta(h), None),
+    "PUNTO_Y_COMA_FALTANTE": ("lugares sin «;» antes de la instrucción THROW", lambda h: _donde_falta(h), None),
+    "TAMANO_FUERA_DE_RANGO": ("tipos fuera del tamaño permitido",
+                              lambda h: f"{h['valor']} ({h['tipoDato']}: {h['limite']})", None),
+    "VARCHAR_SIN_TAMANO": (
+        "tipos de texto sin tamaño",
+        lambda h: (f"{h['tipoDato']} {'en un CAST o CONVERT' if h.get('contexto') == 'conversion' else 'al declarar'} "
+                   f"(SQL Server lo toma como {h['tipoDato']}({h['largo']}))"),
+        None),
+    "ALIAS_REPETIDO_EN_FROM": ("nombres repetidos en el mismo FROM",
+                               lambda h: f"el alias {h['nombre']}" if h.get("esAlias") else f"la tabla {h['nombre']}",
+                               None),
 }
+
+
+def _donde_falta(h: Dict) -> str:
+    """Dónde falta el «;»: al finalizar el bloque END o la instrucción anterior."""
+    termina = (h.get("termina") or "").strip().upper()
+    return "al finalizar el bloque END" if termina == "END" else "al finalizar la instrucción anterior"
 
 # El «Qué hacer» en plural cuando el de un solo caso no concuerda («Declararla» → «Declararlas»).
 _QUE_HACER_EN_PLURAL = {
@@ -777,6 +815,32 @@ _QUE_HACER_EN_PLURAL = {
                                  "(error 2705).",
     "OR_ENTRE_COLUMNAS": "Se recomienda evaluar separarlos en dos consultas con UNION ALL, ya que un OR entre "
                          "columnas distintas suele impedir el uso de los índices.",
+    "DIVISION_SIN_NULLIF": "Se recomienda proteger cada divisor con NULLIF(divisor, 0), ya que si el divisor es 0 el "
+                           "procedimiento falla con error de división entre cero.",
+    "VARIABLE_SIN_VALOR": "Se recomienda asignarles un valor inicial o confirmar que el NULL es intencional, ya que una "
+                          "operación con NULL (+ 1, concatenación, comparación) también da NULL.",
+    "ASIGNACION_VARIAS_FILAS": "Se recomienda filtrar a una sola fila (WHERE por la clave o TOP 1 con ORDER BY), ya que "
+                               "si la tabla tiene varias filas la variable queda con el valor de cualquiera de ellas.",
+    "BETWEEN_FECHA_SIN_HORA": "Usar columna >= fecha inicial AND columna < día siguiente a la fecha final, ya que BETWEEN "
+                              "deja fuera todo el último día después de las 00:00.",
+    "COMPARACION_CON_NULL": "Usar IS NULL o IS NOT NULL, ya que en SQL Server una comparación con NULL usando = o <> no "
+                            "devuelve verdadero ni falso.",
+    "COUNT_EN_LUGAR_DE_EXISTS": "Se recomienda usar EXISTS o NOT EXISTS (SELECT 1 FROM …), ya que EXISTS se detiene en el "
+                                "primer registro y COUNT(*) los cuenta todos.",
+    "INSERT_COLUMNAS_NO_COINCIDEN": "Igualar la cantidad de columnas y de valores en cada INSERT, ya que SQL Server no "
+                                    "los ejecutará.",
+    "ISNULL_EN_CONDICION": "Se recomienda validar si las columnas aceptan valores nulos con la consulta adjunta, ya que, "
+                           "si no los aceptan, el ISNULL no es necesario y en una condición impide usar el índice.",
+    "ISNULL_TRUNCA": "Usar COALESCE o ampliar el tamaño de las variables, ya que ISNULL corta el texto al tamaño de la "
+                     "primera expresión sin avisar.",
+    "PUNTO_Y_COMA_ANTES_DE_WITH": "Se recomienda agregar el punto y coma (;) en cada uno, para evitar el error de "
+                                  "sintaxis 319 durante la ejecución del procedimiento.",
+    "PUNTO_Y_COMA_FALTANTE": "Se recomienda agregar el punto y coma (;) en cada uno, para evitar el error de sintaxis "
+                             "102 durante la ejecución del procedimiento.",
+    "TAMANO_FUERA_DE_RANGO": "Corregir los tamaños, ya que SQL Server no ejecutará el código.",
+    "VARCHAR_SIN_TAMANO": "Indicar el tamaño (ej.: VARCHAR(100)), ya que, sin él, SQL Server corta el texto sin avisar.",
+    "ALIAS_REPETIDO_EN_FROM": "Usar un nombre o alias distinto para cada tabla, ya que SQL Server no ejecutará la "
+                              "consulta.",
 }
 
 
