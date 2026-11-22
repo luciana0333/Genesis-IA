@@ -611,15 +611,42 @@ def _credencial(h: Dict) -> Partes:
 
 # --- 6 · Mantenibilidad (bajo) -------------------------------------------------------------------------
 def _anidamiento(h: Dict) -> Partes:
-    return (f"Se identificaron {h['niveles']} niveles de IF / WHILE uno dentro de otro.",
-            "Se recomienda simplificar la lógica (condiciones combinadas, salidas tempranas con RETURN o "
-            "procedimientos separados), ya que tantos niveles dificultan leer y mantener el código.")
+    return partes_anidamiento([h])
+
+
+def partes_anidamiento(hechos: List[Dict]) -> Partes:
+    """Varios lugares: cuántos y hasta cuántos niveles, sin «N casos: …; …» (usuaria, 22 nov.)."""
+    que_hacer = ("Se recomienda simplificar la lógica (condiciones combinadas, salidas tempranas con RETURN o "
+                 "procedimientos separados), ya que tantos niveles dificultan leer y mantener el código.")
+    if len(hechos) == 1:
+        return f"Se identificaron {hechos[0]['niveles']} niveles de IF / WHILE uno dentro de otro.", que_hacer
+    maximo = max(int(h["niveles"]) for h in hechos)
+    return (f"Se identificaron {len(hechos)} lugares con IF / WHILE uno dentro de otro (hasta {maximo} niveles).",
+            que_hacer)
 
 
 def _bloque(h: Dict) -> Partes:
-    return (f"Se identificó la misma instrucción {h['instruccion']} repetida en varias partes del código.",
-            "Se recomienda escribirla una sola vez (en una tabla temporal, una CTE o un procedimiento), ya que "
-            "repetida hay que corregirla en cada lugar.")
+    return partes_bloque([h])
+
+
+def partes_bloque(hechos: List[Dict]) -> Partes:
+    """Varias instrucciones repetidas en una sola frase, sin el formato antiguo «N casos: …; …» (usuaria, 22 nov.,
+    caso real FluGenSol_InsPropuesta_SP: 4 INSERT y 2 UPDATE repetidos). Las líneas van arriba, en la tarjeta."""
+    if len(hechos) == 1:
+        return (f"Se identificó la misma instrucción {hechos[0]['instruccion']} repetida en varias partes del código.",
+                "Se recomienda escribirla una sola vez (en una tabla temporal, una CTE o un procedimiento), ya que "
+                "repetida hay que corregirla en cada lugar.")
+    por_tipo: Dict[str, int] = {}
+    for h in hechos:
+        por_tipo[h["instruccion"]] = por_tipo.get(h["instruccion"], 0) + 1
+    if len(por_tipo) == 1:
+        problema = (f"Se identificaron {len(hechos)} instrucciones {next(iter(por_tipo))} repetidas en varias partes "
+                    "del código.")
+    else:
+        detalle = _enumerar([f"{n} {tipo}" for tipo, n in por_tipo.items()])
+        problema = f"Se identificaron {len(hechos)} instrucciones repetidas en varias partes del código: {detalle}."
+    return (problema, "Se recomienda escribir cada una una sola vez (en una tabla temporal, una CTE o un "
+                      "procedimiento), ya que repetidas hay que corregirlas en cada lugar.")
 
 
 def _parametro_sin_uso(h: Dict) -> Partes:
@@ -723,6 +750,10 @@ def mensaje_agrupado(hechos: List[Dict]) -> Optional[str]:
         return " ".join(partes_funcion_columna([h for h, _ in con_mensaje]))
     if con_mensaje[0][0].get("tipo") == "ORDER_BY_EN_INSERT":
         return " ".join(partes_orden_insert([h for h, _ in con_mensaje]))
+    if con_mensaje[0][0].get("tipo") == "BLOQUE_REPETIDO":
+        return " ".join(partes_bloque([h for h, _ in con_mensaje]))
+    if con_mensaje[0][0].get("tipo") == "ANIDAMIENTO_EXCESIVO":
+        return " ".join(partes_anidamiento([h for h, _ in con_mensaje]))
     # Sin redundar (usuaria, 18 nov., modelo «Se identificaron 2 casos de CASE sin ELSE.»): lo común se dice una vez
     # y las líneas van arriba, en la tarjeta (hallazgo.lineas), no en el texto.
     total = len(con_mensaje)
@@ -738,6 +769,11 @@ def mensaje_agrupado(hechos: List[Dict]) -> Optional[str]:
         if len(elementos) > 1 and (not mismo or len({str(h.get(mismo)) for h, _ in con_mensaje}) == 1):
             que_hacer = _QUE_HACER_EN_PLURAL.get(con_mensaje[0][0].get("tipo"), que_hacer)
             return f"Se identificaron {len(elementos)} {frase}: {_enumerar(elementos)}. {que_hacer}"
+        if len(elementos) == 1 and not mismo:
+            # Mismo elemento con detalles distintos (p. ej. dos grupos de subconsultas a la misma tabla): la frase en
+            # plural con el total, nunca «N casos: …; …» (22 nov.).
+            que_hacer = _QUE_HACER_EN_PLURAL.get(con_mensaje[0][0].get("tipo"), que_hacer)
+            return f"Se identificaron {total} {frase}: {elementos[0]}. {que_hacer}"
     if all(resto is not None for resto in restos):
         # Solo cambia el final (ORDER BY … a #A / a #B): «2 casos de ORDER BY … a #A y #B».
         comun, finales = _comun_al_inicio(restos)
@@ -798,6 +834,30 @@ _PLURALES: Dict[str, Tuple[str, Callable[[Dict], str], Optional[str]]] = {
     "ALIAS_REPETIDO_EN_FROM": ("nombres repetidos en el mismo FROM",
                                lambda h: f"el alias {h['nombre']}" if h.get("esAlias") else f"la tabla {h['nombre']}",
                                None),
+    # 22 nov. (usuaria): estos 11 tipos aún salían con «Se identificaron N casos: …; …». Se encontraron simulando
+    # todos los tipos agrupados (prueba permanente test_sin_mensaje_agrupado_antiguo), no solo los de los ejemplos.
+    "DOS_PRIMARY_KEY": ("tablas que definen más de una PRIMARY KEY", lambda h: f"{h['tabla']} ({h['cantidad']})", None),
+    "DOS_IDENTITY": ("tablas que definen más de una columna IDENTITY", lambda h: f"{h['tabla']} ({h['cantidad']})",
+                     None),
+    "THROW_TOMADO_COMO_TRANSACCION": ("THROW después de un COMMIT o ROLLBACK sin «;», que SQL Server toma como el "
+                                      "nombre de la transacción, por lo que el error nunca se relanza",
+                                      lambda h: f"después de {h['instruccion']}", None),
+    "VARIABLE_DECLARADA_DOS_VECES": ("variables que se declaran dos veces", lambda h: h["variable"], None),
+    "CTE_NOMBRE_REPETIDO": ("CTE que se definen dos veces en el mismo WITH", lambda h: h["cte"], None),
+    "BREAK_FUERA_DE_WHILE": ("instrucciones fuera de un WHILE", lambda h: h["instruccion"], None),
+    "GOTO_SIN_ETIQUETA": ("GOTO a etiquetas que no existen en el bloque", lambda h: h["etiqueta"], None),
+    "ROWCOUNT_DESPUES_DE_OTRA": ("lecturas justo después de otra instrucción y no después del INSERT, UPDATE o DELETE",
+                                 lambda h: h["variable"], None),
+    "SUBCONSULTAS_A_APPLY": ("grupos de subconsultas a la misma tabla con la misma condición en el SELECT",
+                             lambda h: f"{h['cantidad']} a {h['tabla']}", None),
+    "ISNULL_EN_COLUMNA_NOT_NULL": ("ISNULL sobre columnas que se definen NOT NULL",
+                                   lambda h: f"{h['expresion']} ({h['columna']} de {h['tabla']})", None),
+    "UNION_COLUMNAS_DISTINTAS": ("UNION, EXCEPT o INTERSECT cuyos SELECT devuelven distinta cantidad de columnas",
+                                 lambda h: f"{h['operacion']} ({h['primera']} y {h['segunda']})", None),
+    "CTE_COLUMNAS_DISTINTAS": ("CTE que indican una cantidad de columnas distinta a la que devuelve su consulta",
+                               lambda h: f"{h['cte']} ({h['columnas']} y {h['consulta']})", None),
+    "TEXTO_MAS_LARGO_QUE_VARIABLE": ("textos más largos que la variable que los recibe",
+                                     lambda h: f"'{h['texto']}' en {h['variable']} (queda '{h['queda']}')", None),
 }
 
 
@@ -848,6 +908,28 @@ _QUE_HACER_EN_PLURAL = {
     "VARCHAR_SIN_TAMANO": "Indicar el tamaño (ej.: VARCHAR(100)), ya que, sin él, SQL Server corta el texto sin avisar.",
     "ALIAS_REPETIDO_EN_FROM": "Usar un nombre o alias distinto para cada tabla, ya que SQL Server no ejecutará la "
                               "consulta.",
+    "DOS_PRIMARY_KEY": "Dejar una sola en cada tabla, ya que una tabla solo puede tener una clave primaria y SQL Server "
+                       "no podrá crearlas (error 8110).",
+    "DOS_IDENTITY": "Dejar una sola en cada tabla, ya que una tabla solo puede tener una columna IDENTITY y SQL Server "
+                    "no podrá crearlas (error 2744).",
+    "THROW_TOMADO_COMO_TRANSACCION": "Agregar «;» al final de cada COMMIT o ROLLBACK, ya que sin él el error original "
+                                     "se pierde (con ROLLBACK, además, falla al ejecutarse con el error 6401).",
+    "VARIABLE_DECLARADA_DOS_VECES": "Dejar una sola declaración de cada una o usar otro nombre, ya que SQL Server no "
+                                    "ejecutará el código (error 134).",
+    "BREAK_FUERA_DE_WHILE": "Retirarlas o ubicarlas dentro del WHILE, ya que BREAK y CONTINUE solo funcionan dentro de "
+                            "un bucle y SQL Server no ejecutará el código (error 135).",
+    "GOTO_SIN_ETIQUETA": "Crear las etiquetas o corregir sus nombres, ya que SQL Server no ejecutará el código "
+                         "(error 133).",
+    "ROWCOUNT_DESPUES_DE_OTRA": "Guardar cada valor en una variable inmediatamente después de la instrucción que "
+                                "interesa, ya que cada instrucción, incluso un SET, lo reemplaza.",
+    "SUBCONSULTAS_A_APPLY": "Se recomienda evaluar unir cada grupo en un APPLY, ya que así cada tabla se leería una "
+                            "sola vez por fila.",
+    "ISNULL_EN_COLUMNA_NOT_NULL": "Se recomienda retirar el ISNULL, ya que estas columnas no aceptan valores nulos.",
+    "UNION_COLUMNAS_DISTINTAS": "Igualar la cantidad de columnas de cada SELECT, ya que SQL Server no ejecutará las "
+                                "consultas (error 205).",
+    "CTE_COLUMNAS_DISTINTAS": "Igualar la cantidad de columnas en cada CTE, ya que SQL Server no ejecutará las consultas "
+                              "(error 8159).",
+    "TEXTO_MAS_LARGO_QUE_VARIABLE": "Ampliar el tamaño de las variables, ya que SQL Server corta el texto sin avisar.",
 }
 
 

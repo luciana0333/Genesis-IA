@@ -645,13 +645,13 @@ def _validar_control_de_flujo(texto: str, limpio: str) -> List[Hallazgo]:
         # GOTO: igual que el WHILE, solo en procedimientos nuevos (decisión de la usuaria, 1 nov.).
         for match in re.finditer(r"\bGOTO\b\s*(\w*)", limpio, re.IGNORECASE):
             etiqueta = f" hacia la etiqueta {match.group(1)}" if match.group(1) else ""
-            hallazgos.append(_hallazgo(
+            hallazgos.append(_con_elemento(_hallazgo(
                 texto, match.start(), "GOTO_PROHIBIDO",
                 # Texto de la usuaria, igual que en Procedimientos de negocio.
                 f"Se identificó una instrucción GOTO{etiqueta}. Se recomienda evitar el uso de GOTO, ya que "
                 f"altera el flujo de ejecución y dificulta la lectura, el mantenimiento y la depuración del "
                 f"procedimiento. Se sugiere evaluar alternativas de control de flujo.",
-            ))
+            ), match.group(1) or None))
     for match in re.finditer(r"\bRAISERROR\b", limpio, re.IGNORECASE):
         hallazgos.append(_hallazgo(
             texto, match.start(), "RAISERROR_USAR_THROW",
@@ -1178,6 +1178,13 @@ def _bloqueo_que_hacer(grupo: List[Hallazgo]) -> str:
 # 3 en viñetas, más de 3 en tabla; lo mismo repetido, una sola frase.
 _AGRUPADAS = {
     # Sin repetir la frase en cada caso (usuaria, 22 nov.).
+    # 22 nov.: con 2 GOTO aún salía «Se encontraron 2 observaciones de este tipo»; mismo texto que en Procedimientos.
+    "GOTO_PROHIBIDO": Plantilla(
+        parrafo="Se identificaron instrucciones GOTO hacia las etiquetas {casos}.",
+        lista="Se identificaron instrucciones GOTO hacia las siguientes etiquetas",
+        que_hacer=accion_del_primero,
+        fila="Etiqueta",
+    ),
     "COLLATE_EN_PREDICADO": Plantilla(
         parrafo="Se identificaron COLLATE en las condiciones {casos}.",
         lista="Se identificaron COLLATE en las siguientes condiciones",

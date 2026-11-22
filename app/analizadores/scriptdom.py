@@ -220,6 +220,15 @@ def _lista(valor) -> List[Dict]:
 LECTOR_SCRIPTDOM = _LectorScriptDom()
 
 # Observaciones que traen la consulta para validar si las columnas aceptan NULL.
+def mensaje_del_tipo(tipo: str, hechos: List[Dict]) -> Optional[str]:
+    """Texto de la observación de un tipo con todos sus casos (el mismo que muestra la pantalla)."""
+    if tipo == "VARCHAR_SIN_TAMANO_FECHA":
+        return mensaje_varchar_sin_tamano_fecha(hechos)
+    if tipo == "ISNULL_VALIDAR_NULOS":
+        return " ".join(mensaje_isnull_validar_partes(hechos))
+    return mensaje_agrupado(hechos)
+
+
 CON_CONSULTA_DE_NULOS = {"ISNULL_VALIDAR_NULOS", "ISNULL_EN_CONDICION"}
 
 
@@ -332,14 +341,8 @@ def validar_estructura(sql: str) -> Optional[List[Hallazgo]]:
         if hecho.get("tipo") in MENSAJES:
             por_tipo.setdefault(hecho["tipo"], []).append(hecho)
     for tipo, hechos in por_tipo.items():
-        grupos = None
-        if tipo == "VARCHAR_SIN_TAMANO_FECHA":
-            mensaje = mensaje_varchar_sin_tamano_fecha(hechos)
-        elif tipo == "ISNULL_VALIDAR_NULOS":
-            mensaje = " ".join(mensaje_isnull_validar_partes(hechos))
-            grupos = grupos_isnull_validar(hechos)
-        else:
-            mensaje = mensaje_agrupado(hechos)
+        mensaje = mensaje_del_tipo(tipo, hechos)
+        grupos = grupos_isnull_validar(hechos) if tipo == "ISNULL_VALIDAR_NULOS" else None
         if not mensaje:
             continue
         # La línea del hallazgo es la suya; arriba de la tarjeta van también las que el texto ya no dice.
