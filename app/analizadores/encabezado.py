@@ -49,13 +49,19 @@ _DATOS = (
     # El título («Control de Cambios», «Historial de cambios») o, sin título, la fila de títulos de la tabla de
     # cambios en una línea: «Fecha  Autor  Descripción» (o Responsable / Motivo).
     ("el control de cambios",
-     re.compile(r"\b(?:Control|Historial)\s+de\s+(?:cambios|modificaciones)\b"
+     re.compile(r"\b(?:Control|Historial)\s+de\s+(?:cambios|modificaciones|versiones)\b"
+                # «HISTORIAL DE FECHA» (FluGenSol_InsPropuesta_SP, usuaria, 22 nov.: decía que no tenía control de
+                # cambios con unas 80 líneas de historial).
+                r"|\bHistorial\s+de\s+fechas?\b"
                 r"|\bChange\s+(?:history|log)\b|\bDescripci[oó]n\s+del\s+cambio\b"
                 r"|\bFecha\b[^\n]*\b(?:Autor|Responsable|Usuario)\b[^\n]*\b(?:Descripci[oó]n|Motivo|Detalle)\b"
                 # Un cambio registrado: «2016-04-29 - KAAY - Agrega Registro…» o «29/04/2016 | KAAY | …».
                 r"|\b\d{4}-\d{2}-\d{2}\s*[-|]\s*\w+\s*[-|]\s*\w"
-                r"|\b\d{2}/\d{2}/\d{4}\s*[-|]\s*\w+\s*[-|]\s*\w",
-                re.IGNORECASE)),
+                r"|\b\d{2}/\d{2}/\d{4}\s*[-|]\s*\w+\s*[-|]\s*\w"
+                # O separado solo por espacios o tabulaciones, al inicio de la línea: «2019-03-06  IPAL   Se adapta…»,
+                # «2016.11.18	BJMS	se cambió…». La fecha al inicio distingue el historial de «FECHA | 03/01/2019».
+                r"|^[\s*|/'-]*(?:\d{4}[-/.]\d{2}[-/.]\d{2}|\d{2}[-/.]\d{2}[-/.]\d{4})[ \t]+\w{2,12}[ \t]+\w",
+                re.IGNORECASE | re.MULTILINE)),
     ("el ejemplo de ejecución (EXEC)", re.compile(_EXEC, re.IGNORECASE)),
 )
 
