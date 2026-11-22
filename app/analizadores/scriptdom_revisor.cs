@@ -1353,7 +1353,9 @@ public class GenesisVisitante : TSqlFragmentVisitor
     {
         var columna = ladoColumna as ColumnReferenceExpression;
         if (columna == null) return;
-        string tabla = TablaDe(columna);
+        bool _opcional;
+        // Columna sin alias en un FROM de una sola tabla (WHERE cNumGarant = …): también se sabe su tabla (22 nov.).
+        string tabla = TablaDe(columna, out _opcional);
         string nombre = NombreColumna(columna);
         string familia = null;
         Dictionary<string, string> tipos = null;
@@ -1376,8 +1378,13 @@ public class GenesisVisitante : TSqlFragmentVisitor
             else if (declaracion != null && familia != "texto" && (declaracion.Familia == "nvarchar" || declaracion.Familia == "nchar"))
                 otroTipo = declaracion.Familia.ToUpperInvariant();
         }
+        // Tipo leído del CREATE TABLE de la temporal: se afirma. Solo por el prefijo c (tabla física): no se sabe si de
+        // verdad es texto (en el mismo PA, #BienesAsegurados define cNumGarant BIGINT), así que se pide validar el tipo
+        // con una consulta (usuaria, 22 nov.: «si no sabemos, se recomienda validar, no de frente cambiar»).
         if (otroTipo != null)
-            Agregar("CONVERSION_PREVISIBLE", comparacion.StartLine, "columna", Texto(columna), "otro", Texto(otro), "tipoDato", otroTipo);
+            Agregar(familia == "texto" ? "CONVERSION_PREVISIBLE_VALIDAR" : "CONVERSION_PREVISIBLE", comparacion.StartLine,
+                    "columna", Texto(columna), "otro", Texto(otro), "tipoDato", otroTipo,
+                    "tabla", tabla ?? "", "nombreColumna", nombre);
     }
 
     public override void Visit(InPredicate predicado)

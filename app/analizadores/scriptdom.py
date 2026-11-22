@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from app.analizadores.scriptdom_mensajes import (
-    MENSAJES, consulta_de_nulos, es_formato_de_fecha_corto, lineas_del_hecho, mensaje_agrupado, mensaje_hecho,
+    MENSAJES, consulta_de_nulos, consulta_de_tipos, es_formato_de_fecha_corto, lineas_del_hecho, mensaje_agrupado, mensaje_hecho,
     grupos_isnull_validar, mensaje_isnull_validar_partes, mensaje_varchar_sin_tamano_fecha, severidad,
 )
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
@@ -353,6 +353,8 @@ def validar_estructura(sql: str) -> Optional[List[Hallazgo]]:
             hallazgo.lineas = lineas  # para recorrerlas con la barra «1 de N»
         if tipo in CON_CONSULTA_DE_NULOS:
             hallazgo.consulta = consulta_de_nulos(hechos)  # botón «Copiar consulta de validación»
+        elif tipo == "CONVERSION_PREVISIBLE_VALIDAR":
+            hallazgo.consulta = consulta_de_tipos(hechos)  # el tipo real de cada columna comparada (22 nov.)
         if grupos:
             hallazgo.grupos = grupos  # desde 3 tablas: la pantalla lo muestra como tabla (Tabla | Columnas)
             # Una parada por cada ISNULL, tabla por tabla (como «COLLATE no especificado»): «6 casos».

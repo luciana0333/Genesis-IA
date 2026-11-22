@@ -404,6 +404,16 @@ def _conversion(h: Dict) -> Partes:
             "Server convierte la columna en cada fila y no puede usar su índice.")
 
 
+def _conversion_validar(h: Dict) -> Partes:
+    """Solo el prefijo c dice que la columna (de una tabla física) es texto: se pide validar, no se afirma (22 nov.)."""
+    # Sin la tabla (columna sin alias con varias tablas en el FROM) no hay consulta: no se la menciona.
+    con_consulta = " con la consulta adjunta" if h.get("tabla") else ""
+    return (f"Se identificó la comparación de {h['columna']} con {h['otro']} ({h['tipoDato']}).",
+            f"Se recomienda validar el tipo de dato de la columna{con_consulta}: si es de texto, comparar con un valor "
+            "del mismo tipo (ej.: entre comillas o como VARCHAR), ya que SQL Server convertiría la columna en cada "
+            "fila y no podría usar su índice.")
+
+
 def _or(h: Dict) -> Partes:
     return (f"Se identificó un OR entre las columnas {h['primera']} y {h['segunda']} en el WHERE.",
             "Se recomienda evaluar separarlo en dos consultas con UNION ALL, ya que un OR entre columnas distintas "
@@ -565,13 +575,26 @@ def consulta_de_nulos(hechos: List[Dict]) -> Optional[str]:
     Consulta lista para copiar: si cada columna acepta NULL, según la definición de su tabla física. Una sola
     consulta con todas las columnas; las tablas de otra base (DBCMACICA.dbo.T) se consultan en esa base.
     """
+    return _consulta_de_columnas([(h["tabla"], h["columna"]) for h in hechos], "IS_NULLABLE",
+                                 "IS_NULLABLE = NO: la columna no acepta NULL y el ISNULL no es necesario")
+
+
+def consulta_de_tipos(hechos: List[Dict]) -> Optional[str]:
+    """Consulta lista para copiar: el tipo real de cada columna comparada (22 nov.)."""
+    return _consulta_de_columnas([(h["tabla"], h["nombreColumna"]) for h in hechos if h.get("tabla")],
+                                 "DATA_TYPE, CHARACTER_MAXIMUM_LENGTH",
+                                 "DATA_TYPE varchar, char, nvarchar o nchar: la columna es de texto y la comparación "
+                                 "la convierte en cada fila")
+
+
+def _consulta_de_columnas(pares: List[Tuple[str, str]], datos: str, comentario: str) -> Optional[str]:
     por_base: Dict[str, Dict[Tuple[str, str], List[str]]] = {}
-    for hecho in hechos:
-        partes = [p.strip("[]") for p in str(hecho["tabla"]).split(".")]
+    for tabla_completa, columna in pares:
+        partes = [p.strip("[]") for p in str(tabla_completa).split(".")]
         base, esquema, tabla = ([""] * (3 - len(partes)) + partes)[-3:]
         columnas = por_base.setdefault(base, {}).setdefault((esquema, tabla), [])
-        if hecho["columna"] not in columnas:
-            columnas.append(hecho["columna"])
+        if columna not in columnas:
+            columnas.append(columna)
     if not por_base:
         return None
     consultas = []
@@ -583,11 +606,10 @@ def consulta_de_nulos(hechos: List[Dict]) -> Optional[str]:
             condiciones.append(f"({filtro}TABLE_NAME = '{tabla}' AND COLUMN_NAME IN ({lista}))")
         origen = f"{base}.INFORMATION_SCHEMA.COLUMNS" if base else "INFORMATION_SCHEMA.COLUMNS"
         consultas.append(
-            f"SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, IS_NULLABLE\nFROM {origen}\nWHERE "
+            f"SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, {datos}\nFROM {origen}\nWHERE "
             + "\n   OR ".join(condiciones)
         )
-    return "-- IS_NULLABLE = NO: la columna no acepta NULL y el ISNULL no es necesario\n" \
-        + "\nUNION ALL\n".join(consultas) + "\nORDER BY TABLE_NAME, COLUMN_NAME;"
+    return f"-- {comentario}\n" + "\nUNION ALL\n".join(consultas) + "\nORDER BY TABLE_NAME, COLUMN_NAME;"
 
 
 # --- 4 · Seguridad (alto) ------------------------------------------------------------------------------
@@ -710,6 +732,7 @@ MENSAJES: Dict[str, Tuple[Severidad, Callable[[Dict], Optional[Partes]]]] = {
     "ISNULL_VALIDAR_NULOS": (Severidad.BAJO, _isnull_validar),
     "FUNCION_ESCALAR_POR_FILA": (Severidad.MEDIO, _funcion_escalar),
     "CONVERSION_PREVISIBLE": (Severidad.MEDIO, _conversion),
+    "CONVERSION_PREVISIBLE_VALIDAR": (Severidad.BAJO, _conversion_validar),
     "LIKE_COMODIN_INICIO": (Severidad.BAJO, _like),
     "OR_ENTRE_COLUMNAS": (Severidad.BAJO, _or),
     "UNION_SIN_ALL": (Severidad.BAJO, _union_sin_all),
@@ -785,6 +808,8 @@ def mensaje_agrupado(hechos: List[Dict]) -> Optional[str]:
         cantidad = total if por_caso else len(elementos)
         if len(elementos) > 1 and (not mismo or len({str(h.get(mismo)) for h, _ in con_mensaje}) == 1):
             que_hacer = _QUE_HACER_EN_PLURAL.get(tipo, que_hacer)
+            if tipo == "CONVERSION_PREVISIBLE_VALIDAR" and not all(h.get("tabla") for h, _ in con_mensaje):
+                que_hacer = que_hacer.replace(" con la consulta adjunta", "")
             lista = [_con_veces(texto, n) if por_caso and n > 1 else texto for texto, n in veces.values()]
             return f"Se identificaron {cantidad} {frase}: {_enumerar(lista)}. {que_hacer}"
         if len(elementos) == 1 and not mismo:
@@ -827,6 +852,8 @@ _PLURALES: Dict[str, Tuple[str, Callable[[Dict], str], Optional[str]]] = {
     "BETWEEN_FECHA_SIN_HORA": ("BETWEEN sobre datos que guardan fecha y hora",
                                lambda h: f"{h['expresion']} BETWEEN … AND {h['hasta']}", None),
     "COMPARACION_CON_NULL": ("comparaciones con NULL que nunca son verdaderas", lambda h: h["comparacion"], None),
+    "CONVERSION_PREVISIBLE_VALIDAR": ("comparaciones de columnas con valores de otro tipo",
+                                      lambda h: f"{h['columna']} con {h['otro']} ({h['tipoDato']})", None),
     "CONVERSION_PREVISIBLE": ("comparaciones de columnas de texto con valores de otro tipo",
                               lambda h: f"{h['columna']} con {h['otro']} ({h['tipoDato']})", None),
     "COUNT_EN_LUGAR_DE_EXISTS": ("COUNT(*) para saber si hay registros", lambda h: h["comparacion"], None),
@@ -883,6 +910,7 @@ _PLURALES: Dict[str, Tuple[str, Callable[[Dict], str], Optional[str]]] = {
 _CUENTA_CASOS = {
     "FUNCION_ESCALAR_POR_FILA", "TOP_SIN_ORDER_BY", "LIKE_COMODIN_INICIO", "OR_ENTRE_COLUMNAS", "DIVISION_SIN_NULLIF",
     "ASIGNACION_VARIAS_FILAS", "BETWEEN_FECHA_SIN_HORA", "COMPARACION_CON_NULL", "CONVERSION_PREVISIBLE",
+    "CONVERSION_PREVISIBLE_VALIDAR",
     "COUNT_EN_LUGAR_DE_EXISTS", "INSERT_COLUMNAS_NO_COINCIDEN", "ISNULL_EN_CONDICION", "ISNULL_TRUNCA",
     "PUNTO_Y_COMA_ANTES_DE_WITH", "PUNTO_Y_COMA_FALTANTE", "TAMANO_FUERA_DE_RANGO", "VARCHAR_SIN_TAMANO",
     "NOT_IN_SUBCONSULTA", "THROW_TOMADO_COMO_TRANSACCION", "BREAK_FUERA_DE_WHILE", "ROWCOUNT_DESPUES_DE_OTRA",
@@ -961,6 +989,10 @@ _QUE_HACER_EN_PLURAL = {
     "SUBCONSULTAS_A_APPLY": "Se recomienda evaluar unir cada grupo en un APPLY, ya que así cada tabla se leería una "
                             "sola vez por fila.",
     "ISNULL_EN_COLUMNA_NOT_NULL": "Se recomienda retirar el ISNULL, ya que estas columnas no aceptan valores nulos.",
+    "CONVERSION_PREVISIBLE_VALIDAR": "Se recomienda validar el tipo de dato de estas columnas con la consulta "
+                                     "adjunta: en las que sean de texto, comparar con un valor del mismo tipo (ej.: "
+                                     "entre comillas o como VARCHAR), ya que SQL Server convertiría la columna en cada "
+                                     "fila y no podría usar su índice.",
     "UNION_COLUMNAS_DISTINTAS": "Igualar la cantidad de columnas de cada SELECT, ya que SQL Server no ejecutará las "
                                 "consultas (error 205).",
     "CTE_COLUMNAS_DISTINTAS": "Igualar la cantidad de columnas en cada CTE, ya que SQL Server no ejecutará las consultas "

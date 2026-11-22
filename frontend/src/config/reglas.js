@@ -60,6 +60,7 @@ export const NOMBRES_REGLAS = {
   COUNT_EN_LUGAR_DE_EXISTS: 'COUNT en lugar de EXISTS',
   FUNCION_ESCALAR_POR_FILA: 'Función escalar por cada fila',
   CONVERSION_PREVISIBLE: 'Conversión implícita previsible',
+  CONVERSION_PREVISIBLE_VALIDAR: 'Validar tipo de columna comparada',
   OR_ENTRE_COLUMNAS: 'OR entre columnas distintas',
   UNION_SIN_ALL: 'UNION sin ALL',
   DISTINCT_CON_JOIN: 'DISTINCT con JOIN',

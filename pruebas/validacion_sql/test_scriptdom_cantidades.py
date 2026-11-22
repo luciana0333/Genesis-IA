@@ -34,7 +34,7 @@ class CantidadesReales(unittest.TestCase):
                "SELECT 1 FROM dbo.PersID WITH (NOLOCK) WHERE cPersIDTpo = @p\n"
                "SELECT 1 FROM dbo.G WITH (NOLOCK) WHERE cNumGarant = @g\n"
                "SELECT 1 FROM dbo.G WITH (NOLOCK) WHERE cNumGarant = @g")
-        mensaje = _mensaje(sql, "CONVERSION_PREVISIBLE")
+        mensaje = _mensaje(sql, "CONVERSION_PREVISIBLE_VALIDAR")  # tablas físicas: se pide validar (22 nov.)
         self.assertIn("Se identificaron 3 comparaciones", mensaje)
         self.assertIn("(BIGINT, 2 veces)", mensaje)
         self.assertNotIn(") (", mensaje)

@@ -129,7 +129,8 @@ CASOS = [
     ('función escalar ok XML', "SELECT R.X.value('(@Id)[1]', 'INT') FROM @x.nodes('/r') R(X)", None),
     ('función escalar ok variable', 'SELECT dbo.fn_Actual(@c) FROM dbo.Credito c', None),
     ('función escalar ok SET', "DECLARE @n INT\nSET @n = dbo.fn_Saldo('1')\nSELECT @n", None),
-    ('conversión número', 'SELECT a FROM dbo.Cuenta c WHERE c.cCtaCod = 109', 'CONVERSION_PREVISIBLE'),
+    # Tabla física: solo el prefijo c dice que es texto, así que se pide validar (usuaria, 22 nov.).
+    ('conversión número', 'SELECT a FROM dbo.Cuenta c WHERE c.cCtaCod = 109', 'CONVERSION_PREVISIBLE_VALIDAR'),
     ('conversión ok NVARCHAR tabla real', "DECLARE @c NVARCHAR(20) = N'x'\nSELECT a FROM dbo.Cuenta c WHERE c.cCtaCod = @c", None),
     ('conversión temporal', "CREATE TABLE #C (cCod VARCHAR(10))\nSELECT 1 FROM #C WHERE cCod = N'x'", 'CONVERSION_PREVISIBLE'),
     ('conversión ok', "DECLARE @c VARCHAR(20) = 'x'\nSELECT a FROM dbo.Cuenta c WHERE c.cCtaCod = @c AND c.nEstado = 1", None),
