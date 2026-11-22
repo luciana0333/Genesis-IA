@@ -30,4 +30,7 @@ describe('tituloHallazgo · COLLATE en tabla temporal o variable de tabla (usuar
   it('dice «tabla temporal» cuando solo hay tablas temporales', () => {
     expect(tituloHallazgo(collate('#T', '#U'))).toBe('COLLATE no especificado en tabla temporal');
   });
+  it('con las dos juntas, «tablas temporales» (el texto aclara las variables de tabla)', () => {
+    expect(tituloHallazgo(collate('#T', '@V'))).toBe('COLLATE no especificado en tablas temporales');
+  });
 });

@@ -279,6 +279,8 @@ export function tituloHallazgo(hallazgo) {
     const temporales = nombres.some((nombre) => nombre.startsWith('#'));
     const variables = nombres.some((nombre) => nombre.startsWith('@'));
     if (variables && !temporales) return 'COLLATE no especificado en variable de tabla';
+    // Las dos juntas: el título dice tablas temporales y el texto aclara que también hay variables de tabla (usuaria, 21 nov.).
+    if (variables && temporales) return 'COLLATE no especificado en tablas temporales';
   }
   return nombreRegla(hallazgo?.regla);
 }
