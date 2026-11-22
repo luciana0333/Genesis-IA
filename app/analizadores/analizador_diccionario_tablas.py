@@ -28,6 +28,7 @@ from app.analizadores.ortografia import (
 )
 from app.analizadores.propiedades_extendidas import (
     LlamadaPropiedad,
+    clave_completa,
     como_llamadas_crudas,
     descripcion_mal_escrita,
     leer_propiedades_extendidas,
@@ -596,19 +597,19 @@ def _validar_duplicados(llamadas: List[LlamadaPropiedad]) -> List[Hallazgo]:
     Agregar dos veces la misma descripción falla en SQL Server ("property
     already exists"). Solo aplica a sp_addextendedproperty.
     """
-    vistos: Dict[Tuple[str, str], int] = {}
+    vistos: Dict[Tuple[str, ...], int] = {}
     hallazgos = []
     for ll in llamadas:
         if ll.operacion != "add" or not _es_descripcion(ll):
             continue
         if _es_de_columna(ll):
-            clave = ("columna", ll.texto("level2name").upper())
             objeto = f"la columna {ll.texto('level2name')}"
         elif _es_de_tabla(ll):
-            clave = ("tabla", ll.texto("level1name").upper())
             objeto = f"la tabla {ll.texto('level1name')}"
         else:
             continue
+        # Duplicada solo si todo es igual: esquema, tipo, tabla, columna y propiedad (usuaria, 21 nov.).
+        clave = clave_completa(ll)
         if clave in vistos:
             # Sin «siendo la primera declaración en la línea N»: las dos líneas van arriba de la tarjeta (usuaria,
             # 21 nov.).

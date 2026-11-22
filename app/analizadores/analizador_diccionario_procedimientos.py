@@ -32,6 +32,7 @@ from app.analizadores.ortografia import (
     ACCION_ORTOGRAFIA, elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico,
 )
 from app.analizadores.propiedades_extendidas import (
+    clave_completa,
     como_llamadas_crudas,
     descripcion_mal_escrita,
     leer_propiedades_extendidas,
@@ -364,19 +365,22 @@ def _validar_duplicados(texto_diccionario: str) -> List[Hallazgo]:
     Agregar dos veces la misma descripción falla en SQL Server ("property
     already exists"). Solo aplica a sp_addextendedproperty.
     """
-    vistos: Dict[Tuple[str, str], int] = {}
+    vistos: Dict[Tuple[str, ...], int] = {}
     hallazgos = []
     for ll in leer_propiedades_extendidas(texto_diccionario):
         if ll.operacion != "add" or ll.texto("name").upper() != "MS_DESCRIPTION":
             continue
         if "PARAMETER" in ll.texto("level2type").upper():
             nombre = ll.texto("level2name")
-            clave, objeto = ("parametro", nombre.upper()), f"parámetro {nombre}"
+            objeto = f"parámetro {nombre}"
         elif ll.texto("level1name") and not ll.texto("level2type"):
             nombre = ll.texto("level1name")
-            clave, objeto = ("objeto", nombre.upper()), f"{actual().nombre} {nombre}"
+            objeto = f"{actual().nombre} {nombre}"
         else:
             continue
+        # Duplicada solo si todo es igual: esquema, tipo, objeto, parámetro y propiedad (usuaria, 21 nov.:
+        # @cJsonDatos de DUN.PA_X y de COLOCACIONES.PA_X no es un duplicado).
+        clave = clave_completa(ll)
         if clave not in vistos:
             vistos[clave] = ll.linea
             continue

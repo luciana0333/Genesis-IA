@@ -21,7 +21,20 @@ Rango = Tuple[int, int]
 
 
 def _limpiar(nombre: str) -> str:
-    return nombre.strip().strip("[]").upper()
+    """Solo el nombre del objeto, sin esquema ni corchetes: «DUN.PA_X» → «PA_X»."""
+    return _partes(nombre)[1]
+
+
+def _partes(nombre: str) -> Tuple[str, str]:
+    """(esquema, nombre) sin corchetes y en mayúsculas; el esquema vacío si no se escribió."""
+    partes = [p.strip().strip("[]").upper() for p in re.split(r"\s*\.\s*", (nombre or "").strip())]
+    return (partes[-2] if len(partes) > 1 else ""), partes[-1]
+
+
+def _esquema_del_encabezado(m: re.Match) -> str:
+    """Esquema escrito en «CREATE PROCEDURE DUN.PA_X» («» si no se escribió)."""
+    completo = re.sub(r"\s*\.\s*", ".", m.group(0).strip()).split()[-1]
+    return _partes(completo)[0]
 
 
 def separar_objetos(texto: str, encabezado: Pattern, nombre_de: Callable) -> List[Tuple[str, List[Rango]]]:
@@ -30,15 +43,22 @@ def separar_objetos(texto: str, encabezado: Pattern, nombre_de: Callable) -> Lis
     encabezado hasta el siguiente; un mismo objeto en dos sentencias (CREATE TABLE y luego
     ALTER TABLE para sus restricciones) junta ambas partes. Lo anterior al primer
     encabezado va con el primer objeto.
+
+    Un objeto es su esquema y su nombre: DUN.PA_X y COLOCACIONES.PA_X son dos objetos distintos (usuaria,
+    21 nov.). Cuando dos objetos tienen el mismo nombre, se nombran con su esquema para distinguirlos.
     """
     sin_comentarios = re.sub(r"--[^\n]*|/\*[\s\S]*?\*/", lambda m: re.sub(r"[^\n]", " ", m.group(0)), texto)
-    encabezados = [(m.start(), nombre_de(m)) for m in encabezado.finditer(sin_comentarios)]
-    objetos: Dict[str, Tuple[str, List[Rango]]] = {}
-    for i, (inicio, nombre) in enumerate(encabezados):
+    encabezados = [(m.start(), nombre_de(m), _esquema_del_encabezado(m)) for m in encabezado.finditer(sin_comentarios)]
+    objetos: Dict[Tuple[str, str], Tuple[str, str, List[Rango]]] = {}
+    for i, (inicio, nombre, esquema) in enumerate(encabezados):
         fin = encabezados[i + 1][0] if i + 1 < len(encabezados) else len(texto)
         desde = 0 if i == 0 else inicio
-        objetos.setdefault(_limpiar(nombre), (nombre, []))[1].append((desde, fin))
-    return list(objetos.values())
+        objetos.setdefault((esquema, _limpiar(nombre)), (nombre, esquema, []))[2].append((desde, fin))
+    repetidos = {n for (_, n) in objetos if sum(1 for (_, otro) in objetos if otro == n) > 1}
+    return [
+        (f"{esquema}.{nombre}" if _limpiar(nombre) in repetidos and esquema else nombre, rangos)
+        for nombre, esquema, rangos in objetos.values()
+    ]
 
 
 def es_otro_objeto(nombre: str, claves: List[str]) -> bool:
@@ -47,6 +67,7 @@ def es_otro_objeto(nombre: str, claves: List[str]) -> bool:
     False si coincide o se parece mucho a uno del script (nombre mal escrito: lo dice la revisión de ese objeto).
     """
     clave = _limpiar(nombre or "")
+    claves = [_limpiar(c) for c in claves]
     if not clave or clave in claves:
         return False
     return max((difflib.SequenceMatcher(None, clave, otra).ratio() for otra in claves), default=0) < 0.85
@@ -93,22 +114,25 @@ def repartir_diccionario(texto_diccionario: str, nombres: List[str]) -> List[Lis
     objeto diga que el nombre no coincide. Con el nombre vacío va con la sentencia anterior.
     Lo que no es una sentencia (comentarios del inicio) va con el primer objeto.
     """
-    claves = [_limpiar(n) for n in nombres]
+    completos = [_partes(n) for n in nombres]
+    claves = [nombre for _, nombre in completos]
     llamadas = leer_propiedades_extendidas(texto_diccionario)
     rangos: List[List[Rango]] = [[] for _ in nombres]
     if not llamadas:
         rangos[0].append((0, len(texto_diccionario)))
         return rangos
 
-    def dueno_de(nombre: str) -> Optional[int]:
+    def dueno_de(nombre: str, esquema: str) -> Optional[int]:
         clave = _limpiar(nombre)
-        if clave in claves:
-            return claves.index(clave)
+        mismos = [i for i, otra in enumerate(claves) if otra == clave]
+        if mismos:
+            # Mismo nombre en dos esquemas (DUN.PA_X y COLOCACIONES.PA_X): va al de su @level0name.
+            return next((i for i in mismos if completos[i][0] == _limpiar(esquema)), mismos[0])
         if not clave or es_otro_objeto(nombre, claves):
             return None
         return max(range(len(claves)), key=lambda i: difflib.SequenceMatcher(None, clave, claves[i]).ratio())
 
-    duenos: List[Optional[int]] = [dueno_de(ll.texto("level1name")) for ll in llamadas]
+    duenos: List[Optional[int]] = [dueno_de(ll.texto("level1name"), ll.texto("level0name")) for ll in llamadas]
     anterior = next((d for d in duenos if d is not None), 0)
     for i, ll in enumerate(llamadas):
         if duenos[i] is None and es_otro_objeto(ll.texto("level1name"), claves):
@@ -191,8 +215,6 @@ def agrupar_varios(hallazgos, plantillas: Dict[str, Tuple[str, str]], articulo: 
                 if h.elemento not in casos:
                     casos.append(h.elemento)
             sustantivo, accion = plantillas[regla]
-            lineas = resumido.lineas
-            donde = ("la línea " if len(lineas) == 1 else "las líneas ") + ", ".join(map(str, lineas))
             casos = "; ".join(
                 # Casos que ya traen su detalle («Descripción del parámetro @x: 'a' → 'b'»): uno por
                 # viñeta, con el objeto entre paréntesis si el caso no lo nombra.
@@ -201,7 +223,8 @@ def agrupar_varios(hallazgos, plantillas: Dict[str, Tuple[str, str]], articulo: 
                 for objeto, elems in por_objeto.items()
             )
             total = sum(len(elems) for elems in por_objeto.values())
-            resumido.mensaje = f"Se identificaron {total} {sustantivo}, en {donde}: {casos}. {accion}"
+            # Las líneas van solo arriba de la observación (usuaria, 21 nov.).
+            resumido.mensaje = f"Se identificaron {total} {sustantivo}: {casos}. {accion}"
         resultado.append(resumido)
     return resultado
 

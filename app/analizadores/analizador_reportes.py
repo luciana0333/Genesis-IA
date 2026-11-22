@@ -1126,21 +1126,15 @@ def _agrupar_sin_nolock(grupo: List[Hallazgo]) -> Hallazgo:
 
 def _agrupar_por_elemento(regla: str, grupo: List[Hallazgo]) -> Hallazgo:
     sustantivo, accion = _PLANTILLAS_AGRUPADAS[regla]
-    lineas_por_elemento: Dict[str, List[int]] = {}
-    for hallazgo in sorted(grupo, key=lambda h: h.linea):
-        lineas_por_elemento.setdefault(hallazgo.elemento, []).append(hallazgo.linea)
-    elementos = [
-        f"{elemento} ({'línea' if len(set(lineas)) == 1 else 'líneas'} {', '.join(map(str, sorted(set(lineas))))})"
-        for elemento, lineas in lineas_por_elemento.items()
-    ]
+    # Cada elemento una vez y sin líneas: van solo arriba de la observación (usuaria, 21 nov.).
+    elementos = list(dict.fromkeys(hallazgo.elemento for hallazgo in sorted(grupo, key=lambda h: h.linea)))
     numeros = sorted({hallazgo.linea for hallazgo in grupo})
-    lineas = ("la línea " if len(numeros) == 1 else "las líneas ") + ", ".join(map(str, numeros))
     resumen = Hallazgo(
         linea=numeros[0],
         origen=grupo[0].origen,
         severidad=grupo[0].severidad,
         regla=regla,
-        mensaje=f"Se identificaron {len(grupo)} {sustantivo}, en {lineas}: {'; '.join(elementos)}. {accion}",
+        mensaje=f"Se identificaron {len(grupo)} {sustantivo}: {'; '.join(elementos)}. {accion}",
     )
     resumen.lineas = numeros  # para recorrer los casos uno a uno desde «Ver en el código»
     return resumen

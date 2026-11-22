@@ -284,6 +284,17 @@ def _leer_argumentos(texto: str, i: int, llamada: LlamadaPropiedad, original: st
 # API PÚBLICA
 # ---------------------------------------------------------------------------
 
+_NIVELES = ("name", "level0type", "level0name", "level1type", "level1name", "level2type", "level2name")
+
+
+def clave_completa(llamada: "LlamadaPropiedad") -> Tuple[str, ...]:
+    """Todo lo que identifica la propiedad: nombre, esquema, tipo, objeto y parámetro o columna.
+
+    Dos sentencias son la misma propiedad (y la segunda falla en SQL Server) solo si todo es igual (usuaria, 21 nov.).
+    """
+    return tuple(llamada.texto(nivel).strip("[]").upper() for nivel in _NIVELES)
+
+
 def leer_propiedades_extendidas(texto: str) -> List[LlamadaPropiedad]:
     """Devuelve cada llamada a sp_add/updateextendedproperty del script."""
     if not texto:
