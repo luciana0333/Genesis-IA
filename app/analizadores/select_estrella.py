@@ -77,7 +77,7 @@ def unir_select_estrella(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
 
 # «SELECT ROW_NUMBER() OVER (…) AS NRO, * FROM #T»: el * después de una coma también trae todas las columnas
 # (caso de la usuaria, 8 nov.). COUNT(*) no cuenta: ahí el * va después de un paréntesis.
-_ESTRELLA_TRAS_COMA = re.compile(r",\s*(\*)(?=\s*(?:,|\bFROM\b))", re.IGNORECASE)
+_ESTRELLA_TRAS_COMA = re.compile(r",\s*(\*)(?=\s*(?:,|\bFROM\b|\bINTO\b))", re.IGNORECASE)
 _TABLA_DEL_FROM = re.compile(r"\bFROM\s+((?:\[[^\]]+\]|[#@]?[A-Za-z_][\w$#]*)(?:\s*\.\s*(?:\.\s*)?(?:\[[^\]]+\]|[A-Za-z_][\w$#]*)){0,3})",
                              re.IGNORECASE)
 

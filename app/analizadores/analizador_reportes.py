@@ -413,7 +413,7 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             lambda m: _mensaje_select_estrella(m.group("tabla"), bool(m.group("funcion"))),
         ),
         (
-            r"(?<![\w.])(?P<alias>[A-Za-z_]\w*)\s*\.\s*\*(?=\s*(?:,|\bFROM\b))",
+            r"(?<![\w.])(?P<alias>[A-Za-z_]\w*)\s*\.\s*\*(?=\s*(?:,|\bFROM\b|\bINTO\b))",
             "SELECT_ESTRELLA_PROHIBIDO",
             lambda m: _mensaje_select_estrella(_tabla_del_alias_en(limpio, m.start(), m.group("alias")), False, f"{m.group('alias')}.*"),
         ),

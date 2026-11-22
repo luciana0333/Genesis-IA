@@ -748,13 +748,17 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             f"Se identificó que se están consultando todas las columnas de {tabla or 'la consulta'} mediante *.",
         ), tabla))
     # SELECT c.*: todas las columnas de la tabla del alias c.
-    for match in re.finditer(r"(?<![\w.@#])([A-Za-z_]\w*)\s*\.\s*\*(?=\s*(?:,|\bFROM\b))", limpio, re.IGNORECASE):
+    for match in re.finditer(r"(?<![\w.@#])([A-Za-z_]\w*)\s*\.\s*\*(?=\s*(?:,|\bFROM\b|\bINTO\b))", limpio, re.IGNORECASE):
         alias = match.group(1)
-        sentencia = _sentencia_de(limpio, match.start())
-        origen = re.search(
+        patron_origen = re.compile(
             rf"\b(?:FROM|JOIN)\s+({_IDENTIFICADOR}(?:\s*\.(?:\s*\.)?\s*{_IDENTIFICADOR}){{0,2}})\s+(?:AS\s+)?{re.escape(alias)}\b",
-            sentencia, re.IGNORECASE,
+            re.IGNORECASE,
         )
+        # El FROM del alias va después del «c.*»: se busca hacia adelante, hasta la siguiente sentencia (sin «;», la
+        # sentencia era un bloque grande y tomaba un «TipoCambio a» anterior; usuaria, 22 nov.).
+        siguiente = _INICIO_SENTENCIA.search(limpio, match.end())
+        adelante = limpio[match.end():siguiente.start() if siguiente else len(limpio)]
+        origen = patron_origen.search(adelante) or patron_origen.search(_sentencia_de(limpio, match.start()))
         tabla = _limpiar_nombre(origen.group(1)) if origen else alias
         hallazgos.append(marcar_select_estrella(_hallazgo(
             texto, match.start(), "SELECT_ESTRELLA_PROHIBIDO",
