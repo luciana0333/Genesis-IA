@@ -250,8 +250,8 @@ def _varias_filas(h: Dict) -> Partes:
 
 
 def _not_in(h: Dict) -> Partes:
-    # Texto de la usuaria (18 nov.).
-    return ("Se identificó el uso de NOT IN (SELECT ...) para excluir registros mediante una subconsulta.",
+    # Texto de la usuaria (18 nov.), con la columna en lugar de «(SELECT ...)», que no se entendía (usuaria, 22 nov.).
+    return (f"Se identificó el uso de NOT IN sobre {h['expresion']} para excluir registros mediante una subconsulta.",
             "Se recomienda evaluar su reemplazo por NOT EXISTS, ya que si la subconsulta devuelve valores NULL, la "
             "comparación con NOT IN puede generar resultados inesperados.")
 
@@ -623,12 +623,6 @@ def _case_sin_else(h: Dict) -> Partes:
             "Se recomienda agregar un ELSE, ya que si ningún WHEN se cumple el resultado es NULL.")
 
 
-def _largo(h: Dict) -> Partes:
-    return (f"Se identificó un procedimiento de {h['lineas']} líneas.",
-            "Se recomienda dividirlo en procedimientos más pequeños, ya que uno tan largo es difícil de revisar y de "
-            "mantener.")
-
-
 # tipo -> (severidad, mensaje)
 MENSAJES: Dict[str, Tuple[Severidad, Callable[[Dict], Optional[Partes]]]] = {
     "INSERT_COLUMNAS_NO_COINCIDEN": (Severidad.CRITICO, _insert),
@@ -689,7 +683,8 @@ MENSAJES: Dict[str, Tuple[Severidad, Callable[[Dict], Optional[Partes]]]] = {
     "BLOQUE_REPETIDO": (Severidad.BAJO, _bloque),
     "PARAMETRO_SIN_USO": (Severidad.BAJO, _parametro_sin_uso),
     "CASE_SIN_ELSE": (Severidad.BAJO, _case_sin_else),
-    "PROCEDIMIENTO_MUY_LARGO": (Severidad.BAJO, _largo),
+    # «Procedimiento muy largo» se retiró: no es necesario (usuaria, 22 nov.). ScriptDom lo sigue informando, pero sin
+    # mensaje no se muestra.
 }
 
 
@@ -790,6 +785,7 @@ _PLURALES: Dict[str, Tuple[str, Callable[[Dict], str], Optional[str]]] = {
         lambda h: (f"{h['tipoDato']} {'en un CAST o CONVERT' if h.get('contexto') == 'conversion' else 'al declarar'} "
                    f"(SQL Server lo toma como {h['tipoDato']}({h['largo']}))"),
         None),
+    "NOT_IN_SUBCONSULTA": ("NOT IN que excluyen registros mediante una subconsulta", lambda h: h["expresion"], None),
     "ALIAS_REPETIDO_EN_FROM": ("nombres repetidos en el mismo FROM",
                                lambda h: f"el alias {h['nombre']}" if h.get("esAlias") else f"la tabla {h['nombre']}",
                                None),
@@ -837,6 +833,8 @@ _QUE_HACER_EN_PLURAL = {
                                   "sintaxis 319 durante la ejecución del procedimiento.",
     "PUNTO_Y_COMA_FALTANTE": "Se recomienda agregar el punto y coma (;) en cada uno, para evitar el error de sintaxis "
                              "102 durante la ejecución del procedimiento.",
+    "NOT_IN_SUBCONSULTA": "Se recomienda evaluar reemplazarlos por NOT EXISTS, ya que si la subconsulta devuelve "
+                          "valores NULL, la comparación con NOT IN puede generar resultados inesperados.",
     "TAMANO_FUERA_DE_RANGO": "Corregir los tamaños, ya que SQL Server no ejecutará el código.",
     "VARCHAR_SIN_TAMANO": "Indicar el tamaño (ej.: VARCHAR(100)), ya que, sin él, SQL Server corta el texto sin avisar.",
     "ALIAS_REPETIDO_EN_FROM": "Usar un nombre o alias distinto para cada tabla, ya que SQL Server no ejecutará la "
