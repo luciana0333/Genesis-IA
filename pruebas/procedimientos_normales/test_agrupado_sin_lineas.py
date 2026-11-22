@@ -53,6 +53,21 @@ class AgrupadoSinLineasTest(unittest.TestCase):
         self.assertTrue(_de("COLLATE_DISTINTO_AL_ESTANDAR", uno + "\nSELECT cA, cB FROM #A")[0].mensaje.startswith(
             "Se identificó el COLLATE Modern_Spanish_CI_AS, distinto al que usa la empresa"))
 
+    def test_merge_join_es_una_sugerencia_no_una_sentencia_merge(self):
+        # Falso positivo (22 nov.): «OPTION (MERGE JOIN)» salía como «sentencia MERGE sobre la tabla JOIN».
+        sql = "SELECT a.n FROM dbo.A a WITH (NOLOCK) JOIN dbo.B b WITH (NOLOCK) ON a.n = b.n OPTION (MERGE JOIN)"
+        self.assertEqual(_de("MERGE_PROHIBIDO", sql), [])
+        merge = "MERGE dbo.Cliente AS t USING #C AS s ON t.n = s.n WHEN MATCHED THEN UPDATE SET t.n = s.n;"
+        self.assertEqual(len(_de("MERGE_PROHIBIDO", merge)), 1)
+
+    def test_reportes_select_into_cuenta_tablas_distintas(self):
+        from app.analizadores.analizador_reportes import verificar_reporte
+        # La misma #Tmp dos veces: su mensaje una vez, no «Se identificaron 2 tablas …: #Tmp».
+        sql = "SELECT 1 AS n INTO #Tmp\nDROP TABLE #Tmp\nSELECT 2 AS n INTO #Tmp\nSELECT n FROM #Tmp"
+        hallazgo = _de("SELECT_INTO_PROHIBIDO", sql, verificar_reporte)[0]
+        self.assertTrue(hallazgo.mensaje.startswith("Se identificó el uso de SELECT INTO para crear la tabla temporal #Tmp."))
+        self.assertEqual(hallazgo.lineas, [1, 3])
+
     def test_reportes_el_mismo_hecho_una_sola_vez(self):
         # El texto genérico de Reportes (reglas sin texto agrupado propio): el mismo hecho dos veces, una sola vez.
         from app.analizadores.analizador_reportes import _agrupar_hallazgos_repetidos

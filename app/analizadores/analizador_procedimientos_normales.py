@@ -32,7 +32,7 @@ from app.analizadores.openxml import openxml_agrupado
 from app.analizadores.select_estrella import (
     estrellas_tras_coma, marcar as marcar_select_estrella, unir_select_estrella,
 )
-from app.analizadores.left_like import left_reemplazable_por_like
+from app.analizadores.left_like import condicion_de_left, left_reemplazable_por_like
 from app.analizadores.hints_compartidos import (
     HINTS_BLOQUEO_NUEVOS, QUE_HACE_EL_AISLAMIENTO, hint_en_temporal, niveles_de_aislamiento,
 )
@@ -197,21 +197,23 @@ def _validar_control_flujo(texto: str, limpio: str) -> List[Hallazgo]:
         ), "WHILE"))
     for match in re.finditer(r"\bGOTO\b\s*(\w*)", limpio, re.IGNORECASE):
         etiqueta = f" hacia la etiqueta {match.group(1)}" if match.group(1) else ""
-        hallazgos.append(_hallazgo(
+        hallazgos.append(_con_elemento(_hallazgo(
             texto, match.start(), "GOTO_PROHIBIDO",
             # «Qué hacer»: texto de la usuaria (1 nov.).
             f"Se identificó una instrucción GOTO{etiqueta}. Se recomienda evitar el uso de GOTO, ya que altera "
             f"el flujo de ejecución y dificulta la lectura, el mantenimiento y la depuración del procedimiento. "
             f"Se sugiere evaluar alternativas de control de flujo.",
-        ))
-    for match in re.finditer(rf"\bMERGE\b(?:\s+(?:TOP\s*\([^)]*\)\s*)?(?:INTO\s+)?({_REFERENCIA}))?", limpio, re.IGNORECASE):
+        ), match.group(1) or None))
+    # «OPTION (MERGE JOIN)» / «MERGE UNION» son sugerencias del plan, no una sentencia MERGE (22 nov.).
+    for match in re.finditer(rf"\bMERGE\b(?!\s+(?:JOIN|UNION)\b)(?:\s+(?:TOP\s*\([^)]*\)\s*)?(?:INTO\s+)?({_REFERENCIA}))?",
+                             limpio, re.IGNORECASE):
         tabla = f" sobre la tabla {_limpiar_nombre(match.group(1))}" if match.group(1) else ""
-        hallazgos.append(_hallazgo(
+        hallazgos.append(_con_elemento(_hallazgo(
             texto, match.start(), "MERGE_PROHIBIDO",
             f"Se detectó una sentencia MERGE{tabla}. Se recomienda validar si su uso está justificado y, "
             f"de ser posible, reemplazarla por sentencias INSERT, UPDATE y DELETE separadas, ya que MERGE "
             f"tiene errores conocidos en SQL Server y dificulta controlar cada operación.",
-        ))
+        ), _limpiar_nombre(match.group(1)) if match.group(1) else None))
     return hallazgos
 
 
@@ -503,19 +505,19 @@ def _validar_update_from_nolock(texto: str, limpio: str) -> List[Hallazgo]:
         if tabla and not _es_temporal(tabla) and en_subconsulta:
             # Usuaria, 18 nov.: aquí SQL Server SÍ aplica el NOLOCK (es otra lectura de la tabla). Comprobado en SQL
             # Server: la subconsulta tomó un registro aún no confirmado; al deshacerse, el UPDATE modificó 0 filas.
-            hallazgos.append(_hallazgo(
+            hallazgos.append(_con_elemento(_hallazgo(
                 texto, posicion_hint, "NOLOCK_EN_SUBCONSULTA_DE_UPDATE",
                 f"Se identificó el uso de WITH (NOLOCK) en la subconsulta que selecciona el registro a actualizar en "
                 f"la tabla {tabla}. Se recomienda retirar WITH (NOLOCK) de la subconsulta, ya que permite leer datos "
                 f"no confirmados.",  # texto de la usuaria (18 nov.)
-            ))
+            ), tabla))
         elif tabla and not _es_temporal(tabla):
-            hallazgos.append(_hallazgo(
+            hallazgos.append(_con_elemento_al_final(tabla, _hallazgo(
                 texto, posicion_hint, "NOLOCK_EN_TABLA_FISICA",
                 f"Se identificó el uso de WITH (NOLOCK) en la tabla {tabla}, sobre la cual se realiza una "
                 f"actualización. Se recomienda retirar WITH (NOLOCK), ya que SQL Server ignora esta instrucción en "
                 f"la tabla que se actualiza y su uso no es una buena práctica.",
-            ))
+            )))
     return hallazgos
 
 
@@ -774,30 +776,30 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
         if ultima not in {"WHERE", "ON", "HAVING"}:
             continue
         clausula = "del JOIN" if ultima == "ON" else f"del {ultima}"
-        hallazgos.append(_hallazgo(
+        hallazgos.append(_con_elemento(_hallazgo(
             texto, match.start(1), "COLLATE_EN_PREDICADO",
             f"Se detectó un COLLATE sobre {match.group(1)} en la condición {clausula}. Definir "
             f"el COLLATE al crear la tabla temporal y no en la condición, ya que en el WHERE o en el JOIN impide "
             f"usar los índices y vuelve lenta la consulta.",
-        ))
+        ), match.group(1), clausula.split()[-1]))
     for match in re.finditer(r"\bSTUFF\s*\([\s\S]*?\bFOR\s+XML\s+PATH\b", limpio, re.IGNORECASE):
         tabla = _tabla_del_from(limpio, match.start())
         sobre = f" sobre la tabla {tabla}" if tabla else ""
-        hallazgos.append(_hallazgo(
+        hallazgos.append(_con_elemento(_hallazgo(
             texto, match.start(), "STUFF_FOR_XML_PATH_PROHIBIDO",
             f"Se identificó una concatenación con STUFF y FOR XML PATH{sobre}. Emplear STRING_AGG, "
             f"ya que es la función nativa para concatenar valores y es más simple y rápida "
             f"(ej.: STRING_AGG(cNombre, ',')).",
-        ))
+        ), tabla or None))
     for match in re.finditer(r"\b(?:dbo\.)?FN_SPLIT\s*\(\s*([^,)]*)", limpio, re.IGNORECASE):
         dato = match.group(1).strip()
         sobre = f" para dividir {dato}" if dato.startswith("@") else " para dividir textos"
-        hallazgos.append(_hallazgo(
+        hallazgos.append(_con_elemento(_hallazgo(
             texto, match.start(), "FN_SPLIT_PROHIBIDO",
             f"Se verificó el uso de la función dbo.FN_SPLIT{sobre}. Se recomienda usar STRING_SPLIT, ya que es la "
             f"función nativa de SQL Server y mejora el rendimiento (ej.: SELECT value FROM "
             f"STRING_SPLIT(@cLista, ',')).",
-        ))
+        ), dato if dato.startswith("@") else "un texto"))
     for match in re.finditer(r"\b(LTRIM\s*\(\s*RTRIM|RTRIM\s*\(\s*LTRIM)\s*\(", limpio, re.IGNORECASE):
         # Lo que va dentro puede tener otras funciones (LTRIM(RTRIM(REPLACE(@cDoc, 'a', '')))): se lee
         # respetando sus paréntesis. Una columna o variable se nombra tal cual; una expresión larga, por su
@@ -808,12 +810,12 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
         else:
             funcion = re.match(r"(\w+)\s*\(", contenido)
             dato = f"{funcion.group(1).upper()}(...)" if funcion else "cNombre"
-        hallazgos.append(_hallazgo(
+        hallazgos.append(_con_elemento(_hallazgo(
             texto, match.start(), "LTRIM_RTRIM_PROHIBIDO",
             f"Se identificó la combinación de LTRIM y RTRIM sobre {dato} para quitar espacios. Se recomienda "
             f"usar TRIM, ya que hace lo mismo en una sola función y le da más legibilidad al código "
             f"(ej.: TRIM({dato})).",
-        ))
+        ), dato))
     return hallazgos
 
 
@@ -984,7 +986,8 @@ _COLLATE_EMPRESA = "SQL_Latin1_General_CP1_CI_AS"
 def _validar_collate_openjson(texto: str, limpio: str) -> List[Hallazgo]:
     """COLLATE en las columnas del WITH de OPENJSON: sobra, toman el COLLATE de la base de datos."""
     return [
-        _hallazgo(texto, posicion, "OPENJSON_COLLATE_INNECESARIO", mensaje_collate_openjson(columnas))
+        _con_elemento(_hallazgo(texto, posicion, "OPENJSON_COLLATE_INNECESARIO", mensaje_collate_openjson(columnas)),
+                      ", ".join(columnas))
         for posicion, columnas in collates_en_openjson(limpio)
     ]
 
@@ -1285,6 +1288,11 @@ def _con_elemento(hallazgo: Hallazgo, elemento: str, detalle: Optional[str] = No
     return hallazgo
 
 
+def _con_elemento_al_final(elemento: str, hallazgo: Hallazgo) -> Hallazgo:
+    """Como _con_elemento, con el elemento primero (cuando el hallazgo se arma en varias líneas)."""
+    return _con_elemento(hallazgo, elemento)
+
+
 def _sin_where_que_hacer(grupo: List[Hallazgo]) -> str:
     acciones = {getattr(h, "detalle", "") for h in grupo}
     verbo = "actualizar" if acciones == {"UPDATE"} else "eliminar" if acciones == {"DELETE"} else "modificar"
@@ -1362,6 +1370,96 @@ _AGRUPADAS = {
         lista="Se identificaron las siguientes tablas creadas con SELECT INTO",
         que_hacer=accion_del_primero,
         fila="Tabla",
+    ),
+    # Textos agrupados sin repetir la frase en cada caso (usuaria, 22 nov.: «que ni una regla muestre el mensaje
+    # antiguo»). 2 casos en el párrafo, 3 en viñetas y más de 3 en tabla.
+    "GOTO_PROHIBIDO": Plantilla(
+        parrafo="Se identificaron instrucciones GOTO hacia las etiquetas {casos}.",
+        lista="Se identificaron instrucciones GOTO hacia las siguientes etiquetas",
+        que_hacer=accion_del_primero,
+        fila="Etiqueta",
+    ),
+    "MERGE_PROHIBIDO": Plantilla(
+        parrafo="Se detectaron sentencias MERGE sobre las tablas {casos}.",
+        lista="Se detectaron sentencias MERGE sobre las siguientes tablas",
+        que_hacer=accion_del_primero,
+        fila="Tabla",
+    ),
+    "NOLOCK_EN_TABLA_FISICA": Plantilla(
+        parrafo="Se identificó el uso de WITH (NOLOCK) en las tablas {casos}, sobre las cuales se realiza una "
+                "actualización.",
+        lista="Se identificó el uso de WITH (NOLOCK) en las siguientes tablas, sobre las cuales se realiza una "
+              "actualización",
+        que_hacer=accion_del_primero,
+        fila="Tabla",
+    ),
+    "NOLOCK_EN_SUBCONSULTA_DE_UPDATE": Plantilla(
+        parrafo="Se identificó el uso de WITH (NOLOCK) en las subconsultas que seleccionan el registro a actualizar "
+                "en las tablas {casos}.",
+        lista="Se identificó el uso de WITH (NOLOCK) en las subconsultas que seleccionan el registro a actualizar "
+              "en las siguientes tablas",
+        que_hacer=accion_del_primero,
+        fila="Tabla",
+    ),
+    "COLLATE_EN_PREDICADO": Plantilla(
+        parrafo="Se detectaron COLLATE en las condiciones sobre {casos}.",
+        lista="Se detectaron COLLATE en las condiciones sobre las siguientes columnas",
+        # Todas en el mismo tipo de condición: se dice una vez («del WHERE»), no «(WHERE)» en cada columna.
+        detalle_comun=True,
+        parrafo_comun="Se detectaron COLLATE en la condición del {detalle} sobre {casos}.",
+        lista_comun="Se detectaron COLLATE en la condición del {detalle} sobre las siguientes columnas",
+        que_hacer=accion_del_primero,
+        fila="Columna",
+        columna="Condición",
+    ),
+    "STUFF_FOR_XML_PATH_PROHIBIDO": Plantilla(
+        parrafo="Se identificaron concatenaciones con STUFF y FOR XML PATH sobre las tablas {casos}.",
+        lista="Se identificaron concatenaciones con STUFF y FOR XML PATH sobre las siguientes tablas",
+        que_hacer=accion_del_primero,
+        fila="Tabla",
+    ),
+    "FN_SPLIT_PROHIBIDO": Plantilla(
+        parrafo="Se verificó el uso de la función dbo.FN_SPLIT para dividir {casos}.",
+        lista="Se verificó el uso de la función dbo.FN_SPLIT para dividir los siguientes datos",
+        que_hacer=accion_del_primero,
+        fila="Dato",
+    ),
+    "LTRIM_RTRIM_PROHIBIDO": Plantilla(
+        parrafo="Se identificó la combinación de LTRIM y RTRIM sobre {casos} para quitar espacios.",
+        lista="Se identificó la combinación de LTRIM y RTRIM para quitar espacios sobre los siguientes datos",
+        que_hacer=accion_del_primero,
+        fila="Dato",
+    ),
+    "OPENJSON_COLLATE_INNECESARIO": Plantilla(
+        parrafo="Se identificó el uso de COLLATE en las columnas {casos} de los bloques OPENJSON.",
+        lista="Se identificó el uso de COLLATE en las siguientes columnas de los bloques OPENJSON",
+        que_hacer=accion_del_primero,
+        fila="Columnas",
+    ),
+    "WAITFOR_DELAY_PROHIBIDO": Plantilla(
+        parrafo="Se identificó el uso de {casos}, que detienen la ejecución del procedimiento.",
+        lista="Se identificó el uso de las siguientes esperas, que detienen la ejecución del procedimiento",
+        que_hacer=accion_del_primero,
+        fila="Espera",
+    ),
+    "SQL_DINAMICO_PROHIBIDO": Plantilla(
+        parrafo="Se identificó SQL dinámico: las consultas guardadas en {casos} se arman como texto y se ejecutan "
+                "con EXEC o sp_executesql.",
+        lista="Se identificó SQL dinámico en las consultas guardadas en las siguientes variables",
+        que_hacer=accion_del_primero,
+        fila="Variable",
+    ),
+    "LEFT_REEMPLAZABLE_POR_LIKE": Plantilla(
+        parrafo="Se identificó el uso de {casos} en condiciones.",
+        lista="Se identificó el uso de las siguientes condiciones",
+        que_hacer=accion_del_primero,
+        fila="Condición",
+    ),
+    "DOCUMENTO_GUARDADO_EN_BD": Plantilla(
+        parrafo="Se identificó que el procedimiento guarda documentos en la base de datos: {casos}.",
+        lista="Se identificó que el procedimiento guarda documentos en la base de datos en los siguientes casos",
+        que_hacer=accion_del_primero,
+        fila="Caso",
     ),
     "COLLATE_DISTINTO_AL_ESTANDAR": Plantilla(
         parrafo=f"Se identificaron los COLLATE {{casos}}, distintos al que usa la empresa ({_COLLATE_EMPRESA}).",
@@ -1533,12 +1631,12 @@ def _validar_waitfor(texto: str, limpio: str) -> List[Hallazgo]:
             efecto = f"que detiene la ejecución del procedimiento hasta las {valor.strip(chr(39))}"
         else:
             efecto = "que detiene la ejecución del procedimiento"
-        hallazgos.append(_hallazgo(
+        hallazgos.append(_con_elemento(_hallazgo(
             texto, match.start(), "WAITFOR_DELAY_PROHIBIDO",
             f"Se identificó el uso de WAITFOR {tipo}{espera}, {efecto}. Se recomienda retirar esta instrucción, "
             f"ya que obligar al motor de base de datos a esperar innecesariamente retrasa la ejecución y "
             f"constituye una mala práctica.",
-        ))
+        ), f"WAITFOR {tipo}{espera}"))
     return hallazgos
 
 
@@ -1651,7 +1749,7 @@ def _validar_in_un_valor(texto: str, limpio: str, con_textos: str) -> List[Halla
 def _validar_left_como_like(texto: str, limpio: str) -> List[Hallazgo]:
     """LEFT(col, n) = 'abc' en un filtro: con LIKE 'abc%' se aprovechan los índices (ver left_like)."""
     return [
-        _hallazgo(texto, posicion, "LEFT_REEMPLAZABLE_POR_LIKE", mensaje)
+        _con_elemento(_hallazgo(texto, posicion, "LEFT_REEMPLAZABLE_POR_LIKE", mensaje), condicion_de_left(mensaje))
         for posicion, mensaje in left_reemplazable_por_like(limpio)
     ]
 
@@ -2130,12 +2228,12 @@ def _validar_sintaxis_prohibida(texto: str, limpio: str) -> List[Hallazgo]:
     for match in re.finditer(_SQL_DINAMICO, limpio, re.IGNORECASE):
         variable = re.search(r"@\w+", limpio[match.start():match.start() + 80])
         guardada = f" guardada en {variable.group(0)}" if variable else ""
-        hallazgos.append(_hallazgo(
+        hallazgos.append(_con_elemento(_hallazgo(
             texto, match.start(), "SQL_DINAMICO_PROHIBIDO",
             f"Se identificó SQL dinámico: la consulta{guardada} se arma como texto y se ejecuta con EXEC o "
             f"sp_executesql. Se recomienda escribir la consulta directamente y usar parámetros para los "
             f"filtros, ya que el SQL dinámico es difícil de revisar y puede permitir ataques de inyección de SQL.",
-        ))
+        ), variable.group(0) if variable else None))
     hallazgos.extend(_validar_documentos_guardados(texto, limpio))
     return hallazgos
 
@@ -2197,12 +2295,12 @@ def _validar_documentos_guardados(texto: str, limpio: str) -> List[Hallazgo]:
             que = descripcion or f"la variable {pista.group(1)} (VARBINARY)"
             accion = "UPDATE" if escritura.group(1).upper() == "UPDATE" else "INSERT"
             # Se marca la línea del INSERT/UPDATE (donde se nombra la tabla en la que se guarda), no la del valor.
-            hallazgos.append(_hallazgo(
+            hallazgos.append(_con_elemento(_hallazgo(
                 texto, escritura.start(), "DOCUMENTO_GUARDADO_EN_BD",
                 f"Se identificó que el procedimiento guarda un documento en la base de datos: {que} se "
                 f"escribe en la tabla {tabla} con {accion}. Se recomienda guardar el documento en la solución "
                 f"externa y registrar solo su ruta, ya que la base de datos es solo para datos transaccionales.",
-            ))
+            ), f"{que} se escribe en la tabla {tabla} con {accion}"))
             break
 
     # Una tabla física que agrega una columna para documentos.
@@ -2216,10 +2314,10 @@ def _validar_documentos_guardados(texto: str, limpio: str) -> List[Hallazgo]:
         tramo = limpio[match.end():match.end() + (fin.start() if fin else len(limpio))]
         columna = re.search(rf"({_IDENTIFICADOR})\s+{_TIPO_BINARIO}", tramo, re.IGNORECASE)
         if columna:
-            hallazgos.append(_hallazgo(
+            hallazgos.append(_con_elemento(_hallazgo(
                 texto, match.end() + columna.start(), "DOCUMENTO_GUARDADO_EN_BD",
                 f"Se identificó que la tabla {tabla} tendrá la columna {columna.group(1)} de tipo VARBINARY para "
                 f"guardar documentos. Se recomienda guardar el documento en la solución externa y registrar solo "
                 f"su ruta, ya que la base de datos es solo para datos transaccionales.",
-            ))
+            ), f"la tabla {tabla} tendrá la columna {columna.group(1)} de tipo VARBINARY"))
     return hallazgos
