@@ -27,15 +27,62 @@ def prefijo_json(nombre: str) -> bool:
     return bool(re.match(r"@?j[A-Z0-9_]", nombre))
 
 
+# Inicio de una sentencia que nunca va dentro de una consulta: sirve de límite cuando el código no usa ';'.
+# (END solo con TRY/CATCH: el END de un CASE va dentro de la consulta).
+_INICIO_SENTENCIA = re.compile(
+    r"(?<![\w@#.])(?:(?:DECLARE|BEGIN|IF|ELSE|WHILE|THROW|RETURN|PRINT|EXEC(?:UTE)?|GO|END\s+(?:TRY|CATCH))(?![\w@#])|"
+    r"SET\s+(?=@|NOCOUNT\b|XACT_ABORT\b|ANSI_\w+\b|DATEFORMAT\b|LANGUAGE\b|TRANSACTION\b))",
+    re.IGNORECASE,
+)
+_PARENTESIS_O_DML = re.compile(r"[()]|(?<![\w@#.])(?:SELECT|INSERT|UPDATE|DELETE|MERGE)(?![\w@#])", re.IGNORECASE)
+
+
+def limites_sentencia(limpio: str, posicion: int) -> tuple:
+    """(inicio, fin) de la sentencia que contiene la posición.
+
+    Además de ';', corta donde empieza otra sentencia (DECLARE, SET @x, EXEC, IF, THROW…): en un procedimiento
+    largo sin ';' la «sentencia» era un bloque de miles de líneas y un .value( lejano justificaba cualquier
+    VARCHAR(MAX) (usuaria, 21 nov.: @cCodError, @cError y @psCalif en FluGenSol_InsPropuesta_SP).
+    """
+    inicio = limpio.rfind(";", 0, posicion) + 1
+    for match in _INICIO_SENTENCIA.finditer(limpio, inicio, posicion):
+        inicio = match.start()
+    fin = limpio.find(";", posicion)
+    fin = fin if fin >= 0 else len(limpio)
+    siguiente = _INICIO_SENTENCIA.search(limpio, posicion + 1, fin)
+    fin = siguiente.start() if siguiente else fin
+    # Tras DECLARE, SET @x, EXEC, IF…, un SELECT/INSERT/UPDATE/DELETE fuera de paréntesis ya es otra sentencia
+    # («DECLARE @c VARCHAR(MAX) SELECT @d = T.x.value(…)»). En «SET @c = (SELECT …)» va entre paréntesis: es la misma.
+    if _INICIO_SENTENCIA.match(limpio, inicio):
+        profundidad = 0
+        for match in _PARENTESIS_O_DML.finditer(limpio, inicio, fin):
+            simbolo = match.group(0)
+            if simbolo == "(":
+                profundidad += 1
+            elif simbolo == ")":
+                profundidad = max(profundidad - 1, 0)
+            elif profundidad == 0:
+                if match.start() <= posicion:
+                    inicio = match.start()  # la posición está en esa consulta: desde ahí hasta el final
+                else:
+                    fin = match.start()
+                break
+    return inicio, fin
+
+
+def sentencia_de(limpio: str, posicion: int) -> str:
+    inicio, fin = limites_sentencia(limpio, posicion)
+    return limpio[inicio:fin]
+
+
 def arma_html(texto: str, limpio: str, posicion: int) -> bool:
     """La sentencia concatena etiquetas HTML o envía un correo con el cuerpo en HTML.
 
-    Los límites (';') se buscan en el texto sin comentarios ni literales y las etiquetas en el original,
+    Los límites se buscan en el texto sin comentarios ni literales y las etiquetas en el original,
     porque están dentro de las comillas (ambos tienen el mismo largo).
     """
-    inicio = limpio.rfind(";", 0, posicion) + 1
-    fin = limpio.find(";", posicion)
-    sentencia = texto[inicio:fin if fin >= 0 else len(texto)]
+    inicio, fin = limites_sentencia(limpio, posicion)
+    sentencia = texto[inicio:fin]
     return bool(_ETIQUETA_HTML.search(sentencia) or _CORREO_HTML.search(sentencia))
 
 
