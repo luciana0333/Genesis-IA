@@ -469,10 +469,13 @@ def _validar_update_from_nolock(texto: str, limpio: str) -> List[Hallazgo]:
     referencia = rf"{_IDENTIFICADOR}(?:\s*\.\s*{_IDENTIFICADOR}){{0,2}}"
     for update in re.finditer(rf"(?<![\w@#$])UPDATE\s+(?:TOP\s*\([^)]*\)\s*)?({referencia})", limpio, re.IGNORECASE):
         objetivo = _limpiar_nombre(update.group(1))
-        # La sentencia termina en ";" o donde empieza la siguiente (el SET es parte del UPDATE).
+        # La sentencia termina en ";" o donde empieza la siguiente. Solo el primer SET es del UPDATE: otro SET
+        # («SET @dFechaVenc = (SELECT … WITH (NOLOCK))») ya es otra sentencia (usuaria, 21 nov.: falso positivo
+        # en MICROSEGURO.Microseguro, FluGenSol_InsPropuesta_SP).
         fin = len(limpio)
         for siguiente in _INICIO_SENTENCIA.finditer(limpio, update.end()):
-            if not re.match(r"\s*SET\b", limpio[siguiente.start():], re.IGNORECASE):
+            es_set = re.match(r"\s*SET\b", limpio[siguiente.start():], re.IGNORECASE)
+            if not es_set or re.search(r"\bSET\b", limpio[update.end():siguiente.start()], re.IGNORECASE):
                 fin = siguiente.start()
                 break
         sentencia = limpio[update.start():fin]
