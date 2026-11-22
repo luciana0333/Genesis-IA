@@ -219,15 +219,30 @@ function recuadro(nodo, regla, sentencia) {
     if (fila.tipo === 'grupo') {
       marcado += `<text x="${x + RELLENO}" y="${base}" font-size="${TAMANO}" font-weight="700" fill="#c4000c">${escapar(fila.texto)}</text>`;
     } else {
-      fila.linea.forEach((trozo, posicion) => {
+      // Cada tramo resaltado seguido de la línea es una sola pastilla: amarillo suave, esquinas redondeadas y un
+      // borde inferior más intenso, como un resaltador (usuaria, 21 nov.: «más estético»).
+      let tramo = null;
+      const cerrarTramo = () => {
+        if (!tramo) return;
+        const ancho = tramo.fin - tramo.inicio + 6;
+        marcado += `<rect x="${tramo.inicio - 3}" y="${base - 12.5}" width="${ancho}" height="16.5" rx="3.5" fill="#fff3b0"/>`
+          + `<rect x="${tramo.inicio - 1}" y="${base + 2.5}" width="${ancho - 4}" height="1.5" rx="0.75" fill="#f0c63a"/>`;
+        tramo = null;
+      };
+      fila.linea.forEach((trozo) => {
         const tx = x + RELLENO + trozo.x;
         if (trozo.resaltado && trozo.texto.trim()) {
-          // Si la palabra siguiente también va resaltada, el amarillo cubre el espacio entre ambas.
-          const sigue = fila.linea[posicion + 1]?.resaltado;
-          const ancho = medir(sigue ? trozo.texto : trozo.texto.trimEnd());
-          marcado += `<rect x="${tx}" y="${base - 12}" width="${ancho}" height="16" fill="#fff27a"/>`;
+          const fin = tx + medir(trozo.texto.trimEnd());
+          tramo = tramo ? { ...tramo, fin } : { inicio: tx, fin };
+        } else if (trozo.texto.trim()) {
+          cerrarTramo();
         }
-        marcado += `<text x="${tx}" y="${base}" font-size="${TAMANO}" fill="#1d1d24" xml:space="preserve">${escapar(trozo.texto)}</text>`;
+      });
+      cerrarTramo();
+      fila.linea.forEach((trozo) => {
+        const tx = x + RELLENO + trozo.x;
+        const color = trozo.resaltado ? '#4a3800' : '#1d1d24';
+        marcado += `<text x="${tx}" y="${base}" font-size="${TAMANO}" fill="${color}" xml:space="preserve">${escapar(trozo.texto)}</text>`;
       });
     }
   });
