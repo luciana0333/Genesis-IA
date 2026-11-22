@@ -944,6 +944,13 @@ def _sentencias_de_tabla(texto: str) -> List[str]:
     return sentencias
 
 
+def _es_id_con_el_nombre_de_la_tabla(columna: str, tabla: str) -> bool:
+    """nCE_ProyectosInmobiliarios_ValorObraId en la tabla CE_PROYECTOSINMOBILIARIOS_VALOROBRA: el prefijo, el nombre
+    de la tabla tal como existe (sin importar mayúsculas) e «Id»."""
+    nombre = re.fullmatch(r"[a-z](.+)Id", columna.strip("[]"))
+    return bool(nombre) and nombre.group(1).lower() == tabla.strip("[]").lower()
+
+
 def verificar_tabla(texto_sql: str, es_dbcmaica: bool = False) -> List[Hallazgo]:
     """
     Valida cada CREATE TABLE o ALTER TABLE del script según el manual de nomenclatura.
@@ -1204,7 +1211,12 @@ def _verificar_una_tabla(texto_sql: str, es_dbcmaica: bool) -> List[Hallazgo]:
             ))
         hallazgos += _validar_varchar_max(texto, _columnas_alter(texto), referencia, es_create=False)
         for columna in _columnas_alter(texto):
-            hallazgos += _validar_columna(texto, columna, referencia, pertenece_a_dbcmaica)
+            de_columna = _validar_columna(texto, columna, referencia, pertenece_a_dbcmaica)
+            if _es_id_con_el_nombre_de_la_tabla(columna.nombre, tabla):
+                # La tabla ya existe con ese nombre: su Id lo repite tal cual, con sus guiones bajos (usuaria, 22 nov.:
+                # nCE_ProyectosInmobiliarios_ValorObraId en CE_PROYECTOSINMOBILIARIOS_VALOROBRA).
+                de_columna = [h for h in de_columna if h.regla != "COLUMNA_NOMBRE_NO_PASCALCASE"]
+            hallazgos += de_columna
             definicion = columna.definicion
             # SQL Server permite NOT NULL sin DEFAULT en IDENTITY, TIMESTAMP/ROWVERSION y columnas calculadas.
             sin_default = not re.search(
