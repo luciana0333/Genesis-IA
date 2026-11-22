@@ -18,7 +18,10 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 _NOMBRE = r"#[A-Za-z_][\w$#]*"
 _CREA = re.compile(rf"\bCREATE\s+TABLE\s+({_NOMBRE})", re.IGNORECASE)
+# Solo el INTO de un SELECT crea la tabla: «INSERT INTO #T» la llena. Una temporal que aquí solo se llena y no se crea
+# es del procedimiento que llama, que la lee (usuaria, 21 nov.: #TRatioPat en FluCred_ValidarRatioEndPat_SP).
 _SELECT_INTO = re.compile(rf"\bINTO\s+({_NOMBRE})", re.IGNORECASE)
+_INSERT_ANTES = re.compile(r"\bINSERT\s*$", re.IGNORECASE)
 # EXEC a otro procedimiento (no sp_executesql con texto, que es SQL dinámico y se revisa aparte).
 _EXEC_PROCEDIMIENTO = re.compile(r"\bEXEC(?:UTE)?\s+(?!sp_executesql\b)(?:@\w+\s*=\s*)?[\[\]\w.]+", re.IGNORECASE)
 
@@ -120,6 +123,8 @@ def temporales_sin_uso(texto: str, limpio: str) -> List[Tuple[str, int]]:
     creadas: Dict[str, Tuple[str, int]] = {}
     for patron in (_CREA, _SELECT_INTO):
         for match in patron.finditer(limpio):
+            if patron is _SELECT_INTO and _INSERT_ANTES.search(limpio[max(0, match.start() - 30):match.start()]):
+                continue  # INSERT INTO #T: la llena, no la crea
             clave = match.group(1).lower()
             if clave not in creadas or match.start(1) < creadas[clave][1]:
                 creadas[clave] = (match.group(1), match.start(1))

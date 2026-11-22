@@ -48,6 +48,19 @@ class TemporalSinUsoTest(unittest.TestCase):
                 self.assertEqual(_sin_uso(puede_leerla, verificar), [])
                 self.assertEqual(_sin_uso(en_subconsulta, verificar), [])
 
+    def test_la_que_solo_se_llena_para_el_que_llama_no_se_marca(self):
+        # Caso real (21 nov., FluCred_ValidarRatioEndPat_SP): #TRatioPat no se crea aquí, solo se llena con
+        # INSERT INTO para que la lea el procedimiento que llama. El INSERT INTO no es un SELECT … INTO.
+        externa = ("CREATE TABLE #TEMP (n MONEY)\nINSERT INTO #TEMP (n) SELECT 1\n"
+                   "IF (@bListar = 1)\nSELECT n FROM #TEMP\nELSE\n"
+                   "INSERT   INTO\n  #TRatioPat (n)\nSELECT n FROM #TEMP")
+        # Un SELECT … INTO sí la crea: si después no se lee, sigue sin uso.
+        select_into = "SELECT 1 AS n INTO #X\nSELECT 2"
+        for verificar in MODULOS:
+            with self.subTest(modulo=verificar.__name__):
+                self.assertEqual(_sin_uso(externa, verificar), [])
+                self.assertIn("#X se crea y se llena", _sin_uso(select_into, verificar)[0].mensaje)
+
     def test_solo_la_que_no_se_usa_con_el_texto_de_la_usuaria(self):
         # Caso del libro caja: #MOVS3 solo sirve para llenar #MOVX (se usa); #MOVX no se lee nunca.
         sql = ("CREATE TABLE #MOVS3 (nMovNro INT)\n"
