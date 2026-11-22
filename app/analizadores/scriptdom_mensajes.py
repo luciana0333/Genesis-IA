@@ -762,18 +762,35 @@ def mensaje_agrupado(hechos: List[Dict]) -> Optional[str]:
     if len(restos) == 1 and restos[0] is not None:
         return f"Se identificaron {total} {_casos_de(restos[0])}. {que_hacer}"
     # Lo distinto en medio de la frase (la variable, la columna…): la frase en plural y solo lo que cambia.
-    plural = _PLURALES.get(con_mensaje[0][0].get("tipo"))
+    tipo = con_mensaje[0][0].get("tipo")
+    plural = _PLURALES.get(tipo)
     if plural:
         frase, elemento, mismo = plural
-        elementos = list(dict.fromkeys(elemento(h) for h, _ in con_mensaje))
+        # SQL Server no distingue mayúsculas ni espacios: «top 1» y «TOP 1» son lo mismo (22 nov.: salía «2 TOP sin
+        # ORDER BY: top 1 y TOP 1» con 29 casos). Se muestra la primera forma escrita.
+        veces: Dict[str, List] = {}
+        formas: Dict[str, Dict[str, int]] = {}
+        for h, _ in con_mensaje:
+            texto = elemento(h)
+            clave = re.sub(r"\s+", "", texto).lower()
+            veces.setdefault(clave, [texto, 0])[1] += 1
+            formas.setdefault(clave, {}).setdefault(texto, 0)
+            formas[clave][texto] += 1
+        for clave, valor in veces.items():  # se muestra la forma más escrita («TOP 1», no «top 1» si es la minoría)
+            valor[0] = max(formas[clave].items(), key=lambda forma: (forma[1], forma[0].isupper()))[0]
+        elementos = [texto for texto, _ in veces.values()]
+        # En los tipos que cuentan apariciones (cada TOP, cada división), el número es el total de casos y la
+        # repetición se dice con «(N veces)»; en los que cuentan cosas (variables, tablas), cada una una vez.
+        por_caso = tipo in _CUENTA_CASOS
+        cantidad = total if por_caso else len(elementos)
         if len(elementos) > 1 and (not mismo or len({str(h.get(mismo)) for h, _ in con_mensaje}) == 1):
-            que_hacer = _QUE_HACER_EN_PLURAL.get(con_mensaje[0][0].get("tipo"), que_hacer)
-            return f"Se identificaron {len(elementos)} {frase}: {_enumerar(elementos)}. {que_hacer}"
+            que_hacer = _QUE_HACER_EN_PLURAL.get(tipo, que_hacer)
+            lista = [_con_veces(texto, n) if por_caso and n > 1 else texto for texto, n in veces.values()]
+            return f"Se identificaron {cantidad} {frase}: {_enumerar(lista)}. {que_hacer}"
         if len(elementos) == 1 and not mismo:
-            # Mismo elemento con detalles distintos (p. ej. dos grupos de subconsultas a la misma tabla): la frase en
-            # plural con el total, nunca «N casos: …; …» (22 nov.).
-            que_hacer = _QUE_HACER_EN_PLURAL.get(con_mensaje[0][0].get("tipo"), que_hacer)
-            return f"Se identificaron {total} {frase}: {elementos[0]}. {que_hacer}"
+            # Siempre lo mismo (29 TOP 1, 17 divisiones entre @nValFijo): la frase en plural con el total y el «Qué
+            # hacer» del caso, que sirve para todos; nunca «N casos: …; …» (22 nov.).
+            return f"Se identificaron {cantidad} {frase}: {elementos[0]}. {que_hacer}"
     if all(resto is not None for resto in restos):
         # Solo cambia el final (ORDER BY … a #A / a #B): «2 casos de ORDER BY … a #A y #B».
         comun, finales = _comun_al_inicio(restos)
@@ -792,7 +809,8 @@ _PLURALES: Dict[str, Tuple[str, Callable[[Dict], str], Optional[str]]] = {
                               lambda h: h["variable"], None),
     "PARAMETRO_SIN_USO": ("parámetros que no se usan", lambda h: h["variable"], None),
     "PARAMETRO_OUTPUT_SIN_VALOR": ("parámetros OUTPUT que nunca reciben un valor", lambda h: h["variable"], None),
-    "FUNCION_ESCALAR_POR_FILA": ("funciones escalares dentro de una consulta", lambda h: h["funcion"], None),
+    # «usos de»: el número cuenta cada llamada, no las funciones distintas (22 nov.).
+    "FUNCION_ESCALAR_POR_FILA": ("usos de funciones escalares dentro de una consulta", lambda h: h["funcion"], None),
     "TOP_SIN_ORDER_BY": ("TOP sin ORDER BY", lambda h: h["top"], None),
     "LIKE_COMODIN_INICIO": ("LIKE con el comodín al inicio", lambda h: f"{h['columna']} LIKE '{h['patron']}'", None),
     "OR_ENTRE_COLUMNAS": ("OR entre columnas en el WHERE", lambda h: f"{h['primera']} OR {h['segunda']}", None),
@@ -800,7 +818,7 @@ _PLURALES: Dict[str, Tuple[str, Callable[[Dict], str], Optional[str]]] = {
     "TEMPORAL_CREADA_DOS_VECES": ("tablas temporales que se crean dos veces en el mismo bloque",
                                   lambda h: h["tabla"], None),
     # Con divisores distintos, el «Qué hacer» en plural (sin nombrar uno solo).
-    "DIVISION_SIN_NULLIF": ("divisiones sin proteger el divisor", lambda h: h["expresion"], None),
+    "DIVISION_SIN_NULLIF": ("divisiones sin proteger el divisor", lambda h: h["divisor"], None),
     # Sin repetir la frase en cada caso (usuaria, 22 nov.: «que ni una regla muestre el mensaje antiguo»).
     "VARIABLE_SIN_VALOR": ("variables que se leen antes de recibir un valor, por lo que valen NULL",
                            lambda h: h["variable"], None),
@@ -859,6 +877,24 @@ _PLURALES: Dict[str, Tuple[str, Callable[[Dict], str], Optional[str]]] = {
     "TEXTO_MAS_LARGO_QUE_VARIABLE": ("textos más largos que la variable que los recibe",
                                      lambda h: f"'{h['texto']}' en {h['variable']} (queda '{h['queda']}')", None),
 }
+
+
+# Tipos cuyo número es la cantidad de casos (cada TOP, cada comparación), no de cosas distintas (22 nov.).
+_CUENTA_CASOS = {
+    "FUNCION_ESCALAR_POR_FILA", "TOP_SIN_ORDER_BY", "LIKE_COMODIN_INICIO", "OR_ENTRE_COLUMNAS", "DIVISION_SIN_NULLIF",
+    "ASIGNACION_VARIAS_FILAS", "BETWEEN_FECHA_SIN_HORA", "COMPARACION_CON_NULL", "CONVERSION_PREVISIBLE",
+    "COUNT_EN_LUGAR_DE_EXISTS", "INSERT_COLUMNAS_NO_COINCIDEN", "ISNULL_EN_CONDICION", "ISNULL_TRUNCA",
+    "PUNTO_Y_COMA_ANTES_DE_WITH", "PUNTO_Y_COMA_FALTANTE", "TAMANO_FUERA_DE_RANGO", "VARCHAR_SIN_TAMANO",
+    "NOT_IN_SUBCONSULTA", "THROW_TOMADO_COMO_TRANSACCION", "BREAK_FUERA_DE_WHILE", "ROWCOUNT_DESPUES_DE_OTRA",
+    "SUBCONSULTAS_A_APPLY", "ISNULL_EN_COLUMNA_NOT_NULL", "UNION_COLUMNAS_DISTINTAS", "TEXTO_MAS_LARGO_QUE_VARIABLE",
+}
+
+
+def _con_veces(texto: str, veces: int) -> str:
+    """«cNumGarant con @x (BIGINT, 4 veces)» en lugar de «… (BIGINT) (4 veces)»."""
+    if texto.endswith(")"):
+        return f"{texto[:-1]}, {veces} veces)"
+    return f"{texto} ({veces} veces)"
 
 
 def _donde_falta(h: Dict) -> str:

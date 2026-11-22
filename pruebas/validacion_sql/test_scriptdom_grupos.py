@@ -249,10 +249,11 @@ class GruposTest(unittest.TestCase):
 
     def test_division_con_divisores_distintos_sin_repetir_la_frase(self):
         # Sin repetir «La división … sin proteger el divisor» en cada caso (usuaria, 22 nov.); el «Qué hacer» en plural.
+        # Se nombra el divisor, no cada expresión: con 17 divisiones entre @nValFijo el texto quedaba cargado (22 nov.).
         hallazgo = next(h for h in validar_estructura("DECLARE @a INT = 1, @b INT = 0, @c INT = 0\nSELECT @a / @b\nSELECT @a / @c")
                         if h.regla == "DIVISION_SIN_NULLIF")
         self.assertEqual(hallazgo.mensaje,
-                         "Se identificaron 2 divisiones sin proteger el divisor: @a / @b y @a / @c. Se recomienda "
+                         "Se identificaron 2 divisiones sin proteger el divisor: @b y @c. Se recomienda "
                          "proteger cada divisor con NULLIF(divisor, 0), ya que si el divisor es 0 el procedimiento "
                          "falla con error de división entre cero.")
 
