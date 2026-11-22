@@ -722,12 +722,12 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
     ):
         destino = match.group(2).strip()
         tabla = f"la tabla {destino}" if destino else "una tabla temporal"
-        hallazgos.append(_hallazgo(
+        hallazgos.append(_con_elemento(_hallazgo(
             texto, match.start(1), "SELECT_INTO_PROHIBIDO",
             f"Se identificó que {tabla} se crea con SELECT INTO. Se recomienda crear primero la tabla con "
             f"CREATE TABLE, indicando sus tipos y COLLATE, y luego llenarla con INSERT INTO seguido del SELECT, "
             f"ya que así se controlan sus tipos de datos.",
-        ))
+        ), destino or None))
     # SELECT *, SELECT DISTINCT * y SELECT TOP 10 / TOP (10) [PERCENT] [WITH TIES] *.
     patron_estrella = (
         r"\bSELECT\s+(?:ALL\s+|DISTINCT\s+)?"
@@ -1006,12 +1006,12 @@ def _validar_collate_usado(texto: str, limpio: str) -> List[Hallazgo]:
                 texto, match.start(1), "COLLATE_DATABASE_DEFAULT", MENSAJE_COLLATE_DATABASE_DEFAULT,
             ), "COLLATE DATABASE_DEFAULT"))
         else:
-            hallazgos.append(_hallazgo(
+            hallazgos.append(_con_elemento(_hallazgo(
                 texto, match.start(1), "COLLATE_DISTINTO_AL_ESTANDAR",
                 f"Se identificó el COLLATE {collate}, distinto al que usa la empresa ({_COLLATE_EMPRESA}). "
                 f"Valide si el COLLATE es el correcto, ya que si no coincide con el de las demás "
                 f"tablas las comparaciones y los JOIN pueden fallar.",
-            ))
+            ), collate))
     return hallazgos
 
 
@@ -1356,6 +1356,19 @@ _AGRUPADAS = {
         que_hacer=accion_del_primero,
     ),
     "COLLATE_DATABASE_DEFAULT": PLANTILLA_COLLATE_DATABASE_DEFAULT,
+    # Sin repetir «se identificó que la tabla … se crea con SELECT INTO» en cada caso (usuaria, 22 nov.).
+    "SELECT_INTO_PROHIBIDO": Plantilla(
+        parrafo="Se identificó que las tablas {casos} se crean con SELECT INTO.",
+        lista="Se identificaron las siguientes tablas creadas con SELECT INTO",
+        que_hacer=accion_del_primero,
+        fila="Tabla",
+    ),
+    "COLLATE_DISTINTO_AL_ESTANDAR": Plantilla(
+        parrafo=f"Se identificaron los COLLATE {{casos}}, distintos al que usa la empresa ({_COLLATE_EMPRESA}).",
+        lista=f"Se identificaron los siguientes COLLATE distintos al que usa la empresa ({_COLLATE_EMPRESA})",
+        que_hacer=accion_del_primero,
+        fila="COLLATE",
+    ),
 }
 
 
@@ -1378,6 +1391,13 @@ def _agrupar_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
             resumidos.append(agrupar_casos(grupo, _AGRUPADAS[regla]))
             continue
         numeros = sorted({hallazgo.linea for hallazgo in grupo})
+        if len({h.mensaje for h in grupo}) == 1:
+            # Lo mismo en varias líneas (sp_send_dbmail dos veces): su mensaje una vez; las líneas van arriba de la
+            # observación (usuaria, 22 nov.: sin «Se encontraron 2 observaciones de este tipo»).
+            unico = grupo[0]
+            unico.linea, unico.lineas = numeros[0], numeros
+            resumidos.append(unico)
+            continue
         partes = [re.split(r"(?<=[.?])\s+(?=[A-ZÁÉÍÓÚÑ¿(])", h.mensaje, maxsplit=1) for h in grupo]
         if all(len(parte) == 2 for parte in partes):
             hechos = list(dict.fromkeys(parte[0][:1].lower() + parte[0][1:].rstrip(".") for parte in partes))

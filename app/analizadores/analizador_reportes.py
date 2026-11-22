@@ -1260,6 +1260,13 @@ def _agrupar_hallazgos_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
             continue
 
         numeros = sorted({hallazgo.linea for hallazgo in grupo})
+        if len({h.mensaje for h in grupo}) == 1:
+            # Lo mismo en varias líneas: su mensaje una vez; las líneas van arriba de la observación (usuaria,
+            # 22 nov.: sin «Se encontraron 2 observaciones de este tipo»).
+            unico = grupo[0]
+            unico.linea, unico.lineas = numeros[0], numeros
+            resumidos.append(unico)
+            continue
         # Las líneas van solo arriba de la observación, no en el texto (usuaria, 21 nov.).
         # Cada mensaje es "qué pasa. Qué hacer.": se listan los hechos y la acción
         # se dice una sola vez (la del primero; solo cambia el ejemplo).
