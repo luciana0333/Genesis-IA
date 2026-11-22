@@ -753,17 +753,32 @@ public class GenesisVisitante : TSqlFragmentVisitor
         tablasDelFrom.Push(MapaDelFrom(consulta.FromClause, opcionales));
         opcionalesDelFrom.Push(opcionales);
         consultasConFrom.Push(consulta.FromClause != null);
+        // Una subconsulta dentro de un ON o un WHERE no hereda «estar en una condición»: lo que devuelve su SELECT
+        // (SELECT ISNULL(nConsEquivalente, nConsValor) …) no filtra; su propio WHERE vuelve a contar (usuaria, 22 nov.).
+        int condicionDeAfuera = profundidadCondicion;
+        profundidadCondicion = 0;
         base.ExplicitVisit(consulta);
+        profundidadCondicion = condicionDeAfuera;
         consultasConFrom.Pop();
         opcionalesDelFrom.Pop();
         tablasDelFrom.Pop();
+    }
+
+    // El objetivo de un UPDATE / DELETE suele ser un alias del FROM (UPDATE C … FROM #CREDITOS C): no se registra como
+    // una tabla llamada «C», que taparía a #CREDITOS (usuaria, 22 nov.: «C: NCAPVENCIDO» en ISNULL a validar).
+    private static void AgregarObjetivo(TableReference objetivo, Dictionary<string, string> mapa)
+    {
+        var delObjetivo = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        LlenarMapa(objetivo, delObjetivo);
+        foreach (var par in delObjetivo)
+            if (!mapa.ContainsKey(par.Key)) mapa[par.Key] = par.Value;
     }
 
     public override void ExplicitVisit(UpdateSpecification actualizacion)
     {
         var opcionales = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var mapa = MapaDelFrom(actualizacion.FromClause, opcionales);
-        if (actualizacion.Target != null) LlenarMapa(actualizacion.Target, mapa);
+        if (actualizacion.Target != null) AgregarObjetivo(actualizacion.Target, mapa);
         tablasDelFrom.Push(mapa);
         opcionalesDelFrom.Push(opcionales);
         // El UPDATE recorre las filas que actualiza: una función propia sobre una columna en su SET (o en una
@@ -781,7 +796,7 @@ public class GenesisVisitante : TSqlFragmentVisitor
     {
         var opcionales = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var mapa = MapaDelFrom(eliminacion.FromClause, opcionales);
-        if (eliminacion.Target != null) LlenarMapa(eliminacion.Target, mapa);
+        if (eliminacion.Target != null) AgregarObjetivo(eliminacion.Target, mapa);
         tablasDelFrom.Push(mapa);
         opcionalesDelFrom.Push(opcionales);
         consultasConFrom.Push(false);
