@@ -23,7 +23,7 @@ class CollateTemporalesTest(unittest.TestCase):
             with self.subTest(modulo=verificar.__name__):
                 hallazgos = _collate(verificar, sql)
                 self.assertEqual(len(hallazgos), 1)
-                self.assertEqual(hallazgos[0].severidad.value, "alto")
+                self.assertEqual(hallazgos[0].severidad.value, "medio")  # usuaria, 21 nov.
                 self.assertEqual(
                     hallazgos[0].mensaje,
                     f"La columna de texto cControl de la variable de tabla @Control no define COLLATE. {QUE_HACER}",

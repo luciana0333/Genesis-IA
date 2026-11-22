@@ -273,6 +273,13 @@ export function tituloHallazgo(hallazgo) {
       .map(([funcion]) => funcion);
     if (funciones.length) return `${funciones.join(' o ')} que puede reemplazarse por LIKE`;
   }
+  if (hallazgo?.regla === 'TEMPORAL_TEXTO_SIN_COLLATE') {
+    // Dice si son tablas temporales (#T) o variables de tabla (@T) (usuaria, 21 nov.).
+    const nombres = (hallazgo.grupos ?? []).map((grupo) => grupo.nombre ?? '');
+    const temporales = nombres.some((nombre) => nombre.startsWith('#'));
+    const variables = nombres.some((nombre) => nombre.startsWith('@'));
+    if (variables && !temporales) return 'COLLATE no especificado en variable de tabla';
+  }
   return nombreRegla(hallazgo?.regla);
 }
 

@@ -21,3 +21,13 @@ describe('tituloHallazgo · LEFT o SUBSTRING por LIKE (usuaria, 8 nov.)', () => 
     expect(tituloHallazgo({ regla: 'CREATE_OR_ALTER', mensaje: 'LEFT(' })).toBe('Uso de CREATE OR ALTER');
   });
 });
+
+describe('tituloHallazgo · COLLATE en tabla temporal o variable de tabla (usuaria, 21 nov.)', () => {
+  const collate = (...nombres) => ({ regla: 'TEMPORAL_TEXTO_SIN_COLLATE', mensaje: '', grupos: nombres.map((nombre) => ({ nombre })) });
+  it('dice «variable de tabla» cuando solo hay variables de tabla', () => {
+    expect(tituloHallazgo(collate('@Documentos', '@TCargos'))).toBe('COLLATE no especificado en variable de tabla');
+  });
+  it('dice «tabla temporal» cuando solo hay tablas temporales', () => {
+    expect(tituloHallazgo(collate('#T', '#U'))).toBe('COLLATE no especificado en tabla temporal');
+  });
+});
