@@ -125,12 +125,64 @@ def encabezado_observado(texto: str, limpio: str) -> Optional[Tuple[int, str]]:
             f"{QUE_HACER_SIN_ENCABEZADO}"
         )
     faltan = [dato for dato, patron in _DATOS if not patron.search(encabezado)]
-    if not faltan:
+    # Etiqueta casi igual a la esperada («DESCRPICION: VALORIZA EL CHEQUE…»): el dato está, solo mal rotulado. No se
+    # dice que falta; se avisa en la misma observación, que es de severidad baja (usuaria, 22 nov.: «muy secundario»).
+    mal_escritas = []
+    for dato in list(faltan):
+        etiqueta = _etiqueta_mal_escrita(encabezado, dato)
+        if etiqueta:
+            faltan.remove(dato)
+            if etiqueta[0] is not None:  # None: variante válida («FECHAS:», «AUTORES:»): el dato está
+                mal_escritas.append(etiqueta)
+    if not faltan and not mal_escritas:
         return None
+    avisos = [f"la etiqueta {escrita} parece mal escrita (¿{correcta}?)" for escrita, correcta in mal_escritas]
+    if not faltan:
+        corregir = "la etiqueta" if len(avisos) == 1 else "las etiquetas"
+        return comentarios[0].start(), (
+            f"Se identificó que en el encabezado {_y(avisos)}. Se recomienda corregir {corregir}, ya que el "
+            f"encabezado debe ser claro para quien mantenga el procedimiento."
+        )
+    adicional = f" Además, {_y(avisos)}." if avisos else ""
     return comentarios[0].start(), (
-        f"Se identificó que el encabezado del procedimiento no indica {_enumerar(faltan)}. "
+        f"Se identificó que el encabezado del procedimiento no indica {_enumerar(faltan)}.{adicional} "
         f"{QUE_HACER_ENCABEZADO_INCOMPLETO}"
     )
+
+
+# Etiquetas esperadas por dato, para reconocer una mal escrita (sin tildes, en mayúscula).
+_ETIQUETAS_ESPERADAS = {
+    "el nombre del procedimiento": [("NOMBRE", "Nombre")],
+    "la descripción": [("DESCRIPCION", "Descripción"), ("PROPOSITO", "Propósito"), ("OBJETIVO", "Objetivo")],
+    "el autor": [("AUTOR", "Autor"), ("RESPONSABLE", "Responsable")],
+    "la fecha": [("FECHA", "Fecha")],
+}
+
+
+def _sin_tildes(texto: str) -> str:
+    return texto.upper().translate(str.maketrans("ÁÉÍÓÚÜ", "AEIOUU"))
+
+
+def _etiqueta_mal_escrita(encabezado: str, dato: str) -> Optional[Tuple[Optional[str], str]]:
+    """(como está escrita, la correcta) si una línea del encabezado empieza con una etiqueta casi igual a la
+    esperada y tiene un valor después de «:» o «|» (DESCRPICION: VALORIZA…); (None, la correcta) si es una variante
+    bien escrita (FECHAS: …). Solo palabras de 5 letras o más."""
+    import difflib
+    for linea in encabezado.splitlines():
+        rotulo = re.match(r"^[\s*|/'-]*([A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{5,})\s*[:|]\s*\S", linea)
+        if not rotulo:
+            continue
+        palabra = _sin_tildes(rotulo.group(1))
+        for esperada, correcta in _ETIQUETAS_ESPERADAS.get(dato, []):
+            if palabra.startswith(esperada):  # plural o variante («FECHAS», «AUTORES»): está bien escrita
+                return None, correcta
+            if difflib.SequenceMatcher(None, palabra, esperada).ratio() >= 0.8:
+                return rotulo.group(1), correcta
+    return None
+
+
+def _y(partes: List[str]) -> str:
+    return partes[0] if len(partes) == 1 else f"{', '.join(partes[:-1])} y {partes[-1]}"
 
 
 # --- Nombre del encabezado distinto al del procedimiento (usuaria, 19 nov.; Reportes y Negocio) ----------------------
