@@ -19,6 +19,68 @@ export const collateEnTabla = (hallazgo) => Boolean(hallazgo.grupos?.[0]?.titulo
 
 export const tituloDeColumnas = (regla) => TITULO_DE_COLUMNAS[regla] ?? 'Columnas';
 
+const DESCRIPCION_DEL_OBJETO = /^\(descripción del (procedimiento|función|funcion)\)$/i;
+
+/**
+ * «Validar documentación existente» con varios procedimientos (usuaria, 21 nov.): Procedimiento | Parámetros, una fila
+ * por procedimiento y sin la columna Situación. Cada parámetro en su cajita; el que no está en el diccionario lleva
+ * la etiqueta «Falta» (antes era la fila «No se incluyen en el diccionario»).
+ */
+function TablaPorProcedimiento({ grupos, filaActiva }) {
+  const filas = [];
+  grupos.forEach((grupo, indice) => {
+    let fila = filas.find((otra) => otra.nombre === grupo.nombre);
+    if (!fila) {
+      fila = { nombre: grupo.nombre, indices: [], faltan: [], agregan: [] };
+      filas.push(fila);
+    }
+    fila.indices.push(indice);
+    const falta = grupo.seccion === 'objeto';
+    (falta ? fila.faltan : fila.agregan).push(...(grupo.etiquetas ?? []));
+  });
+  const cajita = (etiqueta, falta) => {
+    const objeto = DESCRIPCION_DEL_OBJETO.exec(etiqueta);
+    return (
+      <span key={`${falta ? 'f' : 'a'}-${etiqueta}`} className={`cajita-parametro${falta ? ' falta' : ''}`}
+        title={falta ? 'No se incluye en el diccionario' : 'Se agrega en el diccionario'}>
+        {objeto ? <span className="cajita-parametro-objeto">Descripción del {objeto[1]}</span> : <code>{etiqueta}</code>}
+        {falta && <span className="cajita-parametro-falta">Falta</span>}
+      </span>
+    );
+  };
+  return (
+    <table className="tabla-tipos tabla-collate tabla-por-procedimiento">
+      <thead>
+        <tr>
+          <th scope="col">Procedimiento</th>
+          <th scope="col">Parámetros</th>
+        </tr>
+      </thead>
+      <tbody>
+        {filas.map((fila, indice) => (
+          <tr
+            key={fila.nombre}
+            className={`tabla-tipos-fila${indice % 2 ? ' alterna' : ''}${fila.indices.includes(filaActiva) ? ' activa' : ''}`}
+          >
+            <td className="tabla-nombre">
+              {/* Si no entra, baja de línea solo después de «.» o «_» (no a mitad de palabra). */}
+              <code className="tabla-tipos-columna">
+                {fila.nombre.split(/(?<=[._])/).map((parte, i) => <span key={i}>{parte}<wbr /></span>)}
+              </code>
+            </td>
+            <td>
+              <div className="cajitas-parametros">
+                {fila.faltan.map((etiqueta) => cajita(etiqueta, true))}
+                {fila.agregan.map((etiqueta) => cajita(etiqueta, false))}
+              </div>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 /**
  * «COLLATE no especificado en tabla temporal» como tabla: Tabla | Columnas sin COLLATE.
  * Mismo diseño que «Misma columna con distinto tipo»; la fila que se recorre en el código se resalta.
@@ -38,6 +100,7 @@ export function TablaColumnasSinCollate({ grupos, filaActiva = null, tituloColum
     while (grupos[indice + filas]?.nombre === grupos[indice].nombre) filas += 1;
     return filas;
   };
+  if (conSituacion) return <TablaPorProcedimiento grupos={grupos} filaActiva={filaActiva} />;
   return (
     <table className={`tabla-tipos tabla-collate${conSituacion ? ' tabla-situaciones' : ''}`}>
       <thead>

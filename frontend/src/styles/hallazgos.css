@@ -1635,3 +1635,37 @@
 .poco-comun-lista > .finding:hover { transform: none; box-shadow: none; }
 :root[data-theme="dark"] .poco-comun { background: #17171d; box-shadow: 0 30px 60px -28px rgba(0, 0, 0, 0.8); }
 :root[data-theme="dark"] .poco-comun-cantidad { background: rgba(255, 255, 255, 0.05); }
+
+/* «Validar documentación existente» con varios procedimientos (usuaria, 21 nov.): Procedimiento | Parámetros, sin la
+   columna Situación. Cada parámetro en su cajita; el que falta en el diccionario lleva la etiqueta roja «Falta». */
+.tabla-por-procedimiento > thead > tr > th:first-child { width: 40%; }
+.tabla-por-procedimiento > tbody > tr > td { vertical-align: top; }
+.tabla-por-procedimiento .tabla-tipos-columna { white-space: normal; overflow-wrap: normal; word-break: keep-all; }
+.cajitas-parametros { display: flex; flex-wrap: wrap; gap: 6px; }
+.cajita-parametro {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px solid #e3e8f0;
+  border-radius: 4px;
+  background: #ffffff;
+  color: var(--text-primary);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+.cajita-parametro code { font-family: var(--font-mono); font-size: 0.76rem; font-weight: 600; }
+.cajita-parametro-objeto { color: var(--text-secondary); font-style: italic; }
+.cajita-parametro.falta { border-color: #f3c2c7; background: #fff5f6; }
+.cajita-parametro-falta {
+  padding: 0 5px;
+  border-radius: 3px;
+  background: var(--red-main);
+  color: #ffffff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+:root[data-theme="dark"] .cajita-parametro { border-color: rgba(255, 255, 255, 0.12); background: transparent; }
+:root[data-theme="dark"] .cajita-parametro.falta { border-color: rgba(229, 57, 70, 0.45); background: rgba(229, 57, 70, 0.08); }

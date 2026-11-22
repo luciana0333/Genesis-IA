@@ -262,7 +262,7 @@ describe('PanelHallazgos · «Validar documentación existente» con varios proc
     expect(screen.getByText(frase)).toBeInTheDocument();
   });
 
-  it('unida con varios procedimientos: el nombre ocupa una celda para sus dos filas', () => {
+  it('unida con varios procedimientos: Procedimiento | Parámetros, una fila por procedimiento', () => {
     const fila = (nombre, situacion, seccion, etiquetas) => ({
       nombre, tipo: 'Procedimiento', situacion, seccion, lineas: etiquetas.map(() => 1), etiquetas,
     });
@@ -280,14 +280,13 @@ describe('PanelHallazgos · «Validar documentación existente» con varios proc
         fila('dbo.PA_B', 'No se incluyen en el diccionario', 'objeto', ['@c']),
       ],
     }]} />);
+    // Sin la columna Situación (usuaria, 21 nov.): una fila por procedimiento; el que falta lleva «Falta».
     const tabla = within(screen.getByRole('table'));
-    expect(tabla.getAllByRole('columnheader').map((th) => th.textContent)).toEqual(['Procedimiento', 'Situación', 'Elementos']);
-    expect(tabla.getAllByText('dbo.PA_A')).toHaveLength(1);
+    expect(tabla.getAllByRole('columnheader').map((th) => th.textContent)).toEqual(['Procedimiento', 'Parámetros']);
     expect(tabla.getAllByRole('row').map((tr) => tr.textContent)).toEqual([
-      'ProcedimientoSituaciónElementos',
-      'dbo.PA_ANo se incluyen en el diccionario@a',
-      'Se agregan en el diccionario@b',
-      'dbo.PA_BNo se incluyen en el diccionario@c',
+      'ProcedimientoParámetros',
+      'dbo.PA_A@aFalta@b',
+      'dbo.PA_B@cFalta',
     ]);
   });
 });
