@@ -16,8 +16,12 @@ public static class GenesisRevisor
     {
         var ctes = new GenesisBuscaCtes();
         arbol.Accept(ctes);
+        var identidades = new GenesisBuscaIdentidad();
+        arbol.Accept(identidades);
         var visitante = new GenesisVisitante();
         visitante.NombresCte = ctes.Nombres;
+        visitante.TemporalesDefinidas = identidades.Definidas;
+        visitante.TemporalesConIdentity = identidades.ConIdentity;
         arbol.Accept(visitante);
         return visitante.Hallazgos.OrderBy(h => (int)h["linea"]).ToList();
     }
@@ -44,6 +48,59 @@ public class GenesisBuscaCtes : TSqlFragmentVisitor
     public override void Visit(CommonTableExpression cte) { Nombres.Add(cte.ExpressionName.Value); }
 }
 
+// Tablas temporales y variables de tabla definidas en el script, y cuáles tienen una columna IDENTITY
+// (CREATE TABLE, DECLARE @T TABLE, ALTER TABLE ... ADD ... IDENTITY o SELECT IDENTITY(...) INTO #T).
+// Con IDENTITY, el ORDER BY de un INSERT ... SELECT define la numeración (comprobado en SQL Server, 22 nov.).
+public class GenesisBuscaIdentidad : TSqlFragmentVisitor
+{
+    public readonly HashSet<string> Definidas = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    public readonly HashSet<string> ConIdentity = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    private static string Nombre(SchemaObjectName nombre)
+    {
+        return nombre == null ? "" : string.Join(".", nombre.Identifiers.Select(i => i.Value));
+    }
+
+    private void Registrar(string tabla, bool conIdentity)
+    {
+        if (string.IsNullOrEmpty(tabla) || !(tabla.StartsWith("#") || tabla.StartsWith("@"))) return;
+        Definidas.Add(tabla);
+        if (conIdentity) ConIdentity.Add(tabla);
+    }
+
+    private static bool TieneIdentity(TableDefinition definicion)
+    {
+        return definicion != null && definicion.ColumnDefinitions.Any(c => c.IdentityOptions != null);
+    }
+
+    public override void Visit(CreateTableStatement tabla) { Registrar(Nombre(tabla.SchemaObjectName), TieneIdentity(tabla.Definition)); }
+
+    public override void Visit(DeclareTableVariableBody tabla)
+    {
+        if (tabla.VariableName != null) Registrar(tabla.VariableName.Value, TieneIdentity(tabla.Definition));
+    }
+
+    public override void Visit(AlterTableAddTableElementStatement alter)
+    {
+        string tabla = Nombre(alter.SchemaObjectName);
+        if (TieneIdentity(alter.Definition)) Registrar(tabla, true);
+    }
+
+    public override void Visit(SelectStatement sentencia)
+    {
+        if (sentencia.Into == null) return;
+        var buscador = new GenesisBuscaFuncionIdentity();
+        sentencia.QueryExpression.Accept(buscador);
+        Registrar(Nombre(sentencia.Into), buscador.Encontrada);
+    }
+}
+
+public class GenesisBuscaFuncionIdentity : TSqlFragmentVisitor
+{
+    public bool Encontrada;
+    public override void Visit(IdentityFunctionCall funcion) { Encontrada = true; }
+}
+
 // ¿La expresión usa alguna columna? (una función que solo recibe variables da lo mismo en cada fila).
 public class GenesisBuscaColumna : TSqlFragmentVisitor
 {
@@ -67,6 +124,8 @@ public class GenesisVisitante : TSqlFragmentVisitor
 {
     public readonly List<Dictionary<string, object>> Hallazgos = new List<Dictionary<string, object>>();
     public HashSet<string> NombresCte = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    public HashSet<string> TemporalesDefinidas = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    public HashSet<string> TemporalesConIdentity = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     // Condiciones de los CASE / IIF abiertos: una división dentro de uno que valida el divisor ya está protegida.
     private readonly List<string> condicionesCase = new List<string>();
 
@@ -946,12 +1005,17 @@ public class GenesisVisitante : TSqlFragmentVisitor
         var select = insert.InsertSource as SelectInsertSource;
         var consulta = select != null ? select.Select : null;
 
-        // ORDER BY en un INSERT ... SELECT sin TOP: no deja la tabla ordenada y solo consume.
-        if (consulta != null && consulta.OrderByClause != null && consulta.OffsetClause == null)
+        // ORDER BY en un INSERT ... SELECT sin TOP: no deja la tabla ordenada. Si la temporal o variable de tabla
+        // tiene IDENTITY, el ORDER BY define la numeración y es necesario (usuaria, 22 nov.: #ValoresVivienda en
+        // FluGenSol_InsPropuesta_SP, que luego actualiza por nId IN (1, 5, 9...)): no se observa. Si la temporal no
+        // se define en el script (la crea quien llama), no se sabe si tiene IDENTITY: se pide validarlo.
+        if (consulta != null && consulta.OrderByClause != null && consulta.OffsetClause == null
+            && !(EsTemporal(tabla) && TemporalesConIdentity.Contains(tabla)))
         {
             var especificacion = consulta as QuerySpecification;
             if (especificacion == null || especificacion.TopRowFilter == null)
-                Agregar("ORDER_BY_EN_INSERT", consulta.OrderByClause.StartLine, "tabla", tabla);
+                Agregar("ORDER_BY_EN_INSERT", consulta.OrderByClause.StartLine, "tabla", tabla,
+                        "definida", !EsTemporal(tabla) || TemporalesDefinidas.Contains(tabla));
         }
 
         int columnas = insert.Columns.Count;

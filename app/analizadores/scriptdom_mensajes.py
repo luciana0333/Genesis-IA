@@ -433,6 +433,9 @@ def partes_orden_insert(hechos: List[Dict]) -> Partes:
     tablas = list(dict.fromkeys(h.get("tabla") or "" for h in hechos))
     nombradas = [t for t in tablas if t]
     fisicas = [t for t in nombradas if not t.startswith(("#", "@"))]
+    # Temporal que no se crea en el script (la crea quien llama): no se sabe si tiene IDENTITY (22 nov.).
+    sin_definir = list(dict.fromkeys(h["tabla"] for h in hechos
+                                     if (h.get("tabla") or "").startswith(("#", "@")) and h.get("definida") is False))
     if len(hechos) == 1:
         donde = f" en la tabla {nombradas[0]}" if nombradas else ""
         problema = f"Se identificó un ORDER BY al insertar datos con SELECT{donde}."
@@ -441,10 +444,16 @@ def partes_orden_insert(hechos: List[Dict]) -> Partes:
                  f" en las tablas {_enumerar(nombradas)}" if nombradas else "")
         problema = f"Se identificaron {len(hechos)} casos de ORDER BY al insertar datos con SELECT{donde}."
     que_hacer = "Se recomienda retirar el ORDER BY, ya que la tabla no conserva ese orden al consultarla."
-    if fisicas:
+    if fisicas and not sin_definir:
         cual, tenga = ("la tabla física", "tenga") if len(fisicas) == 1 else ("las tablas físicas", "tengan")
         que_hacer += (f" En el caso de {cual}, validar previamente que no {tenga} una columna IDENTITY, ya que en ese "
                       "caso el ORDER BY define la numeración de los registros.")
+    elif sin_definir:
+        validar = [t for t in nombradas if t in fisicas or t in sin_definir]  # en el orden del texto
+        cual, tenga = (f"la tabla {validar[0]}, cuya definición", "tenga") if len(validar) == 1 else \
+            (f"las tablas {_enumerar(validar)}, cuya definición", "tengan")
+        que_hacer += (f" En el caso de {cual} no está en el procedimiento, validar previamente que no {tenga} una "
+                      "columna IDENTITY, ya que en ese caso el ORDER BY define la numeración de los registros.")
     return problema, que_hacer
 
 
