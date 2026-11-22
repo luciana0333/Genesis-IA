@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from app.analizadores.scriptdom_mensajes import (
-    MENSAJES, consulta_de_nulos, es_formato_de_fecha_corto, lineas_del_hecho, mensaje_agrupado, mensaje_hecho,
+    MENSAJES, consulta_de_nulos, consulta_de_tipos, es_formato_de_fecha_corto, lineas_del_hecho, mensaje_agrupado, mensaje_hecho,
     grupos_isnull_validar, mensaje_isnull_validar_partes, mensaje_varchar_sin_tamano_fecha, severidad,
 )
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
@@ -220,6 +220,15 @@ def _lista(valor) -> List[Dict]:
 LECTOR_SCRIPTDOM = _LectorScriptDom()
 
 # Observaciones que traen la consulta para validar si las columnas aceptan NULL.
+def mensaje_del_tipo(tipo: str, hechos: List[Dict]) -> Optional[str]:
+    """Texto de la observación de un tipo con todos sus casos (el mismo que muestra la pantalla)."""
+    if tipo == "VARCHAR_SIN_TAMANO_FECHA":
+        return mensaje_varchar_sin_tamano_fecha(hechos)
+    if tipo == "ISNULL_VALIDAR_NULOS":
+        return " ".join(mensaje_isnull_validar_partes(hechos))
+    return mensaje_agrupado(hechos)
+
+
 CON_CONSULTA_DE_NULOS = {"ISNULL_VALIDAR_NULOS", "ISNULL_EN_CONDICION"}
 
 
@@ -332,14 +341,8 @@ def validar_estructura(sql: str) -> Optional[List[Hallazgo]]:
         if hecho.get("tipo") in MENSAJES:
             por_tipo.setdefault(hecho["tipo"], []).append(hecho)
     for tipo, hechos in por_tipo.items():
-        grupos = None
-        if tipo == "VARCHAR_SIN_TAMANO_FECHA":
-            mensaje = mensaje_varchar_sin_tamano_fecha(hechos)
-        elif tipo == "ISNULL_VALIDAR_NULOS":
-            mensaje = " ".join(mensaje_isnull_validar_partes(hechos))
-            grupos = grupos_isnull_validar(hechos)
-        else:
-            mensaje = mensaje_agrupado(hechos)
+        mensaje = mensaje_del_tipo(tipo, hechos)
+        grupos = grupos_isnull_validar(hechos) if tipo == "ISNULL_VALIDAR_NULOS" else None
         if not mensaje:
             continue
         # La línea del hallazgo es la suya; arriba de la tarjeta van también las que el texto ya no dice.
@@ -350,6 +353,8 @@ def validar_estructura(sql: str) -> Optional[List[Hallazgo]]:
             hallazgo.lineas = lineas  # para recorrerlas con la barra «1 de N»
         if tipo in CON_CONSULTA_DE_NULOS:
             hallazgo.consulta = consulta_de_nulos(hechos)  # botón «Copiar consulta de validación»
+        elif tipo == "CONVERSION_PREVISIBLE_VALIDAR":
+            hallazgo.consulta = consulta_de_tipos(hechos)  # el tipo real de cada columna comparada (22 nov.)
         if grupos:
             hallazgo.grupos = grupos  # desde 3 tablas: la pantalla lo muestra como tabla (Tabla | Columnas)
             # Una parada por cada ISNULL, tabla por tabla (como «COLLATE no especificado»): «6 casos».

@@ -31,7 +31,7 @@ from app.analizadores.temporales_sin_crear import (
 )
 from app.analizadores.comentarios_codigo import codigo_comentado_agrupado
 from app.analizadores.comentarios_prueba import es_bloque_de_prueba, nombre_del_procedimiento
-from app.analizadores.left_like import left_reemplazable_por_like
+from app.analizadores.left_like import condicion_de_left, left_reemplazable_por_like
 from app.analizadores.hints_compartidos import (
     HINTS_BLOQUEO_NUEVOS, QUE_HACE_EL_AISLAMIENTO, hint_en_temporal, niveles_de_aislamiento,
 )
@@ -413,7 +413,7 @@ def _validar_sentencias(texto: str, limpio: str) -> List[Hallazgo]:
             lambda m: _mensaje_select_estrella(m.group("tabla"), bool(m.group("funcion"))),
         ),
         (
-            r"(?<![\w.])(?P<alias>[A-Za-z_]\w*)\s*\.\s*\*(?=\s*(?:,|\bFROM\b))",
+            r"(?<![\w.])(?P<alias>[A-Za-z_]\w*)\s*\.\s*\*(?=\s*(?:,|\bFROM\b|\bINTO\b))",
             "SELECT_ESTRELLA_PROHIBIDO",
             lambda m: _mensaje_select_estrella(_tabla_del_alias_en(limpio, m.start(), m.group("alias")), False, f"{m.group('alias')}.*"),
         ),
@@ -558,7 +558,8 @@ def _sentencia(limpio: str, posicion: int) -> str:
 def _validar_collate_openjson(texto: str, limpio: str) -> List[Hallazgo]:
     """COLLATE en las columnas del WITH de OPENJSON: sobra, toman el COLLATE de la base de datos."""
     return [
-        _hallazgo(texto, posicion, "OPENJSON_COLLATE_INNECESARIO", mensaje_collate_openjson(columnas))
+        _con_elemento(_hallazgo(texto, posicion, "OPENJSON_COLLATE_INNECESARIO", mensaje_collate_openjson(columnas)),
+                      ", ".join(columnas))
         for posicion, columnas in collates_en_openjson(limpio)
     ]
 
@@ -644,13 +645,13 @@ def _validar_control_de_flujo(texto: str, limpio: str) -> List[Hallazgo]:
         # GOTO: igual que el WHILE, solo en procedimientos nuevos (decisión de la usuaria, 1 nov.).
         for match in re.finditer(r"\bGOTO\b\s*(\w*)", limpio, re.IGNORECASE):
             etiqueta = f" hacia la etiqueta {match.group(1)}" if match.group(1) else ""
-            hallazgos.append(_hallazgo(
+            hallazgos.append(_con_elemento(_hallazgo(
                 texto, match.start(), "GOTO_PROHIBIDO",
                 # Texto de la usuaria, igual que en Procedimientos de negocio.
                 f"Se identificó una instrucción GOTO{etiqueta}. Se recomienda evitar el uso de GOTO, ya que "
                 f"altera el flujo de ejecución y dificulta la lectura, el mantenimiento y la depuración del "
                 f"procedimiento. Se sugiere evaluar alternativas de control de flujo.",
-            ))
+            ), match.group(1) or None))
     for match in re.finditer(r"\bRAISERROR\b", limpio, re.IGNORECASE):
         hallazgos.append(_hallazgo(
             texto, match.start(), "RAISERROR_USAR_THROW",
@@ -989,19 +990,19 @@ def _validar_collate_en_condiciones(texto: str, limpio: str) -> List[Hallazgo]:
         if ultima not in {"WHERE", "ON", "HAVING"}:
             continue
         donde = "del JOIN" if ultima == "ON" else f"del {ultima}"
-        hallazgos.append(_hallazgo(
+        hallazgos.append(_con_elemento(_hallazgo(
             texto, match.start(), "COLLATE_EN_PREDICADO",
             f"Se identificó un COLLATE en la condición {donde}. Se recomienda definir el COLLATE al crear la "
             f"tabla y no en la condición, ya que en el WHERE o en el JOIN impide usar los índices y vuelve "
             f"lenta la consulta.",
-        ))
+        ), donde))
     return hallazgos
 
 
 def _validar_left_como_like(texto: str, con_textos: str) -> List[Hallazgo]:
     """LEFT(col, n) = 'abc' en un filtro: con LIKE 'abc%' se aprovechan los índices (ver left_like)."""
     return [
-        _hallazgo(texto, posicion, "LEFT_REEMPLAZABLE_POR_LIKE", mensaje)
+        _con_elemento(_hallazgo(texto, posicion, "LEFT_REEMPLAZABLE_POR_LIKE", mensaje), condicion_de_left(mensaje))
         for posicion, mensaje in left_reemplazable_por_like(con_textos)
     ]
 
@@ -1129,12 +1130,18 @@ def _agrupar_por_elemento(regla: str, grupo: List[Hallazgo]) -> Hallazgo:
     # Cada elemento una vez y sin líneas: van solo arriba de la observación (usuaria, 21 nov.).
     elementos = list(dict.fromkeys(hallazgo.elemento for hallazgo in sorted(grupo, key=lambda h: h.linea)))
     numeros = sorted({hallazgo.linea for hallazgo in grupo})
+    if len(elementos) == 1:
+        # La misma tabla varias veces (#Tmp creada dos veces): su mensaje una vez, no «2 tablas: #Tmp» (22 nov.).
+        unico = sorted(grupo, key=lambda h: h.linea)[0]
+        unico.lineas = numeros
+        return unico
     resumen = Hallazgo(
         linea=numeros[0],
         origen=grupo[0].origen,
         severidad=grupo[0].severidad,
         regla=regla,
-        mensaje=f"Se identificaron {len(grupo)} {sustantivo}: {'; '.join(elementos)}. {accion}",
+        # Se cuentan las tablas distintas, no las veces (usuaria, 22 nov.).
+        mensaje=f"Se identificaron {len(elementos)} {sustantivo}: {'; '.join(elementos)}. {accion}",
     )
     resumen.lineas = numeros  # para recorrer los casos uno a uno desde «Ver en el código»
     return resumen
@@ -1170,6 +1177,36 @@ def _bloqueo_que_hacer(grupo: List[Hallazgo]) -> str:
 # Varias observaciones de una regla en una sola, sin repetir la frase (usuaria, 21 nov.): 2 casos en el párrafo,
 # 3 en viñetas, más de 3 en tabla; lo mismo repetido, una sola frase.
 _AGRUPADAS = {
+    # Sin repetir la frase en cada caso (usuaria, 22 nov.).
+    # 22 nov.: con 2 GOTO aún salía «Se encontraron 2 observaciones de este tipo»; mismo texto que en Procedimientos.
+    "GOTO_PROHIBIDO": Plantilla(
+        parrafo="Se identificaron instrucciones GOTO hacia las etiquetas {casos}.",
+        lista="Se identificaron instrucciones GOTO hacia las siguientes etiquetas",
+        que_hacer=accion_del_primero,
+        fila="Etiqueta",
+    ),
+    "COLLATE_EN_PREDICADO": Plantilla(
+        parrafo="Se identificaron COLLATE en las condiciones {casos}.",
+        lista="Se identificaron COLLATE en las siguientes condiciones",
+        que_hacer=accion_del_primero,
+        fila="Condición",
+    ),
+    "STUFF_FOR_XML_PATH_PROHIBIDO": Plantilla(
+        repetido="Se identificaron concatenaciones de valores con FOR XML PATH.",
+        que_hacer=accion_del_primero,
+    ),
+    "LEFT_REEMPLAZABLE_POR_LIKE": Plantilla(
+        parrafo="Se identificó el uso de {casos} en condiciones.",
+        lista="Se identificó el uso de las siguientes condiciones",
+        que_hacer=accion_del_primero,
+        fila="Condición",
+    ),
+    "OPENJSON_COLLATE_INNECESARIO": Plantilla(
+        parrafo="Se identificó el uso de COLLATE en las columnas {casos} de los bloques OPENJSON.",
+        lista="Se identificó el uso de COLLATE en las siguientes columnas de los bloques OPENJSON",
+        que_hacer=accion_del_primero,
+        fila="Columnas",
+    ),
     "NOLOCK_EN_TABLA_TEMPORAL": Plantilla(
         parrafo="Se identificó que las tablas temporales {casos} tienen WITH(NOLOCK).",
         lista="Se identificaron las siguientes tablas temporales con WITH(NOLOCK)",
@@ -1260,6 +1297,13 @@ def _agrupar_hallazgos_repetidos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
             continue
 
         numeros = sorted({hallazgo.linea for hallazgo in grupo})
+        if len({h.mensaje for h in grupo}) == 1:
+            # Lo mismo en varias líneas: su mensaje una vez; las líneas van arriba de la observación (usuaria,
+            # 22 nov.: sin «Se encontraron 2 observaciones de este tipo»).
+            unico = grupo[0]
+            unico.linea, unico.lineas = numeros[0], numeros
+            resumidos.append(unico)
+            continue
         # Las líneas van solo arriba de la observación, no en el texto (usuaria, 21 nov.).
         # Cada mensaje es "qué pasa. Qué hacer.": se listan los hechos y la acción
         # se dice una sola vez (la del primero; solo cambia el ejemplo).

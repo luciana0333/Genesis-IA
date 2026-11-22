@@ -250,8 +250,8 @@ def _varias_filas(h: Dict) -> Partes:
 
 
 def _not_in(h: Dict) -> Partes:
-    # Texto de la usuaria (18 nov.).
-    return ("Se identificó el uso de NOT IN (SELECT ...) para excluir registros mediante una subconsulta.",
+    # Texto de la usuaria (18 nov.), con la columna en lugar de «(SELECT ...)», que no se entendía (usuaria, 22 nov.).
+    return (f"Se identificó el uso de NOT IN sobre {h['expresion']} para excluir registros mediante una subconsulta.",
             "Se recomienda evaluar su reemplazo por NOT EXISTS, ya que si la subconsulta devuelve valores NULL, la "
             "comparación con NOT IN puede generar resultados inesperados.")
 
@@ -404,6 +404,16 @@ def _conversion(h: Dict) -> Partes:
             "Server convierte la columna en cada fila y no puede usar su índice.")
 
 
+def _conversion_validar(h: Dict) -> Partes:
+    """Solo el prefijo c dice que la columna (de una tabla física) es texto: se pide validar, no se afirma (22 nov.)."""
+    # Sin la tabla (columna sin alias con varias tablas en el FROM) no hay consulta: no se la menciona.
+    con_consulta = " con la consulta adjunta" if h.get("tabla") else ""
+    return (f"Se identificó la comparación de {h['columna']} con {h['otro']} ({h['tipoDato']}).",
+            f"Se recomienda validar el tipo de dato de la columna{con_consulta}: si es de texto, comparar con un valor "
+            "del mismo tipo (ej.: entre comillas o como VARCHAR), ya que SQL Server convertiría la columna en cada "
+            "fila y no podría usar su índice.")
+
+
 def _or(h: Dict) -> Partes:
     return (f"Se identificó un OR entre las columnas {h['primera']} y {h['segunda']} en el WHERE.",
             "Se recomienda evaluar separarlo en dos consultas con UNION ALL, ya que un OR entre columnas distintas "
@@ -433,6 +443,9 @@ def partes_orden_insert(hechos: List[Dict]) -> Partes:
     tablas = list(dict.fromkeys(h.get("tabla") or "" for h in hechos))
     nombradas = [t for t in tablas if t]
     fisicas = [t for t in nombradas if not t.startswith(("#", "@"))]
+    # Temporal que no se crea en el script (la crea quien llama): no se sabe si tiene IDENTITY (22 nov.).
+    sin_definir = list(dict.fromkeys(h["tabla"] for h in hechos
+                                     if (h.get("tabla") or "").startswith(("#", "@")) and h.get("definida") is False))
     if len(hechos) == 1:
         donde = f" en la tabla {nombradas[0]}" if nombradas else ""
         problema = f"Se identificó un ORDER BY al insertar datos con SELECT{donde}."
@@ -441,10 +454,16 @@ def partes_orden_insert(hechos: List[Dict]) -> Partes:
                  f" en las tablas {_enumerar(nombradas)}" if nombradas else "")
         problema = f"Se identificaron {len(hechos)} casos de ORDER BY al insertar datos con SELECT{donde}."
     que_hacer = "Se recomienda retirar el ORDER BY, ya que la tabla no conserva ese orden al consultarla."
-    if fisicas:
+    if fisicas and not sin_definir:
         cual, tenga = ("la tabla física", "tenga") if len(fisicas) == 1 else ("las tablas físicas", "tengan")
         que_hacer += (f" En el caso de {cual}, validar previamente que no {tenga} una columna IDENTITY, ya que en ese "
                       "caso el ORDER BY define la numeración de los registros.")
+    elif sin_definir:
+        validar = [t for t in nombradas if t in fisicas or t in sin_definir]  # en el orden del texto
+        cual, tenga = (f"la tabla {validar[0]}, cuya definición", "tenga") if len(validar) == 1 else \
+            (f"las tablas {_enumerar(validar)}, cuya definición", "tengan")
+        que_hacer += (f" En el caso de {cual} no está en el procedimiento, validar previamente que no {tenga} una "
+                      "columna IDENTITY, ya que en ese caso el ORDER BY define la numeración de los registros.")
     return problema, que_hacer
 
 
@@ -556,13 +575,26 @@ def consulta_de_nulos(hechos: List[Dict]) -> Optional[str]:
     Consulta lista para copiar: si cada columna acepta NULL, según la definición de su tabla física. Una sola
     consulta con todas las columnas; las tablas de otra base (DBCMACICA.dbo.T) se consultan en esa base.
     """
+    return _consulta_de_columnas([(h["tabla"], h["columna"]) for h in hechos], "IS_NULLABLE",
+                                 "IS_NULLABLE = NO: la columna no acepta NULL y el ISNULL no es necesario")
+
+
+def consulta_de_tipos(hechos: List[Dict]) -> Optional[str]:
+    """Consulta lista para copiar: el tipo real de cada columna comparada (22 nov.)."""
+    return _consulta_de_columnas([(h["tabla"], h["nombreColumna"]) for h in hechos if h.get("tabla")],
+                                 "DATA_TYPE, CHARACTER_MAXIMUM_LENGTH",
+                                 "DATA_TYPE varchar, char, nvarchar o nchar: la columna es de texto y la comparación "
+                                 "la convierte en cada fila")
+
+
+def _consulta_de_columnas(pares: List[Tuple[str, str]], datos: str, comentario: str) -> Optional[str]:
     por_base: Dict[str, Dict[Tuple[str, str], List[str]]] = {}
-    for hecho in hechos:
-        partes = [p.strip("[]") for p in str(hecho["tabla"]).split(".")]
+    for tabla_completa, columna in pares:
+        partes = [p.strip("[]") for p in str(tabla_completa).split(".")]
         base, esquema, tabla = ([""] * (3 - len(partes)) + partes)[-3:]
         columnas = por_base.setdefault(base, {}).setdefault((esquema, tabla), [])
-        if hecho["columna"] not in columnas:
-            columnas.append(hecho["columna"])
+        if columna not in columnas:
+            columnas.append(columna)
     if not por_base:
         return None
     consultas = []
@@ -574,11 +606,10 @@ def consulta_de_nulos(hechos: List[Dict]) -> Optional[str]:
             condiciones.append(f"({filtro}TABLE_NAME = '{tabla}' AND COLUMN_NAME IN ({lista}))")
         origen = f"{base}.INFORMATION_SCHEMA.COLUMNS" if base else "INFORMATION_SCHEMA.COLUMNS"
         consultas.append(
-            f"SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, IS_NULLABLE\nFROM {origen}\nWHERE "
+            f"SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, {datos}\nFROM {origen}\nWHERE "
             + "\n   OR ".join(condiciones)
         )
-    return "-- IS_NULLABLE = NO: la columna no acepta NULL y el ISNULL no es necesario\n" \
-        + "\nUNION ALL\n".join(consultas) + "\nORDER BY TABLE_NAME, COLUMN_NAME;"
+    return f"-- {comentario}\n" + "\nUNION ALL\n".join(consultas) + "\nORDER BY TABLE_NAME, COLUMN_NAME;"
 
 
 # --- 4 · Seguridad (alto) ------------------------------------------------------------------------------
@@ -602,15 +633,42 @@ def _credencial(h: Dict) -> Partes:
 
 # --- 6 · Mantenibilidad (bajo) -------------------------------------------------------------------------
 def _anidamiento(h: Dict) -> Partes:
-    return (f"Se identificaron {h['niveles']} niveles de IF / WHILE uno dentro de otro.",
-            "Se recomienda simplificar la lógica (condiciones combinadas, salidas tempranas con RETURN o "
-            "procedimientos separados), ya que tantos niveles dificultan leer y mantener el código.")
+    return partes_anidamiento([h])
+
+
+def partes_anidamiento(hechos: List[Dict]) -> Partes:
+    """Varios lugares: cuántos y hasta cuántos niveles, sin «N casos: …; …» (usuaria, 22 nov.)."""
+    que_hacer = ("Se recomienda simplificar la lógica (condiciones combinadas, salidas tempranas con RETURN o "
+                 "procedimientos separados), ya que tantos niveles dificultan leer y mantener el código.")
+    if len(hechos) == 1:
+        return f"Se identificaron {hechos[0]['niveles']} niveles de IF / WHILE uno dentro de otro.", que_hacer
+    maximo = max(int(h["niveles"]) for h in hechos)
+    return (f"Se identificaron {len(hechos)} lugares con IF / WHILE uno dentro de otro (hasta {maximo} niveles).",
+            que_hacer)
 
 
 def _bloque(h: Dict) -> Partes:
-    return (f"Se identificó la misma instrucción {h['instruccion']} repetida en varias partes del código.",
-            "Se recomienda escribirla una sola vez (en una tabla temporal, una CTE o un procedimiento), ya que "
-            "repetida hay que corregirla en cada lugar.")
+    return partes_bloque([h])
+
+
+def partes_bloque(hechos: List[Dict]) -> Partes:
+    """Varias instrucciones repetidas en una sola frase, sin el formato antiguo «N casos: …; …» (usuaria, 22 nov.,
+    caso real FluGenSol_InsPropuesta_SP: 4 INSERT y 2 UPDATE repetidos). Las líneas van arriba, en la tarjeta."""
+    if len(hechos) == 1:
+        return (f"Se identificó la misma instrucción {hechos[0]['instruccion']} repetida en varias partes del código.",
+                "Se recomienda escribirla una sola vez (en una tabla temporal, una CTE o un procedimiento), ya que "
+                "repetida hay que corregirla en cada lugar.")
+    por_tipo: Dict[str, int] = {}
+    for h in hechos:
+        por_tipo[h["instruccion"]] = por_tipo.get(h["instruccion"], 0) + 1
+    if len(por_tipo) == 1:
+        problema = (f"Se identificaron {len(hechos)} instrucciones {next(iter(por_tipo))} repetidas en varias partes "
+                    "del código.")
+    else:
+        detalle = _enumerar([f"{n} {tipo}" for tipo, n in por_tipo.items()])
+        problema = f"Se identificaron {len(hechos)} instrucciones repetidas en varias partes del código: {detalle}."
+    return (problema, "Se recomienda escribir cada una una sola vez (en una tabla temporal, una CTE o un "
+                      "procedimiento), ya que repetidas hay que corregirlas en cada lugar.")
 
 
 def _parametro_sin_uso(h: Dict) -> Partes:
@@ -621,12 +679,6 @@ def _parametro_sin_uso(h: Dict) -> Partes:
 def _case_sin_else(h: Dict) -> Partes:
     return ("Se identificó un CASE sin ELSE.",
             "Se recomienda agregar un ELSE, ya que si ningún WHEN se cumple el resultado es NULL.")
-
-
-def _largo(h: Dict) -> Partes:
-    return (f"Se identificó un procedimiento de {h['lineas']} líneas.",
-            "Se recomienda dividirlo en procedimientos más pequeños, ya que uno tan largo es difícil de revisar y de "
-            "mantener.")
 
 
 # tipo -> (severidad, mensaje)
@@ -680,6 +732,7 @@ MENSAJES: Dict[str, Tuple[Severidad, Callable[[Dict], Optional[Partes]]]] = {
     "ISNULL_VALIDAR_NULOS": (Severidad.BAJO, _isnull_validar),
     "FUNCION_ESCALAR_POR_FILA": (Severidad.MEDIO, _funcion_escalar),
     "CONVERSION_PREVISIBLE": (Severidad.MEDIO, _conversion),
+    "CONVERSION_PREVISIBLE_VALIDAR": (Severidad.BAJO, _conversion_validar),
     "LIKE_COMODIN_INICIO": (Severidad.BAJO, _like),
     "OR_ENTRE_COLUMNAS": (Severidad.BAJO, _or),
     "UNION_SIN_ALL": (Severidad.BAJO, _union_sin_all),
@@ -689,7 +742,8 @@ MENSAJES: Dict[str, Tuple[Severidad, Callable[[Dict], Optional[Partes]]]] = {
     "BLOQUE_REPETIDO": (Severidad.BAJO, _bloque),
     "PARAMETRO_SIN_USO": (Severidad.BAJO, _parametro_sin_uso),
     "CASE_SIN_ELSE": (Severidad.BAJO, _case_sin_else),
-    "PROCEDIMIENTO_MUY_LARGO": (Severidad.BAJO, _largo),
+    # «Procedimiento muy largo» se retiró: no es necesario (usuaria, 22 nov.). ScriptDom lo sigue informando, pero sin
+    # mensaje no se muestra.
 }
 
 
@@ -719,6 +773,10 @@ def mensaje_agrupado(hechos: List[Dict]) -> Optional[str]:
         return " ".join(partes_funcion_columna([h for h, _ in con_mensaje]))
     if con_mensaje[0][0].get("tipo") == "ORDER_BY_EN_INSERT":
         return " ".join(partes_orden_insert([h for h, _ in con_mensaje]))
+    if con_mensaje[0][0].get("tipo") == "BLOQUE_REPETIDO":
+        return " ".join(partes_bloque([h for h, _ in con_mensaje]))
+    if con_mensaje[0][0].get("tipo") == "ANIDAMIENTO_EXCESIVO":
+        return " ".join(partes_anidamiento([h for h, _ in con_mensaje]))
     # Sin redundar (usuaria, 18 nov., modelo «Se identificaron 2 casos de CASE sin ELSE.»): lo común se dice una vez
     # y las líneas van arriba, en la tarjeta (hallazgo.lineas), no en el texto.
     total = len(con_mensaje)
@@ -727,13 +785,37 @@ def mensaje_agrupado(hechos: List[Dict]) -> Optional[str]:
     if len(restos) == 1 and restos[0] is not None:
         return f"Se identificaron {total} {_casos_de(restos[0])}. {que_hacer}"
     # Lo distinto en medio de la frase (la variable, la columna…): la frase en plural y solo lo que cambia.
-    plural = _PLURALES.get(con_mensaje[0][0].get("tipo"))
+    tipo = con_mensaje[0][0].get("tipo")
+    plural = _PLURALES.get(tipo)
     if plural:
         frase, elemento, mismo = plural
-        elementos = list(dict.fromkeys(elemento(h) for h, _ in con_mensaje))
+        # SQL Server no distingue mayúsculas ni espacios: «top 1» y «TOP 1» son lo mismo (22 nov.: salía «2 TOP sin
+        # ORDER BY: top 1 y TOP 1» con 29 casos). Se muestra la primera forma escrita.
+        veces: Dict[str, List] = {}
+        formas: Dict[str, Dict[str, int]] = {}
+        for h, _ in con_mensaje:
+            texto = elemento(h)
+            clave = re.sub(r"\s+", "", texto).lower()
+            veces.setdefault(clave, [texto, 0])[1] += 1
+            formas.setdefault(clave, {}).setdefault(texto, 0)
+            formas[clave][texto] += 1
+        for clave, valor in veces.items():  # se muestra la forma más escrita («TOP 1», no «top 1» si es la minoría)
+            valor[0] = max(formas[clave].items(), key=lambda forma: (forma[1], forma[0].isupper()))[0]
+        elementos = [texto for texto, _ in veces.values()]
+        # En los tipos que cuentan apariciones (cada TOP, cada división), el número es el total de casos y la
+        # repetición se dice con «(N veces)»; en los que cuentan cosas (variables, tablas), cada una una vez.
+        por_caso = tipo in _CUENTA_CASOS
+        cantidad = total if por_caso else len(elementos)
         if len(elementos) > 1 and (not mismo or len({str(h.get(mismo)) for h, _ in con_mensaje}) == 1):
-            que_hacer = _QUE_HACER_EN_PLURAL.get(con_mensaje[0][0].get("tipo"), que_hacer)
-            return f"Se identificaron {len(elementos)} {frase}: {_enumerar(elementos)}. {que_hacer}"
+            que_hacer = _QUE_HACER_EN_PLURAL.get(tipo, que_hacer)
+            if tipo == "CONVERSION_PREVISIBLE_VALIDAR" and not all(h.get("tabla") for h, _ in con_mensaje):
+                que_hacer = que_hacer.replace(" con la consulta adjunta", "")
+            lista = [_con_veces(texto, n) if por_caso and n > 1 else texto for texto, n in veces.values()]
+            return f"Se identificaron {cantidad} {frase}: {_enumerar(lista)}. {que_hacer}"
+        if len(elementos) == 1 and not mismo:
+            # Siempre lo mismo (29 TOP 1, 17 divisiones entre @nValFijo): la frase en plural con el total y el «Qué
+            # hacer» del caso, que sirve para todos; nunca «N casos: …; …» (22 nov.).
+            return f"Se identificaron {cantidad} {frase}: {elementos[0]}. {que_hacer}"
     if all(resto is not None for resto in restos):
         # Solo cambia el final (ORDER BY … a #A / a #B): «2 casos de ORDER BY … a #A y #B».
         comun, finales = _comun_al_inicio(restos)
@@ -752,16 +834,101 @@ _PLURALES: Dict[str, Tuple[str, Callable[[Dict], str], Optional[str]]] = {
                               lambda h: h["variable"], None),
     "PARAMETRO_SIN_USO": ("parámetros que no se usan", lambda h: h["variable"], None),
     "PARAMETRO_OUTPUT_SIN_VALOR": ("parámetros OUTPUT que nunca reciben un valor", lambda h: h["variable"], None),
-    "FUNCION_ESCALAR_POR_FILA": ("funciones escalares dentro de una consulta", lambda h: h["funcion"], None),
+    # «usos de»: el número cuenta cada llamada, no las funciones distintas (22 nov.).
+    "FUNCION_ESCALAR_POR_FILA": ("usos de funciones escalares dentro de una consulta", lambda h: h["funcion"], None),
     "TOP_SIN_ORDER_BY": ("TOP sin ORDER BY", lambda h: h["top"], None),
     "LIKE_COMODIN_INICIO": ("LIKE con el comodín al inicio", lambda h: f"{h['columna']} LIKE '{h['patron']}'", None),
     "OR_ENTRE_COLUMNAS": ("OR entre columnas en el WHERE", lambda h: f"{h['primera']} OR {h['segunda']}", None),
     "COLUMNA_REPETIDA_EN_TABLA": ("columnas que se definen dos veces", lambda h: f"{h['columna']} en {h['tabla']}", None),
     "TEMPORAL_CREADA_DOS_VECES": ("tablas temporales que se crean dos veces en el mismo bloque",
                                   lambda h: h["tabla"], None),
-    # El «Qué hacer» nombra el divisor (NULLIF(@b, 0)): solo si es el mismo en todas.
-    "DIVISION_SIN_NULLIF": ("divisiones sin proteger el divisor", lambda h: h["expresion"], "divisor"),
+    # Con divisores distintos, el «Qué hacer» en plural (sin nombrar uno solo).
+    "DIVISION_SIN_NULLIF": ("divisiones sin proteger el divisor", lambda h: h["divisor"], None),
+    # Sin repetir la frase en cada caso (usuaria, 22 nov.: «que ni una regla muestre el mensaje antiguo»).
+    "VARIABLE_SIN_VALOR": ("variables que se leen antes de recibir un valor, por lo que valen NULL",
+                           lambda h: h["variable"], None),
+    "ASIGNACION_VARIAS_FILAS": ("asignaciones SELECT @variable = … FROM sin WHERE, TOP ni agregado",
+                                lambda h: h["variable"], None),
+    "BETWEEN_FECHA_SIN_HORA": ("BETWEEN sobre datos que guardan fecha y hora",
+                               lambda h: f"{h['expresion']} BETWEEN … AND {h['hasta']}", None),
+    "COMPARACION_CON_NULL": ("comparaciones con NULL que nunca son verdaderas", lambda h: h["comparacion"], None),
+    "CONVERSION_PREVISIBLE_VALIDAR": ("comparaciones de columnas con valores de otro tipo",
+                                      lambda h: f"{h['columna']} con {h['otro']} ({h['tipoDato']})", None),
+    "CONVERSION_PREVISIBLE": ("comparaciones de columnas de texto con valores de otro tipo",
+                              lambda h: f"{h['columna']} con {h['otro']} ({h['tipoDato']})", None),
+    "COUNT_EN_LUGAR_DE_EXISTS": ("COUNT(*) para saber si hay registros", lambda h: h["comparacion"], None),
+    "INSERT_COLUMNAS_NO_COINCIDEN": (
+        "INSERT con distinta cantidad de columnas y valores",
+        lambda h: (f"{h.get('tabla') or 'INSERT'} ({_cantidad(int(h['columnas']), 'columna', 'columnas')} y "
+                   + (f"su SELECT devuelve {_cantidad(int(h['valores']), 'columna', 'columnas')})"
+                      if h.get("origen") == "SELECT" else f"{_cantidad(int(h['valores']), 'valor', 'valores')})")),
+        None),
+    "ISNULL_EN_CONDICION": ("ISNULL en condiciones", lambda h: h["expresion"], None),
+    "ISNULL_TRUNCA": ("ISNULL que cortan el texto",
+                      lambda h: f"ISNULL({h['variable']}, '{h['texto']}') devuelve '{h['queda']}'", None),
+    "PUNTO_Y_COMA_ANTES_DE_WITH": ("lugares sin «;» antes de la instrucción WITH", lambda h: _donde_falta(h), None),
+    "PUNTO_Y_COMA_FALTANTE": ("lugares sin «;» antes de la instrucción THROW", lambda h: _donde_falta(h), None),
+    "TAMANO_FUERA_DE_RANGO": ("tipos fuera del tamaño permitido",
+                              lambda h: f"{h['valor']} ({h['tipoDato']}: {h['limite']})", None),
+    "VARCHAR_SIN_TAMANO": (
+        "tipos de texto sin tamaño",
+        lambda h: (f"{h['tipoDato']} {'en un CAST o CONVERT' if h.get('contexto') == 'conversion' else 'al declarar'} "
+                   f"(SQL Server lo toma como {h['tipoDato']}({h['largo']}))"),
+        None),
+    "NOT_IN_SUBCONSULTA": ("NOT IN que excluyen registros mediante una subconsulta", lambda h: h["expresion"], None),
+    "ALIAS_REPETIDO_EN_FROM": ("nombres repetidos en el mismo FROM",
+                               lambda h: f"el alias {h['nombre']}" if h.get("esAlias") else f"la tabla {h['nombre']}",
+                               None),
+    # 22 nov. (usuaria): estos 11 tipos aún salían con «Se identificaron N casos: …; …». Se encontraron simulando
+    # todos los tipos agrupados (prueba permanente test_sin_mensaje_agrupado_antiguo), no solo los de los ejemplos.
+    "DOS_PRIMARY_KEY": ("tablas que definen más de una PRIMARY KEY", lambda h: f"{h['tabla']} ({h['cantidad']})", None),
+    "DOS_IDENTITY": ("tablas que definen más de una columna IDENTITY", lambda h: f"{h['tabla']} ({h['cantidad']})",
+                     None),
+    "THROW_TOMADO_COMO_TRANSACCION": ("THROW después de un COMMIT o ROLLBACK sin «;», que SQL Server toma como el "
+                                      "nombre de la transacción, por lo que el error nunca se relanza",
+                                      lambda h: f"después de {h['instruccion']}", None),
+    "VARIABLE_DECLARADA_DOS_VECES": ("variables que se declaran dos veces", lambda h: h["variable"], None),
+    "CTE_NOMBRE_REPETIDO": ("CTE que se definen dos veces en el mismo WITH", lambda h: h["cte"], None),
+    "BREAK_FUERA_DE_WHILE": ("instrucciones fuera de un WHILE", lambda h: h["instruccion"], None),
+    "GOTO_SIN_ETIQUETA": ("GOTO a etiquetas que no existen en el bloque", lambda h: h["etiqueta"], None),
+    "ROWCOUNT_DESPUES_DE_OTRA": ("lecturas justo después de otra instrucción y no después del INSERT, UPDATE o DELETE",
+                                 lambda h: h["variable"], None),
+    "SUBCONSULTAS_A_APPLY": ("grupos de subconsultas a la misma tabla con la misma condición en el SELECT",
+                             lambda h: f"{h['cantidad']} a {h['tabla']}", None),
+    "ISNULL_EN_COLUMNA_NOT_NULL": ("ISNULL sobre columnas que se definen NOT NULL",
+                                   lambda h: f"{h['expresion']} ({h['columna']} de {h['tabla']})", None),
+    "UNION_COLUMNAS_DISTINTAS": ("UNION, EXCEPT o INTERSECT cuyos SELECT devuelven distinta cantidad de columnas",
+                                 lambda h: f"{h['operacion']} ({h['primera']} y {h['segunda']})", None),
+    "CTE_COLUMNAS_DISTINTAS": ("CTE que indican una cantidad de columnas distinta a la que devuelve su consulta",
+                               lambda h: f"{h['cte']} ({h['columnas']} y {h['consulta']})", None),
+    "TEXTO_MAS_LARGO_QUE_VARIABLE": ("textos más largos que la variable que los recibe",
+                                     lambda h: f"'{h['texto']}' en {h['variable']} (queda '{h['queda']}')", None),
 }
+
+
+# Tipos cuyo número es la cantidad de casos (cada TOP, cada comparación), no de cosas distintas (22 nov.).
+_CUENTA_CASOS = {
+    "FUNCION_ESCALAR_POR_FILA", "TOP_SIN_ORDER_BY", "LIKE_COMODIN_INICIO", "OR_ENTRE_COLUMNAS", "DIVISION_SIN_NULLIF",
+    "ASIGNACION_VARIAS_FILAS", "BETWEEN_FECHA_SIN_HORA", "COMPARACION_CON_NULL", "CONVERSION_PREVISIBLE",
+    "CONVERSION_PREVISIBLE_VALIDAR",
+    "COUNT_EN_LUGAR_DE_EXISTS", "INSERT_COLUMNAS_NO_COINCIDEN", "ISNULL_EN_CONDICION", "ISNULL_TRUNCA",
+    "PUNTO_Y_COMA_ANTES_DE_WITH", "PUNTO_Y_COMA_FALTANTE", "TAMANO_FUERA_DE_RANGO", "VARCHAR_SIN_TAMANO",
+    "NOT_IN_SUBCONSULTA", "THROW_TOMADO_COMO_TRANSACCION", "BREAK_FUERA_DE_WHILE", "ROWCOUNT_DESPUES_DE_OTRA",
+    "SUBCONSULTAS_A_APPLY", "ISNULL_EN_COLUMNA_NOT_NULL", "UNION_COLUMNAS_DISTINTAS", "TEXTO_MAS_LARGO_QUE_VARIABLE",
+}
+
+
+def _con_veces(texto: str, veces: int) -> str:
+    """«cNumGarant con @x (BIGINT, 4 veces)» en lugar de «… (BIGINT) (4 veces)»."""
+    if texto.endswith(")"):
+        return f"{texto[:-1]}, {veces} veces)"
+    return f"{texto} ({veces} veces)"
+
+
+def _donde_falta(h: Dict) -> str:
+    """Dónde falta el «;»: al finalizar el bloque END o la instrucción anterior."""
+    termina = (h.get("termina") or "").strip().upper()
+    return "al finalizar el bloque END" if termina == "END" else "al finalizar la instrucción anterior"
 
 # El «Qué hacer» en plural cuando el de un solo caso no concuerda («Declararla» → «Declararlas»).
 _QUE_HACER_EN_PLURAL = {
@@ -777,6 +944,60 @@ _QUE_HACER_EN_PLURAL = {
                                  "(error 2705).",
     "OR_ENTRE_COLUMNAS": "Se recomienda evaluar separarlos en dos consultas con UNION ALL, ya que un OR entre "
                          "columnas distintas suele impedir el uso de los índices.",
+    "DIVISION_SIN_NULLIF": "Se recomienda proteger cada divisor con NULLIF(divisor, 0), ya que si el divisor es 0 el "
+                           "procedimiento falla con error de división entre cero.",
+    "VARIABLE_SIN_VALOR": "Se recomienda asignarles un valor inicial o confirmar que el NULL es intencional, ya que una "
+                          "operación con NULL (+ 1, concatenación, comparación) también da NULL.",
+    "ASIGNACION_VARIAS_FILAS": "Se recomienda filtrar a una sola fila (WHERE por la clave o TOP 1 con ORDER BY), ya que "
+                               "si la tabla tiene varias filas la variable queda con el valor de cualquiera de ellas.",
+    "BETWEEN_FECHA_SIN_HORA": "Usar columna >= fecha inicial AND columna < día siguiente a la fecha final, ya que BETWEEN "
+                              "deja fuera todo el último día después de las 00:00.",
+    "COMPARACION_CON_NULL": "Usar IS NULL o IS NOT NULL, ya que en SQL Server una comparación con NULL usando = o <> no "
+                            "devuelve verdadero ni falso.",
+    "COUNT_EN_LUGAR_DE_EXISTS": "Se recomienda usar EXISTS o NOT EXISTS (SELECT 1 FROM …), ya que EXISTS se detiene en el "
+                                "primer registro y COUNT(*) los cuenta todos.",
+    "INSERT_COLUMNAS_NO_COINCIDEN": "Igualar la cantidad de columnas y de valores en cada INSERT, ya que SQL Server no "
+                                    "los ejecutará.",
+    "ISNULL_EN_CONDICION": "Se recomienda validar si las columnas aceptan valores nulos con la consulta adjunta, ya que, "
+                           "si no los aceptan, el ISNULL no es necesario y en una condición impide usar el índice.",
+    "ISNULL_TRUNCA": "Usar COALESCE o ampliar el tamaño de las variables, ya que ISNULL corta el texto al tamaño de la "
+                     "primera expresión sin avisar.",
+    "PUNTO_Y_COMA_ANTES_DE_WITH": "Se recomienda agregar el punto y coma (;) en cada uno, para evitar el error de "
+                                  "sintaxis 319 durante la ejecución del procedimiento.",
+    "PUNTO_Y_COMA_FALTANTE": "Se recomienda agregar el punto y coma (;) en cada uno, para evitar el error de sintaxis "
+                             "102 durante la ejecución del procedimiento.",
+    "NOT_IN_SUBCONSULTA": "Se recomienda evaluar reemplazarlos por NOT EXISTS, ya que si la subconsulta devuelve "
+                          "valores NULL, la comparación con NOT IN puede generar resultados inesperados.",
+    "TAMANO_FUERA_DE_RANGO": "Corregir los tamaños, ya que SQL Server no ejecutará el código.",
+    "VARCHAR_SIN_TAMANO": "Indicar el tamaño (ej.: VARCHAR(100)), ya que, sin él, SQL Server corta el texto sin avisar.",
+    "ALIAS_REPETIDO_EN_FROM": "Usar un nombre o alias distinto para cada tabla, ya que SQL Server no ejecutará la "
+                              "consulta.",
+    "DOS_PRIMARY_KEY": "Dejar una sola en cada tabla, ya que una tabla solo puede tener una clave primaria y SQL Server "
+                       "no podrá crearlas (error 8110).",
+    "DOS_IDENTITY": "Dejar una sola en cada tabla, ya que una tabla solo puede tener una columna IDENTITY y SQL Server "
+                    "no podrá crearlas (error 2744).",
+    "THROW_TOMADO_COMO_TRANSACCION": "Agregar «;» al final de cada COMMIT o ROLLBACK, ya que sin él el error original "
+                                     "se pierde (con ROLLBACK, además, falla al ejecutarse con el error 6401).",
+    "VARIABLE_DECLARADA_DOS_VECES": "Dejar una sola declaración de cada una o usar otro nombre, ya que SQL Server no "
+                                    "ejecutará el código (error 134).",
+    "BREAK_FUERA_DE_WHILE": "Retirarlas o ubicarlas dentro del WHILE, ya que BREAK y CONTINUE solo funcionan dentro de "
+                            "un bucle y SQL Server no ejecutará el código (error 135).",
+    "GOTO_SIN_ETIQUETA": "Crear las etiquetas o corregir sus nombres, ya que SQL Server no ejecutará el código "
+                         "(error 133).",
+    "ROWCOUNT_DESPUES_DE_OTRA": "Guardar cada valor en una variable inmediatamente después de la instrucción que "
+                                "interesa, ya que cada instrucción, incluso un SET, lo reemplaza.",
+    "SUBCONSULTAS_A_APPLY": "Se recomienda evaluar unir cada grupo en un APPLY, ya que así cada tabla se leería una "
+                            "sola vez por fila.",
+    "ISNULL_EN_COLUMNA_NOT_NULL": "Se recomienda retirar el ISNULL, ya que estas columnas no aceptan valores nulos.",
+    "CONVERSION_PREVISIBLE_VALIDAR": "Se recomienda validar el tipo de dato de estas columnas con la consulta "
+                                     "adjunta: en las que sean de texto, comparar con un valor del mismo tipo (ej.: "
+                                     "entre comillas o como VARCHAR), ya que SQL Server convertiría la columna en cada "
+                                     "fila y no podría usar su índice.",
+    "UNION_COLUMNAS_DISTINTAS": "Igualar la cantidad de columnas de cada SELECT, ya que SQL Server no ejecutará las "
+                                "consultas (error 205).",
+    "CTE_COLUMNAS_DISTINTAS": "Igualar la cantidad de columnas en cada CTE, ya que SQL Server no ejecutará las consultas "
+                              "(error 8159).",
+    "TEXTO_MAS_LARGO_QUE_VARIABLE": "Ampliar el tamaño de las variables, ya que SQL Server corta el texto sin avisar.",
 }
 
 

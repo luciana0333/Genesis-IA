@@ -78,6 +78,27 @@ def juntar_ortografia(hallazgos: List[Hallazgo], accion: str) -> List[Hallazgo]:
     return resto[:primera] + [junta] + resto[primera:]
 
 
+_VALOR_INDICADO = re.compile(r"^El diccionario indica el (esquema|nombre) '([^']*)'")
+
+
+def _juntar_valores_indicados(grupo: List[Hallazgo]) -> Optional[str]:
+    """«El diccionario indica el esquema 'A', pero…» y «… 'B', pero…» (el resto igual) → «El diccionario indica los
+    esquemas 'A' y 'B', pero…». None si los mensajes no son de esa forma (usuaria, 22 nov.: sin repetir la frase)."""
+    valores, restos, que = [], set(), set()
+    for h in grupo:
+        encontrado = _VALOR_INDICADO.match(h.mensaje)
+        if not encontrado:
+            return None
+        que.add(encontrado.group(1))
+        valores.append(encontrado.group(2))
+        restos.add(h.mensaje[encontrado.end():])
+    valores = list(dict.fromkeys(valores))
+    if len(que) != 1 or len(restos) != 1 or len(valores) < 2:
+        return None
+    lista = ", ".join(f"'{v}'" for v in valores[:-1]) + f" y '{valores[-1]}'"
+    return f"El diccionario indica los {que.pop()}s {lista}{restos.pop()}"
+
+
 def agrupar(hallazgos: List[Hallazgo], plantillas: Dict[str, Tuple[str, str]]) -> List[Hallazgo]:
     """plantillas: regla -> (sustantivo en plural, acción para todos)."""
     grupos: Dict[str, List[Hallazgo]] = {}
@@ -94,12 +115,18 @@ def agrupar(hallazgos: List[Hallazgo], plantillas: Dict[str, Tuple[str, str]]) -
         # También las líneas que cada caso trae aparte (la primera declaración de un duplicado).
         numeros = sorted({n for h in grupo for n in (getattr(h, "lineas", None) or [h.linea])})
         elementos = [getattr(h, "elemento", None) for h in grupo]
-        if regla in plantillas and all(elementos):
+        distintos = list(dict.fromkeys(elementos))
+        mismos_valores = _juntar_valores_indicados(grupo)
+        if len({h.mensaje for h in grupo}) == 1 or (regla in plantillas and all(elementos) and len(distintos) == 1):
+            # El mismo hecho en varias sentencias (el esquema 'DBO' mal puesto en todas): su mensaje una vez; las
+            # líneas van arriba de la observación (usuaria, 22 nov.: sin «Se encontraron N observaciones…»).
+            mensaje = grupo[0].mensaje
+        elif mismos_valores:
+            mensaje = mismos_valores
+        elif regla in plantillas and all(elementos):
             sustantivo, accion = plantillas[regla]
-            mensaje = (
-                f"Se identificaron {len(grupo)} {sustantivo}: "
-                f"{'; '.join(dict.fromkeys(elementos))}. {accion}"
-            )
+            # Se cuentan los elementos distintos, no las veces (usuaria, 22 nov.).
+            mensaje = f"Se identificaron {len(distintos)} {sustantivo}: {'; '.join(distintos)}. {accion}"
         else:
             # Cada mensaje es "qué pasa. Qué hacer.": se listan los hechos y la
             # acción se dice una sola vez.

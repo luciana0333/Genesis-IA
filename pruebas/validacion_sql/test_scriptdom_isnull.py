@@ -20,6 +20,27 @@ def _isnull(sql):
 
 @unittest.skipUnless(HAY_SCRIPTDOM, "ScriptDom no está en esta PC (viene con SSMS)")
 class IsnullTest(unittest.TestCase):
+    def test_update_con_alias_de_una_temporal_que_acepta_null(self):
+        # Caso real (22 nov., Tablon.PA_BI_Ins_ColocacSaldoDia): «UPDATE C … FROM #CREDITOS C». El alias C del UPDATE
+        # se tomaba como una tabla llamada «C» y salía «C: NCAPVENCIDO». La columna acepta NULL: el ISNULL hace falta.
+        sql = ("CREATE TABLE #CREDITOS (cCtaCod VARCHAR(18), NCAPVENCIDO MONEY DEFAULT 0)\n"
+               "CREATE TABLE #Saldo (nCapVig MONEY NULL)\n"
+               "UPDATE C SET C.NCAPVENCIDO = ISNULL(C.NCAPVENCIDO, 0) + 1 FROM #CREDITOS C\n"
+               "UPDATE a SET a.nCapVig = ISNULL(nCapVig, 0) FROM #Saldo a")
+        self.assertEqual(_isnull(sql), [])
+
+    def test_isnull_en_el_select_de_una_subconsulta_del_on_no_es_condicion(self):
+        # El ISNULL es lo que devuelve la subconsulta, no un filtro: se valida como cualquier ISNULL, no «en condición».
+        sql = ("SELECT P.cCtaCod FROM #T P\n"
+               "LEFT JOIN dbo.CredProductos CP ON CP.cCredProductos = (SELECT ISNULL(K.nConsEquivalente, K.nConsValor) "
+               "FROM dbo.Constante K WHERE K.nConsCod = 1052)")
+        self.assertEqual([h.regla for h in _isnull(sql)], ["ISNULL_VALIDAR_NULOS"])
+        # Un ISNULL en el WHERE de esa subconsulta sí es una condición.
+        filtro = ("SELECT P.cCtaCod FROM #T P\n"
+                  "LEFT JOIN dbo.CredProductos CP ON CP.cCredProductos = (SELECT K.nConsValor FROM dbo.Constante K "
+                  "WHERE ISNULL(K.nConsEquivalente, 0) = 1)")
+        self.assertEqual([h.regla for h in _isnull(filtro)], ["ISNULL_EN_CONDICION"])
+
     def test_se_marca(self):
         casos = {
             "SELECT ISNULL(c.nSaldo, 0) FROM dbo.Credito c": ("ISNULL_VALIDAR_NULOS", "bajo"),

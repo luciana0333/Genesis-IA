@@ -135,6 +135,12 @@ def _columna_de_texto(limpio: str, col: str) -> bool:
     return bool(re.fullmatch(_TIPOS_TEXTO, tipo.group(1), re.IGNORECASE))
 
 
+def condicion_de_left(mensaje: str) -> str:
+    """«LEFT(cCtaCod, 5) = '10901'» del mensaje (para agrupar los casos sin repetir la frase)."""
+    encontrada = re.match(r"Se identificó el uso de (.+?) en una condición\.", mensaje)
+    return encontrada.group(1) if encontrada else mensaje
+
+
 def left_reemplazable_por_like(limpio: str) -> List[Tuple[int, str]]:
     """
     LEFT(col, n) = 'abc' (o SUBSTRING(col, 1, n)) en un filtro: con LIKE 'abc%' se aprovechan los índices.
