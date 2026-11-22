@@ -225,8 +225,9 @@ function recuadro(nodo, regla, sentencia) {
       const cerrarTramo = () => {
         if (!tramo) return;
         const ancho = tramo.fin - tramo.inicio + 6;
-        marcado += `<rect x="${tramo.inicio - 3}" y="${base - 12.5}" width="${ancho}" height="16.5" rx="3.5" fill="#fff3b0"/>`
-          + `<rect x="${tramo.inicio - 1}" y="${base + 2.5}" width="${ancho - 4}" height="1.5" rx="0.75" fill="#f0c63a"/>`;
+        // Relleno amarillo bajito y contorno amarillo más oscuro (usuaria, 21 nov.).
+        marcado += `<rect x="${tramo.inicio - 3}" y="${base - 12.5}" width="${ancho}" height="16.5" rx="3.5" `
+          + 'fill="#fff8d9" stroke="#e0ad1f" stroke-width="1"/>';
         tramo = null;
       };
       fila.linea.forEach((trozo) => {

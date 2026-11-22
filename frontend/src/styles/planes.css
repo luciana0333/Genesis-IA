@@ -639,15 +639,16 @@
 .plan-detalle-flotante mark {
   padding: 1px 3px;
   border-radius: 3px;
-  background: #fff3b0;
-  box-shadow: inset 0 -1.5px 0 #f0c63a;
+  /* Relleno amarillo bajito y contorno amarillo más oscuro (usuaria, 21 nov.). */
+  background: #fff8d9;
+  box-shadow: inset 0 0 0 1px #e0ad1f;
   color: #4a3800;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
 :root[data-theme="dark"] .plan-detalle-flotante mark {
-  background: rgba(255, 214, 64, 0.22);
-  box-shadow: inset 0 -1.5px 0 rgba(255, 214, 64, 0.7);
+  background: rgba(255, 214, 64, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 196, 40, 0.75);
   color: #ffe9a3;
 }
 
