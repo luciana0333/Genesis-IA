@@ -8,11 +8,14 @@
 export function grupoDelRecorrido(grupos, indice) {
   if (!grupos?.length) return null;
   let restante = indice;
+  // «Procedimiento 1 de 3»: un mismo nombre en dos grupos (ALTER: lo que falta y lo que se agrega) es una sola fila
+  // de la tabla, así que se cuenta una vez (usuaria, 21 nov.).
+  const nombres = [...new Set(grupos.map((grupo) => grupo.nombre))];
   for (let numero = 0; numero < grupos.length; numero += 1) {
     const { nombre, lineas, tipo = 'Tabla', etiquetas } = grupos[numero];
     if (restante < lineas.length) {
       return {
-        numero: numero + 1, total: grupos.length, nombre, tipo, vez: restante + 1, veces: lineas.length, vineta: numero,
+        numero: nombres.indexOf(nombre) + 1, total: nombres.length, nombre, tipo, vez: restante + 1, veces: lineas.length, vineta: numero,
         // Qué es cada parada, si la observación lo dice (ej.: el tipo de dato, «VARCHAR(5)»).
         etiqueta: etiquetas?.[restante] ?? null,
       };

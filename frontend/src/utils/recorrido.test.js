@@ -67,3 +67,15 @@ describe('«Misma columna con distinto tipo»', () => {
     });
   });
 });
+
+describe('grupoDelRecorrido · un procedimiento en dos grupos (ALTER, usuaria 21 nov.)', () => {
+  it('cuenta cada procedimiento una vez: «Procedimiento 1 de 2»', () => {
+    const grupos = [
+      { nombre: 'dbo.PA_A', tipo: 'Procedimiento', seccion: 'objeto', lineas: [1] },
+      { nombre: 'dbo.PA_A', tipo: 'Procedimiento', seccion: 'diccionario', lineas: [5, 6] },
+      { nombre: 'dbo.PA_B', tipo: 'Procedimiento', seccion: 'diccionario', lineas: [9] },
+    ];
+    expect(grupoDelRecorrido(grupos, 2)).toMatchObject({ numero: 1, total: 2, nombre: 'dbo.PA_A', vineta: 1 });
+    expect(grupoDelRecorrido(grupos, 3)).toMatchObject({ numero: 2, total: 2, nombre: 'dbo.PA_B', vineta: 2 });
+  });
+});

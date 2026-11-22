@@ -1641,6 +1641,10 @@
 .tabla-por-procedimiento > thead > tr > th:first-child { width: 40%; }
 .tabla-por-procedimiento > tbody > tr > td { vertical-align: top; }
 .tabla-por-procedimiento .tabla-tipos-columna { white-space: normal; overflow-wrap: normal; word-break: keep-all; }
+/* El nombre sin cajita gris; solo se marca en la fila que se está recorriendo con «Ver en el código» (usuaria, 21 nov.). */
+.tabla-por-procedimiento .tabla-tipos-columna { margin-left: -9px; background: transparent; transition: background-color var(--dur-fast) ease; }
+.tabla-por-procedimiento .tabla-tipos-fila.activa .tabla-tipos-columna { background: #eaeef5; }
+:root[data-theme="dark"] .tabla-por-procedimiento .tabla-tipos-fila.activa .tabla-tipos-columna { background: rgba(255, 255, 255, 0.08); }
 .cajitas-parametros { display: flex; flex-wrap: wrap; gap: 6px; }
 .cajita-parametro {
   display: inline-flex;
