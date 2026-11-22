@@ -15,6 +15,9 @@ export function CapturaHallazgo({ hallazgo, sentencias = [], archivo, onIrAlPlan
     .map((consulta) => ({
       sentencia: sentencias.find((item) => item.numero === consulta),
       nodoIds: [...new Set(hallazgo.nodos.filter((n) => n.consulta === consulta).map((n) => n.nodo))],
+      // Lo que se resalta en amarillo en cada operador (la conversión implícita; usuaria, 21 nov.).
+      resaltes: Object.fromEntries(hallazgo.nodos
+        .filter((n) => n.consulta === consulta && n.resaltar?.length).map((n) => [n.nodo, n.resaltar])),
     }))
     .filter((grupo) => grupo.sentencia && grupo.nodoIds.length);
   const consulta = grupos[0]?.sentencia.numero;
@@ -58,7 +61,9 @@ export function CapturaHallazgo({ hallazgo, sentencias = [], archivo, onIrAlPlan
   }, 'Imagen copiada');
 
   // Lleva al diagrama de abajo: la primera consulta de la observación, con sus operadores marcados.
-  const alIrAlPlan = () => onIrAlPlan?.({ consulta, nodos: grupos[0].nodoIds, clave: Date.now() });
+  const alIrAlPlan = () => onIrAlPlan?.({
+    consulta, nodos: grupos[0].nodoIds, resaltes: grupos[0].resaltes, clave: Date.now(),
+  });
 
   return (
     <div className="captura-hallazgo">

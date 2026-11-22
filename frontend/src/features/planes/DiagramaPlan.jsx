@@ -120,7 +120,7 @@ export function TextoResaltado({ texto, resaltados }) {
  * Flota sobre la página (no se corta en el borde del diagrama) y, si es largo, tiene su propia
  * barra; no se cierra mientras el mouse esté encima, para poder leerlo completo.
  */
-function DetalleNodo({ nodo, posicion, onEntrar, onSalir }) {
+function DetalleNodo({ nodo, posicion, onEntrar, onSalir, resaltar = [] }) {
   // Todos los datos del operador tal cual el XML, con los nombres y el orden de SQL Server.
   // (La raíz de la consulta no tiene: usa los datos de siempre.)
   const filas = nodo.propiedades?.length ? nodo.propiedades : [
@@ -171,7 +171,7 @@ function DetalleNodo({ nodo, posicion, onEntrar, onSalir }) {
       {(nodo.predicados ?? []).map((predicado) => (
         <div key={predicado.nombre} className="plan-detalle-bloque">
           <p className="plan-detalle-subtitulo">{predicado.nombre}</p>
-          <p className="plan-detalle-objeto">{predicado.texto}</p>
+          <p className="plan-detalle-objeto"><TextoResaltado texto={predicado.texto} resaltados={resaltar} /></p>
         </div>
       ))}
     </div>,
@@ -188,7 +188,7 @@ const PASO_ZOOM = 0.1;
  * Diagrama de una sentencia del plan con zoom y detalle al pasar el mouse.
  * `marcados`: operadores que señala una observación («Ir al plan»): se enmarcan y el diagrama se centra en ellos.
  */
-function Diagrama({ sentencia, marcados = [] }) {
+function Diagrama({ sentencia, marcados = [], resaltes = {} }) {
   const [zoom, setZoom] = useState(0.8);
   const [enfocado, setEnfocado] = useState(null);
   const { posiciones, ancho, alto } = useMemo(() => calcularPosiciones(sentencia.nodos), [sentencia]);
@@ -293,7 +293,13 @@ function Diagrama({ sentencia, marcados = [] }) {
           ))}
         </svg>
         {enfocado && (
-          <DetalleNodo nodo={enfocado.nodo} posicion={enfocado.posicion} onEntrar={mantener} onSalir={cerrar} />
+          <DetalleNodo
+            nodo={enfocado.nodo}
+            posicion={enfocado.posicion}
+            onEntrar={mantener}
+            onSalir={cerrar}
+            resaltar={resaltes[enfocado.nodo.id] ?? []}
+          />
         )}
       </div>
     </div>
@@ -576,6 +582,7 @@ export function DiagramaPlan({ sentencias = [], foco = null }) {
               key={`${sentencia.numero}-${foco?.clave ?? ''}`}
               sentencia={sentencia}
               marcados={foco?.consulta === sentencia.numero ? foco.nodos : []}
+              resaltes={foco?.consulta === sentencia.numero ? foco.resaltes ?? {} : {}}
             />
           )}
           {pestana === 'parametros' && <ParametrosPlan parametros={sentencia.parametros} />}

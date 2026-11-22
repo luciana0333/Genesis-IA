@@ -28,7 +28,8 @@ class ColumnaTextoConvertidaTest(unittest.TestCase):
                 self.assertEqual(len(hallazgos), 1)
                 self.assertEqual(hallazgos[0].severidad.value, "medio")
                 self.assertTrue(hallazgos[0].complementario)
-                self.assertEqual(hallazgos[0].nodos, [{"consulta": 1, "nodo": "0"}])
+                self.assertEqual(hallazgos[0].nodos, [
+                    {"consulta": 1, "nodo": "0", "resaltar": ["CONVERT_IMPLICIT(datetime,[#CtaSaldoAuxTemp].[cFecha],0)"]}])
                 self.assertEqual(
                     hallazgos[0].mensaje,
                     "Se identificó una conversión implícita de la columna de texto cFecha de #CtaSaldoAuxTemp a "
@@ -76,7 +77,9 @@ class ColumnaTextoConvertidaTest(unittest.TestCase):
         hallazgo = columna_texto_convertida(sentencias)[0]
         self.assertIn("a datetime. Se recomienda", hallazgo.mensaje)
         self.assertNotIn("consulta", hallazgo.mensaje)
-        self.assertEqual(hallazgo.nodos, [{"consulta": 2, "nodo": "1"}, {"consulta": 4, "nodo": "1"}])
+        self.assertEqual([{k: v for k, v in m.items() if k != "resaltar"} for m in hallazgo.nodos],
+                         [{"consulta": 2, "nodo": "1"}, {"consulta": 4, "nodo": "1"}])
+        self.assertTrue(all(m["resaltar"] for m in hallazgo.nodos))
 
 
 if __name__ == "__main__":

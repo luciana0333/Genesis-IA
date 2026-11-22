@@ -51,7 +51,9 @@ class ConversionADestinoTest(unittest.TestCase):
 
     def test_caso_de_la_captura(self):
         hallazgo = conversion_columna_a_destino(_sentencia("INSERT", [{"nombre": "Defined Values", "texto": DEFINIDA}]))[0]
-        self.assertEqual(hallazgo.nodos, [{"consulta": 1, "nodo": "3"}])
+        self.assertEqual(hallazgo.nodos, [{"consulta": 1, "nodo": "3", "resaltar": [
+            "CONVERT_IMPLICIT(varchar(10),[DBCMACICA].[dbo].[cc_gestion].[cuser],0)",
+            "CONVERT_IMPLICIT(decimal(18,9),[DBCMACICA].[dbo].[cc_gestion].[nLatitud],0)"]}])
         self.assertTrue(hallazgo.complementario)
 
     def test_lo_que_ve_otra_regla_no_se_repite(self):

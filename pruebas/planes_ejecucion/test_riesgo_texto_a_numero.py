@@ -34,6 +34,10 @@ def _riesgos(xml, analizar=analizar_plan_negocio):
     return [h for h in analizar(construir_diagrama(xml)) if h.regla == "CONVERSION_TEXTO_A_NUMERO"]
 
 
+# Lo que se resalta en amarillo en el operador (usuaria, 21 nov.).
+_RESALTADO = "CONVERT_IMPLICIT(int,substring([DBCMACICA].[dbo].[Cuenta].[cCtaCod] as [A].[cCtaCod],(9),(1)),0)=(1)"
+
+
 class RiesgoTextoANumeroTest(unittest.TestCase):
     def test_en_un_operador_de_agregacion_no_se_marca(self):
         # Usuaria, 21 nov.: la comparación dentro de un Stream Aggregate o un Hash Match (Aggregate), p. ej.
@@ -54,7 +58,7 @@ class RiesgoTextoANumeroTest(unittest.TestCase):
                 self.assertEqual(len(hallazgos), 1)
                 self.assertEqual(hallazgos[0].severidad.value, "medio")
                 self.assertTrue(hallazgos[0].complementario)
-                self.assertEqual(hallazgos[0].nodos, [{"consulta": 1, "nodo": "0"}])
+                self.assertEqual(hallazgos[0].nodos, [{"consulta": 1, "nodo": "0", "resaltar": [_RESALTADO]}])
                 self.assertEqual(
                     hallazgos[0].mensaje,
                     "Se identificó una conversión implícita al comparar SUBSTRING(cCtaCod, 9, 1) con el valor "
@@ -83,7 +87,7 @@ class RiesgoTextoANumeroTest(unittest.TestCase):
                                                {"id": "7", "predicados": [predicado]}]}]
         hallazgos = conversion_texto_a_numero(sentencias)
         self.assertEqual(len(hallazgos), 1)
-        self.assertEqual(hallazgos[0].nodos, [{"consulta": 2, "nodo": "0"}])
+        self.assertEqual(hallazgos[0].nodos, [{"consulta": 2, "nodo": "0", "resaltar": [_RESALTADO]}])
 
     def test_varios_casos_en_lista(self):
         otro = "CASE WHEN CONVERT_IMPLICIT(int,right([dbo].[Cuenta].[cCodigo],(1)),0)&lt;&gt;(0) THEN 1 END"

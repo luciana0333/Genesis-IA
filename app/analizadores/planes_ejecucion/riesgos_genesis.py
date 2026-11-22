@@ -28,6 +28,22 @@ _COMPARACION_DESPUES = re.compile(r"\s*(=|<>|!=|>=|<=|>|<)\s*\((-?\d+)\)")
 _COMPARACION_ANTES = re.compile(r"\((-?\d+)\)\s*(=|<>|!=|>=|<=|>|<)\s*$")
 
 
+def _anotar(resaltes: Dict[Tuple[int, int], List[str]], consulta: int, nodo: int, texto: str) -> None:
+    """Texto exacto de la conversión en ese operador, para resaltarlo en amarillo (usuaria, 21 nov.)."""
+    lista = resaltes.setdefault((consulta, nodo), [])
+    if texto and texto not in lista:
+        lista.append(texto)
+
+
+def _con_resaltes(marcas: List[Dict], resaltes: Dict[Tuple[int, int], List[str]]) -> List[Dict]:
+    """Cada operador marcado con lo que hay que resaltar al pasar el mouse y en su imagen."""
+    for marca in marcas:
+        textos = resaltes.get((marca["consulta"], marca["nodo"]))
+        if textos:
+            marca["resaltar"] = textos
+    return marcas
+
+
 def _es_agregado(nodo: Dict) -> bool:
     """Stream Aggregate / Hash Match (Aggregate): las conversiones que calcula ahí no se observan (usuaria, 21 nov.:
     Plan Explorer no las muestra como riesgo)."""
@@ -40,9 +56,10 @@ def _expresion(conversion: re.Match) -> str:
     return f"{conversion.group('funcion').upper()}({conversion.group('nombre')}, {argumentos})"
 
 
-def _casos(sentencias: List[Dict]) -> Dict[Tuple[str, str], Dict]:
+def _casos(sentencias: List[Dict], resaltes=None) -> Dict[Tuple[str, str], Dict]:
     """{(la expresión de texto, el número con que se compara): {consultas, nodos}} en el orden en que aparecen."""
     casos: Dict[Tuple[str, str], Dict] = {}
+    resaltes = {} if resaltes is None else resaltes
     for sentencia in sentencias:
         for nodo in sentencia["nodos"]:
             if _es_agregado(nodo):
@@ -55,8 +72,10 @@ def _casos(sentencias: List[Dict]) -> Dict[Tuple[str, str], Dict]:
                     antes = _COMPARACION_ANTES.search(texto[:conversion.start()])
                     if despues:
                         clave = (expresion, despues.group(2))
+                        comparacion = texto[conversion.start():despues.end()].strip()
                     elif antes:
                         clave = (expresion, antes.group(1))
+                        comparacion = texto[antes.start():conversion.end()].strip()
                     else:
                         # Sin comparación (asignación a una variable numérica, cálculo): suele ser intencional y no
                         # decide un resultado. Solo se observan las comparaciones (decisión de la usuaria, 1 nov.).
@@ -67,11 +86,14 @@ def _casos(sentencias: List[Dict]) -> Dict[Tuple[str, str], Dict]:
                         # Un operador por consulta en la imagen: SQL Server puede calcular la misma comparación en
                         # varios Compute Scalar (una por columna del SELECT), pero en el código es un solo cambio.
                         caso["nodos"].append({"consulta": sentencia["numero"], "nodo": nodo["id"]})
+                    if {"consulta": sentencia["numero"], "nodo": nodo["id"]} in caso["nodos"]:
+                        _anotar(resaltes, sentencia["numero"], nodo["id"], comparacion)
     return casos
 
 
 def conversion_texto_a_numero(sentencias: List[Dict]) -> List[Hallazgo]:
-    casos = _casos(sentencias)
+    resaltes: Dict[Tuple[int, int], List[str]] = {}
+    casos = _casos(sentencias, resaltes)
     if not casos:
         return []
     # Modelo de redacción de la usuaria (13 nov.) para los riesgos de Genesis. Sin «(consulta N)» (la imagen ya la
@@ -93,7 +115,7 @@ def conversion_texto_a_numero(sentencias: List[Dict]) -> List[Hallazgo]:
         regla="CONVERSION_TEXTO_A_NUMERO",
         mensaje=mensaje,
     )
-    hallazgo.nodos = [marca for caso in casos.values() for marca in caso["nodos"]]
+    hallazgo.nodos = _con_resaltes([marca for caso in casos.values() for marca in caso["nodos"]], resaltes)
     hallazgo.complementario = True  # va en «Riesgos identificados por Genesis»
     return [hallazgo]
 
@@ -112,9 +134,10 @@ _COLUMNA_CONVERTIDA = re.compile(
 _PREFIJO_TEXTO = re.compile(r"c[A-Z]")
 
 
-def _casos_columna_texto(sentencias: List[Dict]) -> Dict[Tuple[str, str, str], Dict]:
+def _casos_columna_texto(sentencias: List[Dict], resaltes=None) -> Dict[Tuple[str, str, str], Dict]:
     """{(columna, tabla, tipo): {consultas, nodos}} en el orden en que aparecen."""
     casos: Dict[Tuple[str, str, str], Dict] = {}
+    resaltes = {} if resaltes is None else resaltes
     for sentencia in sentencias:
         # Lo que SQL Server ya alertó (Convert Issue) lo observa «Conversión implícita detectada»: no se repite.
         # Se compara columna y tipo: la alerta usa el alias ([CL].[cCodCliente]) y el Compute Scalar el nombre completo.
@@ -136,11 +159,14 @@ def _casos_columna_texto(sentencias: List[Dict]) -> Dict[Tuple[str, str, str], D
                     if sentencia["numero"] not in caso["consultas"]:
                         caso["consultas"].append(sentencia["numero"])
                         caso["nodos"].append({"consulta": sentencia["numero"], "nodo": nodo["id"]})
+                    if {"consulta": sentencia["numero"], "nodo": nodo["id"]} in caso["nodos"]:
+                        _anotar(resaltes, sentencia["numero"], nodo["id"], conversion.group(0))
     return casos
 
 
 def columna_texto_convertida(sentencias: List[Dict]) -> List[Hallazgo]:
-    casos = _casos_columna_texto(sentencias)
+    resaltes: Dict[Tuple[int, int], List[str]] = {}
+    casos = _casos_columna_texto(sentencias, resaltes)
     if not casos:
         return []
     # Sin «(consulta N)»: la imagen ya marca la consulta y el operador (usuaria, 9 nov.).
@@ -161,7 +187,7 @@ def columna_texto_convertida(sentencias: List[Dict]) -> List[Hallazgo]:
         regla="COLUMNA_TEXTO_CONVERTIDA",
         mensaje=mensaje,
     )
-    hallazgo.nodos = [marca for caso in casos.values() for marca in caso["nodos"]]
+    hallazgo.nodos = _con_resaltes([marca for caso in casos.values() for marca in caso["nodos"]], resaltes)
     hallazgo.complementario = True  # va en «Riesgos identificados por Genesis»
     return [hallazgo]
 
@@ -204,6 +230,7 @@ def _recorrido_costoso(sentencia: Dict, tabla: str):
 
 def conversion_columna_en_filtro(sentencias: List[Dict]) -> List[Hallazgo]:
     casos: Dict[Tuple[str, str, str], Dict] = {}
+    resaltes: Dict[Tuple[int, int], List[str]] = {}
     for sentencia in sentencias:
         # Lo que SQL Server ya alertó (Convert Issue) lo observa «Conversión implícita detectada»: no se repite.
         alertadas = {
@@ -230,9 +257,10 @@ def conversion_columna_en_filtro(sentencias: List[Dict]) -> List[Hallazgo]:
                 if predicado.get("nombre") not in _PREDICADOS_DE_FILTRO:
                     continue
                 texto = predicado.get("texto", "")
-                encontradas = _conversiones_de_columnas(texto) + [
-                    exprs[e] for e in _REFERENCIA_EXPR.findall(texto) if e in exprs]
-                for conversion in encontradas:
+                # (conversión, lo que se resalta en este operador): la conversión, o el [Expr…] que la usa.
+                encontradas = [(m, m.group(0)) for m in _conversiones_de_columnas(texto)] + [
+                    (exprs[e], f"[{e}]") for e in _REFERENCIA_EXPR.findall(texto) if e in exprs]
+                for conversion, resaltado in encontradas:
                     nombre, tipo = conversion.group("nombre"), conversion.group("tipo").lower()
                     if (nombre.lower(), tipo) in alertadas:
                         continue
@@ -247,6 +275,7 @@ def conversion_columna_en_filtro(sentencias: List[Dict]) -> List[Hallazgo]:
                                   {"consulta": sentencia["numero"], "nodo": costo[2]["id"]}):
                         if marca not in caso["nodos"]:
                             caso["nodos"].append(marca)
+                    _anotar(resaltes, sentencia["numero"], nodo["id"], resaltado)
     if not casos:
         return []
 
@@ -270,7 +299,7 @@ def conversion_columna_en_filtro(sentencias: List[Dict]) -> List[Hallazgo]:
                  else Severidad.BAJO)
     hallazgo = Hallazgo(linea=1, origen=OrigenAnalisis.PLAN_EJECUCION, severidad=severidad,
                         regla="CONVERSION_COLUMNA_EN_FILTRO", mensaje=mensaje)
-    hallazgo.nodos = [marca for caso in casos.values() for marca in caso["nodos"]]
+    hallazgo.nodos = _con_resaltes([marca for caso in casos.values() for marca in caso["nodos"]], resaltes)
     hallazgo.complementario = True  # va en «Riesgos identificados por Genesis»
     return [hallazgo]
 
@@ -307,6 +336,7 @@ _COLUMNA_CONVERTIDA_EN_ALERTA = re.compile(
 def conversion_columna_a_destino(sentencias: List[Dict]) -> List[Hallazgo]:
     lugares: Dict[str, None] = {}
     nodos: List[Dict] = []
+    resaltes: Dict[Tuple[int, int], List[str]] = {}
     for sentencia in sentencias:
         # Lo que SQL Server ya alertó (Convert Issue) lo observa «Conversión implícita detectada»: no se repite.
         alertadas = {
@@ -337,6 +367,8 @@ def conversion_columna_a_destino(sentencias: List[Dict]) -> List[Hallazgo]:
                     marca = {"consulta": sentencia["numero"], "nodo": nodo["id"]}
                     if marca not in nodos:
                         nodos.append(marca)
+                    completa = definida.group(0)
+                    _anotar(resaltes, sentencia["numero"], nodo["id"], completa[completa.index("CONVERT_IMPLICIT"):-1])
     if not nodos:
         return []
     # Texto de la usuaria (20 nov.): corto y directo; el operador marcado en la imagen muestra las columnas.
@@ -347,6 +379,6 @@ def conversion_columna_a_destino(sentencias: List[Dict]) -> List[Hallazgo]:
                f"la conversión implícita identificada {donde}.")
     hallazgo = Hallazgo(linea=1, origen=OrigenAnalisis.PLAN_EJECUCION, severidad=Severidad.BAJO,
                         regla="CONVERSION_COLUMNA_A_DESTINO", mensaje=mensaje)
-    hallazgo.nodos = nodos
+    hallazgo.nodos = _con_resaltes(nodos, resaltes)
     hallazgo.complementario = True  # va en «Riesgos identificados por Genesis»
     return [hallazgo]

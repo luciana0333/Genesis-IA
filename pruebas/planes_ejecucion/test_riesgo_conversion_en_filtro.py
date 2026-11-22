@@ -66,7 +66,9 @@ class ConversionEnFiltroTest(unittest.TestCase):
         self.assertEqual(len(hallazgos), 1)
         self.assertIn("bEnfermedadTerminal de Cts a int, que obliga a leer 29,592 filas para devolver 2",
                       hallazgos[0].mensaje)
-        self.assertEqual(hallazgos[0].nodos, [{"consulta": 1, "nodo": "0"}, {"consulta": 1, "nodo": "2"}])
+        # En el filtro se resalta el [Expr1003] que trae la conversión (usuaria, 21 nov.).
+        self.assertEqual(hallazgos[0].nodos, [{"consulta": 1, "nodo": "0", "resaltar": ["[Expr1003]"]},
+                                              {"consulta": 1, "nodo": "2"}])
 
     def test_compute_scalar_solo_en_el_resultado_no_se_marca(self):
         # Caso de la captura: [Expr1003] solo va en la lista de salida; nadie filtra con él.

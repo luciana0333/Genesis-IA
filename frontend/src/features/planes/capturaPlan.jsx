@@ -109,6 +109,38 @@ function kbComoSsms(kb) {
   return kb >= 1024 ? `${Math.round(kb / 1024).toLocaleString('en-US')} MB` : `${Math.round(kb).toLocaleString('en-US')} KB`;
 }
 
+/** Partes de primer nivel (fuera de paréntesis) de un texto separado por comas: cada [Expr] = … de Defined Values. */
+function partesDePrimerNivel(texto) {
+  const partes = [];
+  let profundidad = 0;
+  let inicio = 0;
+  for (let i = 0; i < texto.length; i += 1) {
+    if (texto[i] === '(') profundidad += 1;
+    else if (texto[i] === ')') profundidad -= 1;
+    else if (texto[i] === ',' && profundidad === 0) {
+      partes.push(texto.slice(inicio, i).trim());
+      inicio = i + 1;
+    }
+  }
+  partes.push(texto.slice(inicio).trim());
+  return partes.filter(Boolean);
+}
+
+/** Dónde está lo que señala la observación (la conversión implícita): solo las partes que lo contienen. */
+function gruposResaltados(nodo) {
+  const resaltar = nodo.resaltar ?? [];
+  if (!resaltar.length) return [];
+  return (nodo.predicados ?? [])
+    .map((predicado) => {
+      const partes = predicado.nombre === 'Defined Values' ? partesDePrimerNivel(predicado.texto) : [predicado.texto];
+      const items = partes
+        .filter((parte) => resaltar.some((texto) => parte.includes(texto)))
+        .map((parte) => ({ texto: parte, resaltados: resaltar }));
+      return { titulo: `${predicado.nombre}:`, items };
+    })
+    .filter((grupo) => grupo.items.length);
+}
+
 function contenidoRecuadro(nodo, regla, sentencia) {
   // En la regla de tiempo el recuadro muestra el bloque y sus tiempos, no las advertencias.
   if (regla === 'TIEMPO_EJECUCION_SUPERADO') {
@@ -131,6 +163,9 @@ function contenidoRecuadro(nodo, regla, sentencia) {
   const propias = TIPOS_POR_REGLA[regla];
   const items = nodo.advertencias.map((a) => (!propias || propias.includes(a.tipo) ? a : { ...a, resaltados: [] }));
   const grupos = items.length ? [{ titulo: 'Warnings:', items }] : [];
+  // Riesgos de Genesis (conversión implícita sin alerta de SQL Server): el texto del operador donde aparece,
+  // con la conversión resaltada en amarillo (usuaria, 21 nov.).
+  grupos.push(...gruposResaltados(nodo));
   // Sobreestimación de memoria sin la alerta Excessive Grant en el XML: se muestra la memoria de la consulta
   // (MemoryGrantInfo), que es de donde sale la observación, para que la imagen la respalde.
   const memoria = sentencia?.memoria;
@@ -284,9 +319,10 @@ function bloque(sentencia, nodo, posiciones, ancho, y, regla, x = 0) {
  */
 export async function crearCapturaPlan({ grupos, archivo, regla }) {
   const casos = grupos
-    .flatMap(({ sentencia, nodoIds }) => nodoIds
+    .flatMap(({ sentencia, nodoIds, resaltes }) => nodoIds
       .map((id) => sentencia.nodos.find((n) => n.id === id))
       .filter(Boolean)
+      .map((nodo) => (resaltes?.[nodo.id] ? { ...nodo, resaltar: resaltes[nodo.id] } : nodo))
       .map((nodo) => ({ sentencia, nodo })))
     .slice(0, REGLAS_COMPACTAS.has(regla) ? MAXIMO_COMPACTOS : MAXIMO_NODOS);
   if (!casos.length) throw new Error('No se encontró el operador en el diagrama.');
