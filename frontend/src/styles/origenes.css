@@ -1,0 +1,269 @@
+/*
+ * Pestañas de origen de los resultados (opción B, usuaria, 22 nov.): «Buenas prácticas» (la Caja, en rojo, como
+ * siempre) y «Validador SQL Server» (el lector oficial de SQL Server, en tinta oscura). Las fichas no cambian: solo
+ * las pestañas de arriba, la columna lateral y el aviso de lo que impide ejecutar.
+ */
+
+/* ───────── Pestañas ───────── */
+.origenes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 4px 0 22px;
+}
+
+.origen {
+  --origen: var(--red-main);
+  --origen-suave: rgba(227, 6, 19, 0.08);
+
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 15px 18px;
+  border: none;
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(17, 17, 26, 0.05), 0 6px 16px -12px rgba(17, 17, 26, 0.25);
+  opacity: 0.78;
+  transition: box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+
+.origen-validador {
+  --origen: #24242c;
+  --origen-suave: rgba(36, 36, 44, 0.08);
+}
+
+.origen:hover {
+  opacity: 1;
+}
+
+/* Activa: relieve completo y un filo del color de su origen abajo, como una pestaña que se apoya en los resultados. */
+.origen.activo {
+  opacity: 1;
+  box-shadow: inset 0 1px 0 #ffffff, 0 1px 2px rgba(17, 17, 26, 0.05), 0 16px 32px -18px rgba(17, 17, 26, 0.38);
+}
+
+.origen.activo::after {
+  content: '';
+  position: absolute;
+  right: 18px;
+  bottom: 0;
+  left: 18px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--origen);
+}
+
+.origen:focus-visible {
+  outline: 2px solid var(--origen);
+  outline-offset: 2px;
+}
+
+.origen-icono {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.origen.activo .origen-icono {
+  background: var(--origen-suave);
+  color: var(--origen);
+}
+
+.origen-icono svg {
+  width: 20px;
+  height: 20px;
+}
+
+.origen-textos {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.origen-titulo {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.origen-descripcion {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.origen-cantidad {
+  flex: none;
+  min-width: 40px;
+  color: var(--text-muted);
+  font-size: 1.45rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  text-align: right;
+}
+
+.origen.activo .origen-cantidad {
+  color: var(--origen);
+}
+
+.origen-nota {
+  margin: -10px 0 18px;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+:root[data-theme="dark"] .origen {
+  background: linear-gradient(180deg, #1c1c23 0%, #17171d 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 24px -14px rgba(0, 0, 0, 0.8);
+}
+
+:root[data-theme="dark"] .origen-validador {
+  --origen: #c9c9d2;
+  --origen-suave: rgba(201, 201, 210, 0.12);
+}
+
+/* ───────── Columna lateral del Validador: tinta oscura sobre la misma foto ───────── */
+.tablero-lateral.origen-validador {
+  background:
+    linear-gradient(rgba(22, 22, 27, 0.86), rgba(22, 22, 27, 0.86)),
+    url('../assets/centro-datos.png') 36% center / cover no-repeat;
+  background-color: #16161b;
+  background-blend-mode: normal, luminosity;
+  box-shadow: 0 18px 36px -18px rgba(10, 10, 14, 0.75);
+}
+
+.tablero-lateral.origen-validador .tablero-filtro.active,
+.tablero-lateral.origen-validador .tablero-filtro.active:hover {
+  color: #16161b;
+}
+
+.tablero-lateral.origen-validador .tablero-filtro.active i {
+  background: #16161b;
+}
+
+.tablero-lateral.origen-validador .tablero-filtro.filtro-medio i {
+  background: #f4a3aa;
+}
+
+/* ───────── Lo que impide ejecutar: siempre visible, arriba de las pestañas ───────── */
+.aviso-bloqueo {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  margin: 4px 0 16px;
+  padding: 16px 18px 16px 22px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--bg-card);
+  box-shadow: 0 1px 2px rgba(17, 17, 26, 0.05), 0 12px 28px -16px rgba(17, 17, 26, 0.3);
+}
+
+.aviso-bloqueo::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background: var(--sev-critico);
+}
+
+.aviso-bloqueo-icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--sev-critico-bg);
+  color: var(--sev-critico);
+}
+
+.aviso-bloqueo-icono svg {
+  width: 20px;
+  height: 20px;
+}
+
+.aviso-bloqueo-etiqueta {
+  color: var(--sev-critico-text);
+  font-family: var(--font-sans);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.aviso-bloqueo-titulo {
+  margin-top: 2px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.aviso-bloqueo-detalle {
+  margin-top: 3px;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.aviso-bloqueo-boton {
+  padding: 9px 14px;
+  border: none;
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(17, 17, 26, 0.1), 0 6px 16px -10px rgba(17, 17, 26, 0.3);
+}
+
+.aviso-bloqueo-boton:hover {
+  box-shadow: 0 2px 6px rgba(17, 17, 26, 0.12), 0 10px 22px -12px rgba(17, 17, 26, 0.4);
+}
+
+.aviso-bloqueo-boton:focus-visible {
+  outline: 2px solid var(--sev-critico);
+  outline-offset: 2px;
+}
+
+:root[data-theme="dark"] .aviso-bloqueo,
+:root[data-theme="dark"] .aviso-bloqueo-boton {
+  background: #1c1c23;
+}
+
+@media (max-width: 760px) {
+  .origenes {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .aviso-bloqueo {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .aviso-bloqueo-boton {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}

@@ -76,6 +76,23 @@ export function validarSql(sql, { signal } = {}) {
   );
 }
 
+/**
+ * POST /api/bitbucket/leer — lee un pull request, una rama o un commit de Bitbucket (solo lectura) y devuelve sus
+ * archivos .sql clasificados (contrato en features/bitbucket/archivos.js).
+ */
+export function leerBitbucket(enlace, { signal } = {}) {
+  return solicitar(
+    '/api/bitbucket/leer',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enlace }),
+      signal,
+    },
+    'No se pudo leer el link de Bitbucket.',
+  );
+}
+
 /** POST /api/analizar — revisa un objeto SQL con las reglas estáticas. */
 export function analizarObjeto(solicitud, { signal } = {}) {
   return solicitar(

@@ -22,6 +22,7 @@ from app.analizadores import ortografia
 from app.analizadores.siglas import aprobar_sigla, significado as significado_sigla
 from app.analizadores.planes_ejecucion.lote import MAXIMO_POR_ARCHIVO, MAXIMO_POR_ARCHIVO_MB, analizar_lote
 from app.analizadores.scriptdom import LECTOR_SCRIPTDOM, validar_estructura
+from app.analizadores.validador_en_modulos import validar_para_modulo
 
 
 # Compilación de producción del frontend React (cd frontend && npm run build).
@@ -45,6 +46,36 @@ def _area_y_limite(formulario):
     except (TypeError, ValueError):
         limite = None
     return area, limite
+
+
+def _serializar_hallazgo(hallazgo):
+    """Un hallazgo como lo espera la pantalla (mismo formato en buenas prácticas y en el validador)."""
+    severidad = str(hallazgo.severidad.value).lower()
+    return {
+        'linea': hallazgo.linea,
+        'origen': hallazgo.origen.value,
+        'severidad': severidad,
+        'regla': hallazgo.regla,
+        'mensaje': hallazgo.mensaje,
+        # Dónde empieza el «Qué hacer» cuando lo que se encontró tiene varias oraciones (si no, la
+        # pantalla corta en la primera oración, como siempre).
+        'inicioQueHacer': getattr(hallazgo, 'inicio_que_hacer', None),
+        # En qué cajita está la línea (p. ej. 'indices'); None = el SQL principal.
+        'seccion': getattr(hallazgo, 'seccion', None),
+        # Líneas de una observación que junta varias (p. ej. tablas sin NOLOCK).
+        'lineas': getattr(hallazgo, 'lineas', None),
+        # Líneas de cada viñeta ([{nombre, lineas}]): «Ver en el código» las recorre viñeta por viñeta.
+        'grupos': getattr(hallazgo, 'grupos', None),
+        # Casos poco comunes (p. ej. clave primaria heredada): van en su propio recuadro, para validar con el DBA.
+        'pocoComun': getattr(hallazgo, 'poco_comun', False),
+        # Consulta lista para copiar que valida el dato en SQL Server (p. ej. el tipo real de una columna).
+        'consulta': getattr(hallazgo, 'consulta', None),
+        # Siglas por validar de la observación («Aprobar siglas»).
+        'siglas': getattr(hallazgo, 'siglas', None),
+        # En cuántos nombres aparece cada sigla («En 2 tablas · 11 columnas»).
+        'usoSiglas': getattr(hallazgo, 'uso_siglas', None)
+        or ({sigla: 1 for sigla in hallazgo.siglas} if getattr(hallazgo, 'siglas', None) else None),
+    }
 
 
 class GenesisHandler(SimpleHTTPRequestHandler):
@@ -164,37 +195,20 @@ class GenesisHandler(SimpleHTTPRequestHandler):
             'medio': 0,
             'bajo': 0,
         }
-        hallazgos_serializados = []
-
         for hallazgo in hallazgos:
             severidad = str(hallazgo.severidad.value).lower()
             if severidad in resumen:
                 resumen[severidad] += 1
-            hallazgos_serializados.append({
-                'linea': hallazgo.linea,
-                'origen': hallazgo.origen.value,
-                'severidad': severidad,
-                'regla': hallazgo.regla,
-                'mensaje': hallazgo.mensaje,
-                # Dónde empieza el «Qué hacer» cuando lo que se encontró tiene varias oraciones (si no, la
-                # pantalla corta en la primera oración, como siempre).
-                'inicioQueHacer': getattr(hallazgo, 'inicio_que_hacer', None),
-                # En qué cajita está la línea (p. ej. 'indices'); None = el SQL principal.
-                'seccion': getattr(hallazgo, 'seccion', None),
-                # Líneas de una observación que junta varias (p. ej. tablas sin NOLOCK).
-                'lineas': getattr(hallazgo, 'lineas', None),
-                # Líneas de cada viñeta ([{nombre, lineas}]): «Ver en el código» las recorre viñeta por viñeta.
-                'grupos': getattr(hallazgo, 'grupos', None),
-                # Casos poco comunes (p. ej. clave primaria heredada): van en su propio recuadro, para validar con el DBA.
-                'pocoComun': getattr(hallazgo, 'poco_comun', False),
-                # Consulta lista para copiar que valida el dato en SQL Server (p. ej. el tipo real de una columna).
-                'consulta': getattr(hallazgo, 'consulta', None),
-                # Siglas por validar de la observación («Aprobar siglas»).
-                'siglas': getattr(hallazgo, 'siglas', None),
-                # En cuántos nombres aparece cada sigla («En 2 tablas · 11 columnas»).
-                'usoSiglas': getattr(hallazgo, 'uso_siglas', None)
-                or ({sigla: 1 for sigla in hallazgo.siglas} if getattr(hallazgo, 'siglas', None) else None),
-            })
+        hallazgos_serializados = [_serializar_hallazgo(hallazgo) for hallazgo in hallazgos]
+
+        # Validador SQL Server, aparte de las buenas prácticas (pestañas de la usuaria, 22 nov.). Si falla, la revisión
+        # de buenas prácticas se entrega igual: el validador nunca la detiene.
+        try:
+            validacion = validar_para_modulo(tipo, sql_text, dict_text, indices_text, hallazgos)
+        except Exception as exc:  # pragma: no cover - red de seguridad
+            validacion = {'disponible': False, 'motivo': f'No se pudo ejecutar el Validador SQL Server: {exc}'}
+        if validacion is not None and validacion.get('disponible'):
+            validacion = {**validacion, 'hallazgos': [_serializar_hallazgo(h) for h in validacion['hallazgos']]}
 
         self._send_json({
             'tipoRevision': tipo,
@@ -202,6 +216,8 @@ class GenesisHandler(SimpleHTTPRequestHandler):
             'hallazgos': hallazgos_serializados,
             # «Generar diccionario faltante»: script de lo que falta documentar (o None).
             'diccionarioFaltante': faltante,
+            # Validador SQL Server: {disponible, alcance, hallazgos} o {disponible: False, motivo}; null si no aplica.
+            'validacion': validacion,
         })
 
     def _validar_sql(self):

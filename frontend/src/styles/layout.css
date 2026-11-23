@@ -108,14 +108,15 @@
 .nav-links {
   display: flex;
   align-items: stretch;
-  gap: 4px;
+  gap: 2px;
 }
 
 .nav-link {
   position: relative;
   display: flex;
   align-items: center;
-  padding: 0 16px;
+  /* 12 px: con la pestaña Bitbucket (22 nov.) las 7 pestañas y el botón entran en una línea a 1280 px. */
+  padding: 0 12px;
   color: var(--text-secondary);
   font-size: 0.92rem;
   font-weight: 500;
@@ -143,6 +144,7 @@
   color: #ffffff;
   font-size: 0.86rem;
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
   transition: background-color var(--dur-fast) ease;
 }
@@ -537,8 +539,11 @@
   }
 }
 
-/* ───────── RESPONSIVE ───────── */
-@media (max-width: 1080px) {
+/* ───────── RESPONSIVE ─────────
+ * Desde 1320 px las pestañas bajan a su propia fila: con 7 pestañas (Bitbucket, 22 nov.) y el botón ya no entran
+ * en una sola línea en pantallas medianas.
+ */
+@media (max-width: 1320px) {
   .navbar-container {
     flex-wrap: wrap;
     height: auto;

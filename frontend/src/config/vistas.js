@@ -98,6 +98,13 @@ export const VISTAS = [
       accion: 'Comenzar validación',
     },
   },
+  {
+    // Pegar el link de un pull request, rama o commit y revisar todos sus objetos (tiene su propia portada).
+    id: 'bitbucket',
+    ruta: 'bitbucket',
+    etiqueta: 'Bitbucket',
+    esBitbucket: true,
+  },
 ];
 
 export const VISTA_INICIAL = VISTAS[0];
