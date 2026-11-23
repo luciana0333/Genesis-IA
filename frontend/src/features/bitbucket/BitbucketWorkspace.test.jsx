@@ -84,5 +84,6 @@ describe('BitbucketWorkspace', () => {
     const traspaso = tomarTraspaso('reporte');
     expect(traspaso).toMatchObject({ tipoRevision: 'reporte', campos: { objetoNombre: 'dbo.PA_GDD_Cliente_Sel_Resumen' } });
     expect(tomarTraspaso('reporte')).toBeNull();
-  });
+    // Recorre los tres pasos: con la PC cargada puede pasar de los 5 s por defecto.
+  }, 20000);
 });

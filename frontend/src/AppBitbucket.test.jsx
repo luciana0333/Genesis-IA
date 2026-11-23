@@ -50,5 +50,6 @@ describe('Bitbucket dentro de la aplicación', () => {
 
     await irA('bitbucket');
     expect(screen.getByRole('heading', { name: 'Detalle por archivo' })).toBeInTheDocument();
-  });
+    // Recorre los tres pasos y abre un módulo: con la PC cargada (p. ej. tras las pruebas del backend) pasa de 5 s.
+  }, 20000);
 });
