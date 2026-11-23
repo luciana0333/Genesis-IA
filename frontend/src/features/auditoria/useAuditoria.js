@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { analizarObjeto, esCancelacion } from '../../api/cliente';
 import { NOMBRE_OBJETO_INICIAL } from '../../config/ejemplos';
 import { REVISIONES, construirSolicitud } from '../../config/revisiones';
@@ -30,11 +30,12 @@ function camposDeDemo(tipoRevision, base) {
  *
  * resultado.estado: 'inicial' | 'cargando' | 'listo' | 'error'
  */
-export function useAuditoria(tipoInicial) {
-  const [tipoRevision, setTipoRevision] = useState(tipoInicial);
-  const [campos, setCampos] = useState(() =>
-    camposDeEjemplo(tipoInicial, { objetoNombre: NOMBRE_OBJETO_INICIAL, esDbcmaica: false, esDelMotor: false }),
-  );
+export function useAuditoria(tipoInicial, traspaso = null) {
+  // Con un traspaso de Bitbucket («Abrir en …») se arranca con su código en vez del ejemplo.
+  const [tipoRevision, setTipoRevision] = useState(traspaso?.tipoRevision ?? tipoInicial);
+  const [campos, setCampos] = useState(() => (traspaso
+    ? { objetoNombre: '', dictScript: '', indicesScript: '', esDbcmaica: false, esDelMotor: false, ...traspaso.campos }
+    : camposDeEjemplo(tipoInicial, { objetoNombre: NOMBRE_OBJETO_INICIAL, esDbcmaica: false, esDelMotor: false })));
   const [resultado, setResultado] = useState(RESULTADO_INICIAL);
   const { ejecutar, cancelar } = useSolicitudCancelable();
 
@@ -90,6 +91,8 @@ export function useAuditoria(tipoInicial) {
         mensaje: '',
         // Diccionarios: script de lo que falta documentar («Generar diccionario faltante»).
         diccionarioFaltante: datos.diccionarioFaltante ?? null,
+        // Validador SQL Server, aparte de las buenas prácticas: {disponible, alcance, hallazgos} o {disponible: false, motivo}.
+        validacion: datos.validacion ?? null,
       });
     } catch (error) {
       if (esCancelacion(error)) return;
@@ -103,6 +106,18 @@ export function useAuditoria(tipoInicial) {
     setCampos(ejemplo);
     revisar(ejemplo);
   }, [tipoRevision, campos, revisar]);
+
+  // El código que llegó de Bitbucket se revisa apenas se abre el módulo (una sola vez).
+  // Se agenda en vez de llamarse directo: en desarrollo React monta dos veces y la primera solicitud se cancelaría.
+  const traspasoRevisado = useRef(false);
+  useEffect(() => {
+    if (!traspaso || traspasoRevisado.current) return undefined;
+    const agenda = setTimeout(() => {
+      traspasoRevisado.current = true;
+      revisar();
+    });
+    return () => clearTimeout(agenda);
+  }, [traspaso, revisar]);
 
   const conteo = useMemo(() => contarPorSeveridad(resultado.hallazgos), [resultado.hallazgos]);
 

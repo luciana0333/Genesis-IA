@@ -15,12 +15,13 @@ import { CampoNombre } from './CampoNombre';
 import { BarraRecorrido, VerEnCodigo } from './VerEnCodigo';
 import { tituloHallazgo } from '../../config/reglas';
 import { GeneradorDiccionario } from './GeneradorDiccionario';
-import { CopiarConsulta } from '../validacion/CopiarConsulta';
+import { CopiarConsulta } from '../../components/CopiarConsulta';
 import { MetricasSeveridad } from './MetricasSeveridad';
 import { detectarTipoDiccionario, extraerNombresObjetos, resumirNombresObjetos } from '../../utils/deteccionObjeto';
 import { grupoDelRecorrido } from '../../utils/recorrido';
 import { useAuditoria } from './useAuditoria';
 import { useAlPedirEjemplo } from '../../hooks/useVerEjemplo';
+import { tomarTraspaso } from '../bitbucket/traspaso';
 
 // Observaciones de «falta documentar»: la primera presente ofrece el script del diccionario faltante.
 // A qué tipo de nombre pertenece cada observación de «sigla por validar».
@@ -50,6 +51,8 @@ export function AuditoriaWorkspace({ vista }) {
   const ids = useId();
   // «Ver» del resumen por severidad baja hasta los resultados.
   const resultadosRef = useRef(null);
+  // Código que llegó de la pestaña Bitbucket («Abrir en …»): se toma una vez, al montar el módulo.
+  const [traspaso] = useState(() => tomarTraspaso(vista.id));
   const {
     tipoRevision,
     revision,
@@ -63,7 +66,7 @@ export function AuditoriaWorkspace({ vista }) {
     limpiar,
     revisar,
     revisarEjemplo,
-  } = useAuditoria(vista.tipoRevision);
+  } = useAuditoria(vista.tipoRevision, traspaso);
 
   // "Ver ejemplo" del encabezado: carga el ejemplo y lo revisa.
   useAlPedirEjemplo(revisarEjemplo);
@@ -436,6 +439,7 @@ export function AuditoriaWorkspace({ vista }) {
             titulo={vista.resultados.titulo}
             estado={resultado.estado}
             hallazgos={resultado.hallazgos}
+            validacion={resultado.validacion}
             mensajeError={resultado.mensaje}
             accionesHallazgo={accionesHallazgo}
             vinetaActiva={(hallazgo) => (hallazgo === marca?.hallazgo ? grupoActual?.vineta ?? null : null)}

@@ -15,7 +15,9 @@ import { EncabezadoSeccion } from './EncabezadoSeccion';
 import { CasosPocoComunes } from './CasosPocoComunes';
 import { EstadoInicial } from './EstadoInicial';
 import { EstadoVacio } from './EstadoVacio';
-import { IconoCopiar, IconoCopiado, IconoErrorCirculo } from './Iconos';
+import {
+  IconoBaseDatos, IconoCopiar, IconoCopiado, IconoErrorCirculo, IconoEscudoCheck, IconoSeveridadCritica,
+} from './Iconos';
 
 /**
  * Resalta lo que el mensaje cita entre comillas simples ('Indicatg', 'dbo2') o
@@ -42,7 +44,7 @@ const VEREDICTOS = {
  * Columna lateral oscura del tablero: total, veredicto y filtros por severidad
  * (todas las severidades, con su cantidad aunque sea cero).
  */
-function ResumenLateral({ conteo, total, filtro, onFiltrar }) {
+function ResumenLateral({ conteo, total, filtro, onFiltrar, origen = 'practicas' }) {
   const mayor = SEVERIDADES.find((severidad) => conteo[severidad] > 0) ?? 'bajo';
   const veredicto = VEREDICTOS[mayor];
   const opciones = [
@@ -54,7 +56,8 @@ function ResumenLateral({ conteo, total, filtro, onFiltrar }) {
     })),
   ];
   return (
-    <aside className={`tablero-lateral sev-${mayor}`}>
+    // Buenas prácticas en rojo (como siempre); Validador SQL Server en oscuro (usuaria, 22 nov.).
+    <aside className={`tablero-lateral sev-${mayor}${origen === 'validador' ? ' origen-validador' : ''}`}>
       <p className="tablero-kicker">{total === 1 ? 'Hallazgo' : 'Hallazgos'}</p>
       <strong className="tablero-total">{total}</strong>
       <p className="tablero-estado" role="status">{veredicto.titulo}</p>
@@ -234,6 +237,61 @@ function FilaHallazgo({ hallazgo, mostrarLinea, acciones, vinetaActiva = null })
   );
 }
 
+// Pestañas de origen (opción B de la usuaria, 22 nov.): buenas prácticas de la Caja y lo que dice SQL Server.
+const ORIGENES = {
+  practicas: { titulo: 'Buenas prácticas', descripcion: 'Estándares y reglas de CAJA ICA', Icono: IconoEscudoCheck },
+  validador: { titulo: 'Validador SQL Server', descripcion: 'Lector oficial de SQL Server', Icono: IconoBaseDatos },
+};
+
+function PestanasOrigen({ origen, cantidades, onElegir }) {
+  return (
+    <div className="origenes" role="tablist" aria-label="Origen de las observaciones">
+      {Object.entries(ORIGENES).map(([id, { titulo, descripcion, Icono }]) => (
+        <button
+          key={id}
+          type="button"
+          role="tab"
+          aria-selected={origen === id}
+          className={`origen origen-${id}${origen === id ? ' activo' : ''}`}
+          onClick={() => onElegir(id)}
+        >
+          <span className="origen-icono"><Icono /></span>
+          <span className="origen-textos">
+            <span className="origen-titulo">{titulo}</span>
+            <span className="origen-descripcion">{descripcion}</span>
+          </span>
+          <span className="origen-cantidad">{cantidades[id] ?? '—'}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Lo único que nunca queda escondido: si el Validador SQL Server encontró algo que haría fallar el código, se avisa
+ * arriba de las pestañas, se esté en la que se esté.
+ */
+function AvisoBloqueo({ criticos, enValidador, onVer }) {
+  const [primero] = criticos;
+  const mas = criticos.length - 1;
+  return (
+    <div className="aviso-bloqueo" role="alert">
+      <span className="aviso-bloqueo-icono"><IconoSeveridadCritica /></span>
+      <div className="aviso-bloqueo-textos">
+        <p className="aviso-bloqueo-etiqueta">Impide ejecutar</p>
+        <p className="aviso-bloqueo-titulo">SQL Server marcaría error al ejecutar este código</p>
+        <p className="aviso-bloqueo-detalle">
+          {tituloHallazgo(primero)} (línea {primero.linea || 1}){mas > 0 && ` y ${mas} ${mas === 1 ? 'error más' : 'errores más'}`}.
+          {' '}Corrígelo primero: mientras exista, el código no se puede ejecutar.
+        </p>
+      </div>
+      {!enValidador && (
+        <button type="button" className="aviso-bloqueo-boton" onClick={onVer}>Ver en el Validador SQL Server</button>
+      )}
+    </div>
+  );
+}
+
 function EsqueletoCarga() {
   return (
     <div className="findings-skeleton" aria-hidden="true">
@@ -249,12 +307,16 @@ function EsqueletoCarga() {
  * textos: { inicial, cargando, sinHallazgos, tituloError } — mensajes por estado.
  * accionesHallazgo: (hallazgo) => contenido extra al pie de cada ficha (opcional).
  * vinetaActiva: (hallazgo) => índice de la viñeta que se está recorriendo en el código, o null (opcional).
+ * validacion: resultado del Validador SQL Server ({disponible, alcance, hallazgos} o {disponible: false, motivo}).
+ *   Si llega, los resultados se separan en las pestañas «Buenas prácticas» y «Validador SQL Server»; si no
+ *   (undefined o null), el panel es el de siempre.
  */
 export function PanelHallazgos({
   titulo,
   meta,
   estado,
   hallazgos = [],
+  validacion,
   mensajeError,
   textos,
   mostrarLinea = true,
@@ -263,15 +325,31 @@ export function PanelHallazgos({
 }) {
   const [filtroElegido, setFiltro] = useState('todos');
   const [seccionElegida, setSeccion] = useState('tabla');
+  // La pestaña de origen vale para el resultado en el que se eligió: una revisión nueva vuelve a «Buenas prácticas».
+  const [origenPedido, setOrigenPedido] = useState(null);
+
+  const conOrigenes = estado === 'listo' && Boolean(validacion);
+  const validadorDisponible = Boolean(validacion?.disponible);
+  const delValidador = validadorDisponible ? validacion.hallazgos ?? [] : [];
+  const origen = conOrigenes && origenPedido?.para === hallazgos ? origenPedido.origen : 'practicas';
+  const elegirOrigen = (nuevo) => {
+    setOrigenPedido({ para: hallazgos, origen: nuevo });
+    setFiltro('todos');
+    setSeccion('tabla');
+  };
+  const activos = origen === 'validador' ? delValidador : hallazgos;
+  const criticosValidador = conOrigenes
+    ? delValidador.filter((hallazgo) => normalizarSeveridad(hallazgo.severidad) === 'critico')
+    : [];
 
   // Si hay hallazgos de los índices (Tablas), se separan en pestañas «Tabla | Índices».
-  const deIndices = hallazgos.filter((hallazgo) => hallazgo.seccion === 'indices');
-  const deTabla = hallazgos.filter((hallazgo) => hallazgo.seccion !== 'indices');
+  const deIndices = activos.filter((hallazgo) => hallazgo.seccion === 'indices');
+  const deTabla = activos.filter((hallazgo) => hallazgo.seccion !== 'indices');
   const conSecciones = deIndices.length > 0;
   // Si la pestaña elegida quedó vacía (nuevo análisis), se muestra la otra.
   const seccion = !conSecciones ? 'tabla'
     : seccionElegida === 'indices' || !deTabla.length ? 'indices' : 'tabla';
-  const delaSeccion = !conSecciones ? hallazgos : seccion === 'indices' ? deIndices : deTabla;
+  const delaSeccion = !conSecciones ? activos : seccion === 'indices' ? deIndices : deTabla;
 
   const conteo = contarPorSeveridad(delaSeccion);
   const ordenados = ordenarHallazgos(delaSeccion);
@@ -281,7 +359,7 @@ export function PanelHallazgos({
   const visibles = filtro === 'todos'
     ? ordenados
     : ordenados.filter((hallazgo) => normalizarSeveridad(hallazgo.severidad) === filtro);
-  const hayHallazgos = estado === 'listo' && hallazgos.length > 0;
+  const hayHallazgos = estado === 'listo' && activos.length > 0;
   // Los riesgos identificados por Genesis (sin alerta de SQL Server) van aparte, debajo de los demás.
   // Los casos poco comunes (para validar con el DBA) van en su propio recuadro, al final (usuaria, 21 nov.).
   const pocoComunes = visibles.filter((hallazgo) => hallazgo.pocoComun);
@@ -302,7 +380,28 @@ export function PanelHallazgos({
         {mensajeError}
       </EstadoVacio>
     );
-  } else if (estado === 'listo' && !hallazgos.length) {
+  } else if (estado === 'listo' && origen === 'validador' && !validadorDisponible) {
+    contenido = (
+      <EstadoVacio icono={<IconoBaseDatos />} titulo="El Validador SQL Server no está disponible en esta PC">
+        {validacion.motivo} Las buenas prácticas se revisaron igual.
+      </EstadoVacio>
+    );
+  } else if (estado === 'listo' && origen === 'validador' && !activos.length) {
+    contenido = (
+      <EstadoInicial
+        variante="exito"
+        titulo="Sin observaciones de SQL Server"
+        descripcion="El lector oficial de SQL Server no encontró nada que observar en este código."
+        pasos={[
+          validacion.alcance === 'estructura'
+            ? 'Se revisó que el código se pueda crear y ejecutar'
+            : 'Se revisó la estructura, los errores silenciosos y el rendimiento',
+          'No hay observaciones de ninguna severidad',
+          'Revisa también la pestaña «Buenas prácticas»',
+        ]}
+      />
+    );
+  } else if (estado === 'listo' && !activos.length) {
     contenido = (
       <EstadoInicial
         variante="exito"
@@ -399,10 +498,35 @@ export function PanelHallazgos({
           </>
         }
       />
+      {criticosValidador.length > 0 && (
+        <AvisoBloqueo
+          criticos={criticosValidador}
+          enValidador={origen === 'validador'}
+          onVer={() => elegirOrigen('validador')}
+        />
+      )}
+      {conOrigenes && (
+        <>
+          <PestanasOrigen
+            origen={origen}
+            cantidades={{ practicas: hallazgos.length, validador: validadorDisponible ? delValidador.length : null }}
+            onElegir={elegirOrigen}
+          />
+          {origen === 'validador' && validacion.alcance === 'estructura' && validadorDisponible && (
+            <p className="origen-nota">En Tablas y Diccionarios, el validador muestra solo lo que haría fallar el script.</p>
+          )}
+        </>
+      )}
       {hayHallazgos ? (
         <div className="resultados-tablero">
           <div className="tablero-columna">
-            <ResumenLateral conteo={conteo} total={delaSeccion.length} filtro={filtro} onFiltrar={setFiltro} />
+            <ResumenLateral
+              conteo={conteo}
+              total={delaSeccion.length}
+              filtro={filtro}
+              onFiltrar={setFiltro}
+              origen={origen}
+            />
           </div>
           {contenido}
         </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { IconoCopiado, IconoCopiar } from '../../components/Iconos';
+import { IconoCopiado, IconoCopiar } from './Iconos';
 
 /**
  * «Copiar consulta de validación»: copia la consulta que muestra si las columnas del ISNULL aceptan NULL,

@@ -49,6 +49,22 @@ import {
   WandSparkles,
   Workflow,
   X,
+  ArrowRight,
+  CircleMinus,
+  CircleQuestionMark,
+  CodeXml,
+  Files,
+  FileX2,
+  GitBranch,
+  GitCommitHorizontal,
+  GitPullRequest,
+  Layers,
+  Link2,
+  LoaderCircle,
+  Paperclip,
+  Table2,
+  Search,
+  Wrench,
 } from 'lucide-react';
 
 const TRAZO = 1.75;
@@ -115,3 +131,23 @@ export const IconoCandado = crearIcono(Lock);
 export const IconoGlobo = crearIcono(Globe);
 export const IconoBajar = crearIcono(ArrowDown);
 export const IconoGenerar = crearIcono(WandSparkles);
+
+// Bitbucket
+export const IconoEnlace = crearIcono(Link2);
+export const IconoFlecha = crearIcono(ArrowRight);
+export const IconoCapas = crearIcono(Layers);
+export const IconoArchivos = crearIcono(Files);
+export const IconoTabla = crearIcono(Table2);
+export const IconoCodigo = crearIcono(CodeXml);
+export const IconoPregunta = crearIcono(CircleQuestionMark);
+export const IconoMenos = crearIcono(CircleMinus);
+export const IconoEliminado = crearIcono(FileX2);
+export const IconoAdjunto = crearIcono(Paperclip);
+export const IconoCargando = crearIcono(LoaderCircle);
+export const IconoPullRequest = crearIcono(GitPullRequest);
+export const IconoRama = crearIcono(GitBranch);
+export const IconoCommit = crearIcono(GitCommitHorizontal);
+
+// Pasos del encabezado
+export const IconoBuscar = crearIcono(Search);
+export const IconoCorregir = crearIcono(Wrench);
