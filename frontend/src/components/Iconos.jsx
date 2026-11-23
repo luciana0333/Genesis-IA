@@ -63,6 +63,8 @@ import {
   LoaderCircle,
   Paperclip,
   Table2,
+  Search,
+  Wrench,
 } from 'lucide-react';
 
 const TRAZO = 1.75;
@@ -145,3 +147,7 @@ export const IconoCargando = crearIcono(LoaderCircle);
 export const IconoPullRequest = crearIcono(GitPullRequest);
 export const IconoRama = crearIcono(GitBranch);
 export const IconoCommit = crearIcono(GitCommitHorizontal);
+
+// Pasos del encabezado
+export const IconoBuscar = crearIcono(Search);
+export const IconoCorregir = crearIcono(Wrench);

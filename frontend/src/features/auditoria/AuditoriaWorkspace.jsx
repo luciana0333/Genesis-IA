@@ -15,7 +15,7 @@ import { CampoNombre } from './CampoNombre';
 import { BarraRecorrido, VerEnCodigo } from './VerEnCodigo';
 import { tituloHallazgo } from '../../config/reglas';
 import { GeneradorDiccionario } from './GeneradorDiccionario';
-import { CopiarConsulta } from '../validacion/CopiarConsulta';
+import { CopiarConsulta } from '../../components/CopiarConsulta';
 import { MetricasSeveridad } from './MetricasSeveridad';
 import { detectarTipoDiccionario, extraerNombresObjetos, resumirNombresObjetos } from '../../utils/deteccionObjeto';
 import { grupoDelRecorrido } from '../../utils/recorrido';

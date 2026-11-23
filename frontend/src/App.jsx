@@ -4,14 +4,13 @@ import { PiePagina } from './components/PiePagina';
 import { AuditoriaWorkspace } from './features/auditoria/AuditoriaWorkspace';
 import { BitbucketWorkspace } from './features/bitbucket/BitbucketWorkspace';
 import { PlanesWorkspace } from './features/planes/PlanesWorkspace';
-import { ValidacionWorkspace } from './features/validacion/ValidacionWorkspace';
 import { useTema } from './hooks/useTema';
 import { useVistaActiva } from './hooks/useVistaActiva';
 
 export default function App() {
   const { tema, alternarTema } = useTema();
   const { vista } = useVistaActiva();
-  const esModulo = !vista.esPlan && !vista.esValidacion && !vista.esBitbucket;
+  const esModulo = !vista.esPlan && !vista.esBitbucket;
 
   return (
     <>
@@ -29,8 +28,6 @@ export default function App() {
         <div hidden={!vista.esPlan}>
           <PlanesWorkspace />
         </div>
-
-        {vista.esValidacion && <ValidacionWorkspace />}
 
         {esModulo && (
           // La key reinicia el formulario y los resultados al cambiar de pestaña.

@@ -57,25 +57,6 @@ export function aprobarSigla(sigla, significado) {
   );
 }
 
-/** GET /api/validacion-sql/estado — ¿esta PC tiene ScriptDom (viene con SSMS) y se puede usar? */
-export function estadoValidacionSql({ signal } = {}) {
-  return solicitar('/api/validacion-sql/estado', { signal }, 'No se pudo consultar el estado de ScriptDom.');
-}
-
-/** POST /api/validar-sql — errores de estructura que haría SQL Server, leídos con ScriptDom. */
-export function validarSql(sql, { signal } = {}) {
-  return solicitar(
-    '/api/validar-sql',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sql }),
-      signal,
-    },
-    'No se pudo completar la validación.',
-  );
-}
-
 /**
  * POST /api/bitbucket/leer — lee un pull request, una rama o un commit de Bitbucket (solo lectura) y devuelve sus
  * archivos .sql clasificados (contrato en features/bitbucket/archivos.js).

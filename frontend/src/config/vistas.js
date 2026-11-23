@@ -14,6 +14,7 @@ export const VISTAS = [
     hero: {
       titulo: 'Auditoría de diccionarios SQL',
       descripcion: 'Valida la estructura, consistencia y estándares de documentación de tus bases de datos SQL Server en tiempo real.',
+      pega: 'El objeto y su diccionario.',
     },
     resultados: {
       titulo: 'Hallazgos del diccionario',
@@ -29,6 +30,7 @@ export const VISTAS = [
     hero: {
       titulo: 'Auditoría de tablas SQL',
       descripcion: 'Valida la estructura, nomenclatura, tipos de datos, nulabilidad y reglas de diseño de tus tablas SQL Server.',
+      pega: 'El script de la tabla y sus índices.',
     },
     resultados: {
       titulo: 'Hallazgos de la tabla',
@@ -44,6 +46,7 @@ export const VISTAS = [
     hero: {
       titulo: 'Auditoría de reportes SQL',
       descripcion: 'Revisa procedimientos de reportes para detectar prácticas inseguras, lecturas innecesarias y consultas que dificultan su mantenimiento.',
+      pega: 'El procedimiento de reporte completo.',
     },
     resultados: {
       titulo: 'Hallazgos del reporte',
@@ -59,6 +62,7 @@ export const VISTAS = [
     hero: {
       titulo: 'Auditoría de procedimientos SQL',
       descripcion: 'Valida procedimientos almacenados normales frente a reglas de control de flujo, consultas y buenas prácticas de desarrollo.',
+      pega: 'El procedimiento completo.',
     },
     resultados: {
       titulo: 'Hallazgos del procedimiento',
@@ -74,28 +78,12 @@ export const VISTAS = [
     hero: {
       titulo: 'Análisis de planes de ejecución',
       descripcion: 'Analiza planes reales de SQL Server para detectar conversiones implícitas, spills, scans, lecturas elevadas y problemas de memoria.',
-      puntos: [
-        'Conversiones implícitas, spills y table scans',
-        'Lecturas lógicas, cardinalidad y memoria',
-        'Análisis local: el plan no sale de tu equipo',
+      pasos: [
+        { titulo: 'Carga', texto: 'Un .sqlplan, varios o un .zip.', icono: 'subir' },
+        { titulo: 'Analiza', texto: 'Conversiones, spills, scans y memoria.', icono: 'buscar' },
+        { titulo: 'Corrige', texto: 'Cada hallazgo dice qué hacer.', icono: 'corregir' },
       ],
       accion: 'Cargar plan',
-    },
-  },
-  {
-    id: 'validacion',
-    ruta: 'validacion',
-    etiqueta: 'Validación SQL Server',
-    esValidacion: true,
-    hero: {
-      titulo: 'Validación con SQL Server',
-      descripcion: 'Lee tu código con el lector oficial de SQL Server, el mismo que usa SSMS, y detecta errores, resultados equivocados y problemas de rendimiento antes de ejecutarlo.',
-      puntos: [
-        'Lo que haría fallar el script, con el error de SQL Server',
-        'Errores silenciosos: textos cortados, NULL, fechas',
-        'Rendimiento, seguridad y mantenibilidad',
-      ],
-      accion: 'Comenzar validación',
     },
   },
   {
