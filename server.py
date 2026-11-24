@@ -321,7 +321,7 @@ class GenesisHandler(SimpleHTTPRequestHandler):
         self._send_json(resultado)
 
     def _analizar_planes(self):
-        """Revisión por lote: varios .sqlplan, .zip o .rar en una sola subida (campo «planes»)."""
+        """Revisión por lote: varios .sqlplan, .zip, .rar o .pesession en una sola subida (campo «planes»)."""
         limite_bytes = 200 * 1024 * 1024
         try:
             longitud = int(self.headers.get('Content-Length', '0'))
@@ -347,7 +347,7 @@ class GenesisHandler(SimpleHTTPRequestHandler):
                 if parte.get_content_disposition() == 'form-data' and parte.get_filename()
             ]
             if not archivos:
-                self._send_json({'error': 'Debes seleccionar al menos un plan, .zip o .rar.'}, status=400)
+                self._send_json({'error': 'Debes seleccionar al menos un plan, .zip, .rar o .pesession.'}, status=400)
                 return
 
             area, limite = _area_y_limite(formulario)
