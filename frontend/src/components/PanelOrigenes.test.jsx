@@ -38,7 +38,7 @@ describe('PanelHallazgos · pestañas «Buenas prácticas» y «Validador SQL Se
 
     const pestanas = within(screen.getByRole('tablist', { name: 'Origen de las observaciones' })).getAllByRole('tab');
     expect(pestanas.map((p) => p.textContent)).toEqual([
-      'Buenas prácticasEstándares y reglas de CAJA ICA1', 'Validador SQL ServerLector oficial de SQL Server1',
+      'Buenas prácticasEstándares y reglas de CAJA ICA01', 'Validador SQL ServerLector oficial de SQL Server01',
     ]);
     // Empieza en buenas prácticas: solo sus fichas, columna roja.
     expect(pestanas[0]).toHaveAttribute('aria-selected', 'true');
@@ -56,10 +56,12 @@ describe('PanelHallazgos · pestañas «Buenas prácticas» y «Validador SQL Se
     render(panel({ validacion: { disponible: true, alcance: 'completo', hallazgos: [SINTAXIS, SUGERENCIA] } }));
 
     const aviso = screen.getByRole('alert');
-    expect(aviso).toHaveTextContent('Impide ejecutar');
-    expect(aviso).toHaveTextContent('Error de sintaxis (línea 10)');
+    expect(aviso).toHaveTextContent('No se puede crear');
+    // El título es el error real, no un texto general (usuaria, 23 nov.).
+    expect(aviso.querySelector('.aviso-bloqueo-titulo')).toHaveTextContent("Sintaxis incorrecta cerca de ','");
+    expect(aviso).toHaveTextContent('Línea 10 · corregirlo primero');
     expect(titulosFichas()).toEqual(['Transacción sin COMMIT']);
-    await usuario.click(within(aviso).getByRole('button', { name: 'Ver en el Validador SQL Server' }));
+    await usuario.click(within(aviso).getByRole('button', { name: 'Ver en el validador' }));
     expect(titulosFichas()).toEqual(['Error de sintaxis', 'TOP sin ORDER BY']);
     // Ya en el validador, el aviso sigue pero sin el botón.
     expect(within(screen.getByRole('alert')).queryByRole('button')).not.toBeInTheDocument();
@@ -67,7 +69,30 @@ describe('PanelHallazgos · pestañas «Buenas prácticas» y «Validador SQL Se
 
   it('cuenta los errores que impiden ejecutar', () => {
     render(panel({ validacion: { disponible: true, alcance: 'completo', hallazgos: [SINTAXIS, { ...SINTAXIS, linea: 20 }, { ...SINTAXIS, linea: 30 }] } }));
-    expect(screen.getByRole('alert')).toHaveTextContent('Error de sintaxis (línea 10) y 2 errores más.');
+    expect(screen.getByRole('alert')).toHaveTextContent('Línea 10 · y 2 errores más · corregirlo primero');
+  });
+
+  it('el título del aviso es el error real, o el nombre de la regla si no se reconoce', () => {
+    const casos = [
+      ["Se identificó que falta abrir el comentario del encabezado (/*): el texto «PROCEDIMIENTO : x» de la línea 1 queda fuera.",
+        'Falta abrir el comentario del encabezado (/*)'],
+      ['Se identificó que el código termina sin cerrar un paréntesis. Se recomienda revisar cada paréntesis.',
+        'El código termina sin cerrar un paréntesis'],
+      ["Se identificó un error de sintaxis en la columna 1: Sintaxis incorrecta cerca de 'PROCEDIMIENTO'. Corregir la estructura.",
+        "Sintaxis incorrecta cerca de 'PROCEDIMIENTO'"],
+      ['Se identificó que sobra un punto y coma (;) después del nombre del procedimiento: «CREATE PROCEDURE x.PA_Y;» (línea 1). Retirarlo, ya que…',
+        'Sobra un punto y coma (;) después del nombre del procedimiento'],
+      ['Se identificó que falta una coma entre los parámetros: «@a INT» (línea 2) no termina en coma antes de «@b INT». Agregar…',
+        'Falta una coma entre los parámetros'],
+      ['Se identificó un error de sintaxis cerca de «dbo»: «SELECT a.n FORM dbo.T a» (línea 3). Revisar esa parte…',
+        'Error de sintaxis cerca de «dbo»'],
+      ['Texto que no sigue el formato.', 'Error de sintaxis'],
+    ];
+    for (const [mensaje, esperado] of casos) {
+      const { unmount } = render(panel({ validacion: { disponible: true, alcance: 'completo', hallazgos: [{ ...SINTAXIS, mensaje }] } }));
+      expect(screen.getByRole('alert').querySelector('.aviso-bloqueo-titulo')).toHaveTextContent(esperado);
+      unmount();
+    }
   });
 
   it('sin observaciones del validador lo dice, y en Tablas y Diccionarios explica el alcance', async () => {

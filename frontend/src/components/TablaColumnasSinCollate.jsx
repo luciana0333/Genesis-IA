@@ -6,10 +6,11 @@ const TITULO_DE_COLUMNAS = {
   TEMPORAL_TEXTO_SIN_COLLATE: 'Columnas sin COLLATE', // usuaria, 8 nov.
   ISNULL_VALIDAR_NULOS: 'Columnas', // usuaria, 18 nov.
   VALIDAR_DOCUMENTACION_ALTER: 'Parámetros sin descripción', // diccionario con varios procedimientos (usuaria, 20 nov.)
+  DOCUMENTACION_EXISTENTE_EN_ALTER: 'Parámetros', // solo descripciones agregadas, varios procedimientos (23 nov.)
 };
 
 /** Reglas que pasan a tabla con menos grupos (por defecto, desde 3). */
-const GRUPOS_PARA_TABLA = { VALIDAR_DOCUMENTACION_ALTER: 2 };
+const GRUPOS_PARA_TABLA = { VALIDAR_DOCUMENTACION_ALTER: 2, DOCUMENTACION_EXISTENTE_EN_ALTER: 2 };
 
 /** ¿Esta observación se muestra como tabla (Tabla | Columnas)? Desde 3 tablas, en las reglas de arriba; o cuando el
  * backend ya decidió la tabla (más de 3 casos, con el título de su segunda columna; usuaria, 21 nov.). */

@@ -174,6 +174,13 @@ public class GenesisVisitante : TSqlFragmentVisitor
     private Dictionary<string, Dictionary<string, int>> columnasNoNulas;
     private Dictionary<string, Dictionary<string, Tuple<string, string>>> origenes;
     private readonly HashSet<int> isnullRevisados = new HashSet<int>();
+    // CASE que son el argumento de MAX / MIN / COUNT / AVG / STRING_AGG: el NULL sin ELSE es justo lo que se busca
+    // (MAX(CASE WHEN rol = 20 THEN cPersCod END) pasa filas a columnas; un ELSE cambiaría el resultado).
+    private readonly HashSet<int> casesEnAgregado = new HashSet<int>();
+    private static readonly HashSet<string> AgregadosQueIgnoranNull = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "MAX", "MIN", "COUNT", "COUNT_BIG", "AVG", "STRING_AGG",
+    };
     private readonly Stack<bool> consultasConFrom = new Stack<bool>();
     private int actualizacionesAbiertas;
 
@@ -328,10 +335,25 @@ public class GenesisVisitante : TSqlFragmentVisitor
         return tabla != null && (tabla.StartsWith("#") || tabla.StartsWith("@"));
     }
 
-    // Temporal, variable de tabla o CTE: no es una tabla física con índices.
+    // Temporal, variable de tabla, CTE o función que devuelve una tabla: no es una tabla física con índices.
     private bool NoEsFisica(string tabla)
     {
-        return EsTemporal(tabla) || (tabla != null && NombresCte.Contains(tabla));
+        return EsTemporal(tabla) || tabla == FUNCION_DE_TABLA || (tabla != null && NombresCte.Contains(tabla));
+    }
+
+    // Origen de las columnas de STRING_SPLIT, OPENJSON, dbo.fn_X() o @xml.nodes(): se trata como una subconsulta
+    // (no es una tabla física) y, además, una función sobre su columna no impide ningún índice (usuaria, 23 nov.:
+    // TRIM(S.value) de STRING_SPLIT se marcaba como «función sobre la columna»).
+    private const string FUNCION_DE_TABLA = "(funcion de tabla)";
+    private static readonly HashSet<string> FuncionesDeTabla = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "GlobalFunctionTableReference", "SchemaObjectFunctionTableReference", "OpenJsonTableReference",
+        "OpenXmlTableReference", "VariableMethodCallTableReference", "BuiltInFunctionTableReference",
+    };
+
+    private static bool EsSubconsulta(string tabla)
+    {
+        return tabla == "(subconsulta)" || tabla == FUNCION_DE_TABLA;
     }
 
     // Columna dentro de funciones anidadas: YEAR(CAST(dFecha AS DATE)) -> dFecha.
@@ -423,7 +445,9 @@ public class GenesisVisitante : TSqlFragmentVisitor
         var nombrada = referencia as NamedTableReference;
         var variable = referencia as VariableTableReference;
         var conAlias = referencia as TableReferenceWithAlias;
-        string tabla = nombrada != null ? Nombre(nombrada.SchemaObject) : variable != null ? variable.Variable.Name : "(subconsulta)";
+        // STRING_SPLIT, OPENJSON, dbo.fn_X(), @xml.nodes(…): funciones que devuelven una tabla, sin índices propios.
+        string tabla = nombrada != null ? Nombre(nombrada.SchemaObject) : variable != null ? variable.Variable.Name
+            : FuncionesDeTabla.Contains(referencia.GetType().Name) ? FUNCION_DE_TABLA : "(subconsulta)";
         var nombres = new List<string>();
         if (conAlias != null && conAlias.Alias != null) nombres.Add(conAlias.Alias.Value);
         else if (nombrada != null) { nombres.Add(tabla); nombres.Add(nombrada.SchemaObject.BaseIdentifier.Value); }
@@ -640,6 +664,14 @@ public class GenesisVisitante : TSqlFragmentVisitor
     public override void Visit(FunctionCall funcion)
     {
         string nombre = funcion.FunctionName.Value;
+        // MAX(CASE … END) y similares: se marca el CASE para no pedirle ELSE (caso real
+        // PA_GDD_CredFallidoComiteDetalle_Sel_FallidosGeneral, usuaria 23 nov.).
+        if (funcion.CallTarget == null && AgregadosQueIgnoranNull.Contains(nombre))
+            foreach (var parametro in funcion.Parameters)
+            {
+                var interno = SinParentesis(parametro);
+                if (interno is SearchedCaseExpression || interno is SimpleCaseExpression) casesEnAgregado.Add(interno.StartOffset);
+            }
         // ISNULL(columna, ...) fuera de una comparación (en el SELECT, un SET, un IN...): validar si la columna
         // acepta NULL. Las de una comparación se revisan con su condición (RevisarFuncionSobreColumna).
         if (funcion.CallTarget == null && string.Equals(nombre, "ISNULL", StringComparison.OrdinalIgnoreCase)
@@ -742,20 +774,48 @@ public class GenesisVisitante : TSqlFragmentVisitor
     // --- Tipos: mal escritos, tamaños fuera de rango, VARCHAR sin tamaño -----------------------------
     private readonly HashSet<int> tiposDeConversion = new HashSet<int>();
 
-    public override void Visit(CastCall llamada) { if (llamada.DataType != null) tiposDeConversion.Add(llamada.DataType.StartOffset); }
+    public override void Visit(CastCall llamada) { MarcarConversion(llamada.DataType, llamada.Parameter); }
     // Formato (tercer parámetro) de cada CONVERT, por la posición de su tipo: CONVERT(VARCHAR, fecha, 103).
     private readonly Dictionary<int, int> estilosDeConversion = new Dictionary<int, int>();
+    // CAST/CONVERT de un número entero (variable INT/BIGINT/SMALLINT/TINYINT o un entero escrito), por la posición de
+    // su tipo -> (lo convertido, su tipo). Un entero no pasa de 20 caracteres: sin tamaño no se corta (usuaria, 23 nov.).
+    private readonly Dictionary<int, Tuple<string, string>> conversionesDeEntero = new Dictionary<int, Tuple<string, string>>();
+    private static readonly HashSet<string> FamiliasEnteras = new HashSet<string> { "int", "bigint", "smallint", "tinyint" };
 
     public override void Visit(ConvertCall llamada)
     {
         if (llamada.DataType == null) return;
-        tiposDeConversion.Add(llamada.DataType.StartOffset);
+        MarcarConversion(llamada.DataType, llamada.Parameter);
         var estilo = llamada.Style as IntegerLiteral;
         int numero;
         if (estilo != null && int.TryParse(estilo.Value, out numero)) estilosDeConversion[llamada.DataType.StartOffset] = numero;
     }
-    public override void Visit(TryCastCall llamada) { if (llamada.DataType != null) tiposDeConversion.Add(llamada.DataType.StartOffset); }
-    public override void Visit(TryConvertCall llamada) { if (llamada.DataType != null) tiposDeConversion.Add(llamada.DataType.StartOffset); }
+    public override void Visit(TryCastCall llamada) { MarcarConversion(llamada.DataType, llamada.Parameter); }
+    public override void Visit(TryConvertCall llamada) { MarcarConversion(llamada.DataType, llamada.Parameter); }
+
+    private void MarcarConversion(DataTypeReference tipo, ScalarExpression convertido)
+    {
+        if (tipo == null) return;
+        tiposDeConversion.Add(tipo.StartOffset);
+        var entero = EnteroConvertido(convertido);
+        if (entero != null) conversionesDeEntero[tipo.StartOffset] = entero;
+    }
+
+    /// (texto, tipo) si lo convertido es seguro un número entero; null si no se sabe (se queda en alto).
+    private Tuple<string, string> EnteroConvertido(ScalarExpression expresion)
+    {
+        while (expresion is ParenthesisExpression) expresion = ((ParenthesisExpression)expresion).Expression;
+        var signo = expresion as UnaryExpression;
+        if (signo != null && signo.UnaryExpressionType == UnaryExpressionType.Negative)
+            expresion = signo.Expression;
+        var literal = expresion as IntegerLiteral;
+        if (literal != null) return Tuple.Create(literal.Value, "INT");
+        var variable = expresion as VariableReference;
+        if (variable == null) return null;
+        var declaracion = Declarada(variable.Name, variable.StartOffset);
+        if (declaracion == null || !FamiliasEnteras.Contains(declaracion.Familia)) return null;
+        return Tuple.Create(variable.Name, declaracion.Familia.ToUpperInvariant());
+    }
 
     public override void Visit(UserDataTypeReference tipo)
     {
@@ -779,7 +839,12 @@ public class GenesisVisitante : TSqlFragmentVisitor
             // Con un formato de fecha (CONVERT(VARCHAR, fecha, 103)) el resultado no pasa de 30 caracteres: se avisa
             // aparte, en nivel bajo (usuaria, 18 nov.). El formato se valida en Python (solo los que son de fecha).
             int estilo;
-            if (enConversion && estilosDeConversion.TryGetValue(tipo.StartOffset, out estilo))
+            Tuple<string, string> entero;
+            if ((opcion == SqlDataTypeOption.VarChar || opcion == SqlDataTypeOption.NVarChar) && enConversion
+                && conversionesDeEntero.TryGetValue(tipo.StartOffset, out entero))
+                Agregar("VARCHAR_SIN_TAMANO_ENTERO", tipo.StartLine, "tipoDato", nombre, "convertido", entero.Item1,
+                        "tipoConvertido", entero.Item2, "contexto", "conversion");
+            else if (enConversion && estilosDeConversion.TryGetValue(tipo.StartOffset, out estilo))
                 Agregar("VARCHAR_SIN_TAMANO_FECHA", tipo.StartLine, "tipoDato", nombre, "estilo", estilo,
                         "largo", 30, "contexto", "conversion");
             else if (largoVariable || enConversion)
@@ -1079,7 +1144,7 @@ public class GenesisVisitante : TSqlFragmentVisitor
             string tabla = null;
             if (clave != null) mapa.TryGetValue(clave, out tabla);
             else if (mapa.Values.Distinct(StringComparer.OrdinalIgnoreCase).Count() == 1) { tabla = mapa.Values.First(); clave = mapa.Keys.First(); }
-            if (tabla != null && !EsTemporal(tabla) && tabla != "(subconsulta)" && !opcionales.Contains(clave))
+            if (tabla != null && !EsTemporal(tabla) && !EsSubconsulta(tabla) && !opcionales.Contains(clave))
                 origen = Tuple.Create(tabla, NombreColumna(columna));
         }
         Dictionary<string, Tuple<string, string>> deLaTabla;
@@ -1317,7 +1382,7 @@ public class GenesisVisitante : TSqlFragmentVisitor
     {
         bool opcional;
         string tabla = TablaDe(columna, out opcional);
-        if (tabla == null || opcional || tabla == "(subconsulta)") return false;
+        if (tabla == null || opcional || EsSubconsulta(tabla)) return false;
         // Columna de una CTE: no es una tabla física y su valor puede venir de una variable que sí llega en NULL
         // (usuaria, 18 nov.: ISNULL(MP.cCopiaDestinatarios, '') con cCopiaDestinatarios = @cCopiaDestinatarios).
         if (NombresCte.Contains(tabla)) return false;
@@ -1483,7 +1548,7 @@ public class GenesisVisitante : TSqlFragmentVisitor
 
     private void RevisarCaseSinElse(TSqlFragment caso, ScalarExpression sino)
     {
-        if (sino == null) Agregar("CASE_SIN_ELSE", caso.StartLine);
+        if (sino == null && !casesEnAgregado.Contains(caso.StartOffset)) Agregar("CASE_SIN_ELSE", caso.StartLine);
     }
 
     public override void Visit(BinaryExpression expresion)

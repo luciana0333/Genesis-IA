@@ -16,7 +16,7 @@ import { CasosPocoComunes } from './CasosPocoComunes';
 import { EstadoInicial } from './EstadoInicial';
 import { EstadoVacio } from './EstadoVacio';
 import {
-  IconoBaseDatos, IconoCopiar, IconoCopiado, IconoErrorCirculo, IconoEscudoCheck, IconoSeveridadCritica,
+  IconoBaseDatos, IconoCandado, IconoCopiar, IconoCopiado, IconoErrorCirculo, IconoEscudoCheck, IconoFlecha,
 } from './Iconos';
 
 /**
@@ -260,7 +260,10 @@ function PestanasOrigen({ origen, cantidades, onElegir }) {
             <span className="origen-titulo">{titulo}</span>
             <span className="origen-descripcion">{descripcion}</span>
           </span>
-          <span className="origen-cantidad">{cantidades[id] ?? '—'}</span>
+          {/* Dos dígitos en cursiva, como los «01 02 03» de las tarjetas del encabezado (usuaria, 23 nov.). */}
+          <span className="origen-cantidad">
+            {cantidades[id] == null ? '—' : String(cantidades[id]).padStart(2, '0')}
+          </span>
         </button>
       ))}
     </div>
@@ -268,25 +271,55 @@ function PestanasOrigen({ origen, cantidades, onElegir }) {
 }
 
 /**
+ * El error concreto, en pocas palabras, para el título del aviso (usuaria, 23 nov.: el aviso repetía tres veces «no
+ * se puede ejecutar» y el error real quedaba en letra chica). Del mensaje del validador se toma lo que pasó:
+ * «…columna 1: Sintaxis incorrecta cerca de 'X'. Corregir…» → «Sintaxis incorrecta cerca de 'X'»;
+ * «Se identificó que falta abrir el comentario del encabezado (/*): …» → «Falta abrir el comentario del encabezado (/*)».
+ * Si no se reconoce, el nombre de la regla.
+ */
+function tituloDelError(hallazgo) {
+  const mensaje = String(hallazgo?.mensaje || '');
+  let titulo = '';
+  // «Se identificó un error de sintaxis cerca de «X»: «texto de la línea» (línea N)…» (usuaria, 23 nov.).
+  const cercaDe = mensaje.match(/^Se identificó un error de sintaxis (cerca de «[^»]*»)/);
+  const sintaxis = mensaje.match(/^Se identificó un error de sintaxis[^:]*:\s*(.+?)\.(?:\s+Corregir|\s*$)/);
+  const queFalta = mensaje.match(/^Se identificó que\s+(.+?)(?::\s|\.\s|\.$)/);
+  if (cercaDe) titulo = `Error de sintaxis ${cercaDe[1]}`;
+  else if (sintaxis) titulo = sintaxis[1];
+  else if (queFalta) titulo = queFalta[1];
+  if (!titulo || titulo.length > 90) return tituloHallazgo(hallazgo);
+  return titulo.charAt(0).toUpperCase() + titulo.slice(1);
+}
+
+/**
  * Lo único que nunca queda escondido: si el Validador SQL Server encontró algo que haría fallar el código, se avisa
- * arriba de las pestañas, se esté en la que se esté.
+ * debajo de las pestañas, se esté en la que se esté. Diseño «Diagonal de marca» (idea 2, usuaria, 23 nov.), con el
+ * rojo de marca y el mismo espacio de la línea de la idea 7: a la izquierda el veredicto con el corte diagonal del
+ * encabezado; a la derecha el error real y la acción.
  */
 function AvisoBloqueo({ criticos, enValidador, onVer }) {
   const [primero] = criticos;
   const mas = criticos.length - 1;
   return (
     <div className="aviso-bloqueo" role="alert">
-      <span className="aviso-bloqueo-icono"><IconoSeveridadCritica /></span>
-      <div className="aviso-bloqueo-textos">
-        <p className="aviso-bloqueo-etiqueta">Impide ejecutar</p>
-        <p className="aviso-bloqueo-titulo">SQL Server marcaría error al ejecutar este código</p>
-        <p className="aviso-bloqueo-detalle">
-          {tituloHallazgo(primero)} (línea {primero.linea || 1}){mas > 0 && ` y ${mas} ${mas === 1 ? 'error más' : 'errores más'}`}.
-          {' '}Corrígelo primero: mientras exista, el código no se puede ejecutar.
-        </p>
+      <div className="aviso-bloqueo-veredicto">
+        <IconoCandado />
+        <span>
+          <span className="aviso-bloqueo-etiqueta">SQL Server</span>
+          <strong className="aviso-bloqueo-veredicto-texto">No se puede crear</strong>
+        </span>
       </div>
+      <p className="aviso-bloqueo-texto">
+        <strong className="aviso-bloqueo-titulo">{tituloDelError(primero)}</strong>
+        <span className="aviso-bloqueo-detalle">
+          Línea {primero.linea || 1}{mas > 0 && ` · y ${mas} ${mas === 1 ? 'error más' : 'errores más'}`}
+          {' · '}corregirlo primero, ya que el resto de la revisión del validador depende de este error.
+        </span>
+      </p>
       {!enValidador && (
-        <button type="button" className="aviso-bloqueo-boton" onClick={onVer}>Ver en el Validador SQL Server</button>
+        <button type="button" className="aviso-bloqueo-boton" onClick={onVer}>
+          Ver en el validador <IconoFlecha />
+        </button>
       )}
     </div>
   );
@@ -498,13 +531,6 @@ export function PanelHallazgos({
           </>
         }
       />
-      {criticosValidador.length > 0 && (
-        <AvisoBloqueo
-          criticos={criticosValidador}
-          enValidador={origen === 'validador'}
-          onVer={() => elegirOrigen('validador')}
-        />
-      )}
       {conOrigenes && (
         <>
           <PestanasOrigen
@@ -512,6 +538,13 @@ export function PanelHallazgos({
             cantidades={{ practicas: hallazgos.length, validador: validadorDisponible ? delValidador.length : null }}
             onElegir={elegirOrigen}
           />
+          {criticosValidador.length > 0 && (
+            <AvisoBloqueo
+              criticos={criticosValidador}
+              enValidador={origen === 'validador'}
+              onVer={() => elegirOrigen('validador')}
+            />
+          )}
           {origen === 'validador' && validacion.alcance === 'estructura' && validadorDisponible && (
             <p className="origen-nota">En Tablas y Diccionarios, el validador muestra solo lo que haría fallar el script.</p>
           )}

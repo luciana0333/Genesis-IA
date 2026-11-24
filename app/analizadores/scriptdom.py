@@ -27,9 +27,13 @@ import threading
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from app.analizadores.comentario_sin_apertura import (
+    encabezado_sin_abrir, linea_de, lineas_del_encabezado, mensaje_comentario_sin_apertura,
+)
 from app.analizadores.scriptdom_mensajes import (
     MENSAJES, consulta_de_nulos, consulta_de_tipos, es_formato_de_fecha_corto, lineas_del_hecho, mensaje_agrupado, mensaje_hecho,
-    grupos_isnull_validar, mensaje_isnull_validar_partes, mensaje_varchar_sin_tamano_fecha, severidad,
+    grupos_isnull_validar, mensaje_isnull_validar_partes, mensaje_varchar_sin_tamano_entero,
+    mensaje_varchar_sin_tamano_fecha, severidad,
 )
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 
@@ -224,6 +228,8 @@ def mensaje_del_tipo(tipo: str, hechos: List[Dict]) -> Optional[str]:
     """Texto de la observación de un tipo con todos sus casos (el mismo que muestra la pantalla)."""
     if tipo == "VARCHAR_SIN_TAMANO_FECHA":
         return mensaje_varchar_sin_tamano_fecha(hechos)
+    if tipo == "VARCHAR_SIN_TAMANO_ENTERO":
+        return mensaje_varchar_sin_tamano_entero(hechos)
     if tipo == "ISNULL_VALIDAR_NULOS":
         return " ".join(mensaje_isnull_validar_partes(hechos))
     return mensaje_agrupado(hechos)
@@ -295,12 +301,84 @@ def ultima_linea(sql: str) -> int:
     return max(1, len(lineas))
 
 
+# --- «Sintaxis incorrecta cerca de 'X'» con el texto de la línea y, en los casos comunes, qué hacer (usuaria, 23 nov.:
+# «solo dice un posible pero no dice cuál es el error»). Caso real: «CREATE PROCEDURE CLICKTOPAY.PA_Cliente_Sel_PorId;»
+_CERCA_DE = re.compile(r"(?:cerca de|near)\s+'(?P<token>.*)'\s*\.?\s*$", re.IGNORECASE)
+_NOMBRE_DEL_OBJETO_AL_FINAL = re.compile(
+    r"\b(?:CREATE|ALTER)\s+(?:OR\s+ALTER\s+)?(?P<tipo>PROC(?:EDURE)?|FUNCTION|TRIGGER|VIEW)\s+"
+    r"(?:\[[^\]]+\]|[\w$#]+)(?:\s*\.\s*(?:\[[^\]]+\]|[\w$#]+)){0,2}\s*$",
+    re.IGNORECASE)
+_PARAMETRO_AL_FINAL = re.compile(r"@\w+\s+(?:AS\s+)?[\w.\[\]]+(?:\s*\([^()]*\))?(?:\s*=\s*\S+)?(?:\s+(?:OUT|OUTPUT|READONLY))*\s*$",
+                                 re.IGNORECASE)
+_OBJETO = {"PROC": "del procedimiento", "PROCEDURE": "del procedimiento", "FUNCTION": "de la función",
+           "TRIGGER": "del trigger", "VIEW": "de la vista"}
+
+
+_INICIO_QUE_HACER = re.compile(r"[».)]\s*\.?\s+(?=(?:Retirarlo|Reemplazarlo por una coma|Agregar la coma|Revisar esa parte)\b)")
+
+
+def _fragmento(linea: str, columna: int) -> str:
+    """El texto de la línea (sin sangría); si es muy largo, el tramo alrededor de la columna del error."""
+    sangria = len(linea) - len(linea.lstrip())
+    texto, columna = linea.strip(), max(0, columna - 1 - sangria)
+    if len(texto) <= 90:
+        return texto
+    inicio = max(0, columna - 55)
+    fin = min(len(texto), columna + 30)
+    # Cortar en un espacio, sin partir palabras.
+    if inicio and " " in texto[inicio:columna]:
+        inicio = texto.index(" ", inicio) + 1
+    if fin < len(texto) and " " in texto[columna:fin]:
+        fin = texto.rindex(" ", columna, fin)
+    return ("…" if inicio else "") + texto[inicio:fin].strip() + ("…" if fin < len(texto) else "")
+
+
+def _sin_comentario_final(linea: str) -> str:
+    return re.sub(r"--.*$", "", linea).rstrip()
+
+
+def _mensaje_cerca_de(error: Dict, sql: str) -> Optional[str]:
+    """Mensaje con el texto de la línea del error; None si el error no dice «cerca de 'X'»."""
+    cerca = _CERCA_DE.search(str(error.get("mensaje", "")))
+    lineas = sql.splitlines()
+    numero = int(error.get("linea") or 0)
+    if not cerca or not 1 <= numero <= len(lineas):
+        return None
+    token, linea, columna = cerca.group("token"), lineas[numero - 1], int(error.get("columna") or 1)
+    antes = _sin_comentario_final(linea[:max(0, columna - 1)])
+    fragmento = _fragmento(linea, columna)
+    no_podra = _que_no_se_podra(sql)
+    if token == ";":
+        objeto = _NOMBRE_DEL_OBJETO_AL_FINAL.search(antes)
+        if objeto:
+            de = _OBJETO.get(objeto.group("tipo").upper(), "del objeto")
+            return (f"Se identificó que sobra un punto y coma (;) después del nombre {de}: «{fragmento}» (línea "
+                    f"{numero}). Retirarlo, ya que separa el nombre de sus parámetros y SQL Server no podrá {no_podra}.")
+        if _PARAMETRO_AL_FINAL.search(antes):
+            return (f"Se identificó que hay un punto y coma (;) entre los parámetros, donde va una coma: «{fragmento}» (línea "
+                    f"{numero}). Reemplazarlo por una coma, ya que SQL Server no podrá {no_podra}.")
+    if token.startswith("@") and not antes.strip():
+        # El parámetro empieza la línea: ¿la anterior con código es otro parámetro sin la coma final?
+        anterior = next(((n, _sin_comentario_final(lineas[n - 1])) for n in range(numero - 1, 0, -1)
+                         if _sin_comentario_final(lineas[n - 1]).strip()), None)
+        if anterior and _PARAMETRO_AL_FINAL.search(anterior[1]) and not anterior[1].rstrip().endswith(","):
+            return (f"Se identificó que falta una coma entre los parámetros: «{anterior[1].strip()}» (línea "
+                    f"{anterior[0]}) no termina en coma antes de «{fragmento}». Agregar la coma al final de la línea "
+                    f"{anterior[0]}, ya que SQL Server no podrá {no_podra}.")
+    return (f"Se identificó un error de sintaxis cerca de «{token}»: «{fragmento}» (línea {numero}). Revisar esa parte "
+            f"o la línea anterior (comas, paréntesis, comillas, BEGIN/END), ya que SQL Server no podrá {no_podra} con "
+            f"este error.")
+
+
 def mensaje_error_sintaxis(error: Dict, sql: str = "") -> str:
     # Falta el END de un BEGIN o de un CASE, o el cierre de un paréntesis (texto de la usuaria, 18 nov.). Si no se
     # encuentra qué quedó abierto, sigue el mensaje general.
     abiertos = _sin_cerrar(sql) if error.get("numero") == ERROR_FIN_DE_ARCHIVO and sql else []
     if abiertos:
         return _mensaje_sin_cerrar(abiertos, sql)
+    especifico = _mensaje_cerca_de(error, sql) if sql else None
+    if especifico:
+        return especifico
     if error.get("numero") == ERROR_FIN_DE_ARCHIVO and sql:
         error = {**error, "linea": ultima_linea(sql), "columna": 1}
     mensaje = str(error.get("mensaje", "")).strip()
@@ -318,6 +396,25 @@ def _hallazgo(linea, regla: str, mensaje: str, severidad: Severidad = Severidad.
                     regla=regla, mensaje=mensaje)
 
 
+def _con_comentario_sin_apertura(errores: List[Hallazgo], sql: str) -> List[Hallazgo]:
+    """Falta el /* de un comentario (usuaria, 23 nov.): los errores de sintaxis hasta el */ huérfano son consecuencia
+    de eso, así que se cambian por una sola observación que dice qué pasó. Los errores de después se conservan."""
+    if not errores:
+        return errores
+    tramo = encabezado_sin_abrir(sql)
+    if tramo is None:
+        return errores
+    inicio, fin = tramo
+    linea_cierre = linea_de(sql, fin - 2)
+    antes = [h for h in errores if h.linea <= linea_cierre]
+    if not antes:
+        return errores
+    hallazgo = _hallazgo(linea_de(sql, inicio), "ERROR_SINTAXIS",
+                         mensaje_comentario_sin_apertura(sql, inicio, fin, _que_no_se_podra(sql)))
+    hallazgo.lineas = lineas_del_encabezado(sql, inicio, fin)
+    return [hallazgo] + [h for h in errores if h.linea > linea_cierre]
+
+
 def validar_estructura(sql: str) -> Optional[List[Hallazgo]]:
     """
     Validación SQL Server: errores de sintaxis y, si no hay, lo que revisa el árbol de ScriptDom (lo que hace
@@ -332,6 +429,12 @@ def validar_estructura(sql: str) -> Optional[List[Hallazgo]]:
                   "ERROR_SINTAXIS", mensaje_error_sintaxis(error, sql))
         for error in lectura["errores"]
     ]
+    hallazgos = _con_comentario_sin_apertura(hallazgos, sql)
+    for hallazgo in hallazgos:
+        # El texto de la línea citada puede traer puntos: se indica dónde empieza el «Qué hacer» (23 nov.).
+        que_hacer = _INICIO_QUE_HACER.search(hallazgo.mensaje)
+        if que_hacer:
+            hallazgo.inicio_que_hacer = que_hacer.end()
     por_tipo: Dict[str, List[Dict]] = {}
     for hecho in lectura["hechos"]:
         # CONVERT(VARCHAR, x, formato): solo los formatos de fecha que nunca pasan de 30 caracteres van aparte (bajo);

@@ -105,18 +105,32 @@
   font-size: 0.74rem;
 }
 
+/* Cifra al estilo de los «01 02 03» de las tarjetas del encabezado (usuaria, 23 nov.): cursiva, 800, dos dígitos.
+   Apagada en la pestaña que no se ve; con el color de su origen en la activa. */
 .origen-cantidad {
   flex: none;
-  min-width: 40px;
-  color: var(--text-muted);
-  font-size: 1.45rem;
+  min-width: 48px;
+  padding-right: 2px;
+  color: #cdcdd6;
+  font-size: 2rem;
+  font-style: italic;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
+  line-height: 1;
+  letter-spacing: -0.03em;
   text-align: right;
+  transition: color var(--dur) var(--ease);
 }
 
 .origen.activo .origen-cantidad {
+  color: var(--origen);
+}
+
+:root[data-theme="dark"] .origen-cantidad {
+  color: #3a3a45;
+}
+
+:root[data-theme="dark"] .origen.activo .origen-cantidad {
   color: var(--origen);
 }
 
@@ -159,96 +173,120 @@
   background: #f4a3aa;
 }
 
-/* ───────── Lo que impide ejecutar: siempre visible, arriba de las pestañas ───────── */
+/* ───────── Lo que impide crear: debajo de las pestañas ───────── */
+/* Idea 2 «Diagonal de marca» (usuaria, 23 nov.), en el mismo lugar y espacio de la línea de la idea 7. Solo el rojo
+   de marca (--red-main), el mismo de las pestañas y de la columna de resultados; esquinas y sombra de las pestañas. */
 .aviso-bloqueo {
-  position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 16px;
-  align-items: center;
-  margin: 4px 0 16px;
-  padding: 16px 18px 16px 22px;
+  display: flex;
+  align-items: stretch;
+  /* 18 px de aire con las pestañas y 28 px con los resultados (usuaria, 23 nov.: «se ve muy junto»). */
+  margin: -4px 0 28px;
   overflow: hidden;
   border-radius: 10px;
   background: var(--bg-card);
-  box-shadow: 0 1px 2px rgba(17, 17, 26, 0.05), 0 12px 28px -16px rgba(17, 17, 26, 0.3);
+  box-shadow: 0 1px 2px rgba(17, 17, 26, 0.05), 0 6px 16px -12px rgba(17, 17, 26, 0.25);
 }
 
-.aviso-bloqueo::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 4px;
-  background: var(--sev-critico);
-}
-
-.aviso-bloqueo-icono {
-  display: inline-flex;
+.aviso-bloqueo-veredicto {
+  display: flex;
+  flex: none;
   align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--sev-critico-bg);
-  color: var(--sev-critico);
+  gap: 11px;
+  width: 232px;
+  padding: 12px 46px 12px 18px;
+  background: var(--red-main);
+  color: #ffffff;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 26px) 100%, 0 100%);
 }
 
-.aviso-bloqueo-icono svg {
+.aviso-bloqueo-veredicto > svg {
+  flex: none;
   width: 20px;
   height: 20px;
 }
 
+.aviso-bloqueo-veredicto > span {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
 .aviso-bloqueo-etiqueta {
-  color: var(--sev-critico-text);
   font-family: var(--font-sans);
-  font-size: 0.64rem;
+  font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.aviso-bloqueo-veredicto-texto {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.aviso-bloqueo-texto {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px 16px 12px 8px;
 }
 
 .aviso-bloqueo-titulo {
-  margin-top: 2px;
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 0.92rem;
+  font-size: 0.86rem;
   font-weight: 700;
+  line-height: 1.35;
 }
 
 .aviso-bloqueo-detalle {
-  margin-top: 3px;
   color: var(--text-secondary);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   line-height: 1.5;
 }
 
 .aviso-bloqueo-boton {
-  padding: 9px 14px;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  align-self: center;
+  gap: 6px;
+  margin-right: 18px;
+  padding: 6px 0;
   border: none;
-  border-radius: 8px;
-  background: var(--bg-card);
-  color: var(--text-primary);
+  background: none;
+  color: var(--red-main);
   font-family: var(--font-sans);
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(17, 17, 26, 0.1), 0 6px 16px -10px rgba(17, 17, 26, 0.3);
 }
 
-.aviso-bloqueo-boton:hover {
-  box-shadow: 0 2px 6px rgba(17, 17, 26, 0.12), 0 10px 22px -12px rgba(17, 17, 26, 0.4);
+.aviso-bloqueo-boton svg {
+  width: 14px;
+  height: 14px;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.aviso-bloqueo-boton:hover svg {
+  transform: translateX(3px);
 }
 
 .aviso-bloqueo-boton:focus-visible {
-  outline: 2px solid var(--sev-critico);
-  outline-offset: 2px;
+  outline: 2px solid var(--red-main);
+  outline-offset: 3px;
+  border-radius: 2px;
 }
 
-:root[data-theme="dark"] .aviso-bloqueo,
-:root[data-theme="dark"] .aviso-bloqueo-boton {
+:root[data-theme="dark"] .aviso-bloqueo {
   background: #1c1c23;
 }
 
@@ -259,11 +297,21 @@
   }
 
   .aviso-bloqueo {
-    grid-template-columns: auto minmax(0, 1fr);
+    flex-wrap: wrap;
+  }
+
+  .aviso-bloqueo-veredicto {
+    width: 100%;
+    padding: 10px 16px;
+    clip-path: none;
+  }
+
+  .aviso-bloqueo-texto {
+    flex-basis: 100%;
+    padding: 12px 16px 4px;
   }
 
   .aviso-bloqueo-boton {
-    grid-column: 1 / -1;
-    justify-self: start;
+    margin: 0 16px 10px;
   }
 }

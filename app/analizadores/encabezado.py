@@ -27,7 +27,9 @@ SSMS (caso de la usuaria, 11 nov.):
 """
 
 import re
-from typing import List, Optional, Tuple
+from typing import List, NamedTuple, Optional, Tuple
+
+from app.analizadores.comentario_sin_apertura import encabezado_sin_abrir
 
 _PROCEDIMIENTO = re.compile(r"\b(?:CREATE|ALTER)\s+(?:OR\s+ALTER\s+)?PROC(?:EDURE)?\b", re.IGNORECASE)
 _COMENTARIO = re.compile(r"/\*[\s\S]*?(?:\*/|$)|--[^\n]*")
@@ -99,13 +101,31 @@ def _enumerar(datos: List[str]) -> str:
     return datos[0] if len(datos) == 1 else f"{', '.join(datos[:-1])} ni {datos[-1]}"
 
 
+class _Comentario(NamedTuple):
+    inicio: int
+    texto: str
+
+
+def _comentarios(zona: str) -> List[_Comentario]:
+    """Los comentarios de la zona del encabezado. Si al encabezado le falta el /* (termina en un */ sin apertura), ese
+    texto cuenta igual como encabezado: el validador ya avisa que falta el /* (usuaria, 23 nov.) y aquí no se dice
+    «no cuenta con un encabezado» cuando sí lo tiene."""
+    tramo = encabezado_sin_abrir(zona)
+    if tramo is None:
+        return [_Comentario(c.start(), c.group(0)) for c in _COMENTARIO.finditer(zona)]
+    inicio, fin = tramo
+    return ([_Comentario(c.start(), c.group(0)) for c in _COMENTARIO.finditer(zona[:inicio])]
+            + [_Comentario(inicio, zona[inicio:fin])]
+            + [_Comentario(c.start(), c.group(0)) for c in _COMENTARIO.finditer(zona, fin)])
+
+
 def comentarios_del_encabezado(texto: str, limpio: str) -> List[str]:
     """Los comentarios del encabezado (antes del CREATE/ALTER, o justo después del AS o del BEGIN)."""
     procedimiento = _PROCEDIMIENTO.search(limpio)
     if not procedimiento:
         return []
     zona = texto[:_inicio_del_cuerpo(limpio, procedimiento.end())]
-    return [c.group(0) for c in _COMENTARIO.finditer(zona)]
+    return [c.texto for c in _comentarios(zona)]
 
 
 def encabezado_observado(texto: str, limpio: str) -> Optional[Tuple[int, str]]:
@@ -117,8 +137,8 @@ def encabezado_observado(texto: str, limpio: str) -> Optional[Tuple[int, str]]:
     if not procedimiento:
         return None
     zona = texto[:_inicio_del_cuerpo(limpio, procedimiento.end())]
-    comentarios = list(_COMENTARIO.finditer(zona))
-    encabezado = "\n".join(c.group(0) for c in comentarios)
+    comentarios = _comentarios(zona)
+    encabezado = "\n".join(c.texto for c in comentarios)
     if not re.search(r"\w", encabezado):
         return procedimiento.start(), (
             f"Se identificó que el procedimiento no cuenta con un encabezado de documentación. "
@@ -139,12 +159,12 @@ def encabezado_observado(texto: str, limpio: str) -> Optional[Tuple[int, str]]:
     avisos = [f"la etiqueta {escrita} parece mal escrita (¿{correcta}?)" for escrita, correcta in mal_escritas]
     if not faltan:
         corregir = "la etiqueta" if len(avisos) == 1 else "las etiquetas"
-        return comentarios[0].start(), (
+        return comentarios[0].inicio, (
             f"Se identificó que en el encabezado {_y(avisos)}. Se recomienda corregir {corregir}, ya que el "
             f"encabezado debe ser claro para quien mantenga el procedimiento."
         )
     adicional = f" Además, {_y(avisos)}." if avisos else ""
-    return comentarios[0].start(), (
+    return comentarios[0].inicio, (
         f"Se identificó que el encabezado del procedimiento no indica {_enumerar(faltan)}.{adicional} "
         f"{QUE_HACER_ENCABEZADO_INCOMPLETO}"
     )
@@ -212,8 +232,8 @@ def nombre_del_encabezado_distinto(texto: str, limpio: str) -> Optional[Tuple[in
     if not objeto:
         return None
     zona = texto[:_inicio_del_cuerpo(limpio, procedimiento.end())]
-    for comentario in _COMENTARIO.finditer(zona):
-        for indicado in _NOMBRE_EN_ENCABEZADO.finditer(comentario.group(0)):
+    for comentario in _comentarios(zona):
+        for indicado in _NOMBRE_EN_ENCABEZADO.finditer(comentario.texto):
             nombre = indicado.group("nombre")
             if "_" not in nombre and "." not in nombre:
                 continue  # «NOMBRE: Juan»: no es un nombre de objeto
@@ -222,7 +242,7 @@ def nombre_del_encabezado_distinto(texto: str, limpio: str) -> Optional[Tuple[in
                 len(del_encabezado) < 2 or len(del_objeto) < 2 or del_encabezado[0] == del_objeto[0])
             if iguales:
                 return None
-            return (comentario.start() + indicado.start("nombre"), re.sub(r"\s+", "", nombre),
+            return (comentario.inicio + indicado.start("nombre"), re.sub(r"\s+", "", nombre),
                     re.sub(r"\s+", "", texto[objeto.start("nombre"):objeto.end("nombre")]))
     return None
 
