@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Revisión de planes por lote: varios .sqlplan sueltos, un .zip o un .rar (o una
-mezcla), tal como llegan adjuntos en el correo.
+Revisión de planes por lote: varios .sqlplan sueltos, un .zip, un .rar o una sesión
+de Plan Explorer .pesession (o una mezcla), tal como llegan adjuntos en el correo.
 
 - Los .zip se abren con Python (zipfile), sin escribir nada en disco.
 - Los .rar se abren con el tar.exe de Windows 10/11 (bsdtar), sin instalar nada.
@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Dict, List, Optional, Tuple
 
+from app.analizadores.planes_ejecucion.pesession import es_pesession, planes_de_la_sesion
 from app.analizadores.planes_ejecucion.servicio import SEVERIDADES, analizar_plan_completo, texto_del_plan
 
 MAXIMO_PLANES = 60
@@ -123,6 +124,16 @@ def _entradas_zip(contenido: bytes) -> List[Tuple[str, bytes]]:
 
 def _recorrer(nombre: str, ruta: str, contenido: bytes, extraccion: Extraccion, profundidad: int) -> None:
     if any(c in ruta for c in _CARPETAS_DE_SISTEMA):  # restos que agrega macOS al comprimir
+        return
+    # Sesión de Plan Explorer (.pesession, también es un .zip): sus planes, una por consulta (usuaria, 24 nov.).
+    if es_pesession(nombre, contenido):
+        planes, ignorados = planes_de_la_sesion(nombre, contenido)
+        extraccion.ignorados.extend(Ignorado(r, motivo) for r, motivo in ignorados)
+        for nombre_plan, ruta_plan, plan in planes:
+            if len(plan) > MAXIMO_POR_ARCHIVO:
+                extraccion.ignorados.append(Ignorado(ruta_plan, f"El plan supera los {MAXIMO_POR_ARCHIVO_MB} MB."))
+                continue
+            extraccion.planes.append(ArchivoPlan(nombre_plan, ruta_plan, plan))
         return
     if _es_zip(nombre, contenido) or _es_rar(nombre, contenido):
         tipo = "zip" if _es_zip(nombre, contenido) else "rar"

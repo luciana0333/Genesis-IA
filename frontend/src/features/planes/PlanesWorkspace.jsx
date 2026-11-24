@@ -208,7 +208,7 @@ export function PlanesWorkspace() {
               etiqueta="Planes de ejecución"
               htmlFor={idArchivo}
               estado="Requerido"
-              ayuda="Sube un plan .sqlplan, varios a la vez, una carpeta o el .zip / .rar del correo. Todos se revisan con las reglas del área elegida."
+              ayuda="Sube un plan .sqlplan, varios a la vez, una carpeta, el .zip / .rar del correo o la sesión .pesession de Plan Explorer. Todos se revisan con las reglas del área elegida."
             >
               <ZonaArchivo
                 id={idArchivo}
@@ -216,7 +216,7 @@ export function PlanesWorkspace() {
                 archivos={archivos}
                 accept={EXTENSIONES_ACEPTADAS.join(',')}
                 multiple
-                pista="Planes .sqlplan o comprimidos .zip / .rar · máximo 60 MB por plan"
+                pista="Planes .sqlplan, comprimidos .zip / .rar o sesiones .pesession · máximo 60 MB por plan"
                 onSeleccionar={seleccionarArchivos}
                 onQuitar={alQuitarArchivo}
               />
@@ -288,7 +288,7 @@ export function PlanesWorkspace() {
               textos={{
                 inicialTitulo: 'Listo para analizar tu plan',
                 pasos: [
-                  'Selecciona o arrastra tu plan .sqlplan, varios planes o un .zip / .rar',
+                  'Selecciona o arrastra tu plan .sqlplan, varios planes, un .zip / .rar o un .pesession',
                   'Presiona «Analizar plan»',
                   'Revisa cada hallazgo y cómo corregirlo',
                 ],

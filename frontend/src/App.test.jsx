@@ -489,8 +489,27 @@ describe('Planes', () => {
     expect(screen.getByText(/Se dejaron fuera 1 archivo: solo se aceptan/)).toBeInTheDocument();
     await usuario.click(screen.getByRole('button', { name: 'Analizar plan' }));
 
-    expect(screen.getByText('Selecciona un plan .sqlplan, varios planes o un .zip / .rar.')).toBeInTheDocument();
+    expect(screen.getByText('Selecciona un plan .sqlplan, varios planes, un .zip / .rar o una sesión .pesession.')).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('acepta una sesión de Plan Explorer (.pesession) y la manda por lote', async () => {
+    const usuario = userEvent.setup({ applyAccept: false });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+      area: 'negocio', limite: null, planes: [], ignorados: [],
+      totales: { planes: 0, conError: 0, superanLimite: 0, hallazgos: 0, sinHallazgos: 0,
+        porSeveridad: { critico: 0, alto: 0, medio: 0, bajo: 0 } },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    render(<App />);
+    await irA('planes');
+
+    await usuario.upload(screen.getByLabelText('Planes de ejecución'),
+      new File(['PK'], 'PE CONCILIACION.PA_X.pesession', { type: 'application/octet-stream' }));
+    expect(screen.queryByText(/Se dejaron fuera/)).not.toBeInTheDocument();
+    await usuario.click(screen.getByRole('button', { name: 'Analizar planes' }));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/analizar-planes');
   });
 
   it('revisa varios planes por lote y abre el detalle de cada uno', async () => {

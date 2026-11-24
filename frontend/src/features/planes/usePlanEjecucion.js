@@ -4,7 +4,8 @@ import { useSolicitudCancelable } from '../../hooks/useSolicitudCancelable';
 
 const EXTENSION_PLAN = '.sqlplan';
 // Lo que se puede subir: planes sueltos o comprimidos tal como llegan en el correo.
-export const EXTENSIONES_ACEPTADAS = ['.sqlplan', '.xml', '.zip', '.rar'];
+// .pesession: sesión de SQL Sentry Plan Explorer (usuaria, 24 nov.); el servidor saca los planes de adentro.
+export const EXTENSIONES_ACEPTADAS = ['.sqlplan', '.xml', '.zip', '.rar', '.pesession'];
 const MAXIMO_LOTE_MB = 200;
 const SIN_AVISO = { texto: '', tono: 'info' };
 
@@ -13,7 +14,7 @@ const extensionDe = (archivo) => {
   return EXTENSIONES_ACEPTADAS.find((extension) => nombre.endsWith(extension));
 };
 
-/** Un solo .sqlplan se revisa como siempre; varios archivos, un .xml, .zip o .rar van por lote. */
+/** Un solo .sqlplan se revisa como siempre; varios archivos, un .xml, .zip, .rar o .pesession van por lote. */
 export const esLote = (archivos) => archivos.length > 1
   || (archivos.length === 1 && extensionDe(archivos[0]) !== EXTENSION_PLAN);
 
@@ -51,7 +52,7 @@ export function usePlanEjecucion(area, limite = null) {
     });
     setAviso(rechazados
       ? {
-        texto: `Se dejaron fuera ${rechazados} archivo${rechazados === 1 ? '' : 's'}: solo se aceptan .sqlplan, .xml, .zip y .rar.`,
+        texto: `Se dejaron fuera ${rechazados} archivo${rechazados === 1 ? '' : 's'}: solo se aceptan .sqlplan, .xml, .zip, .rar y .pesession.`,
         tono: 'error',
       }
       : SIN_AVISO);
@@ -80,7 +81,7 @@ export function usePlanEjecucion(area, limite = null) {
   const analizar = useCallback(async (archivosIndicados, areaIndicada, limiteIndicado) => {
     const planes = Array.isArray(archivosIndicados) ? archivosIndicados : archivos;
     if (!planes.length) {
-      setAviso({ texto: 'Selecciona un plan .sqlplan, varios planes o un .zip / .rar.', tono: 'error' });
+      setAviso({ texto: 'Selecciona un plan .sqlplan, varios planes, un .zip / .rar o una sesión .pesession.', tono: 'error' });
       return;
     }
     const opciones = {
