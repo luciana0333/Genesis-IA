@@ -14,6 +14,7 @@ import re
 import unicodedata
 from typing import Dict, List, Optional, Set, Tuple
 
+from app.analizadores.consulta_diccionario import adjuntar_consulta
 from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, juntar_ortografia, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_tabla
 from app.analizadores.palabra_repetida import palabra_repetida_agrupada
@@ -1008,7 +1009,26 @@ def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> Li
         hallazgos += _tablas_fuera_del_script(
             texto_diccionario, nombres_del_script(texto_tabla, _ENCABEZADO_TABLA, _nombre_del_encabezado)
         )
+    # «Copiar consulta de validación» en lo que pide verificar el diccionario (usuaria, 23 nov.).
+    adjuntar_consulta(hallazgos, _REGLAS_CON_CONSULTA, "tabla", _tablas_modificadas(texto_tabla))
     return ([duplicada] if duplicada else []) + hallazgos
+
+
+# Observaciones que piden verificar qué descripciones ya están registradas: llevan la consulta para comprobarlo.
+_REGLAS_CON_CONSULTA = {"DOCUMENTACION_EXISTENTE_EN_ALTER", "VALIDAR_COLUMNA_MODIFICADA", "ALTER_SIN_DICCIONARIO"}
+
+
+def _tablas_modificadas(texto_tabla: str) -> List[Tuple[Optional[str], str]]:
+    """(esquema, tabla) de cada ALTER TABLE cuya tabla no se crea en el mismo script (ya existe)."""
+    creadas, modificadas = set(), []
+    for encabezado in _ENCABEZADO_TABLA.finditer(_sin_comentarios(texto_tabla)):
+        partes = [_limpiar_identificador_sql(p.strip()) for p in re.findall(_IDENTIFICADOR_SQL, encabezado.group(1))]
+        esquema, nombre = (partes[-2] if len(partes) > 1 else None), partes[-1]
+        if encabezado.group(0).upper().startswith("CREATE"):
+            creadas.add(nombre.lower())
+        else:
+            modificadas.append((esquema, nombre))
+    return [(esquema, nombre) for esquema, nombre in modificadas if nombre.lower() not in creadas]
 
 
 def _tablas_fuera_del_script(texto_diccionario: str, nombres: List[str]) -> List[Hallazgo]:

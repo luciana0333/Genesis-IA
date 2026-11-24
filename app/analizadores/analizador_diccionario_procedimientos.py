@@ -17,6 +17,7 @@ import difflib
 import re
 from typing import List, Set, Tuple, Dict, Optional
 
+from app.analizadores.consulta_diccionario import adjuntar_consulta
 from app.analizadores.descripcion_vs_nombre import contradice
 from app.analizadores.diccionario_agrupar import agrupar, asignar_secciones, con_elemento, juntar_ortografia, ubicar
 from app.analizadores.diccionario_nomenclatura import nomenclatura_procedimiento
@@ -815,6 +816,24 @@ _CODIGOS_DE_FUNCION = {
 }
 
 
+# Observaciones que piden verificar qué descripciones ya están registradas: llevan la consulta para comprobarlo.
+_REGLAS_CON_CONSULTA = {"DOCUMENTACION_EXISTENTE_EN_ALTER", "VALIDAR_DOCUMENTACION_ALTER", "ALTER_SIN_DICCIONARIO"}
+
+
+def _objetos_modificados(texto_procedimiento: str) -> List[Tuple[Optional[str], str]]:
+    """(esquema, nombre) de cada objeto del script que se modifica (ALTER o CREATE OR ALTER)."""
+    objetos = []
+    limpio = _sin_comentarios_ni_textos(texto_procedimiento)
+    for encabezado in _encabezado().finditer(limpio):
+        texto = encabezado.group(0)
+        if not re.match(r"\s*(?:ALTER|CREATE\s+OR\s+ALTER)\b", texto, re.IGNORECASE):
+            continue
+        esquema, nombre = extraer_esquema_y_nombre(limpio[encabezado.start():])
+        if nombre:
+            objetos.append((esquema, nombre))
+    return objetos
+
+
 def verificar_diccionario(
     texto_procedimiento: str,
     texto_diccionario: str,
@@ -824,6 +843,8 @@ def verificar_diccionario(
     token = usar(POR_CLAVE.get(objeto, PROCEDIMIENTO))
     try:
         hallazgos = _verificar_diccionario(texto_procedimiento, texto_diccionario)
+        # «Copiar consulta de validación» en lo que pide verificar el diccionario (usuaria, 23 nov.).
+        adjuntar_consulta(hallazgos, _REGLAS_CON_CONSULTA, actual().clave, _objetos_modificados(texto_procedimiento))
     finally:
         restaurar(token)
     if objeto == FUNCION.clave:
@@ -1101,6 +1122,16 @@ def _documentacion_existente_en_alter(texto_procedimiento: str, texto_diccionari
     hallazgo.seccion = "diccionario"
     # Para unirla con «no se incluyen» en una sola observación (_unir_validacion_alter).
     hallazgo.agregados = {nombre: sorted(partes["paradas"]) for nombre, partes in por_procedimiento.items()}
+    if len(por_procedimiento) >= PROCEDIMIENTOS_EN_TABLA:
+        # Desde 2 procedimientos, en tabla (Procedimiento | Parámetros), como cuando también faltan descripciones
+        # (usuaria, 23 nov.: con 5 PA salía en viñetas «el procedimiento y 8 parámetros», sin nombrarlos).
+        hallazgo.grupos = [
+            {"nombre": nombre, "tipo": o.nombre.capitalize(), "situacion": SITUACION_AGREGADA, "seccion": "diccionario",
+             "lineas": [linea for linea, _ in paradas], "etiquetas": [elemento for _, elemento in paradas]}
+            for nombre, paradas in hallazgo.agregados.items()
+        ]
+        # «Ver en el código» recorre los procedimientos, fila por fila.
+        hallazgo.lineas = [linea for grupo in hallazgo.grupos for linea in grupo["lineas"]]
     return [hallazgo]
 
 

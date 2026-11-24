@@ -156,9 +156,9 @@ class EstructuraTest(unittest.TestCase):
 
     def test_mensaje_de_sql_server(self):
         hallazgo = validar_estructura("SELECT 1\nELSE\n SELECT 2")[0]
-        self.assertIn("en la columna 1:", hallazgo.mensaje)
+        # Con el texto de la línea en lugar de la columna (usuaria, 23 nov.).
+        self.assertIn("cerca de «ELSE»: «ELSE» (línea 2)", hallazgo.mensaje)
         self.assertEqual(hallazgo.linea, 2)
-        self.assertIn("'ELSE'", hallazgo.mensaje)
 
 
 # Casos de la usuaria (9 nov.), probados en SQL Server (PARSEONLY y ejecución real en su SQL Express).

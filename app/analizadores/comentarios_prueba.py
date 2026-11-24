@@ -65,11 +65,24 @@ def _bloque_de_guiones(texto: str, posicion: int) -> Tuple[int, int]:
     return desde, hasta
 
 
+def _sin_nota_final(linea: str) -> str:
+    """Quita la nota del final de la línea («= '2026-01-01'; -- Fecha inicial del filtro»), salvo dentro de comillas."""
+    en_texto = False
+    for i, caracter in enumerate(linea):
+        if caracter == "'":
+            en_texto = not en_texto
+        elif not en_texto and linea.startswith("--", i):
+            return linea[:i]
+    return linea
+
+
 def _es_de_prueba(lineas: List[str], procedimiento: Optional[str]) -> bool:
     """Todas las líneas con código son DECLARE/variables/SET de prueba o el EXEC del mismo procedimiento."""
     hay_prueba = False
     for linea in lineas:
-        linea = linea.strip().rstrip(";").strip()
+        # Caso real PA_GDD_CredFallidoComiteDetalle_Sel_FallidosGeneral (usuaria, 23 nov.): cada variable de prueba
+        # lleva su nota al final, y por eso se marcaba como código comentado.
+        linea = _sin_nota_final(linea).strip().rstrip(";").strip()
         if not linea:
             continue
         # «EXEC dbo.PA_X @dFecha = '20260930', @cAgencia = '18'»: solo el del mismo procedimiento.

@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { IconoCopiado, IconoCopiar } from './Iconos';
 
 /**
- * «Copiar consulta de validación»: copia la consulta que muestra si las columnas del ISNULL aceptan NULL,
- * lista para ejecutar en SQL Server (Genesis no se conecta a la base).
+ * «Copiar consulta de validación»: copia la consulta que la observación trae lista para ejecutar en SQL Server
+ * (Genesis no se conecta a la base): si las columnas del ISNULL aceptan NULL, el tipo real de las columnas
+ * comparadas o, en Diccionarios, qué descripciones ya están registradas (23 nov.).
  */
 export function CopiarConsulta({ consulta }) {
   const [copiada, setCopiada] = useState(false);

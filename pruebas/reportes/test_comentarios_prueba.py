@@ -64,5 +64,38 @@ class TestBloquesDePrueba(unittest.TestCase):
                 self.assertTrue(resultado["negocio"], nombre)
 
 
+# Caso real PA_GDD_CredFallidoComiteDetalle_Sel_FallidosGeneral (usuaria, 23 nov.): cada variable de prueba lleva una
+# nota al final de la línea y se marcaba como «Código SQL comentado».
+CASO_CON_NOTAS = """    -- DECLARE @FECHA       DATE         = '2026-01-01'; -- Fecha inicial del filtro
+    -- DECLARE @AGENCIAS    VARCHAR(MAX) = '27,28,31,33,34,38,39';
+    -- DECLARE @nFiltro     INT          = -1; """
+
+
+class TestBloquesDePruebaConNota(unittest.TestCase):
+    def test_variables_con_nota_al_final_no_se_marcan(self):
+        casos = {
+            "caso real": CASO_CON_NOTAS,
+            "nota sin punto y coma": "    --DECLARE @FECHA DATE = '20260930' -- fecha de corte",
+            "nota pegada": "    --DECLARE @FECHA DATE = '20260930';--fecha de corte",
+            "nota en el bloque /* */": "    /*\n    DECLARE @FECHA DATE = '20260930' -- fecha de corte\n    */",
+            "valor con -- dentro de las comillas": "    --DECLARE @AGENCIAS VARCHAR(300) = '18--20' -- agencias",
+            "SET con nota": "    --DECLARE @FECHA DATE\n    --SET @FECHA = '20260930' -- cambiar al probar",
+        }
+        for nombre, comentario in casos.items():
+            with self.subTest(nombre):
+                self.assertEqual(comentados(comentario), {"reportes": [], "negocio": []})
+
+    def test_codigo_real_con_nota_si_se_marca(self):
+        casos = {
+            "consulta con nota": "    --SELECT cAgeCod FROM dbo.Agencia WHERE nId = 1 -- ya no se usa",
+            "DECLARE con nota y una consulta": "    --DECLARE @FECHA DATE = '20260930' -- prueba\n    --SELECT * FROM dbo.Agencia",
+            "UPDATE con nota": "    --UPDATE dbo.Agencia SET cEstado = 'I' -- temporal",
+        }
+        for nombre, comentario in casos.items():
+            with self.subTest(nombre):
+                resultado = comentados(comentario)
+                self.assertTrue(resultado["reportes"] and resultado["negocio"], resultado)
+
+
 if __name__ == "__main__":
     unittest.main()

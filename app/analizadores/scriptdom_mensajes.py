@@ -224,6 +224,30 @@ def mensaje_varchar_sin_tamano_fecha(hechos: List[Dict]) -> str:
             f"{_varchar_sin_tamano_fecha(hechos[0])[1]}")
 
 
+# Largo máximo de cada entero convertido a texto, con el signo (usuaria, 23 nov.): nunca pasa de 30, no se corta.
+LARGO_POR_ENTERO = {"TINYINT": 3, "SMALLINT": 6, "INT": 11, "BIGINT": 20}
+
+
+def _varchar_sin_tamano_entero(h: Dict) -> Partes:
+    largo = LARGO_POR_ENTERO.get(h["tipoConvertido"], 20)
+    return (f"Se identificó la conversión de {h['convertido']} ({h['tipoConvertido']}) a {h['tipoDato']} sin "
+            f"especificar el tamaño.",
+            f"Se recomienda especificar el tamaño, por ejemplo, {h['tipoDato']}({largo}), a fin de definir "
+            f"explícitamente la longitud del resultado.")
+
+
+def mensaje_varchar_sin_tamano_entero(hechos: List[Dict]) -> str:
+    """Todos los casos en una frase, como las fechas (sin repetir cada uno)."""
+    if len(hechos) == 1:
+        return " ".join(_varchar_sin_tamano_entero(hechos[0]))
+    casos = list(dict.fromkeys(f"{h['convertido']} ({h['tipoConvertido']})" for h in hechos))
+    texto = casos[0] if len(casos) == 1 else f"{', '.join(casos[:-1])} y {casos[-1]}"
+    largo = max(LARGO_POR_ENTERO.get(h["tipoConvertido"], 20) for h in hechos)
+    return (f"Se identificaron {len(hechos)} conversiones de números enteros a {hechos[0]['tipoDato']} sin especificar "
+            f"el tamaño: {texto}. Se recomienda especificar el tamaño, por ejemplo, {hechos[0]['tipoDato']}({largo}), "
+            f"a fin de definir explícitamente la longitud del resultado.")
+
+
 def _con_null(h: Dict) -> Partes:
     return (f"Se identificó la comparación {h['comparacion']}, que nunca es verdadera.",
             f"Usar {'IS NOT NULL' if h.get('negada') else 'IS NULL'}, ya que en SQL Server una comparación con NULL "
@@ -706,6 +730,7 @@ MENSAJES: Dict[str, Tuple[Severidad, Callable[[Dict], Optional[Partes]]]] = {
     "AGREGADO_EN_WHERE": (Severidad.CRITICO, _agregado_where),
     "VARCHAR_SIN_TAMANO": (Severidad.ALTO, _varchar_sin_tamano),
     "VARCHAR_SIN_TAMANO_FECHA": (Severidad.BAJO, _varchar_sin_tamano_fecha),
+    "VARCHAR_SIN_TAMANO_ENTERO": (Severidad.BAJO, _varchar_sin_tamano_entero),
     "COMPARACION_CON_NULL": (Severidad.ALTO, _con_null),
     "ISNULL_TRUNCA": (Severidad.ALTO, _isnull_trunca),
     "TEXTO_MAS_LARGO_QUE_VARIABLE": (Severidad.ALTO, _texto_largo),
