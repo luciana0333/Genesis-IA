@@ -1650,7 +1650,7 @@
 .tabla-por-procedimiento .tabla-tipos-fila.alterna,
 .tabla-por-procedimiento > tbody > tr > td { background: transparent; }
 .tabla-por-procedimiento > tbody > tr > td {
-  background-image: linear-gradient(to top, rgba(17, 17, 26, 0.07), rgba(17, 17, 26, 0) 8px);
+  background-image: linear-gradient(to top, rgba(17, 17, 26, 0.05), rgba(17, 17, 26, 0) 7px);
 }
 .tabla-por-procedimiento > tbody > tr:last-child > td { background-image: none; }
 :root[data-theme="dark"] .tabla-por-procedimiento .tabla-tipos-fila,
