@@ -183,7 +183,7 @@ export function ResumenLote({ lote, orden, onOrdenar, onVerPlan }) {
         <table className="lote-tabla lote-tarjetas">
           <thead>
             <tr>
-              <th scope="col" className="lote-col-num"><span className="sr-only">N.°</span></th>
+              <th scope="col" className="lote-col-num">N.°</th>
               <EncabezadoOrden columna="procedimiento" titulo="Procedimiento" orden={orden} onOrdenar={alOrdenar} />
               <EncabezadoOrden columna="duracion" titulo="Tiempo" orden={orden} onOrdenar={alOrdenar} />
               <EncabezadoOrden columna="hallazgos" titulo="Hallazgos" orden={orden} onOrdenar={alOrdenar} />

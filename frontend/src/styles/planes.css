@@ -1101,10 +1101,12 @@
   font-size: 0.83rem;
 }
 
+/* Cabecera en un bloque gris claro redondeado, como la idea L3 (usuaria, 24 nov.). */
 .lote-tarjetas thead th {
-  padding: 0 14px 2px;
+  height: 34px;
+  padding: 0 14px;
   border: none;
-  background: transparent;
+  background: #f5f7fb;
   color: var(--text-muted);
   font-family: var(--font-sans);
   font-size: 0.6rem;
@@ -1115,13 +1117,16 @@
   white-space: nowrap;
 }
 
+.lote-tarjetas thead th:first-child { border-radius: 5px 0 0 5px; }
+.lote-tarjetas thead th:last-child { border-radius: 0 5px 5px 0; }
 .lote-tarjetas th:has(.lote-orden) { padding: 0; }
 
 .lote-orden {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 14px 2px;
+  height: 34px;
+  padding: 0 14px;
   border: none;
   background: transparent;
   color: inherit;
@@ -1278,6 +1283,7 @@
 
 :root[data-theme="dark"] .lote-tarjetas tbody td { --bg-card: #1c1c23; background: #1c1c23; }
 :root[data-theme="dark"] .lote-numero { color: #3a3a45; }
+:root[data-theme="dark"] .lote-tarjetas thead th { background: rgba(255, 255, 255, 0.05); }
 :root[data-theme="dark"] .lote-ver { background: #24242c; }
 
 
