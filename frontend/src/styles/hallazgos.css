@@ -1641,8 +1641,8 @@
    grises pequeñas y juntas, los 5 primeros elementos y «+N más». Lo que falta lleva la etiqueta roja «Falta». */
 /* La columna del nombre toma el ancho del nombre más largo: el PA se lee completo, en una línea (24 nov.). */
 .tabla-por-procedimiento > thead > tr > th:first-child { width: 1%; white-space: nowrap; }
-.tabla-por-procedimiento > tbody > tr > td { padding-top: 14px; padding-bottom: 14px; vertical-align: top; }
-.tabla-por-procedimiento > tbody > tr > td:first-child { padding-right: 28px; white-space: nowrap; }
+.tabla-por-procedimiento > tbody > tr > td { padding-top: 16px; padding-bottom: 16px; vertical-align: top; }
+.tabla-por-procedimiento > tbody > tr > td:first-child { padding-right: 36px; white-space: nowrap; }
 .tabla-procedimiento-nombre {
   display: inline-block;
   white-space: nowrap;
@@ -1651,8 +1651,8 @@
   border-radius: 4px;
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: 0.76rem;
+  font-weight: 600;
   line-height: 1.4;
   transition: background-color var(--dur-fast) ease;
 }
