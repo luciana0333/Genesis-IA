@@ -63,8 +63,8 @@ class TestConversionImplicitaReporte(unittest.TestCase):
     def test_varias_conversiones_se_agrupan(self):
         hallazgos = _hallazgos(_plan(IMPLICITA_SEEK, advertencias_compute=IMPLICITA_CARDINALIDAD))
         self.assertEqual(len(hallazgos), 1)
-        self.assertTrue(hallazgos[0].mensaje.startswith("Se identificaron 2 conversiones implícitas, en la consulta 1: "))
-        self.assertIn("1: Operador SELECT: «[DC].[nDocTpo]=CONVERT_IMPLICIT(", hallazgos[0].mensaje)
+        self.assertTrue(hallazgos[0].mensaje.startswith("Se identificaron 2 conversiones implícitas: "))
+        self.assertIn("implícitas: Operador SELECT: «[DC].[nDocTpo]=CONVERT_IMPLICIT(", hallazgos[0].mensaje)
         self.assertIn("; Operador Compute Scalar: «CONVERT_IMPLICIT(", hallazgos[0].mensaje)
         self.assertEqual(len(hallazgos[0].nodos), 2)
         self.assertTrue(hallazgos[0].mensaje.endswith(
@@ -126,7 +126,7 @@ class TestCondicionIf(unittest.TestCase):
     def test_las_reglas_revisan_la_condicion(self):
         hallazgos = {h.regla: h for h in analizar_plan_reporte(construir_diagrama(self.XML), 30)}
         self.assertEqual(set(hallazgos), {"TIEMPO_EJECUCION_SUPERADO", "CONVERSION_IMPLICITA_DETECTADA", "LECTURA_RESIDUAL_ELEVADA"})
-        self.assertIn("en la condición IF de la consulta 1", hallazgos["CONVERSION_IMPLICITA_DETECTADA"].mensaje)
+        self.assertIn("en la condición IF:", hallazgos["CONVERSION_IMPLICITA_DETECTADA"].mensaje)
         self.assertEqual(hallazgos["TIEMPO_EJECUCION_SUPERADO"].codigo, "IF EXISTS (SELECT 1 FROM dbo.X WHERE c = @n)")
 
 

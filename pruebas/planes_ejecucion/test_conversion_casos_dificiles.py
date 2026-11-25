@@ -94,7 +94,7 @@ class TestConversionesEnUnMismoOperador(unittest.TestCase):
                 self.assertEqual(len(hallazgos), 1)
                 self.assertEqual(
                     hallazgos[0].mensaje,
-                    "Se han identificado 12 conversiones implícitas en el operador INSERT de la consulta 8, que "
+                    "Se han identificado 12 conversiones implícitas en el operador INSERT, que "
                     "alteran la estimación de filas (CardinalityEstimate): 6 a varchar(10), 4 a int y 2 a "
                     "varchar(100). Se recomienda revisar que los tipos de datos de las columnas de la tabla donde se "
                     "inserta coincidan con los de los valores del SELECT, para evitar conversiones implícitas y "
@@ -121,9 +121,9 @@ class TestConversionesEnUnMismoOperador(unittest.TestCase):
         hallazgo = _conversiones(xml)[0]
         self.assertEqual(
             hallazgo.mensaje,
-            "Se identificaron 13 conversiones implícitas, en las consultas 3, 8: Operador SELECT de la consulta 3: "
+            "Se identificaron 13 conversiones implícitas: Operador SELECT: "
             "«[DC].[nDocTpo]=CONVERT_IMPLICIT(int,[CL].[nConsEquivalente],0)», que impide buscar en el índice "
-            "(SeekPlan); Operador INSERT de la consulta 8: 12 conversiones (6 a varchar(10), 4 a int y 2 a "
+            "(SeekPlan); Operador INSERT: 12 conversiones (6 a varchar(10), 4 a int y 2 a "
             "varchar(100)), que alteran la estimación de filas (CardinalityEstimate). Se recomienda revisar las "
             "alertas por conversiones implícitas y homologar los tipos de datos de las columnas involucradas para "
             "evitar conversiones implícitas y mejorar el rendimiento de las consultas.",

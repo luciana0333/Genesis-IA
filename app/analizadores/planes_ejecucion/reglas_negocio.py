@@ -12,6 +12,7 @@ from typing import Dict, List, Optional
 
 from app.analizadores.planes_ejecucion.reglas_reporte import (
     _conversion_implicita,
+    LECTURA_RESIDUAL_MINIMA,
     _lectura_residual,
     _nombre_operador,
     _tiempo_superado,
@@ -69,9 +70,64 @@ _ACCION_PK = (
 )
 
 
+# Lectura completa de tabla (usuaria, 25 nov.): el Scan devuelve casi todo lo que lee (90 % o más), pero el
+# Filter que viene después deja una cantidad mínima (10 % o menos de lo leído). Caso real
+# PA_CuentasOrden_Ajuste_EstadisticoCapitalMensual: Producto, 4,658,459 leídas → 4,612,906 → Filter (bitmap) → 6,875.
+CASI_TODO = 0.9
+CANTIDAD_MINIMA = 0.1
+# Operadores que pasan las filas sin filtrarlas: se sube por ellos hasta encontrar el Filter.
+_SIN_FILTRO = {"parallelism", "compute scalar"}
+
+
+def _filtro_posterior(nodo: Dict, nodos: List[Dict]) -> Optional[Dict]:
+    """El Filter que recibe las filas del Scan (subiendo por Parallelism o Compute Scalar), o None."""
+    por_id = {n["id"]: n for n in nodos}
+    padre = por_id.get(nodo["padre"])
+    while padre is not None and padre["fisica"].lower() in _SIN_FILTRO:
+        padre = por_id.get(padre["padre"])
+    return padre if padre is not None and padre["fisica"].lower() == "filter" else None
+
+
+def _lectura_completa(sentencias: List[Dict]) -> List[Dict]:
+    casos = []
+    for sentencia in sentencias:
+        for nodo in sentencia["nodos"]:
+            if "scan" not in nodo["fisica"].lower():
+                continue
+            devueltas = nodo.get("filasReales")
+            leidas = nodo.get("filasLeidas") if nodo.get("filasLeidas") is not None else devueltas
+            if leidas is None or devueltas is None or leidas <= LECTURA_RESIDUAL_MINIMA or devueltas < leidas * CASI_TODO:
+                continue
+            filtro = _filtro_posterior(nodo, sentencia["nodos"])
+            usadas = filtro.get("filasReales") if filtro is not None else None
+            if usadas is None or usadas > leidas * CANTIDAD_MINIMA:
+                continue
+            casos.append({"consulta": sentencia["numero"], "nodo": nodo, "filtro": filtro})
+    return casos
+
+
+def _hallazgo_lectura_completa(casos: List[Dict]) -> List[Hallazgo]:
+    if not casos:
+        return []
+    tablas = list(dict.fromkeys(c["nodo"].get("objeto") or "sin nombre" for c in casos))
+    if len(tablas) == 1:
+        sujeto = f"la tabla {tablas[0]}"
+    else:
+        sujeto = f"las tablas {', '.join(tablas[:-1])} y {tablas[-1]}"
+    mensaje = (
+        f"Se observa que se estaría leyendo la totalidad o casi la totalidad de {sujeto}. ¿Este comportamiento "
+        f"está validado? De no ser así, se recomienda revisar las condiciones de filtrado, ya que posteriormente "
+        f"solo se utiliza una cantidad mínima de los registros leídos."
+    )
+    hallazgo = _hallazgo("LECTURA_COMPLETA_TABLA", Severidad.ALTO, mensaje, [])
+    # La imagen muestra solo el Scan de la tabla (usuaria, 25 nov.: «en el Filter no, la tabla solamente»); la misma
+    # tabla en varias consultas sale una sola vez en la imagen, con todas sus consultas (agruparCasos del frontend).
+    hallazgo.nodos = [{"consulta": c["consulta"], "nodo": c["nodo"]["id"]} for c in casos]
+    return [hallazgo]
+
+
 def _table_scan(sentencias: List[Dict]) -> List[Hallazgo]:
     """Table Scan sobre tablas físicas: en un procedimiento de negocio se recorre la tabla completa."""
-    varias = len({s["numero"] for s in sentencias}) > 1
     casos = [
         {"consulta": s["numero"], "nodo": n}
         for s in sentencias
@@ -95,11 +151,10 @@ def _table_scan(sentencias: List[Dict]) -> List[Hallazgo]:
     mostrados = [{"consulta": consulta, "nodo": nodo} for consulta, nodos, _ in por_tabla.values() for nodo in nodos]
 
     def describir(tabla: str, con_veces: bool = True) -> str:
-        consulta, nodos, repetida = por_tabla[tabla]
+        _, nodos, _ = por_tabla[tabla]
         texto = f"la tabla {tabla}"
+        # La consulta no va en el mensaje: ya está en la imagen (usuaria, 25 nov.).
         detalles = []
-        if varias and not repetida:
-            detalles.append(f"consulta {consulta}")
         if con_veces and len(nodos) > 1:
             detalles.append(f"{len(nodos)} veces")
         if detalles:
@@ -123,7 +178,7 @@ def _table_scan(sentencias: List[Dict]) -> List[Hallazgo]:
     else:
         detalle = "; ".join(d[:1].upper() + d[1:] for d in (describir(tabla) for tabla in por_tabla))
         mensaje = (
-            f"Se identificaron {len(mostrados)} Table Scan dentro del procedimiento, en {_encabezado(mostrados)}: "
+            f"Se identificaron {len(mostrados)} Table Scan dentro del procedimiento: "
             f"{detalle}. {_ACCION_PK.format(donde='en cada tabla con Table Scan')}"
         )
     return [_hallazgo("TABLE_SCAN_DETECTADO", Severidad.ALTO, mensaje, mostrados)]
@@ -149,8 +204,7 @@ def _spill(sentencias: List[Dict]) -> List[Hallazgo]:
         texto = f"el operador {_nombre_operador(nodo)}"
         if nodo.get("objeto"):
             texto += f" sobre {nodo['objeto']}"
-        if varias:
-            texto += f" de la consulta {caso['consulta']}"
+        # La consulta no va en el mensaje: ya está en la imagen (usuaria, 25 nov.).
         escritas = caso["datos"].get("escritas")
         if escritas is not None:
             texto += f": se escribieron {_cifra(escritas)} páginas en TempDB"
@@ -161,7 +215,7 @@ def _spill(sentencias: List[Dict]) -> List[Hallazgo]:
                    f"dentro del procedimiento, ya que puede ocasionar impactos en TempDB y afectar el rendimiento.")
     else:
         detalle = "; ".join("O" + d[4:] for d in (describir(c) for c in casos))  # «el operador…» → «Operador…»
-        mensaje = (f"Se identificaron {len(casos)} spills a TempDB, en {_encabezado(casos)}: {detalle}. Corregir las "
+        mensaje = (f"Se identificaron {len(casos)} spills a TempDB: {detalle}. Corregir las "
                    f"alertas por spill dentro del procedimiento, ya que pueden ocasionar impactos en TempDB y afectar "
                    f"el rendimiento.")
     return [_hallazgo("SPILL_TEMPDB_DETECTADO", Severidad.ALTO, mensaje, casos)]
@@ -169,28 +223,31 @@ def _spill(sentencias: List[Dict]) -> List[Hallazgo]:
 
 # --- Sobreestimación de memoria ------------------------------------------------
 
-# En un entorno muy transaccional, reservar poca memoria no es un problema: solo se observa a partir de
-# 80 MB reservados y si se usó MENOS del 50 % de lo reservado (ej.: 80 MB reservados y 1 MB usado, o
-# 1000 MB y 400 MB), tenga o no la alerta Excessive Grant de SQL Server (decisión de la usuaria, 2 nov.).
-# Si usa la mitad o más, la reserva es razonable.
+# En un entorno muy transaccional, reservar poca memoria no es un problema: con la alerta Excessive Grant de
+# SQL Server se observa a partir de 80 MB reservados y si se usó MENOS del 50 % (decisión de la usuaria, 2 nov.).
+# Sin la alerta (usuaria, 25 nov.) ya no va arriba: solo si la reserva es grande (100 MB o más) y usa poco
+# (30 % o menos), como riesgo identificado por Genesis, con el mismo texto y en bajo.
 MEMORIA_MINIMA_KB = 80 * 1024
 PORCENTAJE_MINIMO_USADO = 0.50
+MEMORIA_MINIMA_SIN_ALERTA_KB = 100 * 1024
+PORCENTAJE_USADO_SIN_ALERTA = 0.30
 
 
-def _reserva_desproporcionada(memoria: Optional[Dict]) -> bool:
+def _reserva_grande_sin_alerta(memoria: Optional[Dict]) -> bool:
     if not memoria or memoria.get("concedida") is None or memoria.get("usada") is None:
         return False
-    return memoria["concedida"] >= MEMORIA_MINIMA_KB and memoria["usada"] < memoria["concedida"] * PORCENTAJE_MINIMO_USADO
+    return (memoria["concedida"] >= MEMORIA_MINIMA_SIN_ALERTA_KB
+            and memoria["usada"] <= memoria["concedida"] * PORCENTAJE_USADO_SIN_ALERTA)
 
 
 def _memoria(sentencias: List[Dict]) -> List[Hallazgo]:
     """
-    Consultas con la memoria reservada muy por encima de la usada: la alerta Excessive Grant del XML
-    o, aunque no la traiga, una reserva desproporcionada: en ambos casos, desde MEMORIA_MINIMA_KB
-    reservados y usando menos de PORCENTAJE_MINIMO_USADO.
+    Consultas con la memoria reservada muy por encima de la usada. Con la alerta Excessive Grant del XML en el
+    operador inicial: observación en medio. Sin la alerta, pero con una reserva grande y poco uso: riesgo
+    identificado por Genesis, en bajo (usuaria, 25 nov.).
     """
-    varias = len({s["numero"] for s in sentencias}) > 1
     casos = []
+    sin_alerta = []
     for s in sentencias:
         raiz = next((n for n in s["nodos"] if n["padre"] is None), None)
         if raiz is None:
@@ -205,13 +262,13 @@ def _memoria(sentencias: List[Dict]) -> List[Hallazgo]:
         uso_razonable = concedida is not None and usada is not None and usada >= concedida * PORCENTAJE_MINIMO_USADO
         if alerta and concedida is not None and concedida >= MEMORIA_MINIMA_KB and not uso_razonable:
             casos.append({"consulta": s["numero"], "nodo": raiz, "datos": alerta.get("datos", {})})
-        elif _reserva_desproporcionada(s.get("memoria")):
+        elif alerta is None and _reserva_grande_sin_alerta(s.get("memoria")):
             memoria = s["memoria"]
-            casos.append({"consulta": s["numero"], "nodo": raiz, "datos": {
+            sin_alerta.append({"consulta": s["numero"], "nodo": raiz, "datos": {
                 "solicitada": _kb(memoria.get("solicitada")), "concedida": _kb(memoria["concedida"]),
                 "usada": _kb(memoria["usada"]),
             }})
-    if not casos:
+    if not casos and not sin_alerta:
         return []
 
     def describir(caso: Dict) -> str:
@@ -225,15 +282,25 @@ def _memoria(sentencias: List[Dict]) -> List[Hallazgo]:
         "ya que la cantidad reservada es muy alta para la cantidad utilizada; si bien se trata de tablas "
         "transaccionales, se debe reducir lo más posible."
     )
-    if len(casos) == 1:
-        lugar = f" en la consulta {casos[0]['consulta']}" if varias else ""
-        mensaje = (f"Se observa una sobreestimación en la reserva de memoria{lugar}, ya que "
-                   f"{describir(casos[0])}. Corregir la sobreestimación de memoria, {motivo}")
-    else:
-        detalle = "; ".join(f"Consulta {c['consulta']}: {describir(c)}" for c in casos)
-        mensaje = (f"Se identificaron {len(casos)} sobreestimaciones en la reserva de memoria, en "
-                   f"{_encabezado(casos)}: {detalle}. Corregir las sobreestimaciones de memoria, {motivo}")
-    return [_hallazgo("MEMORIA_SOBREESTIMADA", Severidad.MEDIO, mensaje, casos)]
+
+    def mensaje_de(grupo: List[Dict]) -> str:
+        # La consulta no va en el mensaje: ya está en la imagen (usuaria, 25 nov.).
+        if len(grupo) == 1:
+            return (f"Se observa una sobreestimación en la reserva de memoria, ya que "
+                    f"{describir(grupo[0])}. Corregir la sobreestimación de memoria, {motivo}")
+        detalle = "; ".join(d[:1].upper() + d[1:] for d in (describir(c) for c in grupo))
+        return (f"Se identificaron {len(grupo)} sobreestimaciones en la reserva de memoria: {detalle}. "
+                f"Corregir las sobreestimaciones de memoria, {motivo}")
+
+    hallazgos = []
+    if casos:
+        hallazgos.append(_hallazgo("MEMORIA_SOBREESTIMADA", Severidad.MEDIO, mensaje_de(casos), casos))
+    if sin_alerta:
+        # Sin la alerta de SQL Server: lo identifica Genesis, con el mismo texto y en bajo.
+        riesgo = _hallazgo("MEMORIA_SOBREESTIMADA_GENESIS", Severidad.BAJO, mensaje_de(sin_alerta), sin_alerta)
+        riesgo.complementario = True  # va en «Riesgos identificados por Genesis»
+        hallazgos.append(riesgo)
+    return hallazgos
 
 
 def analizar_plan_negocio(sentencias: List[Dict], limite_s: Optional[float] = None) -> List[Hallazgo]:
@@ -241,11 +308,13 @@ def analizar_plan_negocio(sentencias: List[Dict], limite_s: Optional[float] = No
 
     limite_s: límite de tiempo del área en segundos (None = sin límite definido).
     """
+    completas = _lectura_completa(sentencias)
     return (
         _tiempo_superado(sentencias, limite_s)
         + _table_scan(sentencias)
         + _conversion_implicita(sentencias)
-        + _lectura_residual(sentencias)
+        + _hallazgo_lectura_completa(completas)
+        + _lectura_residual(sentencias, frozenset((c["consulta"], c["nodo"]["id"]) for c in completas))
         + _spill(sentencias)
         + _memoria(sentencias)
         + riesgos_genesis(sentencias)

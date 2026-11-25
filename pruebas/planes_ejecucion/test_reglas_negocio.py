@@ -53,7 +53,7 @@ class TestReglasNegocio(unittest.TestCase):
     def test_varios_table_scan_se_listan(self):
         hallazgo = _reglas(_plan(operadores=_table_scan(1, "Clientes") + _table_scan(2, "Agencias")))["TABLE_SCAN_DETECTADO"]
         self.assertTrue(hallazgo.mensaje.startswith(
-            "Se identificaron 2 Table Scan dentro del procedimiento, en la consulta 1: La tabla [dbo].[Clientes]"))
+            "Se identificaron 2 Table Scan dentro del procedimiento: La tabla [dbo].[Clientes]"))
         self.assertIn("Evaluar agregar una PK CLUSTERED en cada tabla con Table Scan, ya que, según nuestras buenas "
                       "prácticas, toda tabla debe contar con una.", hallazgo.mensaje)
 
@@ -126,7 +126,9 @@ class TestReglasNegocio(unittest.TestCase):
         sentencias = construir_diagrama((EJEMPLOS / "plan-ejemplo-negocio.sqlplan").read_bytes())
         con_limite = {h.regla: h for h in analizar_plan_negocio(sentencias, 30)}
         self.assertIn("TIEMPO_EJECUCION_SUPERADO", con_limite)
-        self.assertIn("el límite es de 30 segundos", con_limite["TIEMPO_EJECUCION_SUPERADO"].mensaje)
+        # El límite decide cuándo marcar, pero no se menciona (aún no está en el manual; usuaria, 25 nov.).
+        self.assertIn("presenta un tiempo de ejecución elevado", con_limite["TIEMPO_EJECUCION_SUPERADO"].mensaje)
+        self.assertNotIn("límite", con_limite["TIEMPO_EJECUCION_SUPERADO"].mensaje)
         self.assertNotIn("TIEMPO_EJECUCION_SUPERADO", {h.regla for h in analizar_plan_negocio(sentencias, None)})
 
 

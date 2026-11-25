@@ -21,6 +21,14 @@ REGLAS_PLANES_EJECUCION = {
         alcance="plan_ejecucion",
         activo=True,
     ),
+    "MEMORIA_SOBREESTIMADA_GENESIS": ReglaDiccionario(
+        codigo="MEMORIA_SOBREESTIMADA_GENESIS",
+        nombre="Sobreestimación de memoria",
+        severidad="bajo",
+        descripcion="Área Negocio, riesgo identificado por Genesis: sin la alerta Excessive Grant, la consulta reserva 100 MB o más y usa 30 % o menos.",
+        alcance="plan_ejecucion",
+        activo=True,
+    ),
     "MEMORIA_SOBREESTIMADA": ReglaDiccionario(
         codigo="MEMORIA_SOBREESTIMADA",
         nombre="Sobreestimación de memoria",
@@ -32,7 +40,7 @@ REGLAS_PLANES_EJECUCION = {
     # --- Área Reportes (reglas definidas por la usuaria) -----------------
     "TIEMPO_EJECUCION_SUPERADO": ReglaDiccionario(
         codigo="TIEMPO_EJECUCION_SUPERADO",
-        nombre="Tiempo de ejecución superado",
+        nombre="Tiempo de ejecución elevado",
         severidad="alto",
         descripcion="La suma de la duración de las consultas del plan supera el límite de tiempo del área; se señala el bloque más lento.",
         alcance="plan_ejecucion",
@@ -43,6 +51,14 @@ REGLAS_PLANES_EJECUCION = {
         nombre="Lectura residual elevada",
         severidad="alto",
         descripcion="Un Scan lee más de 1 000 000 de filas (ActualRowsRead) y devuelve menos: recorre la tabla casi completa. Un Seek no se marca.",
+        alcance="plan_ejecucion",
+        activo=True,
+    ),
+    "LECTURA_COMPLETA_TABLA": ReglaDiccionario(
+        codigo="LECTURA_COMPLETA_TABLA",
+        nombre="Lectura completa de tabla",
+        severidad="alto",
+        descripcion="Área Negocio: un Scan lee más de 1 000 000 de filas y devuelve casi todas (90 % o más), pero el Filter siguiente deja una cantidad mínima (10 % o menos de lo leído).",
         alcance="plan_ejecucion",
         activo=True,
     ),

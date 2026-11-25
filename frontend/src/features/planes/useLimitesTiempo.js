@@ -13,7 +13,7 @@ function leerLimites() {
 
 /**
  * Límite de tiempo (segundos) de cada área, guardado en este navegador.
- * Lo usan la tarjeta del velocímetro y la regla «Tiempo de ejecución superado».
+ * Lo usan la tarjeta del velocímetro y la regla «Tiempo de ejecución elevado».
  */
 export function useLimitesTiempo() {
   const [limites, setLimites] = useState(leerLimites);

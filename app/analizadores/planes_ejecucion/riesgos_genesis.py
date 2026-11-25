@@ -371,12 +371,12 @@ def conversion_columna_a_destino(sentencias: List[Dict]) -> List[Hallazgo]:
                     _anotar(resaltes, sentencia["numero"], nodo["id"], completa[completa.index("CONVERT_IMPLICIT"):-1])
     if not nodos:
         return []
-    # Texto de la usuaria (20 nov.): corto y directo; el operador marcado en la imagen muestra las columnas.
+    # Texto de la usuaria (20 nov.; ajustado el 25 nov.): corto y directo; la imagen muestra las columnas.
     lista = list(lugares)
     donde = f"en el {lista[0]}" if len(lista) == 1 else (
         f"en el {lista[0]} y en el {lista[1]}" if len(lista) == 2 else "en los operadores marcados")
-    mensaje = (f"Se detectó una conversión implícita, ya que los tipos de datos no son iguales. Se recomienda corregir "
-               f"la conversión implícita identificada {donde}.")
+    mensaje = (f"Se identificó una alerta por conversión implícita debido a que se están comparando o relacionando "
+               f"columnas con tipos de datos diferentes. Se recomienda corregir la conversión implícita identificada {donde}.")
     hallazgo = Hallazgo(linea=1, origen=OrigenAnalisis.PLAN_EJECUCION, severidad=Severidad.BAJO,
                         regla="CONVERSION_COLUMNA_A_DESTINO", mensaje=mensaje)
     hallazgo.nodos = _con_resaltes(nodos, resaltes)
