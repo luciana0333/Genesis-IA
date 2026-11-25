@@ -25,7 +25,7 @@ from app.analizadores.diccionario_varios import (
 )
 from app.analizadores.objetos_repetidos import hallazgo_repetidos, quitar_creaciones_repetidas
 from app.analizadores.ortografia import (
-    ACCION_ORTOGRAFIA, elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico,
+    ACCION_ORTOGRAFIA, elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico, usar_nombres_del_script,
 )
 from app.analizadores.propiedades_extendidas import (
     LlamadaPropiedad,
@@ -974,6 +974,12 @@ def _nombre_del_encabezado(m: re.Match) -> str:
 
 
 def verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> List[Hallazgo]:
+    """Diccionario de tablas; el corrector reconoce los nombres armados con piezas de los nombres del script."""
+    with usar_nombres_del_script(texto_tabla):
+        return _verificar_diccionario_tablas(texto_tabla, texto_diccionario)
+
+
+def _verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> List[Hallazgo]:
     """
     Compara CREATE/ALTER TABLE con el diccionario de datos. Con varias tablas en el script,
     cada una se revisa con su parte del diccionario y las observaciones se juntan por regla.
