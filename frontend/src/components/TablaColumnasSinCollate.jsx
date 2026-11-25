@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 /** Desde cuántas tablas «COLLATE no especificado en tabla temporal» se muestra como tabla (igual en el backend). */
 export const TABLAS_PARA_VER_EN_TABLA = 3;
 
@@ -22,6 +24,54 @@ export const tituloDeColumnas = (regla) => TITULO_DE_COLUMNAS[regla] ?? 'Columna
 
 const DESCRIPCION_DEL_OBJETO = /^\(descripción del (procedimiento|función|funcion)\)$/i;
 
+/** Cuántos parámetros se ven antes de «+N más» (idea A3, usuaria, 24 nov.: «que solo muestre 3 parámetros»). La cajita
+ * «Procedimiento» (descripción del objeto) no cuenta: se ve siempre. */
+const PARAMETROS_VISIBLES = 3;
+
+function cajita(etiqueta, falta) {
+  const objeto = DESCRIPCION_DEL_OBJETO.exec(etiqueta);
+  return (
+    <span key={`${falta ? 'f' : 'a'}-${etiqueta}`} className={`cajita-parametro${falta ? ' falta' : ''}`}
+      title={`${objeto ? `Descripción del ${objeto[1]}: ` : ''}${falta ? 'no se incluye en el diccionario' : 'se agrega en el diccionario'}`}>
+      {/* Corto para que la fila entre en un renglón (A3, 24 nov.); el texto completo va en el título. */}
+      {objeto
+        ? <span className="cajita-parametro-objeto">{objeto[1] === 'procedimiento' ? 'Procedimiento' : 'Función'}</span>
+        : <code>{etiqueta}</code>}
+      {falta && <span className="cajita-parametro-falta">Falta</span>}
+    </span>
+  );
+}
+
+/**
+ * Los elementos de un procedimiento: la cajita «Procedimiento» y los que faltan primero (nunca quedan escondidos detrás
+ * de «+N más»), luego los parámetros que se agregan. Se ven 3 parámetros y «+N más» despliega el resto («Ver menos» los
+ * vuelve a juntar); si solo quedaría uno escondido, se ven todos.
+ */
+function CajitasDeLaFila({ faltan, agregan }) {
+  const [abierta, setAbierta] = useState(false);
+  const todas = [...faltan.map((etiqueta) => [etiqueta, true]), ...agregan.map((etiqueta) => [etiqueta, false])];
+  const esObjeto = ([etiqueta]) => DESCRIPCION_DEL_OBJETO.test(etiqueta);
+  const objetos = todas.filter(esObjeto);
+  const parametros = todas.filter((cajita) => !esObjeto(cajita));
+  const cantidadFaltan = parametros.filter(([, falta]) => falta).length;
+  const resumir = parametros.length > PARAMETROS_VISIBLES + 1;
+  const visibles = [
+    ...objetos,
+    ...(resumir && !abierta ? parametros.slice(0, Math.max(PARAMETROS_VISIBLES, cantidadFaltan)) : parametros),
+  ];
+  const ocultas = todas.length - visibles.length;
+  return (
+    <div className="cajitas-parametros">
+      {visibles.map(([etiqueta, falta]) => cajita(etiqueta, falta))}
+      {resumir && (
+        <button type="button" className="cajitas-mas" aria-expanded={abierta} onClick={() => setAbierta(!abierta)}>
+          {abierta ? 'Ver menos' : `+${ocultas} más`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /**
  * «Validar documentación existente» con varios procedimientos (usuaria, 21 nov.): Procedimiento | Parámetros, una fila
  * por procedimiento y sin la columna Situación. Cada parámetro en su cajita; el que no está en el diccionario lleva
@@ -39,16 +89,6 @@ function TablaPorProcedimiento({ grupos, filaActiva }) {
     const falta = grupo.seccion === 'objeto';
     (falta ? fila.faltan : fila.agregan).push(...(grupo.etiquetas ?? []));
   });
-  const cajita = (etiqueta, falta) => {
-    const objeto = DESCRIPCION_DEL_OBJETO.exec(etiqueta);
-    return (
-      <span key={`${falta ? 'f' : 'a'}-${etiqueta}`} className={`cajita-parametro${falta ? ' falta' : ''}`}
-        title={falta ? 'No se incluye en el diccionario' : 'Se agrega en el diccionario'}>
-        {objeto ? <span className="cajita-parametro-objeto">Descripción del {objeto[1]}</span> : <code>{etiqueta}</code>}
-        {falta && <span className="cajita-parametro-falta">Falta</span>}
-      </span>
-    );
-  };
   return (
     <table className="tabla-tipos tabla-collate tabla-por-procedimiento">
       <thead>
@@ -64,16 +104,11 @@ function TablaPorProcedimiento({ grupos, filaActiva }) {
             className={`tabla-tipos-fila${indice % 2 ? ' alterna' : ''}${fila.indices.includes(filaActiva) ? ' activa' : ''}`}
           >
             <td className="tabla-nombre">
-              {/* Si no entra, baja de línea solo después de «.» o «_» (no a mitad de palabra). */}
-              <code className="tabla-tipos-columna">
-                {fila.nombre.split(/(?<=[._])/).map((parte, i) => <span key={i}>{parte}<wbr /></span>)}
-              </code>
+              {/* El nombre completo, en una línea (usuaria, 24 nov.). */}
+              <span className="tabla-procedimiento-nombre">{fila.nombre}</span>
             </td>
             <td>
-              <div className="cajitas-parametros">
-                {fila.faltan.map((etiqueta) => cajita(etiqueta, true))}
-                {fila.agregan.map((etiqueta) => cajita(etiqueta, false))}
-              </div>
+              <CajitasDeLaFila faltan={fila.faltan} agregan={fila.agregan} />
             </td>
           </tr>
         ))}

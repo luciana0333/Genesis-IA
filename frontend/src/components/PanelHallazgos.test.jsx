@@ -289,6 +289,31 @@ describe('PanelHallazgos · «Validar documentación existente» con varios proc
       'dbo.PA_B@cFalta',
     ]);
   });
+
+  it('con muchos parámetros muestra 3 parámetros y «+N más» (A3, usuaria, 24 nov.); lo que falta va primero', async () => {
+    const usuario = userEvent.setup();
+    const fila = (nombre, seccion, etiquetas) => ({
+      nombre, tipo: 'Procedimiento', situacion: 'Se agregan en el diccionario', seccion,
+      lineas: etiquetas.map(() => 1), etiquetas,
+    });
+    const agregados = ['(descripción del procedimiento)', '@a', '@b', '@c', '@d', '@e', '@f', '@g'];
+    render(<PanelHallazgos titulo="Resultados" estado="listo" textos={TEXTOS} hallazgos={[{
+      regla: 'DOCUMENTACION_EXISTENTE_EN_ALTER', severidad: 'bajo', linea: 1,
+      mensaje: 'Se identificaron 2 procedimientos que ya existen (ALTER) a los que el diccionario agrega descripciones: '
+        + 'dbo.PA_A: el procedimiento y 7 parámetros; dbo.PA_B: el parámetro @x. Verificar si ya cuentan con descripción.',
+      lineas: [1],
+      grupos: [fila('dbo.PA_A', 'diccionario', agregados), fila('dbo.PA_B', 'objeto', ['@x'])],
+    }]} />);
+    const tabla = within(screen.getByRole('table'));
+    const primera = () => tabla.getAllByRole('row')[1].textContent;
+    expect(primera()).toBe('dbo.PA_AProcedimiento@a@b@c+4 más');
+    expect(tabla.getAllByRole('row')[2].textContent).toBe('dbo.PA_B@xFalta');
+
+    await usuario.click(tabla.getByRole('button', { name: '+4 más' }));
+    expect(primera()).toBe('dbo.PA_AProcedimiento@a@b@c@d@e@f@gVer menos');
+    await usuario.click(tabla.getByRole('button', { name: 'Ver menos' }));
+    expect(primera()).toContain('+4 más');
+  });
 });
 
 describe('PanelHallazgos · tablas sin NOLOCK en cajitas', () => {

@@ -20,6 +20,8 @@ import gzip
 import bisect
 import re
 import unicodedata
+from contextlib import contextmanager
+from contextvars import ContextVar
 from functools import lru_cache
 from pathlib import Path
 from typing import Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
@@ -498,8 +500,80 @@ def palabras_mal_escritas(
         # no salgan caracteres raros. «codigo», «numero» o «solicito» (por «solicitó») son válidas; solo se
         # marcan las palabras mal escritas. es_palabra_valida compara sin tildes.
         if not es_palabra_valida(palabra):
-            resultado.append((palabra, sugerencias(palabra)))
+            if _armada_con_nombres_del_script(palabra):
+                continue
+            opciones = sugerencias(palabra)
+            if not opciones and _parece_nombre_en_mayusculas(palabra):
+                continue
+            resultado.append((palabra, opciones))
     return resultado
+
+
+# --- Nombres de tabla armados con piezas de los nombres del script (idea de la usuaria, 24 nov.) ------------------
+# «NETTIPOCONCILIACION» = NET (PA_NET_…) + TIPO + CONCILIACION (@pTipoConciliacion): si una palabra en mayúsculas se
+# arma toda con piezas de los nombres del script (procedimientos, parámetros, columnas), es un nombre de objeto.
+# Una pieza puede ir abreviada, desde 3 letras (DET por DETALLE). Va junto con la regla de la forma de la palabra.
+_VOCABULARIO_DEL_SCRIPT: ContextVar[FrozenSet[str]] = ContextVar("vocabulario_del_script", default=frozenset())
+_NOMBRE_EN_SCRIPT = re.compile(r"@[A-Za-z_][\w$#]*|[A-Za-z][\w$#]*_[\w$#]*|[a-z]+[A-Z][\w$#]*|[A-Z][a-z]+[A-Z][\w$#]*")
+_PIEZA = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])")
+
+
+def vocabulario_de_nombres(texto: str) -> FrozenSet[str]:
+    """Piezas (en mayúsculas, sin tildes) de los nombres del script: PA_NET_InsertaData → PA, NET, INSERTA, DATA."""
+    piezas = set()
+    for nombre in _NOMBRE_EN_SCRIPT.findall(texto or ""):
+        for pieza in _PIEZA.findall(nombre.replace("_", " ")):
+            if len(pieza) >= 2:
+                piezas.add(normalizar(pieza).upper())
+    return frozenset(piezas)
+
+
+@contextmanager
+def usar_nombres_del_script(texto: str):
+    """Mientras dura, el corrector reconoce los nombres armados con piezas de los nombres de este script."""
+    marca = _VOCABULARIO_DEL_SCRIPT.set(vocabulario_de_nombres(texto))
+    try:
+        yield
+    finally:
+        _VOCABULARIO_DEL_SCRIPT.reset(marca)
+
+
+def _armada_con_nombres_del_script(palabra: str) -> bool:
+    piezas = _VOCABULARIO_DEL_SCRIPT.get()
+    if not piezas or not palabra.isupper() or len(palabra) < 6:
+        return False
+    texto = normalizar(palabra).upper()
+    alcanzado = [False] * (len(texto) + 1)
+    alcanzado[0] = True
+    for fin in range(2, len(texto) + 1):
+        for inicio in range(fin - 1):
+            if not alcanzado[inicio]:
+                continue
+            trozo = texto[inicio:fin]
+            if trozo in piezas or (len(trozo) >= 3 and any(p.startswith(trozo) for p in piezas)):
+                alcanzado[fin] = True
+                break
+    return alcanzado[-1]
+
+
+# Nombre de tabla u objeto escrito todo en mayúsculas dentro de la descripción (usuaria, 24 nov.: «IDENTIFICADOR DE
+# LA TABLA NETTIPOCONCILIACION» salía como mal escrita). Se reconoce si es largo, el corrector no le encuentra
+# corrección y lleva dentro una palabra válida larga (CONCILIACION, ARCHIVO). Un error real tiene corrección
+# (CONCILIASION → CONCILIACIÓN) y se sigue marcando.
+_LARGO_NOMBRE_EN_MAYUSCULAS = 12
+_LARGO_PALABRA_DENTRO = 6
+
+
+def _parece_nombre_en_mayusculas(palabra: str) -> bool:
+    if not palabra.isupper() or len(palabra) < _LARGO_NOMBRE_EN_MAYUSCULAS:
+        return False
+    texto = normalizar(palabra)
+    return any(
+        es_palabra_valida(texto[inicio:fin])
+        for inicio in range(len(texto) - _LARGO_PALABRA_DENTRO + 1)
+        for fin in range(inicio + _LARGO_PALABRA_DENTRO, len(texto) + 1)
+        if (inicio, fin) != (0, len(texto))
+    )
 
 
 # Tras «que», «el cual» o «se», un verbo terminado en -o casi siempre es el pasado sin su tilde:

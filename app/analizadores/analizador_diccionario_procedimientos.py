@@ -30,7 +30,7 @@ from app.analizadores.palabra_repetida import palabra_repetida_agrupada
 from app.analizadores.descripcion_formato import descripcion_sin_formato
 from app.analizadores.objeto_programable import FUNCION, POR_CLAVE, PROCEDIMIENTO, actual, restaurar, usar
 from app.analizadores.ortografia import (
-    ACCION_ORTOGRAFIA, elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico,
+    ACCION_ORTOGRAFIA, elemento_ortografico, palabras_mal_escritas, redactar_error_ortografico, usar_nombres_del_script,
 )
 from app.analizadores.propiedades_extendidas import (
     clave_completa,
@@ -842,7 +842,9 @@ def verificar_diccionario(
     """Diccionario de un procedimiento (por defecto) o de una función (objeto="funcion"): mismas reglas."""
     token = usar(POR_CLAVE.get(objeto, PROCEDIMIENTO))
     try:
-        hallazgos = _verificar_diccionario(texto_procedimiento, texto_diccionario)
+        # El corrector reconoce los nombres de tabla armados con piezas de los nombres del script (24 nov.).
+        with usar_nombres_del_script(texto_procedimiento):
+            hallazgos = _verificar_diccionario(texto_procedimiento, texto_diccionario)
         # «Copiar consulta de validación» en lo que pide verificar el diccionario (usuaria, 23 nov.).
         adjuntar_consulta(hallazgos, _REGLAS_CON_CONSULTA, actual().clave, _objetos_modificados(texto_procedimiento))
     finally:

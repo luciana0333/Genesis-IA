@@ -546,7 +546,9 @@ describe('Planes', () => {
     expect(fetchMock.mock.calls[0][1].body.getAll('planes')).toHaveLength(2);
     const filas = screen.getAllByRole('row').slice(1);
     // El más lento primero; el dañado al final.
-    expect(within(filas[0]).getByText('dbo.PA_Lento')).toBeInTheDocument();
+    // Esquema pequeño arriba y nombre abajo (diseño L1, 24 nov.).
+    expect(within(filas[0]).getByText('PA_Lento')).toBeInTheDocument();
+    expect(within(filas[0]).getByText('dbo')).toBeInTheDocument();
     expect(within(filas[0]).getByText('Supera el límite')).toBeInTheDocument();
     expect(within(filas[2]).getByText('El plan está incompleto o dañado y no se pudo leer.')).toBeInTheDocument();
     expect(screen.getByText('1 archivo no se revisó')).toBeInTheDocument();

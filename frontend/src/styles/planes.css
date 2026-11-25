@@ -1088,14 +1088,45 @@
   gap: 14px;
 }
 
-.lote-tabla th:has(.lote-orden) { padding: 0; }
+/* ───────── Planes del lote: cada plan como una tarjeta (diseño L1 de la usuaria, 24 nov.) ─────────
+   Tarjetas blancas con sombra amplia y suave, casi pegadas (6 px); número 01, 02… en cursiva tenue; el esquema pequeño
+   arriba del nombre; sobre el tiempo, su estado en letra pequeña; hallazgos en burbujas suaves y una flecha para entrar. */
+.lote-tarjetas-marco { overflow-x: auto; margin: 0 -6px; padding: 0 6px 12px; }
+
+.lote-tarjetas {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: separate;
+  border-spacing: 0 6px;
+  font-size: 0.83rem;
+}
+
+/* Cabecera en un bloque gris claro redondeado, como la idea L3 (usuaria, 24 nov.). */
+.lote-tarjetas thead th {
+  height: 34px;
+  padding: 0 14px;
+  border: none;
+  background: #f5f7fb;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.lote-tarjetas thead th:first-child { border-radius: 5px 0 0 5px; }
+.lote-tarjetas thead th:last-child { border-radius: 0 5px 5px 0; }
+.lote-tarjetas th:has(.lote-orden) { padding: 0; }
 
 .lote-orden {
   display: flex;
-  width: 100%;
   align-items: center;
-  gap: 8px;
-  padding: 11px 14px;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
   border: none;
   background: transparent;
   color: inherit;
@@ -1105,21 +1136,84 @@
   cursor: pointer;
 }
 
-.lote-tabla th.num .lote-orden { justify-content: flex-end; }
 .lote-orden:hover { color: var(--text-primary); }
 .lote-orden.activa { color: var(--red-main); }
-.lote-orden-flecha { font-size: 0.6rem; opacity: 0.7; }
+.lote-orden-flecha { font-size: 0.55rem; opacity: 0.7; }
 
-.lote-tabla td { vertical-align: middle; }
+.lote-tarjetas tbody tr { filter: drop-shadow(0 10px 14px rgba(17, 17, 26, 0.09)) drop-shadow(0 1px 1px rgba(17, 17, 26, 0.04)); }
+
+.lote-tarjetas tbody td {
+  padding: 11px 14px;
+  border: none;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+/* Cada celda se extiende 1 px sobre la siguiente: tapa la unión para que la tarjeta se vea de una pieza. */
+.lote-tarjetas tbody td:not(:last-child) { box-shadow: 1px 0 0 var(--bg-card); }
+.lote-tarjetas tbody td:first-child { border-radius: 6px 0 0 6px; }
+.lote-tarjetas tbody td:last-child { border-radius: 0 6px 6px 0; }
+.lote-fila--supera td:first-child { box-shadow: inset 3px 0 0 var(--red-main), 1px 0 0 var(--bg-card); }
+
+.lote-col-num { width: 1%; padding-right: 4px !important; }
+
+.lote-numero {
+  color: #dcdde3;
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.lote-nombre { display: block; }
+
+.lote-esquema {
+  display: block;
+  margin-bottom: 1px;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
 
 .lote-procedimiento {
   display: block;
   color: var(--text-primary);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
+
+.lote-col-tiempo { width: 1%; white-space: nowrap; }
+
+.lote-etiqueta {
+  display: block;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.lote-etiqueta--supera { color: var(--red-main); }
+.lote-etiqueta--error { color: var(--sev-critico-text); }
+
+.lote-tiempo {
+  display: block;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.86rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.lote-tiempo--supera { color: var(--red-main); }
 
 .lote-ruta {
   display: block;
@@ -1139,79 +1233,59 @@
   font-weight: 600;
 }
 
-.lote-fila--supera td:first-child { box-shadow: inset 3px 0 0 var(--red-main); }
-.lote-tiempo--supera { color: var(--red-main) !important; font-weight: 700; }
-
-.lote-estado {
-  display: inline-flex;
-  align-items: center;
-  height: 22px;
-  padding: 0 8px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-subtle);
-  color: var(--text-muted);
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.lote-estado--supera { background: var(--red-main); color: #fff; }
-.lote-estado--ok { background: var(--sev-bajo-bg); color: var(--sev-bajo-text); }
-.lote-estado--error { background: var(--sev-critico-bg); color: var(--sev-critico-text); }
-
-.lote-pildoras { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.lote-pildoras { display: inline-flex; flex-wrap: wrap; gap: 5px; }
 
 .lote-pill {
   display: inline-flex;
   align-items: center;
-  height: 22px;
-  padding: 0 7px;
-  border-left: 3px solid var(--sev);
-  border-radius: var(--radius-sm);
+  padding: 2px 9px;
+  border-radius: 12px;
   background: var(--sev-bg);
   color: var(--sev-text);
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-family: var(--font-sans);
+  font-size: 0.66rem;
+  font-weight: 600;
   white-space: nowrap;
 }
 
-.lote-pill.sev-critico { --sev: var(--sev-critico); --sev-bg: var(--sev-critico-bg); --sev-text: var(--sev-critico-text); }
-.lote-pill.sev-alto { --sev: var(--sev-alto); --sev-bg: var(--sev-alto-bg); --sev-text: var(--sev-alto-text); }
-.lote-pill.sev-medio { --sev: var(--sev-medio); --sev-bg: var(--sev-medio-bg); --sev-text: var(--sev-medio-text); }
-.lote-pill.sev-bajo { --sev: var(--sev-bajo); --sev-bg: var(--sev-bajo-bg); --sev-text: var(--sev-bajo-text); }
+.lote-pill.sev-critico { --sev-bg: var(--sev-critico-bg); --sev-text: var(--sev-critico-text); }
+.lote-pill.sev-alto { --sev-bg: rgba(227, 6, 19, 0.07); --sev-text: #c8101b; }
+.lote-pill.sev-medio { --sev-bg: rgba(236, 91, 100, 0.1); --sev-text: #d9434d; }
+.lote-pill.sev-bajo { --sev-bg: #f1f1f4; --sev-text: #6f6f7a; }
 
 .lote-limpio {
-  color: var(--sev-bajo-text);
-  font-size: 0.74rem;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
   font-weight: 600;
 }
 
-.lote-accion { text-align: right; white-space: nowrap; }
+.lote-accion { width: 1%; text-align: right; white-space: nowrap; }
 
 .lote-ver {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
   background: var(--bg-card);
-  color: var(--text-primary);
-  font: inherit;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  color: var(--red-main);
   cursor: pointer;
-  transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  box-shadow: 0 1px 2px rgba(17, 17, 26, 0.08), 0 6px 14px -8px rgba(17, 17, 26, 0.35);
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 
-.lote-ver svg { width: 14px; height: 14px; }
-.lote-ver:hover { border-color: var(--red-main); background: var(--red-main); color: #fff; }
+.lote-ver svg { width: 15px; height: 15px; }
+.lote-ver:hover { background: var(--red-main); color: #fff; }
+.lote-ver:focus-visible { outline: 2px solid var(--red-main); outline-offset: 2px; }
+
+:root[data-theme="dark"] .lote-tarjetas tbody td { --bg-card: #1c1c23; background: #1c1c23; }
+:root[data-theme="dark"] .lote-numero { color: #3a3a45; }
+:root[data-theme="dark"] .lote-tarjetas thead th { background: rgba(255, 255, 255, 0.05); }
+:root[data-theme="dark"] .lote-ver { background: #24242c; }
+
 
 .lote-ignorados {
   border: 1px solid var(--border);

@@ -1176,14 +1176,16 @@
   transition: box-shadow var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 .tabla-tipos-boton svg { width: 14px; height: 14px; color: var(--text-secondary); }
-.tabla-tipos-boton:hover, .tabla-tipos-boton.abierto { color: #be123c; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08), 0 4px 12px -2px rgba(16, 24, 40, 0.18); }
-.tabla-tipos-boton:hover svg, .tabla-tipos-boton.abierto svg { color: #be123c; }
+.tabla-tipos-boton:hover, .tabla-tipos-boton.abierto { color: var(--red-main); box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08), 0 4px 12px -2px rgba(16, 24, 40, 0.18); }
+.tabla-tipos-boton:hover svg, .tabla-tipos-boton.abierto svg { color: var(--red-main); }
 .tabla-tipos-boton:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .tabla-tipos > tbody > .tabla-tipos-panel > td { padding: 6px 20px 18px; background: #ffffff; }
 .tabla-tipos-panel .detalle-tipos { margin: 6px 0 0; }
 
 .detalle-tipos {
   margin: 10px 0 8px;
+  overflow: hidden;
+  border-radius: 6px;
   background: #ffffff;
   color: var(--text-primary);
   box-shadow: 0 2px 4px -2px rgba(16, 24, 40, 0.06), 0 12px 28px -8px rgba(16, 24, 40, 0.16);
@@ -1217,13 +1219,15 @@
 .detalle-tipos-columna { font-family: var(--font-mono); font-size: 1.05rem; font-weight: 700; }
 .detalle-tipos-diferencia {
   margin-left: 10px;
-  padding: 2px 8px;
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
 }
-.detalle-tipos-diferencia.longitud { background: #fdf3dc; color: #7a4a06; }
-.detalle-tipos-diferencia.tipo { background: var(--red-light); color: var(--red-dark); }
+.detalle-tipos-diferencia.longitud { background: rgba(227, 6, 19, 0.07); color: #c8101b; }
+.detalle-tipos-diferencia.tipo { background: var(--red-main); color: #ffffff; }
 .detalle-tipos-indicador {
   display: flex;
   flex-direction: column;
@@ -1231,19 +1235,20 @@
   gap: 4px;
   min-width: 82px;
   padding: 8px 16px;
+  border-radius: 6px;
   background: #ffffff; /* tarjetita blanca separada por sombra, sin fondo gris */
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px -4px rgba(16, 24, 40, 0.14);
   text-align: right;
 }
 :root[data-theme="dark"] .detalle-tipos-indicador { background: var(--bg-card); }
 .detalle-tipos-indicador .detalle-tipos-rotulo { justify-content: flex-end; font-size: 0.6rem; }
-.detalle-tipos-indicador strong { font-size: 1.25rem; font-weight: 700; line-height: 1.1; }
+.detalle-tipos-indicador strong { font-family: var(--font-sans); font-size: 1.3rem; font-style: italic; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
 /* Lista del detalle (referencia de la usuaria): una franja roja por tipo y, debajo, sus temporales. */
 .detalle-tipos-lista { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
 /* Encabezado en rojo con letra blanca; el cuerpo, todo blanco (pedido de la usuaria). */
 .detalle-tipos-lista thead th {
   padding: 10px 18px;
-  background: #e04b59;
+  background: var(--red-main); /* rojo de la marca (usuaria, 24 nov.: «los colores no son los de la Caja») */
   color: #ffffff;
   font-size: 0.64rem;
   font-weight: 700;
@@ -1636,40 +1641,80 @@
 :root[data-theme="dark"] .poco-comun { background: #17171d; box-shadow: 0 30px 60px -28px rgba(0, 0, 0, 0.8); }
 :root[data-theme="dark"] .poco-comun-cantidad { background: rgba(255, 255, 255, 0.05); }
 
-/* «Validar documentación existente» con varios procedimientos (usuaria, 21 nov.): Procedimiento | Parámetros, sin la
-   columna Situación. Cada parámetro en su cajita; el que falta en el diccionario lleva la etiqueta roja «Falta». */
-.tabla-por-procedimiento > thead > tr > th:first-child { width: 40%; }
-.tabla-por-procedimiento > tbody > tr > td { vertical-align: top; }
-.tabla-por-procedimiento .tabla-tipos-columna { white-space: normal; overflow-wrap: normal; word-break: keep-all; }
-/* El nombre sin cajita gris; solo se marca en la fila que se está recorriendo con «Ver en el código» (usuaria, 21 nov.). */
-.tabla-por-procedimiento .tabla-tipos-columna { margin-left: -9px; background: transparent; transition: background-color var(--dur-fast) ease; }
-.tabla-por-procedimiento .tabla-tipos-fila.activa .tabla-tipos-columna { background: #eaeef5; }
-:root[data-theme="dark"] .tabla-por-procedimiento .tabla-tipos-fila.activa .tabla-tipos-columna { background: rgba(255, 255, 255, 0.08); }
-.cajitas-parametros { display: flex; flex-wrap: wrap; gap: 6px; }
+/* «Validar documentación existente» con varios procedimientos: Procedimiento | Parámetros, sin la columna Situación.
+   Diseño A3 compacto (usuaria, 24 nov.: «se ve muy grande»): filas bajas, nombre en negrita oscura sin punto, cajitas
+   grises pequeñas y juntas, los 5 primeros elementos y «+N más». Lo que falta lleva la etiqueta roja «Falta». */
+/* La columna del nombre toma el ancho del nombre más largo: el PA se lee completo, en una línea (24 nov.). */
+.tabla-por-procedimiento > thead > tr > th:first-child { width: 1%; white-space: nowrap; }
+.tabla-por-procedimiento > tbody > tr > td { padding-top: 16px; padding-bottom: 16px; vertical-align: top; }
+.tabla-por-procedimiento > tbody > tr > td:first-child { padding-right: 36px; white-space: nowrap; }
+/* Todo blanco, sin filas alternadas: cada fila se separa con una sombra mínima debajo (usuaria, 24 nov.: «más
+   elegante»). La sombra es un degradado suave al pie de cada celda, así se ve continua de lado a lado; las filas
+   son transparentes (el fondo blanco es el de la tarjeta); la última fila no lleva. */
+.tabla-por-procedimiento .tabla-tipos-fila,
+.tabla-por-procedimiento .tabla-tipos-fila.alterna,
+.tabla-por-procedimiento > tbody > tr > td { background: transparent; }
+.tabla-por-procedimiento > tbody > tr > td {
+  background-image: linear-gradient(to top, rgba(17, 17, 26, 0.05), rgba(17, 17, 26, 0) 7px);
+}
+.tabla-por-procedimiento > tbody > tr:last-child > td { background-image: none; }
+:root[data-theme="dark"] .tabla-por-procedimiento .tabla-tipos-fila,
+:root[data-theme="dark"] .tabla-por-procedimiento .tabla-tipos-fila.alterna { background: transparent; }
+:root[data-theme="dark"] .tabla-por-procedimiento > tbody > tr > td {
+  background-image: linear-gradient(to top, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0) 8px);
+}
+.tabla-procedimiento-nombre {
+  display: inline-block;
+  white-space: nowrap;
+  margin-left: -6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.4;
+  transition: background-color var(--dur-fast) ease;
+}
+/* Solo se marca la fila que se está recorriendo con «Ver en el código» (usuaria, 21 nov.). */
+.tabla-por-procedimiento .tabla-tipos-fila.activa .tabla-procedimiento-nombre { background: #eaeef5; }
+:root[data-theme="dark"] .tabla-por-procedimiento .tabla-tipos-fila.activa .tabla-procedimiento-nombre { background: rgba(255, 255, 255, 0.08); }
+.cajitas-parametros { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
 .cajita-parametro {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 9px;
-  border: 1px solid #e3e8f0;
-  border-radius: 4px;
-  background: #ffffff;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: #eef1f6;
   color: var(--text-primary);
-  font-size: 0.76rem;
+  font-size: 0.7rem;
   line-height: 1.5;
 }
-.cajita-parametro code { font-family: var(--font-mono); font-size: 0.76rem; font-weight: 600; }
-.cajita-parametro-objeto { color: var(--text-secondary); font-style: italic; }
-.cajita-parametro.falta { border-color: #f3c2c7; background: #fff5f6; }
+.cajita-parametro code { font-family: var(--font-mono); font-size: 0.7rem; font-weight: 500; }
+.cajita-parametro-objeto { color: var(--red-main); font-family: var(--font-sans); font-weight: 600; }
+.cajita-parametro.falta { background: #fff1f2; box-shadow: inset 0 0 0 1px #f3c2c7; }
 .cajita-parametro-falta {
-  padding: 0 5px;
+  padding: 0 4px;
   border-radius: 3px;
   background: var(--red-main);
   color: #ffffff;
-  font-size: 0.6rem;
+  font-size: 0.56rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-:root[data-theme="dark"] .cajita-parametro { border-color: rgba(255, 255, 255, 0.12); background: transparent; }
-:root[data-theme="dark"] .cajita-parametro.falta { border-color: rgba(229, 57, 70, 0.45); background: rgba(229, 57, 70, 0.08); }
+.cajitas-mas {
+  padding: 1px 6px;
+  border: none;
+  background: none;
+  color: var(--red-main);
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cajitas-mas:hover { text-decoration: underline; }
+.cajitas-mas:focus-visible { outline: 2px solid var(--red-main); outline-offset: 1px; border-radius: 3px; }
+:root[data-theme="dark"] .cajita-parametro { background: rgba(255, 255, 255, 0.07); }
+:root[data-theme="dark"] .cajita-parametro.falta { background: rgba(229, 57, 70, 0.1); box-shadow: inset 0 0 0 1px rgba(229, 57, 70, 0.45); }
