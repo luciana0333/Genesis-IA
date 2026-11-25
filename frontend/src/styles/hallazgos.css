@@ -1643,6 +1643,15 @@
 .tabla-por-procedimiento > thead > tr > th:first-child { width: 1%; white-space: nowrap; }
 .tabla-por-procedimiento > tbody > tr > td { padding-top: 16px; padding-bottom: 16px; vertical-align: top; }
 .tabla-por-procedimiento > tbody > tr > td:first-child { padding-right: 36px; white-space: nowrap; }
+/* Todo blanco, sin filas alternadas: cada fila se separa con una sombra mínima debajo (usuaria, 24 nov.: «más
+   elegante»). La sombra va en las celdas porque una fila de tabla no la dibuja; la última fila no lleva. */
+.tabla-por-procedimiento .tabla-tipos-fila,
+.tabla-por-procedimiento .tabla-tipos-fila.alterna { background: #ffffff; }
+.tabla-por-procedimiento > tbody > tr > td { box-shadow: 0 7px 9px -9px rgba(17, 17, 26, 0.16); }
+.tabla-por-procedimiento > tbody > tr:last-child > td { box-shadow: none; }
+:root[data-theme="dark"] .tabla-por-procedimiento .tabla-tipos-fila,
+:root[data-theme="dark"] .tabla-por-procedimiento .tabla-tipos-fila.alterna { background: transparent; }
+:root[data-theme="dark"] .tabla-por-procedimiento > tbody > tr > td { box-shadow: 0 7px 9px -9px rgba(0, 0, 0, 0.6); }
 .tabla-procedimiento-nombre {
   display: inline-block;
   white-space: nowrap;
