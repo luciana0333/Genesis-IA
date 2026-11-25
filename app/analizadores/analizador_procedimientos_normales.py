@@ -1244,7 +1244,7 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
         hallazgos.append(_hallazgo(
             texto, posicion, "PROCEDIMIENTO_SIN_FINALIDAD",
             f"Se identificó que el nombre del procedimiento {nombre} no indica su finalidad. Se recomienda "
-            f"añadirla después de la acción (ej.: PA_Cliente_Sel_PorDocumento), ya que permite identificar con más "
+            f"evaluar añadirla después de la acción (ej.: PA_Cliente_Sel_PorDocumento), ya que permite identificar con más "
             f"claridad el propósito del procedimiento.",
         ))
 

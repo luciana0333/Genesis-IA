@@ -629,7 +629,7 @@ END"""
         self.assertEqual(
             observacion.mensaje,
             "Se identificó que el nombre del procedimiento PA_SaldoRenovacion_Ins no indica su finalidad. Se "
-            "recomienda añadirla después de la acción (ej.: PA_Cliente_Sel_PorDocumento), ya que permite "
+            "recomienda evaluar añadirla después de la acción (ej.: PA_Cliente_Sel_PorDocumento), ya que permite "
             "identificar con más claridad el propósito del procedimiento.",
         )
         self.assertNotIn("no cumple", observacion.mensaje)
