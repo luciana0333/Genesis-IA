@@ -154,18 +154,30 @@ function TablaConCajitas({ grupos, filaActiva, tituloFilas, tituloElementos }) {
  * Índices por renombrar (usuaria, 25 nov.): los nombres son largos y en dos columnas el sugerido quedaba cortado; cada
  * fila lleva el nombre actual y, debajo, el sugerido.
  */
-function TablaRenombrar({ grupos, filaActiva, tituloFilas }) {
+function TablaRenombrar({ grupos, filaActiva, encabezado }) {
   return (
     <table className="tabla-tipos tabla-collate tabla-por-procedimiento tabla-renombrar">
       <thead>
-        <tr><th scope="col">{tituloFilas} actual → nombre sugerido</th></tr>
+        <tr><th scope="col">{encabezado}</th></tr>
       </thead>
       <tbody>
         {grupos.map((grupo, indice) => (
           <tr key={`${grupo.nombre}-${indice}`} className={`tabla-tipos-fila${indice === filaActiva ? ' activa' : ''}`}>
             <td>
               <code className="renombrar-actual">{grupo.nombre}</code>
-              <span className="renombrar-sugerido"><span aria-hidden="true">→</span> <code>{grupo.columnas}</code></span>
+              {/* «7 columnas: a, b, c» (INCLUDE): cada columna en su cajita, que bajan de línea sin cortarse. */}
+              {/^\d+ columnas: /.test(grupo.columnas ?? '') ? (
+                <span className="renombrar-sugerido renombrar-columnas">
+                  <span aria-hidden="true">→</span> {grupo.columnas.split(': ')[0]}:
+                  <span className="cajitas-parametros">
+                    {grupo.columnas.split(': ').slice(1).join(': ').split(', ').map((columna) => (
+                      <span key={columna} className="cajita-parametro"><code>{columna}</code></span>
+                    ))}
+                  </span>
+                </span>
+              ) : (
+                <span className="renombrar-sugerido"><span aria-hidden="true">→</span> <code>{grupo.columnas}</code></span>
+              )}
             </td>
           </tr>
         ))}
@@ -194,8 +206,13 @@ export function TablaColumnasSinCollate({ grupos, filaActiva = null, tituloColum
     return filas;
   };
   if (conSituacion) return <TablaPorProcedimiento grupos={grupos} filaActiva={filaActiva} />;
-  if (tituloElementos === 'Nombre sugerido') {
-    return <TablaRenombrar grupos={grupos} filaActiva={filaActiva} tituloFilas={tituloFilas} />;
+  // Índices: el nombre y debajo lo que corresponde (el sugerido o las columnas del INCLUDE; usuaria, 25 nov.).
+  const ENCABEZADO_APILADO = {
+    'Nombre sugerido': `${tituloFilas} actual → nombre sugerido`,
+    'Columnas en el INCLUDE': `${tituloFilas} → columnas en el INCLUDE`,
+  };
+  if (ENCABEZADO_APILADO[tituloElementos]) {
+    return <TablaRenombrar grupos={grupos} filaActiva={filaActiva} encabezado={ENCABEZADO_APILADO[tituloElementos]} />;
   }
   if (grupos.every((grupo) => grupo.enCajitas)) {
     return <TablaConCajitas grupos={grupos} filaActiva={filaActiva} tituloFilas={tituloFilas} tituloElementos={tituloElementos} />;

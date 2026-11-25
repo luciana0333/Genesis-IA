@@ -1727,3 +1727,6 @@
 .renombrar-sugerido { display: block; margin-top: 5px; color: var(--red-main); font-weight: 600; }
 .renombrar-sugerido code { color: var(--text-main, #1f2430); background: #f1f1f4; padding: 1px 6px; border-radius: 4px; }
 :root[data-theme="dark"] .renombrar-sugerido code { background: rgba(255, 255, 255, 0.08); color: inherit; }
+.renombrar-columnas { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.78rem; }
+.renombrar-columnas .cajitas-parametros { flex-basis: 100%; margin-top: 2px; }
+.renombrar-columnas .cajita-parametro code { background: none; padding: 0; color: inherit; font-weight: 500; }

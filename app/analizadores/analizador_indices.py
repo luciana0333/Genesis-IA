@@ -374,7 +374,14 @@ def _juntar_include_extenso(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
     )
     junta.seccion = "indices"
     junta.lineas = sorted({h.linea for h in grupo})
-    _en_tabla(junta, grupo, "Columnas en el INCLUDE", lambda h: ", ".join(h.incluidas))
+    # Desde 2, como la tabla de renombrar (usuaria, 25 nov.: «se ve bonito y elegante»): el índice y debajo sus columnas.
+    junta.grupos = [{
+        "nombre": h.indice,
+        "tipo": "Índice",
+        "tituloDetalle": "Columnas en el INCLUDE",
+        "lineas": [h.linea],
+        "columnas": f"{len(h.incluidas)} columnas: {', '.join(h.incluidas)}",
+    } for h in grupo]
     return _reemplazar(hallazgos, grupo, junta)
 
 
