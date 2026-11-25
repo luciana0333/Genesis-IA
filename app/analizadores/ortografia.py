@@ -498,8 +498,31 @@ def palabras_mal_escritas(
         # no salgan caracteres raros. «codigo», «numero» o «solicito» (por «solicitó») son válidas; solo se
         # marcan las palabras mal escritas. es_palabra_valida compara sin tildes.
         if not es_palabra_valida(palabra):
-            resultado.append((palabra, sugerencias(palabra)))
+            opciones = sugerencias(palabra)
+            if not opciones and _parece_nombre_en_mayusculas(palabra):
+                continue
+            resultado.append((palabra, opciones))
     return resultado
+
+
+# Nombre de tabla u objeto escrito todo en mayúsculas dentro de la descripción (usuaria, 24 nov.: «IDENTIFICADOR DE
+# LA TABLA NETTIPOCONCILIACION» salía como mal escrita). Se reconoce si es largo, el corrector no le encuentra
+# corrección y lleva dentro una palabra válida larga (CONCILIACION, ARCHIVO). Un error real tiene corrección
+# (CONCILIASION → CONCILIACIÓN) y se sigue marcando.
+_LARGO_NOMBRE_EN_MAYUSCULAS = 12
+_LARGO_PALABRA_DENTRO = 6
+
+
+def _parece_nombre_en_mayusculas(palabra: str) -> bool:
+    if not palabra.isupper() or len(palabra) < _LARGO_NOMBRE_EN_MAYUSCULAS:
+        return False
+    texto = normalizar(palabra)
+    return any(
+        es_palabra_valida(texto[inicio:fin])
+        for inicio in range(len(texto) - _LARGO_PALABRA_DENTRO + 1)
+        for fin in range(inicio + _LARGO_PALABRA_DENTRO, len(texto) + 1)
+        if (inicio, fin) != (0, len(texto))
+    )
 
 
 # Tras «que», «el cual» o «se», un verbo terminado en -o casi siempre es el pasado sin su tilde:
