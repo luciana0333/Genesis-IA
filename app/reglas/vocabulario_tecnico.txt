@@ -75,6 +75,13 @@ supervisor
 supervisores
 tienda
 tiendas
+# Usadas en los nombres de columnas de la Caja (usuaria, 25 nov.: nCuentasAperturadas, nPercapita)
+aperturar
+aperturada
+aperturadas
+aperturado
+aperturados
+percapita
 
 # Palabras correctas que el diccionario es_PE no trae
 moratorio

@@ -183,6 +183,10 @@ def nombres_del_script(texto_objeto: str, encabezado: Pattern, nombre_de: Callab
     return [nombre for nombre, _ in separar_objetos(texto_objeto, encabezado, nombre_de)]
 
 
+# Desde cuántos objetos una observación del diccionario pasa a tabla (más de 3, como en Procedimientos).
+_OBJETOS_EN_VINETAS = 3
+
+
 def agrupar_varios(hallazgos, plantillas: Dict[str, Tuple[str, str]], articulo: str) -> list:
     """
     Una observación por regla en todo el script. Si la regla aparece una vez, el mensaje dice de
@@ -225,6 +229,17 @@ def agrupar_varios(hallazgos, plantillas: Dict[str, Tuple[str, str]], articulo: 
             total = sum(len(elems) for elems in por_objeto.values())
             # Las líneas van solo arriba de la observación (usuaria, 21 nov.).
             resumido.mensaje = f"Se identificaron {total} {sustantivo}: {casos}. {accion}"
+            # Más de 3 tablas: la pantalla lo muestra en tabla, Tabla | Columnas, cada columna en su cajita y «+N más»
+            # (usuaria, 25 nov.); el texto copiado sigue siendo la lista.
+            if articulo == "la tabla" and len(por_objeto) > _OBJETOS_EN_VINETAS                     and not any(": " in e for elems in por_objeto.values() for e in elems):
+                resumido.grupos = [{
+                    "nombre": objeto,
+                    "tipo": "Tabla",
+                    "tituloDetalle": "Columnas",
+                    "enCajitas": True,
+                    "lineas": sorted({h.linea for h in grupo if h.objeto == objeto}),
+                    "etiquetas": elems,
+                } for objeto, elems in por_objeto.items()]
         resultado.append(resumido)
     return resultado
 

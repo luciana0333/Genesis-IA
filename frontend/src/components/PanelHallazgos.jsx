@@ -10,6 +10,7 @@ import { TablaColumnasSinCollate, collateEnTabla, tituloDeColumnas } from './Tab
 // «Validar tabla temporal sin crear» con más de 3 (opción A, 21 nov.).
 const CAJITAS_DESDE = {
   TABLA_FISICA_SIN_NOLOCK: 3, CONSULTA_SIN_NOLOCK: 3, NOLOCK_POR_EVALUAR: 3, TEMPORAL_SIN_CREAR_VALIDAR: 4,
+  TABLA_SIN_DESCRIPCION: 4, // tablas sin documentar en el diccionario, desde 4 (usuaria, 25 nov.)
 };
 import { EncabezadoSeccion } from './EncabezadoSeccion';
 import { CasosPocoComunes } from './CasosPocoComunes';

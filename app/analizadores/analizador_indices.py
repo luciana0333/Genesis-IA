@@ -267,7 +267,8 @@ def verificar_indices(texto_indices: str, texto_tabla: str = "") -> List[Hallazg
         if not (h.regla in ("INDICE_NOMBRE_NO_ESTANDAR", "INDICE_PREFIJO_INVALIDO") and h.linea in lineas_duplicadas)
     ]
     hallazgos.extend(duplicados)
-    return _juntar_nombres(_juntar_tablas_existentes(sorted(hallazgos, key=lambda h: h.linea)))
+    hallazgos = _juntar_nombres(_juntar_tablas_existentes(sorted(hallazgos, key=lambda h: h.linea)))
+    return _juntar_include_extenso(_juntar_prefijos(hallazgos))
 
 
 def _juntar_nombres(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
@@ -299,9 +300,82 @@ def _juntar_nombres(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
     )
     junta.seccion = "indices"
     junta.lineas = sorted({h.linea for h in nombres})  # para recorrerlos con la barra «1 de N»
-    primera = hallazgos.index(nombres[0])
-    resto = [h for h in hallazgos if h not in nombres]
+    _en_tabla(junta, nombres, "Nombre sugerido", lambda h: h.esperado)
+    return _reemplazar(hallazgos, nombres, junta)
+
+
+# Más de 3 índices: la pantalla los muestra en tabla (usuaria, 25 nov.); el texto copiado sigue siendo la lista.
+_CASOS_EN_VINETAS = 3
+
+
+def _en_tabla(junta: Hallazgo, grupo: List[Hallazgo], titulo: str, detalle) -> None:
+    if len(grupo) <= _CASOS_EN_VINETAS:
+        return
+    junta.grupos = [{
+        "nombre": h.indice,
+        "tipo": "Índice",
+        "tituloDetalle": titulo,
+        "lineas": [h.linea],
+        "columnas": detalle(h),
+    } for h in grupo]
+
+
+def _reemplazar(hallazgos: List[Hallazgo], grupo: List[Hallazgo], junta: Hallazgo) -> List[Hallazgo]:
+    primera = hallazgos.index(grupo[0])
+    resto = [h for h in hallazgos if h not in grupo]
     return resto[:primera] + [junta] + resto[primera:]
+
+
+def _juntar_prefijos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
+    """Varios índices con el prefijo que no corresponde a su tipo: una sola observación (usuaria, 25 nov.: salían
+    cuatro por separado)."""
+    grupo = [h for h in hallazgos if h.regla == "INDICE_PREFIJO_INVALIDO" and getattr(h, "esperado", None)]
+    if len(grupo) < 2:
+        return hallazgos
+    cantidad = _NUMEROS_EN_LETRAS.get(len(grupo), str(len(grupo)))
+    prefijos = list(dict.fromkeys(h.prefijo for h in grupo))
+    casos = "; ".join(f"{h.indice} → {h.esperado}" for h in grupo)
+    junta = Hallazgo(
+        linea=grupo[0].linea,
+        origen=grupo[0].origen,
+        severidad=grupo[0].severidad,
+        regla="INDICE_PREFIJO_INVALIDO",
+        mensaje=(
+            f"Se identificaron {cantidad} índices que no utilizan el prefijo correspondiente a su tipo "
+            f"({' y '.join(prefijos)}): {casos}. Renombrar cada índice como se sugiere, ya que su nombre no cumple "
+            f"con la nomenclatura establecida."
+        ),
+    )
+    junta.seccion = "indices"
+    junta.lineas = sorted({h.linea for h in grupo})
+    _en_tabla(junta, grupo, "Nombre sugerido", lambda h: h.esperado)
+    return _reemplazar(hallazgos, grupo, junta)
+
+
+def _juntar_include_extenso(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
+    """Varios índices con muchas columnas en el INCLUDE: una sola observación (usuaria, 25 nov.)."""
+    grupo = [h for h in hallazgos if h.regla == "INDICE_INCLUDE_EXTENSO" and getattr(h, "incluidas", None)]
+    if len(grupo) < 2:
+        return hallazgos
+    # Uno por viñeta desde 2 (usuaria, 25 nov.: en un párrafo los dos se veían muy juntos); más de 3, en tabla.
+    casos = [f"{h.indice} → {len(h.incluidas)} columnas: {', '.join(h.incluidas)}" for h in grupo]
+    cantidad = _NUMEROS_EN_LETRAS.get(len(grupo), str(len(grupo)))
+    problema = f"Se identificaron {cantidad} índices con muchas columnas en su INCLUDE: {'; '.join(casos)}."
+    junta = Hallazgo(
+        linea=grupo[0].linea,
+        origen=grupo[0].origen,
+        severidad=grupo[0].severidad,
+        regla="INDICE_INCLUDE_EXTENSO",
+        mensaje=(
+            f"{problema} Se recomienda validar si realmente necesitan todas esas columnas y dejar solo las que las "
+            f"consultas usan, ya que cada columna incluida se copia dentro del índice: ocupa más espacio y vuelve "
+            f"más lentas las inserciones y actualizaciones."
+        ),
+    )
+    junta.seccion = "indices"
+    junta.lineas = sorted({h.linea for h in grupo})
+    _en_tabla(junta, grupo, "Columnas en el INCLUDE", lambda h: ", ".join(h.incluidas))
+    return _reemplazar(hallazgos, grupo, junta)
 
 
 _NUMEROS_EN_LETRAS = {2: "dos", 3: "tres", 4: "cuatro", 5: "cinco", 6: "seis", 7: "siete", 8: "ocho", 9: "nueve",
@@ -371,15 +445,36 @@ def _validar_columna_fija_en_filtro(texto: str, indice: _Indice) -> List[Hallazg
     )]
 
 
+# Lo que envuelve el script de índices (usuaria, 25 nov.: «COMMIT TRANSACTION OPERACION» salía como instrucción que no
+# es un índice): TRY/CATCH con su manejo del error, la transacción, SET NOCOUNT y el SELECT 'OK' del final.
+_ENVOLTURA = [
+    re.compile(r"\bBEGIN\s+CATCH\b.*?\bEND\s+CATCH\b", re.IGNORECASE | re.DOTALL),
+    re.compile(r"\b(?:BEGIN|END)\s+TRY\b", re.IGNORECASE),
+    re.compile(r"\b(?:BEGIN|COMMIT|ROLLBACK)\s+TRAN(?:SACTION)?\b"
+               r"(?:\s+(?!CREATE\b|COMMIT\b|ROLLBACK\b|SELECT\b|END\b|BEGIN\b|SET\b)[@\w]+)?", re.IGNORECASE),
+    re.compile(r"\b(?:COMMIT|ROLLBACK)\b", re.IGNORECASE),
+    re.compile(r"\bSET\s+NOCOUNT\s+(?:ON|OFF)\b", re.IGNORECASE),
+    re.compile(r"\bSELECT\s+N?'[^']*'", re.IGNORECASE),
+    re.compile(r"\b(?:BEGIN|END)\b", re.IGNORECASE),
+]
+
+
+def _sin_envoltura(parte: str) -> str:
+    for patron in _ENVOLTURA:
+        parte = patron.sub(" ", parte)
+    return parte
+
+
 def _validar_sentencias_ajenas(texto: str, limpio: str) -> List[Hallazgo]:
-    """Instrucciones de la cajita de índices que no son un CREATE INDEX: no se ignoran en silencio."""
+    """Instrucciones de la cajita de índices que no son un CREATE INDEX: no se ignoran en silencio. Lo que envuelve el
+    script (TRY/CATCH, la transacción, SELECT 'OK') no cuenta."""
     hallazgos = []
     for match in re.finditer(r"[^;]+", limpio):
         for parte in re.split(r"\bGO\b", match.group(0), flags=re.IGNORECASE):
-            if not parte.strip() or _SENTENCIA.search(parte):
+            if not parte.strip() or _SENTENCIA.search(parte) or not _sin_envoltura(parte).strip():
                 continue
             inicio = match.start() + match.group(0).find(parte) + (len(parte) - len(parte.lstrip()))
-            primeras = " ".join(parte.split()[:3])
+            primeras = " ".join(_sin_envoltura(parte).split()[:3])
             if re.match(r"\s*DROP\s+INDEX\b", parte, re.IGNORECASE):
                 mensaje = (
                     "Se identificó un DROP INDEX en la cajita de índices. Se recomienda quitarlo del script de "
@@ -519,6 +614,7 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
             f"columnas y dejar solo las que las consultas usan, ya que cada columna incluida se copia dentro "
             f"del índice: ocupa más espacio y vuelve más lentas las inserciones y actualizaciones.",
         ))
+        hallazgos[-1].indice, hallazgos[-1].incluidas = indice.nombre, incluidas_unicas  # para juntarlos
 
     # Nombre: prefijo según el tipo y formato <Prefijo>_<Tabla>_<Campos>_INC<nn>.
     hay_repetidas = bool(repetidas or en_include)
@@ -533,6 +629,10 @@ def _validar_indice(texto: str, indice: _Indice, tabla_script: Optional[_Tabla])
                 f"{tipo.lower()}), por ejemplo: {esperado}."
             ),
         ))
+        # Para juntar varios índices en una observación.
+        hallazgos[-1].indice = indice.nombre
+        hallazgos[-1].esperado = esperado if indice.tipo_explicito else None
+        hallazgos[-1].prefijo = f"{prefijo}_ para índices {tipo.lower()}" if indice.tipo_explicito else None
     elif _sin_ceros_inc(indice.nombre) not in validos and not hay_repetidas:
         formato = f"{prefijo}_Tabla_Columnas{'_INC' + esperado.rsplit('_INC', 1)[1] if '_INC' in esperado else ''}"
         hallazgos.append(_hallazgo(
