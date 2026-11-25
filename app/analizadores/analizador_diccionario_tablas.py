@@ -1010,14 +1010,37 @@ def _verificar_diccionario_tablas(texto_tabla: str, texto_diccionario: str) -> L
             for hallazgo in _revisar_tabla(texto, diccionario):
                 hallazgo.objeto = nombre
                 hallazgos.append(hallazgo)
-        hallazgos = agrupar_varios(juntar_ortografia(hallazgos, ACCION_ORTOGRAFIA), _PLANTILLAS_AGRUPADAS,
-                                   "la tabla")
+        hallazgos = agrupar_varios(juntar_ortografia(_tablas_sin_descripcion_juntas(hallazgos), ACCION_ORTOGRAFIA),
+                                   _PLANTILLAS_AGRUPADAS, "la tabla")
         hallazgos += _tablas_fuera_del_script(
             texto_diccionario, nombres_del_script(texto_tabla, _ENCABEZADO_TABLA, _nombre_del_encabezado)
         )
     # «Copiar consulta de validación» en lo que pide verificar el diccionario (usuaria, 23 nov.).
     adjuntar_consulta(hallazgos, _REGLAS_CON_CONSULTA, "tabla", _tablas_modificadas(texto_tabla))
     return ([duplicada] if duplicada else []) + hallazgos
+
+
+_TABLA_NO_DOCUMENTADA = re.compile(r"^La tabla (\S+) no se encuentra documentada\.")
+
+
+def _tablas_sin_descripcion_juntas(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
+    """Varias tablas sin descripción: una sola observación con la lista de tablas, sin repetir la frase en cada una
+    (usuaria, 25 nov.: «la tabla X no se encuentra documentada» salía 11 veces). Desde 4, en cajitas."""
+    sin_descripcion = [h for h in hallazgos if h.regla == "TABLA_SIN_DESCRIPCION"]
+    nombres = [m.group(1) for m in (_TABLA_NO_DOCUMENTADA.match(h.mensaje) for h in sin_descripcion) if m]
+    if len(sin_descripcion) < 2 or len(nombres) != len(sin_descripcion):
+        return hallazgos
+    if len(nombres) == 2:
+        problema = f"Se identificaron las tablas {nombres[0]} y {nombres[1]}, que no se encuentran documentadas."
+    else:
+        problema = f"Se identificaron {len(nombres)} tablas que no se encuentran documentadas: {'; '.join(nombres)}."
+    junta = _hallazgo(1, "TABLA_SIN_DESCRIPCION", f"{problema} Añadir la descripción de cada tabla al diccionario, "
+                                                  f"ya que toda tabla nueva debe estar documentada.")
+    junta.objeto = ""
+    junta.seccion = getattr(sin_descripcion[0], "seccion", None)
+    primera = hallazgos.index(sin_descripcion[0])
+    resto = [h for h in hallazgos if h.regla != "TABLA_SIN_DESCRIPCION"]
+    return resto[:primera] + [junta] + resto[primera:]
 
 
 # Observaciones que piden verificar qué descripciones ya están registradas: llevan la consulta para comprobarlo.

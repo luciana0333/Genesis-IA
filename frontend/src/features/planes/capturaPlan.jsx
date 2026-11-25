@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { Flecha, Nodo } from './DiagramaPlan';
 import { COLUMNA, calcularPosiciones, filasDesviadas } from './geometriaPlan';
 import { DefinicionesIconos } from './IconosPlan';
+import { MAXIMO_CONVERSIONES, agruparCasos, etiquetaConsultas } from './agruparCasos';
 
 /*
  * Captura de un hallazgo del plan, como la que se pega en el informe: un recorte
@@ -25,6 +26,11 @@ const MAXIMO_COMPACTOS = 8;
 const ALTO_PESTANA = 26;
 const SEPARACION = 18;
 const MAXIMO_NODOS = 4;
+// Tarjetas de la imagen (idea 2 de la usuaria, 25 nov.).
+const TARJETA_MARGEN = 12;
+const TARJETA_RELLENO = 10;
+const TARJETA_CABECERA = 24;
+const TARJETA_SEPARACION = 12;
 const ESCALA = 2;
 
 // Los mismos colores del diagrama (tema claro): la imagen no lee el CSS de la página.
@@ -101,6 +107,7 @@ const TIPOS_POR_REGLA = {
   CONVERSION_IMPLICITA_DETECTADA: ['conversion'],
   SPILL_TEMPDB_DETECTADO: ['spill'],
   MEMORIA_SOBREESTIMADA: ['memoria'],
+  MEMORIA_SOBREESTIMADA_GENESIS: ['memoria'],
 };
 
 /** KB del XML como los muestra SSMS: «33 MB», «512 KB». */
@@ -169,7 +176,7 @@ function contenidoRecuadro(nodo, regla, sentencia) {
   // Sobreestimación de memoria sin la alerta Excessive Grant en el XML: se muestra la memoria de la consulta
   // (MemoryGrantInfo), que es de donde sale la observación, para que la imagen la respalde.
   const memoria = sentencia?.memoria;
-  if (regla === 'MEMORIA_SOBREESTIMADA' && !nodo.advertencias.some((a) => a.tipo === 'memoria') && memoria?.concedida != null) {
+  if (regla.startsWith('MEMORIA_SOBREESTIMADA') && !nodo.advertencias.some((a) => a.tipo === 'memoria') && memoria?.concedida != null) {
     const valores = [memoria.solicitada, memoria.concedida, memoria.usada].map((kb) => `(${kbComoSsms(kb)})`);
     grupos.push({
       titulo: 'Memory Grant Info:',
@@ -191,6 +198,16 @@ function contenidoRecuadro(nodo, regla, sentencia) {
         ...(filtro ? [{ texto: `Predicate: ${filtro.texto}`, resaltados: [] }] : []),
       ],
     });
+  }
+  // Lectura completa de tabla: el Scan muestra lo que lee y lo que devuelve.
+  if (regla === 'LECTURA_COMPLETA_TABLA' && nodo.filasReales != null) {
+    const cifra = (valor) => Math.round(valor).toLocaleString('en-US');
+    const items = [];
+    if (nodo.filasLeidas != null) {
+      items.push({ texto: `Actual Number of Rows Read: ${cifra(nodo.filasLeidas)}`, resaltados: [cifra(nodo.filasLeidas)] });
+    }
+    items.push({ texto: `Actual Number of Rows: ${cifra(nodo.filasReales)}`, resaltados: [cifra(nodo.filasReales)] });
+    grupos.push({ titulo: grupos.length ? null : 'Rows:', items });
   }
   return grupos;
 }
@@ -329,54 +346,96 @@ function bloque(sentencia, nodo, posiciones, ancho, y, regla, x = 0) {
 }
 
 /**
- * Arma la imagen PNG de los operadores de un hallazgo (hasta 4, uno debajo de otro).
+ * Arma la imagen PNG de los operadores de un hallazgo (hasta 4, uno debajo de otro; conversiones: hasta 3
+ * distintas, salvo con todos = true).
  * grupos: [{ sentencia, nodoIds }], uno por consulta; si son varias, cada recorte lleva su etiqueta.
  * Devuelve { blob, url, ancho }.
  */
-export async function crearCapturaPlan({ grupos, archivo, regla }) {
-  const casos = grupos
+export async function crearCapturaPlan({ grupos, archivo, regla, todos = false }) {
+  // La misma conversión en varias consultas va una sola vez, con todas sus consultas en la etiqueta.
+  const agrupados = agruparCasos(grupos
     .flatMap(({ sentencia, nodoIds, resaltes }) => nodoIds
       .map((id) => sentencia.nodos.find((n) => n.id === id))
       .filter(Boolean)
       .map((nodo) => (resaltes?.[nodo.id] ? { ...nodo, resaltar: resaltes[nodo.id] } : nodo))
-      .map((nodo) => ({ sentencia, nodo })))
-    .slice(0, REGLAS_COMPACTAS.has(regla) ? MAXIMO_COMPACTOS : MAXIMO_NODOS);
+      .map((nodo) => ({ sentencia, nodo }))), regla);
+  const conversiones = agrupados.some((c) => c.nodo.resaltar?.length);
+  const limite = REGLAS_COMPACTAS.has(regla) ? MAXIMO_COMPACTOS : conversiones ? MAXIMO_CONVERSIONES : MAXIMO_NODOS;
+  const casos = todos ? agrupados : agrupados.slice(0, limite);
   if (!casos.length) throw new Error('No se encontró el operador en el diagrama.');
   const compacto = REGLAS_COMPACTAS.has(regla);
 
-  const variasConsultas = new Set(casos.map((c) => c.sentencia.numero)).size > 1;
+  const variasConsultas = new Set(casos.flatMap((c) => c.consultas)).size > 1;
   const geometrias = new Map();
-  let y = ALTO_PESTANA + 8;
-  let anchoTotal = compacto ? 0 : ANCHO_RECORTE;
-  const etiquetaAlto = variasConsultas ? 20 : 0;
-  let xFila = 0; // compacto: cada cuadrito empieza donde terminó el anterior (cada uno con su ancho)
-  const bloques = casos.map(({ sentencia, nodo }, indice) => {
+  const posicionesDe = (sentencia) => {
     if (!geometrias.has(sentencia.numero)) geometrias.set(sentencia.numero, calcularPosiciones(sentencia.nodos));
-    const { posiciones, ancho } = geometrias.get(sentencia.numero);
-    // Compacto: cuadritos en filas de 4; si no, recortes uno debajo de otro.
-    if (compacto && indice % POR_FILA_COMPACTA === 0) xFila = 0;
-    const x = compacto ? xFila : 0;
-    const yBloque = compacto
-      ? ALTO_PESTANA + 8 + Math.floor(indice / POR_FILA_COMPACTA) * (ALTO_COMPACTO + etiquetaAlto + SEPARACION)
-      : y;
-    const etiqueta = variasConsultas
-      ? `<text x="${x + 2}" y="${yBloque + 12}" font-size="${TAMANO}" font-weight="700" fill="#4a4a55">Consulta ${sentencia.numero}</text>`
-      : '';
-    const resultado = bloque(sentencia, nodo, posiciones, ancho, yBloque + etiquetaAlto, regla, x);
-    if (compacto) {
+    return geometrias.get(sentencia.numero);
+  };
+  const consultas = [...new Set(casos.flatMap((c) => c.consultas))].sort((a, b) => a - b);
+  const nombreArchivo = archivo || 'plan.sqlplan';
+  let bloques;
+  let anchoTotal;
+  let altoTotal;
+  let fondo = '';
+  let detalleConsultas = '';
+
+  if (compacto) {
+    // Cuadritos en filas de 4 (Table Scan), con la consulta encima si son varias.
+    let y = ALTO_PESTANA + 8;
+    anchoTotal = 0;
+    const etiquetaAlto = variasConsultas ? 20 : 0;
+    let xFila = 0; // cada cuadrito empieza donde terminó el anterior (cada uno con su ancho)
+    bloques = casos.map(({ sentencia, nodo, consultas: suyas }, indice) => {
+      const { posiciones, ancho } = posicionesDe(sentencia);
+      if (indice % POR_FILA_COMPACTA === 0) xFila = 0;
+      const x = xFila;
+      const yBloque = ALTO_PESTANA + 8 + Math.floor(indice / POR_FILA_COMPACTA) * (ALTO_COMPACTO + etiquetaAlto + SEPARACION);
+      const etiqueta = variasConsultas
+        ? `<text x="${x + 2}" y="${yBloque + 12}" font-size="${TAMANO}" font-weight="700" fill="#4a4a55">${etiquetaConsultas(suyas)}</text>`
+        : '';
+      const resultado = bloque(sentencia, nodo, posiciones, ancho, yBloque + etiquetaAlto, regla, x);
       y = Math.max(y, yBloque + etiquetaAlto + resultado.alto + SEPARACION);
       anchoTotal = Math.max(anchoTotal, x + resultado.ancho);
       xFila = x + resultado.ancho + SEPARACION;
-    } else {
-      y += etiquetaAlto + resultado.alto + SEPARACION;
-      anchoTotal = Math.max(anchoTotal, resultado.ancho);
-    }
-    return etiqueta + resultado.marcado;
-  });
-  const altoTotal = y - SEPARACION + 8;
-  const consultas = [...new Set(casos.map((c) => c.sentencia.numero))];
-  const nombreArchivo = archivo || 'plan.sqlplan';
-  const detalleConsultas = ` · ${consultas.length > 1 ? 'Consultas' : 'Consulta'} ${consultas.join(', ')}`;
+      return etiqueta + resultado.marcado;
+    });
+    altoTotal = y - SEPARACION + 8;
+    if (!variasConsultas) detalleConsultas = ` · Consulta ${consultas[0]}`;
+  } else {
+    // Idea 2 elegida por la usuaria (25 nov.): cada recorte en una tarjeta blanca con sombra suave, con su cabecera
+    // gris redondeada («Consulta 12», «Consultas 16 y 17») y el número «01» en cursiva; la pestaña lleva solo el archivo.
+    // Fondo blanco entre las tarjetas (usuaria, 25 nov.).
+    const dibujados = casos.map(({ sentencia, nodo, consultas: suyas }) => {
+      const { posiciones, ancho } = posicionesDe(sentencia);
+      return { suyas, ...bloque(sentencia, nodo, posiciones, ancho, 0, regla) };
+    });
+    const anchoTarjeta = Math.max(ANCHO_RECORTE, ...dibujados.map((d) => d.ancho)) + TARJETA_RELLENO * 2;
+    anchoTotal = anchoTarjeta + TARJETA_MARGEN * 2;
+    let y = ALTO_PESTANA + TARJETA_MARGEN;
+    const tarjetas = [];
+    const x0 = TARJETA_MARGEN;
+    const radio = 6;
+    bloques = dibujados.map(({ suyas, marcado, alto }, indice) => {
+      const altoTarjeta = TARJETA_CABECERA + TARJETA_RELLENO + alto + TARJETA_RELLENO;
+      const x1 = x0 + anchoTarjeta;
+      const yCab = y + TARJETA_CABECERA;
+      tarjetas.push(`<rect x="${x0}" y="${y}" width="${anchoTarjeta}" height="${altoTarjeta}" rx="${radio}"
+        fill="#ffffff" stroke="#e4e7ee" filter="url(#sombra)"/>
+        <path d="M${x0 + 0.5} ${yCab} V${y + radio} Q${x0 + 0.5} ${y + 0.5} ${x0 + radio} ${y + 0.5} H${x1 - radio}
+          Q${x1 - 0.5} ${y + 0.5} ${x1 - 0.5} ${y + radio} V${yCab} Z" fill="#f1f1f4"/>`);
+      const yTexto = y + TARJETA_CABECERA / 2 + 4;
+      const cabecera = `<text x="${x0 + TARJETA_RELLENO}" y="${yTexto}" font-size="11" font-weight="700" fill="#1f2430">${escapar(etiquetaConsultas(suyas))}</text>
+        <text x="${x1 - TARJETA_RELLENO}" y="${yTexto + 0.5}" text-anchor="end" font-size="12.5" font-weight="600" font-style="italic"
+          fill="#b0b3bd">${String(indice + 1).padStart(2, '0')}</text>`;
+      const contenido = `<g transform="translate(${x0 + TARJETA_RELLENO} ${yCab + TARJETA_RELLENO})">${marcado}</g>`;
+      y += altoTarjeta + TARJETA_SEPARACION;
+      return cabecera + contenido;
+    });
+    altoTotal = y - TARJETA_SEPARACION + TARJETA_MARGEN;
+    fondo = `<defs><filter id="sombra" x="-5%" y="-10%" width="110%" height="130%">
+        <feDropShadow dx="0" dy="2" stdDeviation="3.5" flood-color="#111827" flood-opacity="0.10"/></filter></defs>
+      ${tarjetas.join('')}`;
+  }
   // La imagen nunca es más angosta que su pestaña (un solo cuadrito compacto es estrecho).
   anchoTotal = Math.max(anchoTotal, medir(nombreArchivo + detalleConsultas) + 44);
 
@@ -388,6 +447,7 @@ export async function crearCapturaPlan({ grupos, archivo, regla }) {
     <line x1="0" y1="${ALTO_PESTANA - 0.5}" x2="${anchoTotal}" y2="${ALTO_PESTANA - 0.5}" stroke="#c9c9cf"/>
     <path d="M13.5 6.5h6l3.5 3.5v9.5h-9.5z M19.5 6.5v3.5h3.5" fill="none" stroke="#5a5a64" stroke-width="1.1" stroke-linejoin="round"/>
     <text x="30" y="17.5" font-size="${TAMANO}" fill="#33333b" xml:space="preserve">${escapar(nombreArchivo)}<tspan fill="#74747e">${escapar(detalleConsultas)}</tspan></text>
+    ${fondo}
     ${bloques.join('')}
   </svg>`;
 
@@ -402,5 +462,6 @@ export async function crearCapturaPlan({ grupos, archivo, regla }) {
     lienzo.toBlob((resultado) => (resultado ? resolver(resultado) : rechazar(new Error('No se pudo crear la imagen.'))), 'image/png');
   });
   // ancho: tamaño real en pantalla (la imagen se genera al doble para que se vea nítida al pegarla).
-  return { blob, url: URL.createObjectURL(blob), ancho: anchoTotal };
+  // restantes: recortes que no entraron (se ven con «Ver N más»).
+  return { blob, url: URL.createObjectURL(blob), ancho: anchoTotal, restantes: agrupados.length - casos.length };
 }

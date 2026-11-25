@@ -57,7 +57,7 @@ class TestLecturaResidual(unittest.TestCase):
     def test_varios_operadores_se_agrupan(self):
         hallazgos = _residuales(_plan(_scan(1, "Tickets", 3_000_000, 300), _scan(2, "Pagos", 1_500_000, 20)))
         self.assertEqual(len(hallazgos), 1)
-        self.assertTrue(hallazgos[0].mensaje.startswith("Se identificaron 2 lecturas residuales elevadas, en la consulta 1: "))
+        self.assertTrue(hallazgos[0].mensaje.startswith("Se identificaron 2 lecturas residuales elevadas: "))
         self.assertIn("; La tabla [dbo].[Pagos] (Clustered Index Scan, índice PK_Pagos): se leen 1,500,000 filas", hallazgos[0].mensaje)
         self.assertTrue(hallazgos[0].mensaje.endswith(
             "Optimizar las condiciones de filtrado o revisar los índices existentes, ya que estas "

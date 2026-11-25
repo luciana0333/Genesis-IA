@@ -74,8 +74,7 @@ def _ubicacion(caso: Dict, varias_consultas: bool, mayuscula: bool = False) -> s
         lugar = "la condición IF"
     else:
         lugar = f"el operador {_nombre_operador(nodo)}"
-    if varias_consultas:
-        lugar += f" de la consulta {caso['consulta']}"
+    # La consulta no va en el mensaje: ya está en la imagen (usuaria, 25 nov.).
     if mayuscula:  # en las listas va sin artículo: «Operador SELECT…», «Condición IF…»
         lugar = lugar.split(" ", 1)[1]
         return lugar[:1].upper() + lugar[1:]
@@ -177,9 +176,6 @@ def _conversion_implicita(sentencias: List[Dict]) -> List[Hallazgo]:
         recomendacion = _RECOMENDACION_INSERT if en_insert else _RECOMENDACION_CONVERSIONES_UNA_CONSULTA
         mensaje = f"Se han identificado {len(casos)} conversiones implícitas en {detalle}. {recomendacion}"
     else:
-        consultas = sorted({c["consulta"] for c in casos})
-        encabezado = ("la consulta " if len(consultas) == 1 else "las consultas ") + ", ".join(map(str, consultas))
-
         def linea(grupo: List[Dict]) -> str:
             lugar = _ubicacion(grupo[0], varias_consultas, mayuscula=True)
             if len(grupo) == 1:
@@ -191,7 +187,7 @@ def _conversion_implicita(sentencias: List[Dict]) -> List[Hallazgo]:
 
         recomendacion = _RECOMENDACION_INSERTS if en_insert else _RECOMENDACION_CONVERSIONES
         mensaje = (
-            f"Se identificaron {len(casos)} conversiones implícitas, en {encabezado}: "
+            f"Se identificaron {len(casos)} conversiones implícitas: "
             f"{'; '.join(linea(g) for g in grupos)}. {recomendacion}"
         )
     hallazgo = Hallazgo(
@@ -214,18 +210,19 @@ def _cifra(valor: float) -> str:
     return f"{valor:,.0f}"
 
 
-def _lectura_residual(sentencias: List[Dict]) -> List[Hallazgo]:
+def _lectura_residual(sentencias: List[Dict], excluir: frozenset = frozenset()) -> List[Hallazgo]:
     """Scans que leen más de un millón de filas y devuelven menos de las que leen.
 
     Un Scan (Table Scan, Clustered Index Scan, Index Scan) recorre la tabla completa
     o casi completa y descarta con el filtro las filas que no sirven: «lectura residual».
     Un Seek no se marca: ya busca directo en el índice, es el acceso óptimo.
+    excluir: (consulta, nodo) que otra regla ya marca (Negocio: «Lectura completa de tabla»).
     """
     varias_consultas = len({s["numero"] for s in sentencias}) > 1
     casos = []
     for sentencia in sentencias:
         for nodo in sentencia["nodos"]:
-            if "scan" not in nodo["fisica"].lower():
+            if "scan" not in nodo["fisica"].lower() or (sentencia["numero"], nodo["id"]) in excluir:
                 continue
             leidas, devueltas = nodo.get("filasLeidas"), nodo.get("filasReales")
             if leidas is None or devueltas is None or leidas <= LECTURA_RESIDUAL_MINIMA or devueltas >= leidas:
@@ -253,20 +250,20 @@ def _lectura_residual(sentencias: List[Dict]) -> List[Hallazgo]:
         if len(grupo) == 1:
             caso = grupo[0]
             lugar = f"{tabla} ({_nombre_operador(nodo)}{indice}"
-            lugar += f", consulta {caso['consulta']})" if varias_consultas else ")"
+            lugar += ")"  # sin la consulta: ya está en la imagen (usuaria, 25 nov.)
             return f"{lugar}: se leen {_cifra(caso['leidas'])} filas y solo se devuelven {_cifra(caso['devueltas'])}"
         ordenados = sorted(grupo, key=lambda c: c["consulta"])
-        consultas = [str(c["consulta"]) for c in ordenados]
-        lugar = (f"{tabla} ({_nombre_operador(nodo)}{indice}), que se repite en {len(grupo)} consultas "
-                 f"({', '.join(consultas[:-1])} y {consultas[-1]})")
+        lugar = f"{tabla} ({_nombre_operador(nodo)}{indice}), que se repite en {len(grupo)} consultas"
         if len({c["leidas"] for c in grupo}) == 1:
             # Lee lo mismo en todas: se dice una vez y se listan las filas devueltas.
-            devueltas = [f"{_cifra(c['devueltas'])} (consulta {c['consulta']})" for c in ordenados]
+            devueltas = [_cifra(c['devueltas']) for c in ordenados]
             return (f"{lugar}: se leen {_cifra(ordenados[0]['leidas'])} filas en cada una y solo se devuelven "
                     f"{', '.join(devueltas[:-1])} y {devueltas[-1]}")
-        cifras = [f"en la consulta {c['consulta']} se leen {_cifra(c['leidas'])} filas y solo se devuelven "
+        cifras = [f"se leen {_cifra(c['leidas'])} filas y solo se devuelven "
                   f"{_cifra(c['devueltas'])}" for c in ordenados]
-        return f"{lugar}: {', '.join(cifras[:-1])} y {cifras[-1]}"
+        if len(cifras) == 2:
+            return f"{lugar}: en una {cifras[0]}, y en la otra {cifras[1]}"
+        return f"{lugar}: {'; '.join(cifras)}"
 
     lista = list(grupos.values())
     if len(lista) == 1:
@@ -276,11 +273,9 @@ def _lectura_residual(sentencias: List[Dict]) -> List[Hallazgo]:
             f"o casi la totalidad de los registros."
         )
     else:
-        consultas = sorted({c["consulta"] for c in casos})
-        encabezado = ("la consulta " if len(consultas) == 1 else "las consultas ") + ", ".join(map(str, consultas))
         detalle = "; ".join(d[:1].upper() + d[1:] for d in (describir(g) for g in lista))
         mensaje = (
-            f"Se identificaron {len(lista)} lecturas residuales elevadas, en {encabezado}: {detalle}. "
+            f"Se identificaron {len(lista)} lecturas residuales elevadas: {detalle}. "
             f"Optimizar las condiciones de filtrado o revisar los índices existentes, ya que estas lecturas abarcan, "
             f"en algunos casos, la totalidad de los registros."
         )
@@ -291,8 +286,14 @@ def _lectura_residual(sentencias: List[Dict]) -> List[Hallazgo]:
         regla="LECTURA_RESIDUAL_ELEVADA",
         mensaje=mensaje,
     )
-    # Una imagen por tabla e índice: la del caso más grave.
-    hallazgo.nodos = [{"consulta": c["consulta"], "nodo": c["nodo"]["id"]} for c in map(mas_grave, lista)]
+    # Una imagen por tabla e índice: la del caso más grave, primero; detrás, los demás casos de esa tabla, para que
+    # la cabecera de su tarjeta diga todas sus consultas («Consultas 38 y 119»; la imagen los junta por tabla con
+    # agruparCasos del frontend y dibuja el primero). La consulta ya no va en el mensaje (usuaria, 25 nov.).
+    hallazgo.nodos = [
+        {"consulta": c["consulta"], "nodo": c["nodo"]["id"]}
+        for grupo in lista
+        for c in [mas_grave(grupo)] + sorted((c for c in grupo if c is not mas_grave(grupo)), key=lambda c: c["consulta"])
+    ]
     return [hallazgo]
 
 
@@ -319,9 +320,11 @@ def _tiempo_superado(sentencias: List[Dict], limite_s: Optional[float]) -> List[
     if len(con_tiempo) > 1:
         motivo += f", equivalente al {lenta_s / total_s * 100:.0f} % del tiempo total"
     mensaje = (
-        f"El procedimiento supera el umbral de tiempo establecido: su ejecución tomó {_segundos_texto(total_s)} "
-        f"y el límite es de {limite_s:g} segundos. Revisar y optimizar el siguiente bloque de la "
-        f"consulta, ya que {motivo}."
+        # Texto de la usuaria (25 nov.): el límite aún no está en el manual, así que no se menciona; se usa solo
+        # para decidir cuándo marcar.
+        f"Se identificó que el procedimiento presenta un tiempo de ejecución elevado ({_segundos_texto(total_s)}), "
+        f"el cual podría generar impactos en el rendimiento de la base de datos. Revisar y optimizar el siguiente "
+        f"bloque de la consulta, ya que {motivo}."
     )
     hallazgo = Hallazgo(
         linea=1,

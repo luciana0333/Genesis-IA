@@ -20,7 +20,9 @@ from typing import Dict, List, Optional, Tuple
 
 from app.modelos.hallazgo import Hallazgo, OrigenAnalisis, Severidad
 from app.analizadores.diccionario_agrupar import agrupar, con_elemento
-from app.analizadores.ortografia import disponible as diccionario_disponible, es_palabra_valida, separar_palabras
+from app.analizadores.ortografia import (
+    disponible as diccionario_disponible, errores_en_nombre, es_palabra_valida, separar_palabras,
+)
 from app.analizadores.objetos_repetidos import hallazgo_repetidos, quitar_creaciones_repetidas
 from app.analizadores.siglas import es_sigla_aprobada, uso_de_siglas
 from app.analizadores.varchar_max_html import nombre_de_html, prefijo_json
@@ -700,6 +702,33 @@ def _validar_columna(
             f"{_motivo_pascal(columna.nombre, bool(pegadas))}. {accion}",
         ))
 
+    # Fecha guardada como texto (usuaria, 25 nov.: cFechaProceso VARCHAR(8)). El periodo (cPeriodo, yyyyMM) no cuenta.
+    if re.search(r"Fecha", columna.nombre) and _es_tipo_texto(definicion):
+        tipo_texto = _tipo_completo(definicion)
+        elementos["COLUMNA_FECHA_COMO_TEXTO"] = f"{columna.nombre} ({tipo_texto})"
+        hallazgos.append(_hallazgo(
+            texto, columna.posicion, "COLUMNA_FECHA_COMO_TEXTO",
+            # Texto de la usuaria.
+            f"Se identificó que la columna {columna.nombre} almacena fechas, pero está definida como {tipo_texto}. "
+            f"Se recomienda evaluar su cambio a DATE.",
+        ))
+
+    # Nombre de la columna con una palabra mal escrita (usuaria, 25 nov.: dFechaResgistro, cTipoModena). Solo palabras
+    # de 6 letras o más con una corrección segura (errores_en_nombre), para no confundir abreviaturas (Cod, Pers).
+    mal_escritas = errores_en_nombre(columna.nombre) if diccionario_disponible() else []
+    if mal_escritas:
+        cambios = [f"«{palabra}» → «{opciones[0]}»" for palabra, opciones in mal_escritas]
+        correcto = columna.nombre
+        for palabra, opciones in mal_escritas:
+            correcto = correcto.replace(palabra, opciones[0], 1)
+        elementos["COLUMNA_NOMBRE_MAL_ESCRITO"] = f"{columna.nombre} → {correcto}"
+        hallazgos.append(_hallazgo(
+            texto, columna.posicion, "COLUMNA_NOMBRE_MAL_ESCRITO",
+            f"Se identificó que el nombre de la columna {columna.nombre} podría estar mal escrito: "
+            f"{', '.join(cambios)}. Se recomienda corregirlo ({correcto}) antes de crear la tabla, ya que después "
+            f"cambiar el nombre de una columna obliga a modificar todos los objetos que la usan.",
+        ))
+
     numeros = re.findall(r"\d+", columna.nombre)
     if numeros:
         # Texto de la usuaria.
@@ -863,6 +892,15 @@ _PLANTILLAS_AGRUPADAS = {
         "descriptivas (ej.: nMetaTasaPromPonderada), ya que las siglas dificultan identificar qué información "
         "almacena cada columna.",
     ),
+    "COLUMNA_FECHA_COMO_TEXTO": (
+        "columnas que almacenan fechas, pero están definidas como texto",
+        "Se recomienda evaluar su cambio a DATE.",
+    ),
+    "COLUMNA_NOMBRE_MAL_ESCRITO": (
+        "columnas cuyo nombre podría estar mal escrito",
+        "Se recomienda corregir cada nombre como se sugiere antes de crear las tablas, ya que después cambiar el "
+        "nombre de una columna obliga a modificar todos los objetos que la usan.",
+    ),
     "COLUMNA_NOMBRE_CON_NUMERO": (
         "columnas con números en el nombre",
         "Renombrar cada columna, evitando el uso de números y utilizando un nombre descriptivo que permita "
@@ -980,6 +1018,20 @@ _REGLAS_DE_TABLA = {
     "TABLA_NOMBRE_CON_SIGLA", "TABLA_NOMBRE_MUY_LARGO",
     "PK_FALTANTE", "PK_COMPUESTA", "PK_NO_CLUSTER",
 }
+
+
+# Desde cuántos casos una regla de columnas se muestra en tabla (como CASOS_EN_VINETAS de agrupar_casos: más de 3).
+_CASOS_EN_VINETAS = 3
+# Reglas con su propio texto entre tablas (no pasan a tabla).
+_CON_REDACCION_PROPIA = {"COLUMNA_PREFIJO_TIPO_INVALIDO", "TABLA_NOMBRE_NO_PASCALCASE", "COLUMNA_NOMBRE_CON_SIGLA"}
+# Título de la segunda columna de la tabla, si no es «Columnas».
+_TITULO_DE_LA_TABLA = {"PK_NOMBRE_INVALIDO": "Nombre actual → sugerido"}
+
+
+def _etiqueta_de_la_tabla(hallazgo: Hallazgo) -> str:
+    """Lo que va en la cajita: la columna (o «actual → sugerido»), sin la tabla, que ya es la fila."""
+    elemento = getattr(hallazgo, "elemento", None) or getattr(hallazgo, "columna", None) or hallazgo.mensaje
+    return re.sub(r"\s*\([^()]*\)$", "", elemento).strip()
 
 
 _NUMEROS_EN_LETRAS = {
@@ -1114,6 +1166,21 @@ def _agrupar_entre_tablas(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
             mensaje=mensaje,
         )
         resumido.lineas = numeros
+        # Más de 3 casos de una regla de columnas, sin redacción propia: la pantalla los muestra en tabla
+        # (Tabla | Columnas, cada columna en su cajita y «+N más»), como en Procedimientos (usuaria, 25 nov.).
+        if (len(grupo) > _CASOS_EN_VINETAS and regla not in _REGLAS_DE_TABLA and regla not in _CON_REDACCION_PROPIA
+                and all(getattr(h, "tabla", None) for h in grupo)):
+            por_tabla: Dict[str, List[Hallazgo]] = {}
+            for h in grupo:
+                por_tabla.setdefault(h.tabla, []).append(h)
+            resumido.grupos = [{
+                "nombre": tabla,
+                "tipo": "Tabla",
+                "tituloDetalle": _TITULO_DE_LA_TABLA.get(regla, "Columnas"),
+                "enCajitas": True,
+                "lineas": [h.linea for h in de_la_tabla],
+                "etiquetas": list(dict.fromkeys(_etiqueta_de_la_tabla(h) for h in de_la_tabla)),
+            } for tabla, de_la_tabla in por_tabla.items()]
         # Siglas por validar de todo el grupo («Aprobar siglas» en la pantalla).
         siglas = list(dict.fromkeys(s for h in grupo for s in (getattr(h, "siglas", None) or [])))
         if siglas:

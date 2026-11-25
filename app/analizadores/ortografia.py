@@ -371,10 +371,31 @@ def errores_en_nombre(nombre: str) -> List[Tuple[str, List[str]]]:
             continue
         if es_palabra_valida(palabra) or tilde_correcta(palabra) or _es_inicio_de_palabra(palabra):
             continue
-        sugeridas = sugerencias(palabra)
+        # Primero, la palabra que sale de intercambiar dos de sus letras (Modena → Moneda): en un nombre es el error
+        # de tipeo más común y conserva las mismas letras (usuaria, 25 nov.: cTipoModena sugería «Moderna»).
+        sugeridas = _con_dos_letras_cambiadas(palabra) or sugerencias(palabra)
         if sugeridas:
             errores.append((palabra, sugeridas))
     return errores
+
+
+def _con_dos_letras_cambiadas(palabra: str) -> List[str]:
+    """La palabra válida que resulta de intercambiar dos letras (sin tocar la primera), si hay una sola."""
+    letras = list(palabra.lower())
+    halladas = set()
+    for i in range(1, len(letras)):
+        for j in range(i + 1, len(letras)):
+            if letras[i] == letras[j]:
+                continue
+            cambiada = letras[:]
+            cambiada[i], cambiada[j] = cambiada[j], cambiada[i]
+            candidata = "".join(cambiada)
+            if es_palabra_valida(candidata):
+                halladas.add(candidata)
+    if len(halladas) != 1:
+        return []
+    candidata = halladas.pop()
+    return [candidata[:1].upper() + candidata[1:] if palabra[:1].isupper() else candidata]
 
 
 def _sonido(texto: str) -> str:

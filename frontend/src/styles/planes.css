@@ -737,6 +737,20 @@
   border: 1px solid var(--border);
 }
 
+/* «Ver N más»: enlace discreto bajo la imagen, como «+N más» de Diccionarios (usuaria, 25 nov.). */
+.captura-mas {
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--red-main);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.captura-mas:hover { text-decoration: underline; }
+.captura-mas:focus-visible { outline: 2px solid var(--red-main); outline-offset: 2px; border-radius: 3px; }
+
 /* Pestañas al pie del plan (Plan Diagram, Parameters, Missing Indexes), como Plan Explorer. */
 .plan-vista {
   margin-top: 16px;
@@ -839,15 +853,15 @@
   font-weight: 700;
 }
 
-/* Tarjeta «Tiempo de ejecución»: velocímetro de instrumento clásico (CAJA ICA: rojo plano, esquinas rectas). */
+/* Tarjeta «Tiempo de ejecución»: anillo y datos en cuadritos (idea 2 de la usuaria, 25 nov.). */
 .tiempo-plan {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: 260px minmax(0, 1fr);
   margin-bottom: 28px;
   border: 1px solid #ececf1;
+  border-radius: 12px;
   background: #ffffff;
   color: #1d1d24;
-  /* En lugar de la línea superior, una sombra ligera. */
   box-shadow: 0 1px 2px rgba(17, 17, 26, 0.04), 0 8px 24px -14px rgba(17, 17, 26, 0.18);
 }
 
@@ -860,36 +874,47 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 18px 10px 12px;
+  padding: 22px 12px;
 }
 
-.tiempo-velocimetro {
-  width: 280px;
-  overflow: visible;
-  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+.tiempo-anillo {
+  position: relative;
+  width: 180px;
+  height: 180px;
+}
+
+.tiempo-anillo svg { width: 100%; height: 100%; display: block; }
+.tiempo-anillo-fondo { fill: none; stroke: #f1f1f4; stroke-width: 7; }
+.tiempo-anillo-avance { fill: none; stroke: var(--red-main); stroke-width: 7; stroke-linecap: round; }
+
+.tiempo-anillo-centro {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.tiempo-anillo-centro strong {
+  font-family: 'Poppins', var(--font-sans);
+  font-size: 1.6rem;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
-.tiempo-banda { fill: none; stroke: #f0f0f3; stroke-width: 10; }
-.tiempo-banda-roja { fill: none; stroke: #fde3e4; stroke-width: 10; }
-.tiempo-avance { fill: none; stroke: #1d1d24; stroke-width: 3; }
-.tiempo-marca { stroke: #4a4a55; stroke-width: 1; }
-.tiempo-marca.gruesa { stroke-width: 2; }
-.tiempo-marca.roja { stroke: var(--red-main); }
-.tiempo-escala { fill: #8a8a96; font-size: 10px; }
-.tiempo-flecha-limite { fill: #1d1d24; }
-.tiempo-aguja { fill: var(--red-main); }
-.tiempo-eje { fill: #1d1d24; }
-.tiempo-lectura { fill: #16161b; }
-.tiempo-lectura-texto { fill: #ffffff; font-size: 15px; font-weight: 600; }
+.tiempo-anillo-centro span {
+  color: #8a8a96;
+  font-size: 0.75rem;
+}
 
 .tiempo-lado {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 16px;
+  gap: 14px;
   padding: 22px 26px;
-  border-left: 1px solid #f0f0f3;
 }
 
 .tiempo-encabezado {
@@ -908,55 +933,73 @@
   text-transform: uppercase;
 }
 
+/* Sello del resultado: pastilla gris con punto verde (o roja si supera el límite). */
 .tiempo-sello {
-  padding: 4px 10px;
-  background: #1d1d24;
-  color: #ffffff;
-  font-size: 0.64rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: #f1f1f4;
+  color: #1d1d24;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.tiempo-sello::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #16a34a;
 }
 
 .tiempo-sello.supera {
   background: var(--red-main);
+  color: #ffffff;
+}
+
+.tiempo-sello.supera::before {
+  background: #ffffff;
 }
 
 .tiempo-datos {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-top: 1px solid #f0f0f3;
-  border-bottom: 1px solid #f0f0f3;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .tiempo-datos > div {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 12px 0 12px 16px;
-  border-left: 1px solid #f0f0f3;
+  gap: 6px;
+  padding: 13px 16px;
+  border-radius: 10px;
+  background: #f5f7fb;
 }
 
-.tiempo-datos > div:first-child {
-  padding-left: 0;
-  border-left: 0;
+.tiempo-numero {
+  position: absolute;
+  top: 9px;
+  right: 14px;
+  color: #d4d6dd;
+  font-family: 'Poppins', var(--font-sans);
+  font-size: 1rem;
+  font-style: italic;
+  font-weight: 600;
 }
 
 .tiempo-datos strong {
   color: #1d1d24;
+  font-family: 'Poppins', var(--font-sans);
   font-size: 1.3rem;
-  font-weight: 300;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
 .tiempo-datos strong.rojo {
   color: #c0050f;
-}
-
-.tiempo-datos small {
-  color: #8a8a96;
-  font-size: 0.75rem;
-  font-weight: 400;
 }
 
 .tiempo-control {

@@ -94,7 +94,7 @@ export function analizarPlan(archivo, { signal, area, limite } = {}) {
   formulario.append('plan', archivo);
   // Área del plan (reporte | negocio): cada una tiene sus propias reglas.
   if (area) formulario.append('area', area);
-  // Límite de tiempo del área en segundos (regla «Tiempo de ejecución superado»).
+  // Límite de tiempo del área en segundos (regla «Tiempo de ejecución elevado»).
   if (limite != null) formulario.append('limite', String(limite));
   return solicitar(
     '/api/analizar-plan',

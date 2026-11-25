@@ -43,8 +43,9 @@ class ConversionADestinoTest(unittest.TestCase):
                 # Texto de la usuaria (20 nov.): corto y directo.
                 self.assertEqual(
                     insert[0]["mensaje"],
-                    "Se detectó una conversión implícita, ya que los tipos de datos no son iguales. Se recomienda "
-                    "corregir la conversión implícita identificada en el Compute Scalar del INSERT.",
+                    "Se identificó una alerta por conversión implícita debido a que se están comparando o relacionando "
+                    "columnas con tipos de datos diferentes. Se recomienda corregir la conversión implícita identificada "
+                    "en el Compute Scalar del INSERT.",
                 )
                 self.assertEqual(_observaciones(2, area), [])
                 self.assertIn("en el Compute Scalar del UPDATE.", _observaciones(3, area)[0]["mensaje"])

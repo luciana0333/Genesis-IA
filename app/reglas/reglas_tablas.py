@@ -109,6 +109,16 @@ REGLAS_TABLAS = {
         "El nombre de la columna lleva varias mayúsculas seguidas (posible sigla, ej.: nSaldoTCF): validar "
         "su significado y, de ser posible, usar palabras descriptivas.",
     ),
+    "COLUMNA_FECHA_COMO_TEXTO": _regla(
+        "COLUMNA_FECHA_COMO_TEXTO", "Fecha definida como texto", "bajo",
+        "Una columna con «Fecha» en el nombre está definida como VARCHAR o CHAR: evaluar su cambio a DATE "
+        "(el periodo, cPeriodo yyyyMM, no cuenta).",
+    ),
+    "COLUMNA_NOMBRE_MAL_ESCRITO": _regla(
+        "COLUMNA_NOMBRE_MAL_ESCRITO", "Nombre de columna mal escrito", "medio",
+        "Una palabra del nombre de la columna parece mal escrita (ej.: dFechaResgistro → dFechaRegistro). Solo "
+        "palabras de 6 letras o más con una corrección segura.",
+    ),
     "COLUMNA_NOMBRE_CON_NUMERO": _regla(
         "COLUMNA_NOMBRE_CON_NUMERO", "Nombre de columna con números", "alto",
         "El nombre de una columna nueva no puede contener números (ej.: cNombre89).",

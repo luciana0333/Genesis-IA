@@ -9,6 +9,7 @@ export function CapturaHallazgo({ hallazgo, sentencias = [], archivo, onIrAlPlan
   const [captura, setCaptura] = useState(null);
   const [visible, setVisible] = useState(false);
   const [estado, setEstado] = useState('');
+  const [todos, setTodos] = useState(false);
 
   // Un grupo por consulta, con sus operadores sin repetir (una observación puede abarcar varias consultas).
   const grupos = [...new Set((hallazgo.nodos ?? []).map((n) => n.consulta))]
@@ -28,12 +29,13 @@ export function CapturaHallazgo({ hallazgo, sentencias = [], archivo, onIrAlPlan
 
   if (!grupos.length) return null;
 
-  const obtener = async () => {
-    if (captura) return captura;
+  const obtener = async (conTodos = todos) => {
+    if (captura && conTodos === todos) return captura;
     // El generador (con react-dom/server) se carga solo al pedir la primera imagen.
     const { crearCapturaPlan } = await import('./capturaPlan');
-    const nueva = await crearCapturaPlan({ grupos, archivo, regla: hallazgo.regla });
+    const nueva = await crearCapturaPlan({ grupos, archivo, regla: hallazgo.regla, todos: conTodos });
     setCaptura(nueva);
+    setTodos(conTodos);
     return nueva;
   };
 
@@ -52,6 +54,11 @@ export function CapturaHallazgo({ hallazgo, sentencias = [], archivo, onIrAlPlan
   const alVer = conAviso(async () => {
     await obtener();
     setVisible((actual) => !actual);
+  });
+
+  // «Ver N más»: la imagen con todas las conversiones (de entrada solo van 3).
+  const alVerTodos = conAviso(async () => {
+    await obtener(true);
   });
 
   const alCopiar = conAviso(async () => {
@@ -77,6 +84,9 @@ export function CapturaHallazgo({ hallazgo, sentencias = [], archivo, onIrAlPlan
         {estado && <span className="captura-estado" role="status">{estado}</span>}
       </div>
       {visible && captura && <img className="captura-imagen" src={captura.url} width={captura.ancho} alt={`Captura del plan: ${hallazgo.regla}`} />}
+      {visible && captura?.restantes > 0 && (
+        <button type="button" className="captura-mas" onClick={alVerTodos}>Ver {captura.restantes} más</button>
+      )}
     </div>
   );
 }

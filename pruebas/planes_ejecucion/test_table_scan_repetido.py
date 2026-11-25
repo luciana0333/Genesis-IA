@@ -55,8 +55,9 @@ class TestTableScanRepetido(unittest.TestCase):
                                _consulta(_scan(1, "Monedas", 2)))[0]
         self.assertEqual(
             hallazgo.mensaje,
-            "Se identificaron 2 Table Scan dentro del procedimiento, en las consultas 2, 3: La tabla "
-            "[dbo].[Agencias]: se leen 86 filas y se devuelven 13; La tabla [dbo].[Monedas] (consulta 3): se leen "
+            # Sin el número de consulta: ya está en la imagen (usuaria, 25 nov.).
+            "Se identificaron 2 Table Scan dentro del procedimiento: La tabla "
+            "[dbo].[Agencias]: se leen 86 filas y se devuelven 13; La tabla [dbo].[Monedas]: se leen "
             "86 filas y se devuelven 2. Evaluar agregar una PK CLUSTERED en cada tabla con Table Scan, ya que, según "
             "nuestras buenas prácticas, toda tabla debe contar con una. Esto permite identificar los registros de "
             "forma única y facilita su búsqueda mediante índices.",

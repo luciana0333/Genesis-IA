@@ -33,8 +33,9 @@ class TestTiempoSuperado(unittest.TestCase):
         self.assertEqual(hallazgos[0].severidad.value, "alto")
         self.assertEqual(
             hallazgos[0].mensaje,
-            "El procedimiento supera el umbral de tiempo establecido: su ejecución tomó 72.5 segundos y el límite "
-            "es de 30 segundos. Revisar y optimizar el siguiente bloque de la consulta, ya que "
+            "Se identificó que el procedimiento presenta un tiempo de ejecución elevado (72.5 segundos), el cual "
+            "podría generar impactos en el rendimiento de la base de datos. Revisar y optimizar el siguiente bloque "
+            "de la consulta, ya que "
             "presenta un tiempo de ejecución de 24.4 segundos, equivalente al 34 % del tiempo total.",
         )
         self.assertEqual(hallazgos[0].nodos, [{"consulta": 3, "nodo": "raiz"}])
@@ -42,7 +43,7 @@ class TestTiempoSuperado(unittest.TestCase):
 
     def test_una_sola_consulta(self):
         hallazgos = _tiempo(_plan(_sentencia("SELECT 1", 8_200)), 5)
-        self.assertIn("su ejecución tomó 8.20 segundos y el límite es de 5 segundos", hallazgos[0].mensaje)
+        self.assertIn("presenta un tiempo de ejecución elevado (8.20 segundos)", hallazgos[0].mensaje)
         self.assertTrue(hallazgos[0].mensaje.endswith(
             "Revisar y optimizar el siguiente bloque de la consulta, ya que presenta un tiempo de "
             "ejecución de 8.20 segundos."))
