@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 /** Desde cuántas tablas «COLLATE no especificado en tabla temporal» se muestra como tabla (igual en el backend). */
 export const TABLAS_PARA_VER_EN_TABLA = 3;
 
@@ -22,6 +24,45 @@ export const tituloDeColumnas = (regla) => TITULO_DE_COLUMNAS[regla] ?? 'Columna
 
 const DESCRIPCION_DEL_OBJETO = /^\(descripción del (procedimiento|función|funcion)\)$/i;
 
+/** Cuántas cajitas se ven antes de «+N más» (idea A3, usuaria, 24 nov.: la tabla se veía muy grande). */
+const CAJITAS_VISIBLES = 5;
+
+function cajita(etiqueta, falta) {
+  const objeto = DESCRIPCION_DEL_OBJETO.exec(etiqueta);
+  return (
+    <span key={`${falta ? 'f' : 'a'}-${etiqueta}`} className={`cajita-parametro${falta ? ' falta' : ''}`}
+      title={`${objeto ? `Descripción del ${objeto[1]}: ` : ''}${falta ? 'no se incluye en el diccionario' : 'se agrega en el diccionario'}`}>
+      {/* Corto para que la fila entre en un renglón (A3, 24 nov.); el texto completo va en el título. */}
+      {objeto
+        ? <span className="cajita-parametro-objeto">{objeto[1] === 'procedimiento' ? 'Procedimiento' : 'Función'}</span>
+        : <code>{etiqueta}</code>}
+      {falta && <span className="cajita-parametro-falta">Falta</span>}
+    </span>
+  );
+}
+
+/**
+ * Los elementos de un procedimiento: los que faltan primero (nunca quedan escondidos detrás de «+N más»), luego los que
+ * se agregan. Desde 7 se ven los 5 primeros y «+N más» despliega el resto («Ver menos» los vuelve a juntar).
+ */
+function CajitasDeLaFila({ faltan, agregan }) {
+  const [abierta, setAbierta] = useState(false);
+  const todas = [...faltan.map((etiqueta) => [etiqueta, true]), ...agregan.map((etiqueta) => [etiqueta, false])];
+  const resumir = todas.length > CAJITAS_VISIBLES + 1;
+  const visibles = resumir && !abierta ? todas.slice(0, Math.max(CAJITAS_VISIBLES, faltan.length)) : todas;
+  const ocultas = todas.length - visibles.length;
+  return (
+    <div className="cajitas-parametros">
+      {visibles.map(([etiqueta, falta]) => cajita(etiqueta, falta))}
+      {resumir && (
+        <button type="button" className="cajitas-mas" aria-expanded={abierta} onClick={() => setAbierta(!abierta)}>
+          {abierta ? 'Ver menos' : `+${ocultas} más`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /**
  * «Validar documentación existente» con varios procedimientos (usuaria, 21 nov.): Procedimiento | Parámetros, una fila
  * por procedimiento y sin la columna Situación. Cada parámetro en su cajita; el que no está en el diccionario lleva
@@ -39,16 +80,6 @@ function TablaPorProcedimiento({ grupos, filaActiva }) {
     const falta = grupo.seccion === 'objeto';
     (falta ? fila.faltan : fila.agregan).push(...(grupo.etiquetas ?? []));
   });
-  const cajita = (etiqueta, falta) => {
-    const objeto = DESCRIPCION_DEL_OBJETO.exec(etiqueta);
-    return (
-      <span key={`${falta ? 'f' : 'a'}-${etiqueta}`} className={`cajita-parametro${falta ? ' falta' : ''}`}
-        title={falta ? 'No se incluye en el diccionario' : 'Se agrega en el diccionario'}>
-        {objeto ? <span className="cajita-parametro-objeto">Descripción del {objeto[1]}</span> : <code>{etiqueta}</code>}
-        {falta && <span className="cajita-parametro-falta">Falta</span>}
-      </span>
-    );
-  };
   return (
     <table className="tabla-tipos tabla-collate tabla-por-procedimiento">
       <thead>
@@ -65,15 +96,12 @@ function TablaPorProcedimiento({ grupos, filaActiva }) {
           >
             <td className="tabla-nombre">
               {/* Si no entra, baja de línea solo después de «.» o «_» (no a mitad de palabra). */}
-              <code className="tabla-tipos-columna">
+              <span className="tabla-procedimiento-nombre">
                 {fila.nombre.split(/(?<=[._])/).map((parte, i) => <span key={i}>{parte}<wbr /></span>)}
-              </code>
+              </span>
             </td>
             <td>
-              <div className="cajitas-parametros">
-                {fila.faltan.map((etiqueta) => cajita(etiqueta, true))}
-                {fila.agregan.map((etiqueta) => cajita(etiqueta, false))}
-              </div>
+              <CajitasDeLaFila faltan={fila.faltan} agregan={fila.agregan} />
             </td>
           </tr>
         ))}

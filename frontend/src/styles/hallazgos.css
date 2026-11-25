@@ -1636,40 +1636,62 @@
 :root[data-theme="dark"] .poco-comun { background: #17171d; box-shadow: 0 30px 60px -28px rgba(0, 0, 0, 0.8); }
 :root[data-theme="dark"] .poco-comun-cantidad { background: rgba(255, 255, 255, 0.05); }
 
-/* «Validar documentación existente» con varios procedimientos (usuaria, 21 nov.): Procedimiento | Parámetros, sin la
-   columna Situación. Cada parámetro en su cajita; el que falta en el diccionario lleva la etiqueta roja «Falta». */
-.tabla-por-procedimiento > thead > tr > th:first-child { width: 40%; }
-.tabla-por-procedimiento > tbody > tr > td { vertical-align: top; }
-.tabla-por-procedimiento .tabla-tipos-columna { white-space: normal; overflow-wrap: normal; word-break: keep-all; }
-/* El nombre sin cajita gris; solo se marca en la fila que se está recorriendo con «Ver en el código» (usuaria, 21 nov.). */
-.tabla-por-procedimiento .tabla-tipos-columna { margin-left: -9px; background: transparent; transition: background-color var(--dur-fast) ease; }
-.tabla-por-procedimiento .tabla-tipos-fila.activa .tabla-tipos-columna { background: #eaeef5; }
-:root[data-theme="dark"] .tabla-por-procedimiento .tabla-tipos-fila.activa .tabla-tipos-columna { background: rgba(255, 255, 255, 0.08); }
-.cajitas-parametros { display: flex; flex-wrap: wrap; gap: 6px; }
+/* «Validar documentación existente» con varios procedimientos: Procedimiento | Parámetros, sin la columna Situación.
+   Diseño A3 compacto (usuaria, 24 nov.: «se ve muy grande»): filas bajas, nombre en negrita oscura sin punto, cajitas
+   grises pequeñas y juntas, los 5 primeros elementos y «+N más». Lo que falta lleva la etiqueta roja «Falta». */
+.tabla-por-procedimiento > thead > tr > th:first-child { width: 34%; }
+.tabla-por-procedimiento > tbody > tr > td { padding-top: 7px; padding-bottom: 7px; vertical-align: top; }
+.tabla-procedimiento-nombre {
+  display: inline-block;
+  margin-left: -6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.4;
+  transition: background-color var(--dur-fast) ease;
+}
+/* Solo se marca la fila que se está recorriendo con «Ver en el código» (usuaria, 21 nov.). */
+.tabla-por-procedimiento .tabla-tipos-fila.activa .tabla-procedimiento-nombre { background: #eaeef5; }
+:root[data-theme="dark"] .tabla-por-procedimiento .tabla-tipos-fila.activa .tabla-procedimiento-nombre { background: rgba(255, 255, 255, 0.08); }
+.cajitas-parametros { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
 .cajita-parametro {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 9px;
-  border: 1px solid #e3e8f0;
-  border-radius: 4px;
-  background: #ffffff;
+  gap: 5px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #eef1f6;
   color: var(--text-primary);
-  font-size: 0.76rem;
+  font-size: 0.68rem;
   line-height: 1.5;
 }
-.cajita-parametro code { font-family: var(--font-mono); font-size: 0.76rem; font-weight: 600; }
-.cajita-parametro-objeto { color: var(--text-secondary); font-style: italic; }
-.cajita-parametro.falta { border-color: #f3c2c7; background: #fff5f6; }
+.cajita-parametro code { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 500; }
+.cajita-parametro-objeto { color: var(--red-main); font-family: var(--font-sans); font-weight: 600; }
+.cajita-parametro.falta { background: #fff1f2; box-shadow: inset 0 0 0 1px #f3c2c7; }
 .cajita-parametro-falta {
-  padding: 0 5px;
+  padding: 0 4px;
   border-radius: 3px;
   background: var(--red-main);
   color: #ffffff;
-  font-size: 0.6rem;
+  font-size: 0.56rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-:root[data-theme="dark"] .cajita-parametro { border-color: rgba(255, 255, 255, 0.12); background: transparent; }
-:root[data-theme="dark"] .cajita-parametro.falta { border-color: rgba(229, 57, 70, 0.45); background: rgba(229, 57, 70, 0.08); }
+.cajitas-mas {
+  padding: 1px 6px;
+  border: none;
+  background: none;
+  color: var(--red-main);
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cajitas-mas:hover { text-decoration: underline; }
+.cajitas-mas:focus-visible { outline: 2px solid var(--red-main); outline-offset: 1px; border-radius: 3px; }
+:root[data-theme="dark"] .cajita-parametro { background: rgba(255, 255, 255, 0.07); }
+:root[data-theme="dark"] .cajita-parametro.falta { background: rgba(229, 57, 70, 0.1); box-shadow: inset 0 0 0 1px rgba(229, 57, 70, 0.45); }
