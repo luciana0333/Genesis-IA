@@ -1238,15 +1238,14 @@ def _validar_nombre_procedimiento(texto: str, limpio: str) -> List[Hallazgo]:
         ))
         accion = None  # su mayúscula ya se corrige en la sugerencia anterior
 
-    # La finalidad es obligatoria (PA_Tabla_Acción_Finalidad). Si la acción no se reconoció, el
-    # tercer tramo ya se trata como finalidad en la observación de «sin acción».
+    # La finalidad es opcional según el manual (Dbo.PA_Persona_Sel es válido), pero se recomienda (usuaria, 24 nov.).
+    # Si la acción no se reconoció, el tercer tramo ya se trata como finalidad en la observación de «sin acción».
     if not finalidad and accion is not None:
         hallazgos.append(_hallazgo(
             texto, posicion, "PROCEDIMIENTO_SIN_FINALIDAD",
-            f"Se identificó que el nombre del procedimiento {nombre} no indica su finalidad, por lo que no "
-            f"cumple con la nomenclatura PA_Tabla_Acción_Finalidad. Añadir la finalidad después de la acción, "
-            f"ya que permite identificar claramente el propósito del procedimiento (ej.: "
-            f"PA_Cliente_Sel_PorDocumento).",
+            f"Se identificó que el nombre del procedimiento {nombre} no indica su finalidad. Se recomienda "
+            f"añadirla después de la acción (ej.: PA_Cliente_Sel_PorDocumento), ya que permite identificar con más "
+            f"claridad el propósito del procedimiento.",
         ))
 
     partes = [tabla] + ([accion] if accion and not abreviatura else []) + finalidad

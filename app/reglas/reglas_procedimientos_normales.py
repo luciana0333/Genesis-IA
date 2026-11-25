@@ -65,9 +65,11 @@ REGLAS_PROCEDIMIENTOS_NORMALES = {
     ),
     "PROCEDIMIENTO_SIN_FINALIDAD": ReglaDiccionario(
         codigo="PROCEDIMIENTO_SIN_FINALIDAD",
-        nombre="Error de nomenclatura: procedimiento sin finalidad",
-        severidad="alto",
-        descripcion="El nombre siempre indica la finalidad después de la acción: PA_Tabla_Acción_Finalidad.",
+        nombre="Procedimiento sin finalidad",
+        # El manual acepta el nombre hasta la acción (Dbo.PA_Persona_Sel); la finalidad es opcional pero
+        # recomendable (usuaria, 24 nov.): recomendación en bajo, no error de nomenclatura.
+        severidad="bajo",
+        descripcion="Se recomienda indicar la finalidad después de la acción: PA_Tabla_Acción_Finalidad.",
         alcance="procedimiento",
         activo=True,
     ),

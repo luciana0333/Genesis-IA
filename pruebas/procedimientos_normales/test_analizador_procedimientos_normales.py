@@ -620,18 +620,19 @@ END"""
         self.assertNotIn("saldorenovacion → saldorenovacion", mensaje)
         self.assertNotIn("PROCEDIMIENTO_NOMBRE_CON_SIGLA", hallazgos)
 
-    def test_la_finalidad_es_obligatoria(self):
+    def test_la_finalidad_es_opcional_pero_se_recomienda(self):
+        # El manual acepta el nombre hasta la acción (Dbo.PA_Persona_Sel): recomendación en bajo (usuaria, 24 nov.).
         hallazgos = {h.regla: h for h in verificar_procedimiento_normal(
             "CREATE PROCEDURE dbo.PA_SaldoRenovacion_Ins AS SELECT 1")}
         observacion = hallazgos["PROCEDIMIENTO_SIN_FINALIDAD"]
-        self.assertEqual(observacion.severidad.value, "alto")
+        self.assertEqual(observacion.severidad.value, "bajo")
         self.assertEqual(
             observacion.mensaje,
-            "Se identificó que el nombre del procedimiento PA_SaldoRenovacion_Ins no indica su finalidad, por lo "
-            "que no cumple con la nomenclatura PA_Tabla_Acción_Finalidad. Añadir la finalidad después de la "
-            "acción, ya que permite identificar claramente el propósito del procedimiento (ej.: "
-            "PA_Cliente_Sel_PorDocumento).",
+            "Se identificó que el nombre del procedimiento PA_SaldoRenovacion_Ins no indica su finalidad. Se "
+            "recomienda añadirla después de la acción (ej.: PA_Cliente_Sel_PorDocumento), ya que permite "
+            "identificar con más claridad el propósito del procedimiento.",
         )
+        self.assertNotIn("no cumple", observacion.mensaje)
         # En un ALTER el procedimiento ya existe: su nombre no se revisa.
         reglas = {h.regla for h in verificar_procedimiento_normal("ALTER PROCEDURE dbo.PA_SaldoRenovacionPF_Ins AS SELECT 1")}
         self.assertFalse({r for r in reglas if r.startswith("PROCEDIMIENTO_")})
