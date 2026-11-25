@@ -60,21 +60,34 @@ function PildorasSeveridad({ resumen }) {
     <span className="lote-pildoras">
       {presentes.map(({ id, etiqueta }) => (
         <span key={id} className={`lote-pill sev-${id}`} title={`${resumen[id]} ${etiqueta.toLowerCase()}`}>
-          {resumen[id]} {etiqueta}
+          {resumen[id]} {etiqueta.toLowerCase()}
         </span>
       ))}
     </span>
   );
 }
 
-function EstadoTiempo({ plan, limite }) {
-  if (plan.error) return <span className="lote-estado lote-estado--error">Dañado</span>;
+/** Lo que va sobre el tiempo, en letra pequeña: el estado si importa; si no, «Tiempo» (diseño L1, usuaria, 24 nov.). */
+function EtiquetaTiempo({ plan, limite }) {
+  if (plan.error) return <span className="lote-etiqueta lote-etiqueta--error">Dañado</span>;
   if (plan.duracionMs === null || plan.duracionMs === undefined) {
-    return <span className="lote-estado">Sin tiempo real</span>;
+    return <span className="lote-etiqueta">Sin tiempo real</span>;
   }
-  if (plan.superaLimite) return <span className="lote-estado lote-estado--supera">Supera el límite</span>;
-  if (limite == null) return <span className="lote-estado">Sin límite</span>;
-  return <span className="lote-estado lote-estado--ok">Dentro del límite</span>;
+  if (plan.superaLimite) return <span className="lote-etiqueta lote-etiqueta--supera">Supera el límite</span>;
+  return <span className="lote-etiqueta" title={limite == null ? 'Sin límite definido' : 'Dentro del límite'}>Tiempo</span>;
+}
+
+/** «CONTABILIDAD.PA_X» → el esquema pequeño arriba y el nombre abajo. */
+function NombrePlan({ plan }) {
+  const corte = plan.procedimiento.lastIndexOf('.');
+  const esquema = corte > 0 ? plan.procedimiento.slice(0, corte) : '';
+  const nombre = corte > 0 ? plan.procedimiento.slice(corte + 1) : plan.procedimiento;
+  return (
+    <span className="lote-nombre" title={plan.ruta}>
+      {esquema && <span className="lote-esquema">{esquema}</span>}
+      <span className="lote-procedimiento">{nombre}</span>
+    </span>
+  );
 }
 
 function EncabezadoOrden({ columna, titulo, orden, onOrdenar, className }) {
@@ -165,14 +178,14 @@ export function ResumenLote({ lote, orden, onOrdenar, onVerPlan }) {
         titulo="Planes del lote"
         acciones={<BotonCopiarResumen lote={lote} planes={planes} />}
       />
-      <div className="table-scroll">
-        <table className="data-table lote-tabla">
+      {/* Cada plan como una tarjeta blanca con sombra suave (diseño L1 de la usuaria, 24 nov.). */}
+      <div className="lote-tarjetas-marco">
+        <table className="lote-tabla lote-tarjetas">
           <thead>
             <tr>
-              <th scope="col" className="num">N.°</th>
+              <th scope="col" className="lote-col-num"><span className="sr-only">N.°</span></th>
               <EncabezadoOrden columna="procedimiento" titulo="Procedimiento" orden={orden} onOrdenar={alOrdenar} />
-              <EncabezadoOrden columna="duracion" titulo="Tiempo" orden={orden} onOrdenar={alOrdenar} className="num" />
-              <th scope="col">Estado</th>
+              <EncabezadoOrden columna="duracion" titulo="Tiempo" orden={orden} onOrdenar={alOrdenar} />
               <EncabezadoOrden columna="hallazgos" titulo="Hallazgos" orden={orden} onOrdenar={alOrdenar} />
               <th scope="col"><span className="sr-only">Acciones</span></th>
             </tr>
@@ -180,21 +193,22 @@ export function ResumenLote({ lote, orden, onOrdenar, onVerPlan }) {
           <tbody>
             {planes.map((plan, indice) => (
               <tr key={plan.id} className={plan.superaLimite ? 'lote-fila--supera' : undefined}>
-                <td className="num mono">{indice + 1}</td>
+                <td className="lote-col-num"><span className="lote-numero">{String(indice + 1).padStart(2, '0')}</span></td>
                 <td>
-                  <span className="lote-procedimiento">{plan.procedimiento}</span>
-                  <span className="lote-ruta" title={plan.ruta}>{plan.ruta}</span>
+                  <NombrePlan plan={plan} />
                   {plan.error && <span className="lote-error">{plan.error}</span>}
                 </td>
-                <td className={`num mono${plan.superaLimite ? ' lote-tiempo--supera' : ''}`}>
-                  {plan.error ? '—' : formatearDuracion(plan.duracionMs)}
+                <td className="lote-col-tiempo">
+                  <EtiquetaTiempo plan={plan} limite={lote.limite} />
+                  <span className={`lote-tiempo${plan.superaLimite ? ' lote-tiempo--supera' : ''}`}>
+                    {plan.error ? '—' : formatearDuracion(plan.duracionMs)}
+                  </span>
                 </td>
-                <td><EstadoTiempo plan={plan} limite={lote.limite} /></td>
                 <td>{plan.error ? '—' : <PildorasSeveridad resumen={plan.resumen} />}</td>
                 <td className="lote-accion">
                   {!plan.error && (
-                    <button type="button" className="lote-ver" onClick={() => onVerPlan(plan.id)}>
-                      Ver detalle
+                    <button type="button" className="lote-ver" aria-label="Ver detalle" title="Ver detalle"
+                      onClick={() => onVerPlan(plan.id)}>
                       <IconoSiguiente />
                     </button>
                   )}
