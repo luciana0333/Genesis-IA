@@ -1639,10 +1639,13 @@
 /* «Validar documentación existente» con varios procedimientos: Procedimiento | Parámetros, sin la columna Situación.
    Diseño A3 compacto (usuaria, 24 nov.: «se ve muy grande»): filas bajas, nombre en negrita oscura sin punto, cajitas
    grises pequeñas y juntas, los 5 primeros elementos y «+N más». Lo que falta lleva la etiqueta roja «Falta». */
-.tabla-por-procedimiento > thead > tr > th:first-child { width: 34%; }
-.tabla-por-procedimiento > tbody > tr > td { padding-top: 7px; padding-bottom: 7px; vertical-align: top; }
+/* La columna del nombre toma el ancho del nombre más largo: el PA se lee completo, en una línea (24 nov.). */
+.tabla-por-procedimiento > thead > tr > th:first-child { width: 1%; white-space: nowrap; }
+.tabla-por-procedimiento > tbody > tr > td { padding-top: 11px; padding-bottom: 11px; vertical-align: top; }
+.tabla-por-procedimiento > tbody > tr > td:first-child { padding-right: 28px; white-space: nowrap; }
 .tabla-procedimiento-nombre {
   display: inline-block;
+  white-space: nowrap;
   margin-left: -6px;
   padding: 1px 6px;
   border-radius: 4px;
@@ -1656,19 +1659,19 @@
 /* Solo se marca la fila que se está recorriendo con «Ver en el código» (usuaria, 21 nov.). */
 .tabla-por-procedimiento .tabla-tipos-fila.activa .tabla-procedimiento-nombre { background: #eaeef5; }
 :root[data-theme="dark"] .tabla-por-procedimiento .tabla-tipos-fila.activa .tabla-procedimiento-nombre { background: rgba(255, 255, 255, 0.08); }
-.cajitas-parametros { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+.cajitas-parametros { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
 .cajita-parametro {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 1px 6px;
+  padding: 2px 8px;
   border-radius: 3px;
   background: #eef1f6;
   color: var(--text-primary);
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   line-height: 1.5;
 }
-.cajita-parametro code { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 500; }
+.cajita-parametro code { font-family: var(--font-mono); font-size: 0.7rem; font-weight: 500; }
 .cajita-parametro-objeto { color: var(--red-main); font-family: var(--font-sans); font-weight: 600; }
 .cajita-parametro.falta { background: #fff1f2; box-shadow: inset 0 0 0 1px #f3c2c7; }
 .cajita-parametro-falta {

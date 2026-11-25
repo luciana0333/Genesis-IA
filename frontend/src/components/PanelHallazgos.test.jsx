@@ -290,7 +290,7 @@ describe('PanelHallazgos · «Validar documentación existente» con varios proc
     ]);
   });
 
-  it('con muchos parámetros muestra los 5 primeros y «+N más» (A3, usuaria, 24 nov.); lo que falta va primero', async () => {
+  it('con muchos parámetros muestra 3 parámetros y «+N más» (A3, usuaria, 24 nov.); lo que falta va primero', async () => {
     const usuario = userEvent.setup();
     const fila = (nombre, seccion, etiquetas) => ({
       nombre, tipo: 'Procedimiento', situacion: 'Se agregan en el diccionario', seccion,
@@ -306,13 +306,13 @@ describe('PanelHallazgos · «Validar documentación existente» con varios proc
     }]} />);
     const tabla = within(screen.getByRole('table'));
     const primera = () => tabla.getAllByRole('row')[1].textContent;
-    expect(primera()).toBe('dbo.PA_AProcedimiento@a@b@c@d+3 más');
+    expect(primera()).toBe('dbo.PA_AProcedimiento@a@b@c+4 más');
     expect(tabla.getAllByRole('row')[2].textContent).toBe('dbo.PA_B@xFalta');
 
-    await usuario.click(tabla.getByRole('button', { name: '+3 más' }));
+    await usuario.click(tabla.getByRole('button', { name: '+4 más' }));
     expect(primera()).toBe('dbo.PA_AProcedimiento@a@b@c@d@e@f@gVer menos');
     await usuario.click(tabla.getByRole('button', { name: 'Ver menos' }));
-    expect(primera()).toContain('+3 más');
+    expect(primera()).toContain('+4 más');
   });
 });
 

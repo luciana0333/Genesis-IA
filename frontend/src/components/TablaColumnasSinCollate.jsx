@@ -24,8 +24,9 @@ export const tituloDeColumnas = (regla) => TITULO_DE_COLUMNAS[regla] ?? 'Columna
 
 const DESCRIPCION_DEL_OBJETO = /^\(descripción del (procedimiento|función|funcion)\)$/i;
 
-/** Cuántas cajitas se ven antes de «+N más» (idea A3, usuaria, 24 nov.: la tabla se veía muy grande). */
-const CAJITAS_VISIBLES = 5;
+/** Cuántos parámetros se ven antes de «+N más» (idea A3, usuaria, 24 nov.: «que solo muestre 3 parámetros»). La cajita
+ * «Procedimiento» (descripción del objeto) no cuenta: se ve siempre. */
+const PARAMETROS_VISIBLES = 3;
 
 function cajita(etiqueta, falta) {
   const objeto = DESCRIPCION_DEL_OBJETO.exec(etiqueta);
@@ -42,14 +43,22 @@ function cajita(etiqueta, falta) {
 }
 
 /**
- * Los elementos de un procedimiento: los que faltan primero (nunca quedan escondidos detrás de «+N más»), luego los que
- * se agregan. Desde 7 se ven los 5 primeros y «+N más» despliega el resto («Ver menos» los vuelve a juntar).
+ * Los elementos de un procedimiento: la cajita «Procedimiento» y los que faltan primero (nunca quedan escondidos detrás
+ * de «+N más»), luego los parámetros que se agregan. Se ven 3 parámetros y «+N más» despliega el resto («Ver menos» los
+ * vuelve a juntar); si solo quedaría uno escondido, se ven todos.
  */
 function CajitasDeLaFila({ faltan, agregan }) {
   const [abierta, setAbierta] = useState(false);
   const todas = [...faltan.map((etiqueta) => [etiqueta, true]), ...agregan.map((etiqueta) => [etiqueta, false])];
-  const resumir = todas.length > CAJITAS_VISIBLES + 1;
-  const visibles = resumir && !abierta ? todas.slice(0, Math.max(CAJITAS_VISIBLES, faltan.length)) : todas;
+  const esObjeto = ([etiqueta]) => DESCRIPCION_DEL_OBJETO.test(etiqueta);
+  const objetos = todas.filter(esObjeto);
+  const parametros = todas.filter((cajita) => !esObjeto(cajita));
+  const cantidadFaltan = parametros.filter(([, falta]) => falta).length;
+  const resumir = parametros.length > PARAMETROS_VISIBLES + 1;
+  const visibles = [
+    ...objetos,
+    ...(resumir && !abierta ? parametros.slice(0, Math.max(PARAMETROS_VISIBLES, cantidadFaltan)) : parametros),
+  ];
   const ocultas = todas.length - visibles.length;
   return (
     <div className="cajitas-parametros">
@@ -95,10 +104,8 @@ function TablaPorProcedimiento({ grupos, filaActiva }) {
             className={`tabla-tipos-fila${indice % 2 ? ' alterna' : ''}${fila.indices.includes(filaActiva) ? ' activa' : ''}`}
           >
             <td className="tabla-nombre">
-              {/* Si no entra, baja de línea solo después de «.» o «_» (no a mitad de palabra). */}
-              <span className="tabla-procedimiento-nombre">
-                {fila.nombre.split(/(?<=[._])/).map((parte, i) => <span key={i}>{parte}<wbr /></span>)}
-              </span>
+              {/* El nombre completo, en una línea (usuaria, 24 nov.). */}
+              <span className="tabla-procedimiento-nombre">{fila.nombre}</span>
             </td>
             <td>
               <CajitasDeLaFila faltan={fila.faltan} agregan={fila.agregan} />
