@@ -291,6 +291,27 @@ public class GenesisVisitante : TSqlFragmentVisitor
         return unaria != null && SinParentesis(unaria.Expression) is Literal;
     }
 
+    // Valor fijo, también convertido con CAST o CONVERT: CAST(3082.00 AS MONEY), CONVERT(VARCHAR(8), 's/period').
+    private static bool EsValorFijoConvertido(ScalarExpression expresion)
+    {
+        var e = SinParentesis(expresion);
+        var cast = e as CastCall;
+        if (cast != null) return EsValorFijoConvertido(cast.Parameter);
+        var convert = e as ConvertCall;
+        if (convert != null) return EsValorFijoConvertido(convert.Parameter);
+        return EsValorFijo(e);
+    }
+
+    // Columna del SELECT que no depende de la fila: «@x = 1» o «CAST(3082.00 AS MONEY)».
+    private static bool EsElementoDeValorFijo(SelectElement elemento)
+    {
+        var asignacion = elemento as SelectSetVariable;
+        if (asignacion != null)
+            return asignacion.AssignmentKind == AssignmentKind.Equals && EsValorFijoConvertido(asignacion.Expression);
+        var columna = elemento as SelectScalarExpression;
+        return columna != null && EsValorFijoConvertido(columna.Expression);
+    }
+
     private static BooleanExpression SinParentesis(BooleanExpression expresion)
     {
         while (expresion is BooleanParenthesisExpression) expresion = ((BooleanParenthesisExpression)expresion).Expression;
@@ -950,8 +971,9 @@ public class GenesisVisitante : TSqlFragmentVisitor
         // TOP sin ORDER BY: puede traer una fila distinta en cada ejecución. No si solo verifica que exista algún
         // registro (SELECT TOP 1 @bValid = 1, @cRegla = '13' FROM …): asigna valores fijos, da igual qué fila sea
         // (usuaria, 18 nov.).
-        bool soloVerificaExistencia = soloAsignaciones && elementos.Cast<SelectSetVariable>().All(
-            a => a.AssignmentKind == AssignmentKind.Equals && EsValorFijo(a.Expression));
+        // Igual si el SELECT solo devuelve valores fijos, aunque los convierta: SELECT TOP 1 CAST(3082.00 AS MONEY),
+        // '0000000000' FROM #T WHERE … (caso real PA_PagosTramas_Ins, usuaria, 24 nov.).
+        bool soloVerificaExistencia = elementos.Count > 0 && elementos.All(EsElementoDeValorFijo);
         if (consulta.TopRowFilter != null && consulta.OrderByClause == null && consulta.FromClause != null
             && profundidadExists == 0 && !todoAgregado && !consulta.TopRowFilter.WithTies && !soloVerificaExistencia)
             Agregar("TOP_SIN_ORDER_BY", consulta.TopRowFilter.StartLine, "top", Texto(consulta.TopRowFilter));
@@ -971,8 +993,12 @@ public class GenesisVisitante : TSqlFragmentVisitor
         var asignacion = elemento as SelectSetVariable;
         if (escalar != null) expresion = escalar.Expression;
         if (asignacion != null) expresion = asignacion.Expression;
-        var funcion = SinParentesis(expresion) as FunctionCall;
-        return funcion != null && EsAgregado(funcion) && funcion.OverClause == null;
+        if (expresion == null) return false;
+        // El agregado puede ir dentro de otra función: ISNULL(SUM(x), 0), CAST(COUNT(*) AS INT) (caso real
+        // PA_RegistrosSeguros_Ins, usuaria, 24 nov.). Igual devuelve una sola fila. No cuenta uno de una subconsulta.
+        var buscador = new GenesisBuscaAgregado();
+        expresion.Accept(buscador);
+        return buscador.Linea != 0;
     }
 
     // Subconsultas escalares a la misma tabla con la misma condición: se pueden unir en un APPLY.
