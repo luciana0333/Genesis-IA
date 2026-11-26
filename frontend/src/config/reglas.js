@@ -201,6 +201,7 @@ export const NOMBRES_REGLAS = {
   SINTAXIS_DICCIONARIO: 'Error de sintaxis en el diccionario',
   PARAMETROS_INCOMPLETOS: 'Faltan datos en la sentencia',
   TIPO_NIVEL_INCORRECTO: 'Tipo de nivel incorrecto',
+  DOCUMENTACION_COLUMNAS_FUNCION: 'Documentación de columnas de la función',
   COLUMNA_NO_EXISTE: 'Columna documentada que no existe',
   PARAMETRO_NO_EXISTE: 'Parámetro documentado que no existe',
   COLUMNA_NOMBRE_INCORRECTO: 'Columna documentada con nombre incorrecto',

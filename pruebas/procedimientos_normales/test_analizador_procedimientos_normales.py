@@ -1226,15 +1226,15 @@ class TestCastEnJoin(unittest.TestCase):
                 self.assertEqual(self._lineas(sql), [2])
 
     def test_caso_de_la_usuaria_libro_caja(self):
-        # El JOIN con #TipoCambio convierte T.dFecCamb (temporal) y a.dFecha (física: AsientoDNHistorico): se marca
-        # por la física. El JOIN entre CTE no se marca.
+        # El JOIN con #TipoCambio convierte T.dFecCamb (temporal) y a.dFecha (física: AsientoDNHistorico). Desde el
+        # 25 nov. una columna de fecha pasada a DATE no se marca (sí usa el índice; usuaria). El JOIN entre CTE tampoco.
         sql = ("INSERT INTO #TEMPDN (dFecha)\nSELECT a.dFecha\n  FROM AsientoDNHistorico A WITH(NOLOCK)\n"
                "  INNER JOIN #TipoCambio T ON CAST(T.dFecCamb AS DATE) = CAST(a.dFecha AS DATE)\n"
                "  WHERE cCodAge=@cCodAge\n"
                ";WITH TipoCambioPreparado AS (SELECT CAST(T.dFecCamb AS DATE) AS dFechaDia FROM #TipoCambio T),\n"
                "TempDNBase AS (SELECT CAST(A.dFecha AS DATE) AS dFechaDia FROM #TEMPDN A)\n"
                "SELECT 1 FROM TempDNBase A\nINNER JOIN TipoCambioPreparado T ON CAST(T.dFechaDia AS DATE) = A.dFechaDia\n")
-        self.assertEqual(self._lineas(sql), [4])
+        self.assertEqual(self._lineas(sql), [])
 
     def test_cast_de_una_fecha_o_variable_no_se_marca(self):
         # Caso de la usuaria: CAST(GETDATE() AS DATE) en el ON no convierte una columna: no afecta los índices.
@@ -1290,7 +1290,7 @@ class TestCastEnJoin(unittest.TestCase):
         self.assertEqual(self._lineas(sql), [])
 
     def test_between_con_cast_en_la_condicion_del_on_si_se_marca(self):
-        sql = "SELECT 1 FROM dbo.TA a JOIN dbo.TB b\nON CAST(a.dFecha AS DATE) BETWEEN b.dIni AND b.dFin AND b.n = 1"
+        sql = "SELECT 1 FROM dbo.TA a JOIN dbo.TB b\nON CAST(a.cFecha AS DATE) BETWEEN b.dIni AND b.dFin AND b.n = 1"
         self.assertEqual(self._lineas(sql), [2])
 
     def test_varios_join_cada_uno_con_su_condicion(self):
@@ -1371,3 +1371,24 @@ class TextoCastEnJoinTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCastDeFechaADateEnJoin(unittest.TestCase):
+    """Caso de la usuaria (25 nov., PA_PagosSeguros_Ins_PagosSeguros): una columna de fecha y hora pasada a DATE sí
+    usa el índice, así que no es «CAST en JOIN prohibido»; otras conversiones se siguen marcando."""
+
+    def _marcado(self, condicion):
+        sql = f"SELECT A.x FROM dbo.Pagos A WITH(NOLOCK)\nINNER JOIN dbo.TipoCambio B WITH(NOLOCK) ON {condicion};"
+        return any(h.regla == "CAST_EN_JOIN_PROHIBIDO" for h in verificar_procedimiento_normal(sql))
+
+    def test_fecha_a_date_no_se_marca(self):
+        for condicion in ("A.dFechaPago = CAST(B.dFecCamb AS DATE)", "A.dFechaPago = CONVERT(DATE, B.dtAlta)",
+                          "CONVERT(DATE, B.dFecCamb, 112) = A.dFechaPago"):
+            with self.subTest(condicion=condicion):
+                self.assertFalse(self._marcado(condicion))
+
+    def test_otras_conversiones_se_marcan(self):
+        for condicion in ("A.dFechaPago = CAST(B.cFechaProceso AS DATE)", "A.nId = CAST(B.cId AS INT)",
+                          "A.dFechaPago = CAST(B.dFecCamb AS DATETIME)"):
+            with self.subTest(condicion=condicion):
+                self.assertTrue(self._marcado(condicion))

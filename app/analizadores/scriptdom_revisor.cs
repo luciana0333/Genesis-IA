@@ -357,9 +357,21 @@ public class GenesisVisitante : TSqlFragmentVisitor
     }
 
     // Temporal, variable de tabla, CTE o función que devuelve una tabla: no es una tabla física con índices.
+    // Una subconsulta o un CROSS APPLY (SELECT … UNION ALL …) tampoco es una tabla física: sus columnas no tienen índice
+    // (usuaria, 25 nov.: ISNULL(C.nImporte, 0) de un CROSS APPLY salía como «función sobre la columna»).
     private bool NoEsFisica(string tabla)
     {
-        return EsTemporal(tabla) || tabla == FUNCION_DE_TABLA || (tabla != null && NombresCte.Contains(tabla));
+        return EsTemporal(tabla) || EsSubconsulta(tabla) || (tabla != null && NombresCte.Contains(tabla));
+    }
+
+    // TOP (2147483647) o TOP 100 PERCENT: devuelve todas las filas (truco para el optimizador), así que el ORDER BY no
+    // cambia qué filas trae (usuaria, 25 nov.).
+    private static bool TopDeTodasLasFilas(TopRowFilter top)
+    {
+        var valor = SinParentesis(top.Expression) as Literal;
+        if (valor == null) return false;
+        string texto = valor.Value.Trim();
+        return top.Percent ? texto == "100" : texto == "2147483647" || texto == "9223372036854775807";
     }
 
     // Origen de las columnas de STRING_SPLIT, OPENJSON, dbo.fn_X() o @xml.nodes(): se trata como una subconsulta
@@ -959,7 +971,7 @@ public class GenesisVisitante : TSqlFragmentVisitor
 
         // SELECT @x = col FROM T sin WHERE, TOP ni agregado: si trae varias filas, @x queda con cualquiera.
         if (soloAsignaciones && consulta.FromClause != null && consulta.WhereClause == null && consulta.TopRowFilter == null
-            && consulta.GroupByClause == null && !todoAgregado)
+            && consulta.GroupByClause == null && !todoAgregado && !DeUnaTemporalDeUnaFila(consulta))
         {
             var asignaciones = elementos.Cast<SelectSetVariable>().ToList();
             bool acumula = asignaciones.Any(a => a.AssignmentKind != AssignmentKind.Equals
@@ -975,7 +987,8 @@ public class GenesisVisitante : TSqlFragmentVisitor
         // '0000000000' FROM #T WHERE … (caso real PA_PagosTramas_Ins, usuaria, 24 nov.).
         bool soloVerificaExistencia = elementos.Count > 0 && elementos.All(EsElementoDeValorFijo);
         if (consulta.TopRowFilter != null && consulta.OrderByClause == null && consulta.FromClause != null
-            && profundidadExists == 0 && !todoAgregado && !consulta.TopRowFilter.WithTies && !soloVerificaExistencia)
+            && profundidadExists == 0 && !todoAgregado && !consulta.TopRowFilter.WithTies && !soloVerificaExistencia
+            && !TopDeTodasLasFilas(consulta.TopRowFilter))
             Agregar("TOP_SIN_ORDER_BY", consulta.TopRowFilter.StartLine, "top", Texto(consulta.TopRowFilter));
 
         // DISTINCT con JOIN: puede estar ocultando filas repetidas por una condición incompleta.
@@ -1095,6 +1108,22 @@ public class GenesisVisitante : TSqlFragmentVisitor
         else if (variable != null) tabla = variable.Variable.Name;
         var select = insert.InsertSource as SelectInsertSource;
         var consulta = select != null ? select.Select : null;
+
+        // Temporal llenada una sola vez con un SELECT de puros agregados sin GROUP BY (SELECT COUNT(…), SUM(…)): tiene
+        // exactamente una fila (usuaria, 25 nov., #RECAUDO_TOTAL de PA_PagosSeguros_Ins_PagosSeguros). Otro INSERT a la
+        // misma temporal le quita esa certeza.
+        if (EsTemporal(tabla))
+        {
+            int previos;
+            insertsEnTemporal.TryGetValue(tabla, out previos);
+            insertsEnTemporal[tabla] = previos + 1;
+            var deAgregados = consulta as QuerySpecification;
+            if (previos == 0 && deAgregados != null && deAgregados.GroupByClause == null
+                && deAgregados.SelectElements.Count > 0 && deAgregados.SelectElements.All(e => EsElementoAgregado(e)))
+                temporalesDeUnaFila.Add(tabla);
+            else
+                temporalesDeUnaFila.Remove(tabla);
+        }
 
         // ORDER BY en un INSERT ... SELECT sin TOP: no deja la tabla ordenada. Si la temporal o variable de tabla
         // tiene IDENTITY, el ORDER BY define la numeración y es necesario (usuaria, 22 nov.: #ValoresVivienda en
@@ -1282,11 +1311,33 @@ public class GenesisVisitante : TSqlFragmentVisitor
         return Texto(columna);
     }
 
+    // Variables que el código ya compara con 0 antes de dividir (IF ISNULL(@nTipoCambio, 0) = 0 … no sigue): la división
+    // ya está protegida (usuaria, 25 nov., PA_CuentasOrden_Ins_AjusteCapital).
+    private readonly HashSet<string> variablesValidadasEnCero = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    private static string VariableComparadaConCero(ScalarExpression lado, ScalarExpression otro)
+    {
+        var cero = SinParentesis(otro) as Literal;
+        decimal valor;
+        if (cero == null || cero is StringLiteral
+            || !decimal.TryParse(cero.Value, System.Globalization.NumberStyles.Any,
+                                 System.Globalization.CultureInfo.InvariantCulture, out valor) || valor != 0) return null;
+        var e = SinParentesis(lado);
+        var llamada = e as FunctionCall;
+        if (llamada != null && string.Equals(llamada.FunctionName.Value, "ISNULL", StringComparison.OrdinalIgnoreCase)
+            && llamada.Parameters.Count == 2)
+            e = SinParentesis(llamada.Parameters[0]);
+        var variable = e as VariableReference;
+        return variable != null ? variable.Name : null;
+    }
+
     public override void Visit(BooleanComparisonExpression comparacion)
     {
         var primera = SinParentesis(comparacion.FirstExpression);
         var segunda = SinParentesis(comparacion.SecondExpression);
         var tipo = comparacion.ComparisonType;
+        var validada = VariableComparadaConCero(primera, segunda) ?? VariableComparadaConCero(segunda, primera);
+        if (validada != null) variablesValidadasEnCero.Add(validada);
         bool igualdad = tipo == BooleanComparisonType.Equals || tipo == BooleanComparisonType.NotEqualToBrackets
             || tipo == BooleanComparisonType.NotEqualToExclamation;
 
@@ -1488,7 +1539,10 @@ public class GenesisVisitante : TSqlFragmentVisitor
     {
         var columna = SinParentesis(predicado.FirstExpression) as ColumnReferenceExpression;
         var patron = SinParentesis(predicado.SecondExpression) as StringLiteral;
-        if (columna != null && patron != null && patron.Value.StartsWith("%") && !NoEsFisica(TablaDe(columna)))
+        // Solo en un filtro (WHERE u ON): en el SELECT (CASE WHEN cMovDesc LIKE '%covid%') no hay índice que perder
+        // (usuaria, 25 nov.).
+        if (columna != null && patron != null && patron.Value.StartsWith("%") && profundidadCondicion > 0
+            && !NoEsFisica(TablaDe(columna)))
             Agregar("LIKE_COMODIN_INICIO", predicado.StartLine, "columna", Texto(columna), "patron", patron.Value);
         // LEFT(M.cMovNro, 8) LIKE @cAnio + @cMes + '%': igual a M.cMovNro LIKE ..., que sí usa el índice.
         // ScriptDom lee LEFT(...) como LeftFunctionCall (LEFT también es palabra reservada: LEFT JOIN).
@@ -1572,6 +1626,17 @@ public class GenesisVisitante : TSqlFragmentVisitor
         condicionesCase.RemoveAt(condicionesCase.Count - 1);
     }
 
+    private readonly Dictionary<string, int> insertsEnTemporal = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> temporalesDeUnaFila = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    // SELECT @x = … FROM #T, donde #T es una temporal que se sabe de una sola fila.
+    private bool DeUnaTemporalDeUnaFila(QuerySpecification consulta)
+    {
+        if (consulta.FromClause.TableReferences.Count != 1) return false;
+        var tabla = consulta.FromClause.TableReferences[0] as NamedTableReference;
+        return tabla != null && temporalesDeUnaFila.Contains(Nombre(tabla.SchemaObject));
+    }
+
     private void RevisarCaseSinElse(TSqlFragment caso, ScalarExpression sino)
     {
         if (sino == null && !casesEnAgregado.Contains(caso.StartOffset)) Agregar("CASE_SIN_ELSE", caso.StartLine);
@@ -1594,6 +1659,8 @@ public class GenesisVisitante : TSqlFragmentVisitor
         }
         var funcion = divisor as FunctionCall;
         if (funcion != null && string.Equals(funcion.FunctionName.Value, "NULLIF", StringComparison.OrdinalIgnoreCase)) return;
+        var variableDivisor = divisor as VariableReference;
+        if (variableDivisor != null && variablesValidadasEnCero.Contains(variableDivisor.Name)) return;
         if (!Contiene(divisor, "@") && !(divisor is ColumnReferenceExpression) && !(divisor is VariableReference) && !(divisor is FunctionCall)
             && !(divisor is BinaryExpression)) return;
         Agregar("DIVISION_SIN_NULLIF", expresion.StartLine, "expresion", Texto(expresion), "divisor", Texto(divisor));
@@ -1690,6 +1757,16 @@ public class GenesisVisitante : TSqlFragmentVisitor
     // --- Listas de instrucciones: «;», @@ROWCOUNT y código después de RETURN -----------------------------
     public override void Visit(StatementList lista) { RevisarLista(lista.Statements); }
 
+    // El BEGIN TRAN que es la rama del IF (o la única instrucción de su BEGIN … END).
+    private static IEnumerable<BeginTransactionStatement> TransaccionesDirectas(TSqlStatement rama)
+    {
+        var bloque = rama as BeginEndBlockStatement;
+        if (bloque != null && bloque.StatementList != null && bloque.StatementList.Statements.Count == 1)
+            rama = bloque.StatementList.Statements[0];
+        var transaccion = rama as BeginTransactionStatement;
+        if (transaccion != null) yield return transaccion;
+    }
+
     private void RevisarLista(IList<TSqlStatement> lista)
     {
         for (int i = 0; i + 1 < lista.Count; i++)
@@ -1698,6 +1775,17 @@ public class GenesisVisitante : TSqlFragmentVisitor
             {
                 transaccionesProtegidas.Add(lista[i].StartOffset);
                 intentosConTransaccion.Add(lista[i + 1].StartOffset);
+            }
+            // «IF @@TRANCOUNT = 0 BEGIN TRANSACTION ELSE SAVE TRANSACTION» justo antes del TRY (PA que puede llamarse
+            // dentro de otra transacción): el BEGIN TRAN también está protegido (usuaria, 25 nov.,
+            // PA_CuentasOrden_Ajuste_EstadisticoCapitalMensual).
+            var condicion = lista[i] as IfStatement;
+            if (condicion != null && lista[i + 1] is TryCatchStatement)
+            {
+                var transacciones = TransaccionesDirectas(condicion.ThenStatement)
+                    .Concat(TransaccionesDirectas(condicion.ElseStatement)).ToList();
+                foreach (var transaccion in transacciones) transaccionesProtegidas.Add(transaccion.StartOffset);
+                if (transacciones.Count > 0) intentosConTransaccion.Add(lista[i + 1].StartOffset);
             }
         }
         for (int i = 1; i < lista.Count; i++)

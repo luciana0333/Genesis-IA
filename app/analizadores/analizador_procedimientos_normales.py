@@ -593,6 +593,10 @@ def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
             # o CTE no se observa.
             if not _convierte_columna_fisica(argumento, conversion.group(1), tablas, ctes):
                 continue
+            # CAST(B.dFecCamb AS DATE) / CONVERT(DATE, B.dFecCamb): una columna de fecha y hora pasada a DATE sí usa el
+            # índice (comprobado en SQL Server, 18 nov.; usuaria, 25 nov., PA_PagosSeguros_Ins_PagosSeguros).
+            if _fecha_a_date(argumento, conversion.group(1)):
+                continue
             hallazgos.append(_con_elemento(_hallazgo(
                 texto, match.end() + conversion.start(), "CAST_EN_JOIN_PROHIBIDO",
                 # «Qué hacer»: texto de la usuaria (8 nov.).
@@ -603,6 +607,25 @@ def _validar_cast_en_join(texto: str, limpio: str) -> List[Hallazgo]:
             ), tabla, conversion.group(1).upper()))
             break  # una observación por JOIN
     return hallazgos
+
+
+_COLUMNA = r"(?:\[?\w+\]?\s*\.\s*)*\[?(?P<col>\w+)\]?"
+
+
+def _fecha_a_date(argumento: str, funcion: str) -> bool:
+    """CAST(col AS DATE) o CONVERT(DATE, col[, estilo]) con una columna de fecha y hora por su nombre (dFecha, dtAlta,
+    cualquier nombre con «Fec» que no tenga prefijo de texto, número o bit), igual que la excepción del validador."""
+    arg = argumento.strip()
+    if funcion.upper().endswith("CAST"):
+        convertida = re.fullmatch(rf"{_COLUMNA}\s+AS\s+DATE", arg, re.IGNORECASE)
+    else:
+        convertida = re.fullmatch(rf"DATE\s*,\s*{_COLUMNA}(?:\s*,\s*\d+)?", arg, re.IGNORECASE)
+    if not convertida:
+        return False
+    nombre = convertida.group("col")
+    if re.match(r"dt?[A-Z]", nombre):
+        return True
+    return "fec" in nombre.lower() and not re.match(r"[cnb][A-Z]", nombre)
 
 
 _CORTE_DE_CONDICION = re.compile(r"\(|\)|\b(?:AND|OR|BETWEEN|CASE|END)\b", re.IGNORECASE)
