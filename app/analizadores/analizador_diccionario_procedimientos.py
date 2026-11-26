@@ -336,6 +336,30 @@ def _validar_parametros_inexistentes(texto_diccionario: str, parametros_reales: 
     return hallazgos
 
 
+def _columnas_de_funcion(hallazgos: List[Hallazgo], texto_diccionario: str) -> List[Hallazgo]:
+    """Columnas que devuelve una función documentadas con N'COLUMN' (usuaria, 25 nov., FN_Reprog956_Percibido): no son
+    parámetros inexistentes ni el script falla (SQL Server lo acepta); según el estándar solo se documentan la función y
+    sus parámetros, así que se recomienda retirarlas. Una sola observación, en bajo."""
+    columnas = [ll for ll in leer_propiedades_extendidas(texto_diccionario)
+                if ll.texto("level1type").upper() == "FUNCTION" and ll.texto("level2type").upper() == "COLUMN"
+                and ll.texto("level2name")]
+    if not columnas:
+        return hallazgos
+    lineas = {ll.linea for ll in columnas}
+    resto = [h for h in hallazgos if not (h.regla in ("PARAMETRO_NO_EXISTE", "PARAMETRO_NOMBRE_INCORRECTO",
+                                                       "TIPO_NIVEL_INCORRECTO") and h.linea in lineas)]
+    nombres = ", ".join(dict.fromkeys(ll.texto("level2name") for ll in columnas))
+    # Texto de la usuaria.
+    observacion = _hallazgo_catalogo(
+        columnas[0].linea, "DOCUMENTACION_COLUMNAS_FUNCION",
+        f"Se identificó documentación de las columnas devueltas por la función ({nombres}). Se recomienda "
+        f"retirarla, ya que, según el estándar, solo se documentan la función y sus parámetros.",
+    )
+    if len(lineas) > 1:
+        observacion.lineas = sorted(lineas)
+    return resto + [observacion]
+
+
 def _validar_nombre_propiedad(texto_diccionario: str, esquema: Optional[str], nombre_proc: str) -> List[Hallazgo]:
     """
     @name parecido a MS_Description pero mal escrito: la descripción se guarda,
@@ -1284,6 +1308,7 @@ def _revisar_procedimiento(texto_procedimiento: str, texto_diccionario: str) -> 
     hallazgos += _validar_parametros_inexistentes(texto_diccionario, parametros_reales, nombre_proc)
     hallazgos = _emparejar_parametros(hallazgos, texto_diccionario, esquema, nombre_proc)
     hallazgos = solo_un_error_por_sentencia(hallazgos, {"PARAMETRO_NO_EXISTE", "PARAMETRO_NOMBRE_INCORRECTO"})
+    hallazgos = _columnas_de_funcion(hallazgos, texto_diccionario)
     hallazgos += _validar_nombre_propiedad(texto_diccionario, esquema, nombre_proc)
     hallazgos += _validar_ortografia(llamadas, texto_diccionario, esquema, nombre_proc, parametros_reales)
     hallazgos += _validar_palabras_repetidas(llamadas, texto_diccionario, esquema, nombre_proc)

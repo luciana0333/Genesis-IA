@@ -68,6 +68,15 @@ REGLAS_DICCIONARIO_PROCEDIMIENTOS = {
         alcance="procedimiento",
         activo=True,
     ),
+    "DOCUMENTACION_COLUMNAS_FUNCION": ReglaDiccionario(
+        codigo="DOCUMENTACION_COLUMNAS_FUNCION",
+        nombre="Documentación de columnas de la función",
+        severidad="bajo",
+        descripcion="Se documentan las columnas que devuelve una función (N'COLUMN'); según el estándar solo se "
+                    "documentan la función y sus parámetros.",
+        alcance="procedimiento",
+        activo=True,
+    ),
     "TIPO_NIVEL_INCORRECTO": ReglaDiccionario(
         codigo="TIPO_NIVEL_INCORRECTO",
         nombre="Tipo de nivel incorrecto",
